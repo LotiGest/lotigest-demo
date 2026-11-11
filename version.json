@@ -1,1 +1,1 @@
-{"version":"0.13.0","notes":"Auditoría funcional: protección al guardar clientes, ventas y pagos; validación de fechas, saldos y ventas duplicadas"}
+{"version":"0.14.0","notes":"Fase 1: corrección de cuotas, recibos, mora, conversión de apartados y validaciones de ventas y pagos"}
