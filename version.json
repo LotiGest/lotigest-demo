@@ -1,1 +1,1 @@
-{"version":"0.12.0","notes":"Mejoras de modo oscuro, contraste de campos, accesibilidad y avisos de actualización"}
+{"version":"0.13.0","notes":"Auditoría funcional: protección al guardar clientes, ventas y pagos; validación de fechas, saldos y ventas duplicadas"}
