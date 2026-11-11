@@ -124,3 +124,48 @@ test('dos hilos de ejecución independientes compiten por el mismo solar', async
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('portal, sesión web, permisos y cierre desde dos clientes HTTP', async () => {
+  const store = openStore(':memory:');
+  const token = 'a'.repeat(64);
+  store.addUser('gerente', 'admin', token);
+  store.addUser('consulta', 'reader', 'b'.repeat(64));
+  const server = createLotigestServer(store).listen(0, '127.0.0.1');
+  try {
+    await once(server, 'listening');
+    const base = 'http://127.0.0.1:' + server.address().port;
+    const get = (path, cookie) => fetch(base + path, { headers: cookie ? { Cookie: cookie } : {} });
+    const post = (path, data, cookie, site = 'same-origin') => fetch(base + '/api/v1/' + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Sec-Fetch-Site': site,
+        'Idempotency-Key': 'portal-lote', ...(cookie && { Cookie: cookie }) },
+      body: JSON.stringify(data),
+    });
+    const page = await get('/');
+    assert.equal(page.status, 200);
+    assert.match(page.headers.get('content-security-policy'), /frame-ancestors 'none'/);
+    assert.match(await page.text(), /workspace\.mjs/);
+    assert.equal((await get('/workspace.mjs')).status, 200);
+    assert.equal((await get('/workspace.css')).status, 200);
+    assert.equal((await post('session', { token }, undefined, 'cross-site')).status, 403);
+    assert.equal((await post('session', { token: 'invalid' })).status, 401);
+    const signIn = await post('session', { token });
+    const rawCookie = signIn.headers.get('set-cookie');
+    assert.match(rawCookie, /HttpOnly; SameSite=Strict/);
+    assert.ok(!rawCookie.includes(token));
+    const cookie = rawCookie.split(';')[0];
+    const observer = (await post('session', { token: 'b'.repeat(64) })).headers.get('set-cookie').split(';')[0];
+    assert.equal((await get('/api/v1/me', cookie)).status, 200);
+    assert.equal((await post('lots', { id: 'A1', price_cents: 100 }, observer)).status, 403);
+    assert.equal((await post('lots', { id: 'A1', price_cents: 100 }, cookie)).status, 200);
+    assert.equal((await (await get('/api/v1/lots', observer)).json())[0].id, 'A1');
+    assert.equal((await post('logout', {}, cookie)).status, 200);
+    assert.equal((await get('/api/v1/me', cookie)).status, 401);
+    assert.equal((await get('/api/v1/me', observer)).status, 200);
+    store.addUser('consulta', 'reader', 'c'.repeat(64));
+    assert.equal((await get('/api/v1/me', observer)).status, 401);
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+    store.close();
+  }
+});

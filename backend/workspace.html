@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LOTIGEST · Operación multiusuario</title>
+  <link rel="stylesheet" href="/workspace.css">
+  <script type="module" src="/workspace.mjs"></script>
+</head>
+<body>
+  <header><strong>LOTIGEST</strong><span>GRUPO H · Operación multiusuario</span><button id="logout" hidden>Cerrar sesión</button></header>
+  <main>
+    <section id="login" class="card">
+      <h1>Iniciar sesión</h1>
+      <form id="login-form">
+        <label>Credencial de acceso<input name="token" type="password" autocomplete="current-password" required></label>
+        <button>Entrar</button>
+      </form>
+    </section>
+    <section id="workspace" hidden>
+      <div class="toolbar"><h1>Operaciones</h1><span id="actor"></span><button id="refresh">Actualizar</button></div>
+      <div id="forms" class="cards"></div>
+      <section class="card"><h2>Solares</h2><div id="lots"></div></section>
+      <section class="card"><h2>Apartados</h2><div id="reservations"></div></section>
+      <section class="card"><h2>Ventas y recibos</h2><div id="sales"></div></section>
+      <section id="detail" class="card" hidden></section>
+    </section>
+    <p id="status" role="status" aria-live="polite"></p>
+  </main>
+</body>
+</html>

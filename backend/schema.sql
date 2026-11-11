@@ -46,3 +46,12 @@ CREATE TABLE IF NOT EXISTS commands (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (actor,request_id)
 ) STRICT;
+CREATE TABLE IF NOT EXISTS legacy_sale_terms (
+  sale_id TEXT PRIMARY KEY REFERENCES sales(id),
+  opening_cents INTEGER NOT NULL CHECK (opening_cents >= 0),
+  first_due_date TEXT
+) STRICT;
+CREATE TABLE IF NOT EXISTS legacy_receipts (
+  receipt INTEGER PRIMARY KEY REFERENCES payments(receipt),
+  legacy_id TEXT NOT NULL UNIQUE
+) STRICT;

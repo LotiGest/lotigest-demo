@@ -25,15 +25,15 @@ function bad(message) {
 function conflict(message) {
   throw new HttpError(409, message);
 }
-function identifier(value) {
+export function identifier(value) {
   if (typeof value !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(value)) bad('Identificador inválido.');
   return value;
 }
-function integer(value, min, max = 1_000_000_000_000) {
+export function integer(value, min, max = 1_000_000_000_000) {
   if (!Number.isSafeInteger(value) || value < min || value > max) bad('Importe o plazo inválido.');
   return value;
 }
-function date(value) {
+export function date(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) bad('Fecha inválida.');
   const parsed = new Date(value + 'T00:00:00Z');
   if (!Number.isFinite(+parsed) || parsed.toISOString().slice(0, 10) !== value) bad('Fecha inválida.');
@@ -89,17 +89,25 @@ export function openStore(filename, today = hondurasToday) {
     return row;
   }
   function saleLedger(sale, asOf = today()) {
-    const payments = all('SELECT * FROM payments WHERE sale_id=? ORDER BY receipt', sale.id);
-    const paid = payments.reduce((sum, payment) => sum + payment.amount_cents, 0);
+    const payments = all(`SELECT payments.*,legacy_receipts.legacy_id FROM payments
+      LEFT JOIN legacy_receipts USING (receipt) WHERE sale_id=? ORDER BY receipt`, sale.id);
+    for (const payment of payments) if (payment.legacy_id === null) delete payment.legacy_id;
+    const terms = get('SELECT * FROM legacy_sale_terms WHERE sale_id=?', sale.id);
+    const paid = payments.reduce((sum, payment) => sum + payment.amount_cents, terms?.opening_cents ?? 0);
     const principal = sale.price_cents - sale.down_cents;
     const scheduled = sale.months ? Math.floor(principal / sale.months) : 0;
     const remainder = sale.months ? principal % sale.months : 0;
     let applied = Math.max(0, paid - sale.down_cents);
     const installments = Array.from({ length: sale.months }, (_, index) => {
-      const amount = scheduled + Number(index < remainder);
+      let amount = scheduled + Number(index < remainder);
+      if (terms) {
+        const regular = Math.round(principal / sale.months);
+        amount = index === sale.months - 1 ? Math.max(0, principal - regular * index) :
+          Math.max(0, Math.min(regular, principal - regular * index));
+      }
       const covered = Math.min(applied, amount);
       applied -= covered;
-      const due = dueDate(sale.sale_date, index + 1);
+      const due = terms?.first_due_date ? dueDate(terms.first_due_date, index) : dueDate(sale.sale_date, index + 1);
       const pending = amount - covered;
       return { number: index + 1, due, amount_cents: amount, pending_cents: pending,
         status: pending === 0 ? 'paid' : due < asOf ? 'late' : 'pending' };
@@ -188,8 +196,9 @@ export function openStore(filename, today = hondurasToday) {
   function read(resource, id) {
     if (resource === 'sales' && id) return saleLedger(requireRecord('sales', id));
     if (resource === 'receipts' && id) {
-      const receipt = get('SELECT * FROM payments WHERE receipt=?', integer(Number(id), 1));
+      const receipt = get('SELECT payments.*,legacy_receipts.legacy_id FROM payments LEFT JOIN legacy_receipts USING (receipt) WHERE receipt=?', integer(Number(id), 1));
       if (!receipt) throw new HttpError(404, 'Recibo no encontrado.');
+      if (receipt.legacy_id === null) delete receipt.legacy_id;
       return receipt;
     }
     if (id || !['lots', 'clients', 'reservations', 'sales'].includes(resource)) throw new HttpError(404, 'Recurso inexistente.');
@@ -200,5 +209,32 @@ export function openStore(filename, today = hondurasToday) {
     }
     return all('SELECT * FROM ' + resource + ' ORDER BY id');
   }
-  return { addUser, authenticate, command, read, close: () => db.close() };
+  function importLegacy(plan, apply = false) {
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      if (['lots', 'clients', 'sales', 'reservations', 'payments'].some(table => get('SELECT 1 FROM ' + table + ' LIMIT 1'))) {
+        conflict('La migración requiere una base comercial vacía.');
+      }
+      for (const lot of plan.lots) run('INSERT INTO lots VALUES (?,?)', lot.id, lot.price);
+      for (const client of plan.clients) run('INSERT INTO clients VALUES (?,?)', client.id, client.name);
+      for (const res of plan.reservations) run('INSERT INTO reservations VALUES (?,?,?,?,?)', res.id, res.lotId, res.clientId, res.until, res.status);
+      for (const sale of plan.sales) {
+        run('INSERT INTO sales VALUES (?,?,?,?,?,?,?,?)', sale.id, sale.lotId, sale.clientId, sale.reservationId, sale.price, sale.down, sale.months, sale.date);
+        run('INSERT INTO legacy_sale_terms VALUES (?,?,?)', sale.id, sale.opening, sale.firstDue);
+      }
+      for (const payment of plan.payments) {
+        const receipt = recordPayment(payment.saleId, payment.amount, payment.date, payment.kind);
+        run('INSERT INTO legacy_receipts VALUES (?,?)', receipt.receipt, payment.id);
+      }
+      for (const sale of plan.sales) {
+        if (saleLedger(requireRecord('sales', sale.id)).balance_cents !== sale.balance) conflict('El saldo importado no coincide.');
+      }
+      db.exec(apply ? 'COMMIT' : 'ROLLBACK');
+      return Object.fromEntries(Object.entries(plan).map(([name, records]) => [name, records.length]));
+    } catch (error) {
+      db.exec('ROLLBACK');
+      throw error;
+    }
+  }
+  return { addUser, authenticate, command, read, importLegacy, close: () => db.close() };
 }
