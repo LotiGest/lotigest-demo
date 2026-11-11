@@ -1,1 +1,1 @@
-{"version":"0.14.0","notes":"Fase 1: corrección de cuotas, recibos, mora, conversión de apartados y validaciones de ventas y pagos"}
+{"version":"0.15.0","notes":"Fase 2: validación de respaldos, restauración con copia preventiva y protección de reinicio de datos locales"}
