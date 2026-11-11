@@ -751,12 +751,25 @@ function seed(){
  }
  return {version:3,created:dateKey(new Date()),company:{name:'GRUPO H',location:'Honduras',phone:'',email:''},lots,clients,sales,payments};
 }
+function lotigestRecordDateError(data){
+ for(const sale of data.sales){
+  if(!validSolarDate(sale.date))return 'fecha de venta inválida';
+  if(sale.firstDueDate!=null&&sale.firstDueDate!==''&&
+     (!validSolarDate(sale.firstDueDate)||sale.firstDueDate<sale.date))return 'fecha de primera cuota inválida';
+ }
+ for(const payment of data.payments){
+  if(!validSolarDate(payment.date))return 'fecha de pago inválida';
+ }
+ return '';
+}
 function readStoredLotigest(raw){
  if(raw===null)return seed();
  const data=JSON.parse(raw);
  if(data?.version!==3||!data.company||typeof data.company!=='object'||Array.isArray(data.company)||
     !['lots','clients','sales','payments'].every(key=>Array.isArray(data[key])&&
      data[key].every(record=>record&&typeof record.id==='string'&&record.id)))throw Error('Formato local incompatible');
+ const dateError=lotigestRecordDateError(data);
+ if(dateError)throw Error(dateError);
  return data;
 }
 function showLotigestRecovery(raw){
@@ -926,6 +939,8 @@ function validateLotigestBackup(data){
   return ids;
  };
  const lots=index('lots'),clients=index('clients'),sales=index('sales');index('payments');
+ const dateError=lotigestRecordDateError(data);
+ if(dateError)fail(dateError);
  if(data.reservations!==undefined&&!Array.isArray(data.reservations))fail('lista de apartados inválida');
  if(Array.isArray(data.reservations)&&data.reservations.length>100000)fail('demasiados apartados');
  const lotSales=new Set();
@@ -1377,7 +1392,7 @@ document.addEventListener('change',e=>{if(e.target.id==='inventory-status'){inve
 
 function activeReservation(lotId){return (db.reservations||[]).find(r=>r.lotId===lotId&&r.status==='active')||null}
 function businessToday(){let parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Tegucigalpa',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()),get=k=>parts.find(p=>p.type===k).value;return get('year')+'-'+get('month')+'-'+get('day')}
-function validSolarDate(v){return /^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(new Date(v+'T12:00:00Z').getTime())&&new Date(v+'T12:00:00Z').toISOString().slice(0,10)===v}
+function validSolarDate(v){return typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(new Date(v+'T12:00:00Z').getTime())&&new Date(v+'T12:00:00Z').toISOString().slice(0,10)===v}
 function reservationMonthEnd(v){if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(v))throw Error('Escoge un mes válido para el apartado.');let [y,m]=v.split('-').map(Number);return new Date(Date.UTC(y,m,0,12)).toISOString().slice(0,10)}
 function reservationMonthLabel(v){return new Intl.DateTimeFormat('es-HN',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(v+'-01T12:00:00Z'))}
 function dimensionsFromData(data){let out={};for(let k of ['front','depth','left','right']){let raw=String(data[k]??'').trim();if(!raw){out[k]=null;continue}let n=Number(raw);if(!Number.isFinite(n)||n<=0)throw Error('Las medidas deben ser números mayores que cero.');out[k]=n}return out}
