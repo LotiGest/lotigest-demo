@@ -971,9 +971,43 @@ function doForm(form){let data=Object.fromEntries(new FormData(form).entries());
  case 'lot':{let id=data.id.trim().toUpperCase(),old=data.oldId,exists=db.lots.find(l=>l.id===id&&l.id!==old);if(!id||exists){toast('El código de terreno ya existe o está vacío.','error');return}let l=old?getLot(old):null;if(l?.status==='sold'&&id!==old){toast('No puedes modificar el código de un terreno vendido.','error');return}if(l?.sourceFeatureKey&&data.residenceId!==l.residenceId){toast('El solar pertenece al croquis de su residencial actual.','error');return}if(!db.residences.some(r=>r.id===data.residenceId)){toast('Selecciona una residencial válida.','error');return}let dimensions;try{dimensions=dimensionsFromData(data)}catch(e){toast(e.message,'error');return}let obj={id,dimensions,residenceId:data.residenceId,stage:Number(data.stage),block:data.block.trim().toUpperCase(),area:data.areaMode==='auto'?calculatedLotArea(dimensions):(data.area?.trim()?Number(data.area):null),areaMode:data.areaMode==='manual'?'manual':'auto',price:data.price?.trim()?Number(data.price):null,status:['sold','private'].includes(l?.status)||activeReservation(l?.id)?l.status:data.status};if((!l?.sourceFeatureKey&&(obj.area==null||obj.price==null))||[obj.area,obj.price].some(v=>v!=null&&(!Number.isFinite(v)||v<=0))){toast('Revisa el área y el precio del terreno.','error');return}obj.areaOrigin=obj.area==null?'pending':obj.areaMode==='auto'?'calculated-front-depth':'manual';if(l){Object.assign(l,obj);for(let r of db.residences)for(let rec of Object.values(r.records||{}))if(rec.lotId===old){rec.lotId=id;rec.block=obj.block}for(let reservation of db.reservations||[])if(reservation.lotId===old){reservation.lotId=id;reservation.residenceId=obj.residenceId}}else db.lots.push(obj);save();closeModal();filter='';selectedLot=id;db.currentResidence=data.residenceId;page='lots';render();toast('Terreno guardado correctamente');break}
  case 'geo-lot':{geoCommitLot(data);break}
  case 'geo-center':{geoApplyCenter(data);break}
- case 'client':{if(!data.name.trim()){toast('El nombre es obligatorio.','error');return}let c=data.oldId?getClient(data.oldId):null;let obj={name:data.name.trim(),identity:data.identity.trim(),phone:data.phone.trim(),email:data.email.trim(),address:data.address.trim()};if(c)Object.assign(c,obj);else db.clients.unshift({id:uid('C'),...obj});save();closeModal();page='clients';filter='';render();toast('Cliente guardado correctamente');break}
- case 'sale':{let lot=getLot(data.lotId),type=data.type,price=lot?.price||0,prima=Number(data.downPayment),months=Number(data.months||0);if(!lot||lot.status!=='available'||!Number.isFinite(price)||price<=0||!Number.isFinite(Number(lot.area))||Number(lot.area)<=0){toast('El terreno no está disponible o le faltan área y precio.','error');return}if(!getClient(data.clientId)){toast('Selecciona un cliente válido.','error');return}if(type==='cash')prima=price;if(type==='credit'&&(prima<0||prima>=price||!Number.isInteger(months)||months<1||months>360)){toast('Revisa la prima y el plazo de financiamiento.','error');return}let s={id:uid('V'),lotId:lot.id,clientId:data.clientId,type,price,downPayment:prima,months:type==='cash'?0:months,date:data.date};db.sales.unshift(s);lot.status='sold';if(prima>0)db.payments.unshift({id:uid('R'),saleId:s.id,amount:prima,date:data.date,concept:type==='cash'?'Pago de contado':'Prima inicial'});save();closeModal();filter='';page='sales';render();toast('Venta registrada y terreno actualizado');break}
- case 'payment':{let s=getSale(data.saleId),amt=Number(data.amount);if(!s||!Number.isFinite(amt)||amt<=0||Math.round(amt*100)>Math.round(balance(s)*100)){toast('El pago debe ser mayor que cero y no superar el saldo.','error');return}let p={id:uid('R'),saleId:s.id,amount:Math.round(amt*100)/100,date:data.date,concept:data.concept.trim()||'Abono'};db.payments.unshift(p);save();closeModal();filter='';page='receipts';render();toast('Pago registrado y recibo creado');break}
+ case 'client':{
+  const name=String(data.name||'').trim();
+  if(!name){toast('El nombre es obligatorio.','error');return}
+  const next=JSON.parse(JSON.stringify(db));
+  const oldId=String(data.oldId||''),c=oldId?next.clients.find(c=>c.id===oldId):null;
+  if(oldId&&!c){toast('El cliente ya no existe. Actualiza el listado.','error');return}
+  const obj={name,identity:String(data.identity||'').trim(),phone:String(data.phone||'').trim(),email:String(data.email||'').trim(),address:String(data.address||'').trim()};
+  if(c)Object.assign(c,obj);else next.clients.unshift({id:uid('C'),...obj});
+  try{localStorage.setItem(STORAGE,JSON.stringify(next))}catch(e){toast('No se pudo guardar el cliente. Revisa el almacenamiento del navegador.','error');return}
+  db=next;closeModal();page='clients';filter='';render();toast('Cliente guardado correctamente');break
+ }
+ case 'sale':{
+  const lot=getLot(data.lotId),type=String(data.type||''),price=Number(lot?.price);
+  let prima=Number(data.downPayment),months=Number(data.months||0);
+  if(!lot||lot.status!=='available'||db.sales.some(s=>s.lotId===lot.id)||!Number.isFinite(price)||price<=0||!Number.isFinite(Number(lot.area))||Number(lot.area)<=0){toast('El terreno no está disponible, ya está vendido o le faltan área y precio.','error');return}
+  if(!['cash','credit'].includes(type)||!getClient(data.clientId)){toast('Revisa el tipo de venta y el cliente.','error');return}
+  if(!validSolarDate(data.date)||data.date>businessToday()){toast('La fecha de venta debe ser válida y no futura.','error');return}
+  if(type==='cash')prima=price;
+  if(type==='credit'&&(!Number.isFinite(prima)||prima<0||Math.round(prima*100)>=Math.round(price*100)||Math.abs(prima*100-Math.round(prima*100))>0.00001||!Number.isInteger(months)||months<1||months>360)){toast('Revisa la prima (máximo dos decimales) y el plazo de financiamiento.','error');return}
+  prima=Math.round(prima*100)/100;
+  const next=JSON.parse(JSON.stringify(db)),nextLot=next.lots.find(l=>l.id===lot.id);
+  if(!nextLot||nextLot.status!=='available'||next.sales.some(x=>x.lotId===lot.id)){toast('El terreno cambió de estado. Actualiza e inténtalo otra vez.','error');return}
+  const sale={id:uid('V'),lotId:lot.id,clientId:data.clientId,type,price,downPayment:prima,months:type==='cash'?0:months,date:data.date};
+  next.sales.unshift(sale);nextLot.status='sold';
+  if(prima>0)next.payments.unshift({id:uid('R'),saleId:sale.id,amount:prima,date:data.date,concept:type==='cash'?'Pago de contado':'Prima inicial'});
+  try{localStorage.setItem(STORAGE,JSON.stringify(next))}catch(e){toast('No se guardó la venta. No se modificó el terreno ni se generó un pago.','error');return}
+  db=next;closeModal();filter='';page='sales';render();toast('Venta registrada y terreno actualizado');break
+ }
+ case 'payment':{
+  const sale=getSale(data.saleId),amount=Number(data.amount),cents=Math.round(amount*100),date=String(data.date||'');
+  if(!sale||!Number.isFinite(amount)||cents<=0||Math.abs(amount*100-cents)>0.00001||cents>Math.round(balance(sale)*100)){toast('El pago debe tener hasta dos decimales, ser positivo y no superar el saldo.','error');return}
+  if(!validSolarDate(date)||date>businessToday()||date<sale.date){toast('La fecha de pago debe estar entre la fecha de venta y hoy.','error');return}
+  const next=JSON.parse(JSON.stringify(db));
+  next.payments.unshift({id:uid('R'),saleId:sale.id,amount:cents/100,date,concept:String(data.concept||'').trim()||'Abono'});
+  try{localStorage.setItem(STORAGE,JSON.stringify(next))}catch(e){toast('No se guardó el pago. No se generó ningún recibo.','error');return}
+  db=next;closeModal();filter='';page='receipts';render();toast('Pago registrado y recibo creado');break
+ }
  }
 }
 function companyForm(form){let d=Object.fromEntries(new FormData(form).entries());const next={...db,company:{...db.company,name:d.name.trim(),phone:d.phone.trim(),email:d.email.trim(),location:d.location.trim()}};try{localStorage.setItem(STORAGE,JSON.stringify(next));db=next;toast('Información de la lotificadora actualizada')}catch(e){toast('No se pudo guardar. Revisa el espacio disponible.','error')}}
