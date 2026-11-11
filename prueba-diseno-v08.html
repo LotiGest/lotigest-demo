@@ -751,7 +751,64 @@ function seed(){
  }
  return {version:3,created:dateKey(new Date()),company:{name:'GRUPO H',location:'Honduras',phone:'',email:''},lots,clients,sales,payments};
 }
-let db;try{let raw=localStorage.getItem(STORAGE);db=raw?JSON.parse(raw):seed();if(!db||db.version!==3||!Array.isArray(db.lots))db=seed()}catch(e){db=seed()}
+function readStoredLotigest(raw){
+ if(raw===null)return seed();
+ const data=JSON.parse(raw);
+ if(data?.version!==3||!data.company||typeof data.company!=='object'||Array.isArray(data.company)||
+    !['lots','clients','sales','payments'].every(key=>Array.isArray(data[key])&&
+     data[key].every(record=>record&&typeof record.id==='string'&&record.id)))throw Error('Formato local incompatible');
+ return data;
+}
+function showLotigestRecovery(raw){
+ const app=document.getElementById('app');
+ app.innerHTML=`<main class="card card-padding" style="max-width:640px;margin:48px auto" aria-labelledby="recovery-title">
+  <h1 id="recovery-title" tabindex="-1">Recuperación de datos de LOTIGEST</h1>
+  <p>${raw==null?'El navegador impidió leer el almacenamiento local. Revisa los permisos y vuelve a intentar.':'LOTIGEST pausó el inicio porque no pudo leer el formato de los datos guardados. Descarga una copia antes de restaurar un respaldo compatible.'}</p>
+  ${raw==null?'':'<button class="btn btn-soft" id="recovery-download">Descargar datos originales</button>'}
+  <button class="btn btn-soft" id="recovery-retry">Reintentar inicio</button>
+  <p id="recovery-message" role="status"></p>
+ </main>`;
+ app.querySelector('#recovery-title').focus();
+ app.querySelector('#recovery-retry').onclick=()=>location.reload();
+ const copy=app.querySelector('#recovery-download');
+ if(!copy)return;
+ copy.onclick=()=>download('LOTIGEST_DATOS_ORIGINALES.txt',raw,'text/plain;charset=utf-8');
+ const label=document.createElement('label');
+ label.textContent='Restaurar un respaldo JSON compatible ';
+ const input=document.createElement('input');
+ input.type='file';
+ input.accept='.json,application/json';
+ label.append(input);
+ app.querySelector('#recovery-message').before(label);
+ input.onchange=async()=>{
+  const file=input.files[0];
+  if(!file)return;
+  input.disabled=true;
+  try{
+   if(file.size>15*1024*1024)throw Error('El respaldo supera los 15 MB permitidos.');
+   const restored=JSON.parse((await file.text()).replace(/^\uFEFF/,''));
+   const info=validateLotigestBackup(restored);
+   if(!confirm('¿Restaurar '+info.sales+' ventas y '+info.payments+' pagos? Se iniciará la descarga de los datos originales antes de reemplazarlos.'))return;
+   if(localStorage.getItem(STORAGE)!==raw)throw Error('Los datos cambiaron en otra pestaña. Reintenta el inicio.');
+   copy.onclick();
+   localStorage.setItem(STORAGE,JSON.stringify(restored));
+   location.reload();
+  }catch(error){
+   app.querySelector('#recovery-message').textContent='No se pudo restaurar el respaldo. '+error.message;
+  }finally{
+   input.value='';
+   input.disabled=false;
+  }
+ };
+}
+let db,storedLotigest;
+try{
+ storedLotigest=localStorage.getItem(STORAGE);
+ db=readStoredLotigest(storedLotigest);
+}catch{
+ showLotigestRecovery(storedLotigest);
+ return;
+}
 for(const lot of db.lots){if(lot.areaMode!=='manual'){const area=calculatedLotArea(lot.dimensions);if(area!=null){lot.area=area;lot.areaMode='auto';lot.areaOrigin='calculated-front-depth';}}}
 if(!db.company.documentBrandVersion){db.company.name='GRUPO H';db.company.documentBrandVersion=1;try{localStorage.setItem(STORAGE,JSON.stringify(db));}catch(e){}}
 function save(){try{localStorage.setItem(STORAGE,JSON.stringify(db))}catch(e){toast('No se pudo guardar: almacenamiento lleno o desactivado','error')}}
