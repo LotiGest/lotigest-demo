@@ -1373,6 +1373,48 @@ body[data-panel-theme] .lotigest-shell .lg-topbar{position:relative;top:auto;z-i
 body.lotigest-dark[data-panel-theme] .lotigest-shell .lg-topbar{background:rgba(23,43,31,.77);border-color:rgba(209,255,222,.15)}
 @media(max-width:700px){body[data-panel-theme] .lotigest-shell .lotigest-sidebar{top:8px;width:var(--lg-side-small);flex-basis:var(--lg-side-small);height:calc(100vh - 16px);padding:11px 5px}body[data-panel-theme] .lotigest-shell .lotigest-sidebar:hover,body[data-panel-theme] .lotigest-shell .lotigest-sidebar.pinned{width:var(--lg-side-wide);flex-basis:var(--lg-side-wide)}}
 
+
+/* LOTIGEST v0.9 — ambas barras flotantes y persistentes durante el scroll.
+   No cambia el motor de los modulos ni los datos de Sites. */
+:root{--lg-float-gap:14px;--lg-float-side:var(--lg-side-small);--lg-top-height:76px}
+body .lotigest-shell{display:block!important;position:relative;padding:var(--lg-float-gap)!important;min-height:100vh!important;overflow:visible!important}
+body .lotigest-shell .lotigest-sidebar,
+body[data-panel-theme] .lotigest-shell .lotigest-sidebar,
+body.sidebar-collapsed[data-panel-theme] .lotigest-shell .lotigest-sidebar{
+ position:fixed!important;left:var(--lg-float-gap)!important;top:var(--lg-float-gap)!important;
+ height:calc(100dvh - 2 * var(--lg-float-gap))!important;max-height:calc(100dvh - 2 * var(--lg-float-gap))!important;
+ z-index:320!important;margin:0!important;inset-block-end:auto!important;
+}
+body .lotigest-shell .workspace{display:block!important;width:auto!important;max-width:none!important;
+ margin-left:calc(var(--lg-side-small) + var(--lg-float-gap))!important;
+ padding-top:calc(var(--lg-top-height) + var(--lg-float-gap))!important;min-width:0!important;overflow:visible!important;
+ transition:margin-left .34s cubic-bezier(.22,.7,.24,1)!important}
+body .lotigest-shell:has(.lotigest-sidebar.pinned) .workspace{
+ margin-left:calc(var(--lg-side-wide) + var(--lg-float-gap))!important;
+}
+body .lotigest-shell .lg-topbar,
+body[data-panel-theme] .lotigest-shell .lg-topbar{
+ position:fixed!important;top:var(--lg-float-gap)!important;
+ left:calc(var(--lg-float-gap) * 2 + var(--lg-side-small))!important;
+ right:var(--lg-float-gap)!important;width:auto!important;height:var(--lg-top-height)!important;
+ z-index:290!important;margin:0!important;transform:none!important;
+ transition:left .34s cubic-bezier(.22,.7,.24,1)!important;
+}
+body .lotigest-shell:has(.lotigest-sidebar.pinned) .lg-topbar{
+ left:calc(var(--lg-float-gap) * 2 + var(--lg-side-wide))!important;
+}
+body .lotigest-shell .lg-popup,body .lotigest-shell .lg-search-results{z-index:450!important}
+/* Cuando se despliega con el mouse, la barra puede superponerse suavemente.
+   Cuando se fija, el contenido y la cabecera se reacomodan. */
+@media(max-width:700px){
+ :root{--lg-float-gap:8px;--lg-top-height:66px}
+ body .lotigest-shell{padding:var(--lg-float-gap)!important}
+ body .lotigest-shell .workspace{margin-left:calc(var(--lg-side-small) + var(--lg-float-gap))!important}
+ body .lotigest-shell:has(.lotigest-sidebar.pinned) .workspace{margin-left:calc(var(--lg-side-small) + var(--lg-float-gap))!important}
+ body .lotigest-shell:has(.lotigest-sidebar.pinned) .lg-topbar{left:calc(var(--lg-float-gap) * 2 + var(--lg-side-small))!important}
+}
+@media(prefers-reduced-motion:reduce){body .lotigest-shell .workspace,body .lotigest-shell .lg-topbar{transition:none!important}}
+
 </style>
 <script>
 /* Presentation-only actions; original data-page and data-action events remain unchanged. */
