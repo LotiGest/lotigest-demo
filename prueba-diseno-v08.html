@@ -1473,7 +1473,7 @@ body .lotigest-shell .lg-popup,body .lotigest-shell .lg-search-results{z-index:4
 /* LOTIGEST v0.10 · Revisión de nuevas versiones en GitHub Pages.
    Para cada nueva publicación: actualizar el archivo version.json DESPUÉS del HTML. */
 (()=>{'use strict';
- const CURRENT_VERSION='0.11.0';
+ const CURRENT_VERSION='0.12.0';
  const MANIFEST='version.json';
  const CHECK_MS=120000;
  const STORAGE_KEY='lg-update-dismissed-v1';
@@ -1482,8 +1482,13 @@ body .lotigest-shell .lg-popup,body .lotigest-shell .lg-search-results{z-index:4
  const notice=byId('lgUpdateNotice');
  const safelyGetDismissed=()=>{try{return sessionStorage.getItem(STORAGE_KEY)}catch{return null}};
  const safelyDismiss=version=>{try{sessionStorage.setItem(STORAGE_KEY,version)}catch{}};
+ const isNewer=version=>{
+   const a=version.split('.').map(Number),b=CURRENT_VERSION.split('.').map(Number);
+   for(let i=0;i<3;i++){if(a[i]!==b[i])return a[i]>b[i]}
+   return false;
+ };
  const show=version=>{
-   if(!notice||version===CURRENT_VERSION||version===safelyGetDismissed())return;
+   if(!notice||!isNewer(version)||version===safelyGetDismissed())return;
    latest=version;
    const target=byId('lgUpdateVersion');if(target)target.textContent='Versión '+version+' disponible';
    notice.hidden=false;
@@ -1497,7 +1502,7 @@ body .lotigest-shell .lg-popup,body .lotigest-shell .lg-search-results{z-index:4
      const response=await fetch(url.toString(),{cache:'no-store'});
      if(!response.ok)return;
      const info=await response.json();
-     if(typeof info.version==='string'&&/^\d+\.\d+\.\d+$/.test(info.version)&&info.version!==CURRENT_VERSION)show(info.version);
+     if(typeof info.version==='string'&&/^\d+\.\d+\.\d+$/.test(info.version)&&isNewer(info.version))show(info.version);
    }catch(_){/* sin conexión: no interrumpir la aplicación */}
    finally{checking=false}
  }
@@ -1594,5 +1599,67 @@ body.lotigest-dark #lgUpdateNotice .lg-update-later{background:rgba(255,255,255,
 body.lotigest-dark #lgUpdateNotice .lg-update-now{color:#17321c!important}
 
 </style>
+<style id="lotigest-v12-contrast">
+/* LOTIGEST v0.12: contraste y accesibilidad final, sin alterar la distribución */
+body.lotigest-dark :is(.lotigest-shell,#modal-root,.modal-cover) select option,
+body.lotigest-dark :is(.lotigest-shell,#modal-root,.modal-cover) select optgroup {
+  background:#203927!important;color:#f0f8f1!important;
+}
+body.lotigest-dark :is(.lotigest-shell,#modal-root,.modal-cover) input:-webkit-autofill,
+body.lotigest-dark :is(.lotigest-shell,#modal-root,.modal-cover) input:-webkit-autofill:hover,
+body.lotigest-dark :is(.lotigest-shell,#modal-root,.modal-cover) input:-webkit-autofill:focus {
+  -webkit-text-fill-color:#f0f8f1!important;
+  box-shadow:0 0 0 1000px #243c2b inset!important;
+  caret-color:#f0f8f1;
+}
+body.lotigest-dark :is(.lotigest-shell,#modal-root,.modal-cover) :is(input,select,textarea):disabled {
+  background:#1b2b20!important;color:#b9ccbd!important;opacity:.72;
+}
+body.lotigest-dark :is(.lotigest-shell,#modal-root,.modal-cover) :is(.alert,.notice,.toast,.message,.notification-item,.empty-state){
+  border-color:#49634f;color:#e7f5e9;
+}
+body.lotigest-dark .lotigest-shell :is(.lg-popup,.lg-search-results) [hidden],
+body.lotigest-dark [hidden]{display:none!important}
+body.lotigest-dark :is(.lotigest-shell,#modal-root,.modal-cover) :is(a,button,[role="button"]):focus-visible{
+  outline:2px solid #b6f28f!important;outline-offset:3px;
+}
+body.lotigest-dark :is(.lotigest-shell,#modal-root,.modal-cover) :is(hr,.separator,.divider){border-color:#405a49!important}
+/* El botón de actualización y el logo no se vuelven barras flotantes adicionales. */
+.nexora-footer{background:transparent!important;box-shadow:none!important;border:0!important}
+@media(prefers-reduced-motion:reduce){
+  .lotigest-sidebar,.lg-topbar,.lg-popup,#lgUpdateNotice{animation:none!important;transition:none!important}
+}
+
+</style>
+<script id="lotigest-v12-ux">
+/* LOTIGEST v0.12: estados accesibles de controles existentes */
+(()=>{
+ const syncPopups=()=>{
+   document.querySelectorAll('[data-lg-action="notifications"],[data-lg-action="user"]').forEach(b=>{
+     const id=b.dataset.lgAction==='notifications'?'lgNotifications':'lgUserPopup';
+     const box=document.getElementById(id);
+     if(box)b.setAttribute('aria-expanded',String(!box.hidden));
+   });
+ };
+ const syncThemeButton=()=>{
+   const b=document.querySelector('[data-lg-action="theme"]');if(!b)return;
+   const dark=document.body.classList.contains('lotigest-dark');
+   b.setAttribute('aria-label',dark?'Activar modo claro':'Activar modo oscuro');
+   b.setAttribute('title',dark?'Activar modo claro':'Activar modo oscuro');
+ };
+ document.addEventListener('click',e=>{
+   if(e.target.closest('[data-lg-action="theme"],[data-lg-action="notifications"],[data-lg-action="user"],.lg-popup-parent,.lg-search')){
+     queueMicrotask(()=>{syncPopups();syncThemeButton()});
+   } else queueMicrotask(syncPopups);
+ });
+ document.addEventListener('keydown',e=>{if(e.key==='Escape')queueMicrotask(syncPopups)});
+ // Los módulos reconstruyen el encabezado al navegar; se sincroniza al enfocarlo.
+ document.addEventListener('focusin',e=>{
+   if(e.target.closest('.lg-topbar')){syncPopups();syncThemeButton()}
+ });
+ syncPopups();syncThemeButton();
+})();
+
+</script>
 </body>
 </html>
