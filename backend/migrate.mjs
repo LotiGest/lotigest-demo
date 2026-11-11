@@ -62,7 +62,8 @@ export function prepareLegacyMigration(data) {
     const amount = cents(payment.amount, 1);
     totals.set(sale.id, (totals.get(sale.id) ?? 0) + amount);
     const kind = sale.type === 'cash' ? 'cash' : payment.concept === 'Prima inicial' ? 'down' : 'installment';
-    plan.payments.push({ id: payment.id, saleId: sale.id, amount, date: payment.date, kind });
+    plan.payments.push({ id: payment.id, saleId: sale.id, amount, date: payment.date, kind,
+      groupId: payment.groupId ? identifier(payment.groupId) : null });
   }
   for (const sale of sales.values()) {
     if (!['cash', 'credit'].includes(sale.type)) fail('Modalidad inválida: ' + sale.id);

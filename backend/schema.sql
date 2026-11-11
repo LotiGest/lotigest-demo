@@ -55,3 +55,9 @@ CREATE TABLE IF NOT EXISTS legacy_receipts (
   receipt INTEGER PRIMARY KEY REFERENCES payments(receipt),
   legacy_id TEXT NOT NULL UNIQUE
 ) STRICT;
+CREATE TABLE IF NOT EXISTS payment_groups (
+  receipt INTEGER PRIMARY KEY REFERENCES payments(receipt),
+  group_id TEXT NOT NULL
+) STRICT;
+CREATE INDEX IF NOT EXISTS payment_groups_id ON payment_groups(group_id);
+CREATE INDEX IF NOT EXISTS payments_sale_receipt ON payments(sale_id, receipt);

@@ -158,7 +158,10 @@ test('portal, sesión web, permisos y cierre desde dos clientes HTTP', async () 
     assert.equal((await get('/api/v1/me', cookie)).status, 200);
     assert.equal((await post('lots', { id: 'A1', price_cents: 100 }, observer)).status, 403);
     assert.equal((await post('lots', { id: 'A1', price_cents: 100 }, cookie)).status, 200);
-    assert.equal((await (await get('/api/v1/lots', observer)).json())[0].id, 'A1');
+    const catalog = await (await get('/api/v1/catalog', observer)).json();
+    assert.equal(catalog.lots[0].id, 'A1');
+    assert.deepEqual(await (await get('/api/v1/command-status/portal-lote', cookie)).json(), { saved: true });
+    assert.deepEqual(await (await get('/api/v1/command-status/portal-lote', observer)).json(), { saved: false });
     assert.equal((await post('logout', {}, cookie)).status, 200);
     assert.equal((await get('/api/v1/me', cookie)).status, 401);
     assert.equal((await get('/api/v1/me', observer)).status, 200);
@@ -166,6 +169,37 @@ test('portal, sesión web, permisos y cierre desde dos clientes HTTP', async () 
     assert.equal((await get('/api/v1/me', observer)).status, 401);
   } finally {
     await new Promise(resolve => server.close(resolve));
+    store.close();
+  }
+});
+
+test('cobro de dos solares es atómico, idempotente y conserva el saldo del recibo', () => {
+  const store = openStore(':memory:', () => '2026-11-11');
+  const actor = { name: 'gerente', role: 'admin' };
+  store.addUser(actor.name, actor.role, 'a'.repeat(64));
+  const command = (route, key, data) => store.command(actor, route, key, data);
+  try {
+    command('clients', 'client', { id: 'C1', name: 'Cliente de prueba' });
+    const sales = ['L1', 'L2'].map(id => {
+      command('lots', 'lot-' + id, { id, price_cents: 10000 });
+      return command('sales', 'sale-' + id, { lot_id: id, client_id: 'C1', date: '2026-01-01', months: 12, down_cents: 0 });
+    });
+    const [first, second] = sales.map(sale => sale.id);
+    const entries = [{ sale_id: first, amount_cents: 3000 }, { sale_id: second, amount_cents: 2000 }];
+    const date = '2026-11-11';
+    assert.throws(() => command('payment-batches', 'bad', { date, entries: [entries[0], { ...entries[1], amount_cents: 10001 }] }), /supera el saldo/);
+    assert.deepEqual(store.read('sales', first).payments, []);
+    assert.throws(() => command('payment-batches', 'duplicate', { date, entries: [entries[0], entries[0]] }), /dos veces/);
+    assert.deepEqual(store.read('sales', first).payments, []);
+    const group = command('payment-batches', 'good', { date, entries });
+    const reordered = entries.map(({ sale_id, amount_cents }) => ({ amount_cents, sale_id }));
+    assert.deepEqual(command('payment-batches', 'good', { entries: reordered, date }), JSON.parse(JSON.stringify(group)));
+    command('payments', 'after', { sale_id: first, amount_cents: 1000, date });
+    const rows = store.read('receipt-details', String(group.payments[1].receipt));
+    assert.deepEqual(rows.map(row => row.lot_id), ['L1', 'L2']);
+    assert.deepEqual(rows.map(row => row.balance_at_receipt_cents), [7000, 8000]);
+    assert.equal(store.read('sales', first).balance_cents, 6000);
+  } finally {
     store.close();
   }
 });

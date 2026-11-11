@@ -29,7 +29,13 @@ function showUser(user) {
   $('login').hidden = !!user;
   $('workspace').hidden = !user;
   $('logout').hidden = !user;
-  if (user) $('actor').textContent = user.name + ' · ' + roles[user.role];
+  if (user) {
+    $('actor').textContent = user.name + ' · ' + roles[user.role];
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(pendingKey()));
+      pending = saved && typeof saved.key === 'string' && typeof saved.fingerprint === 'string' ? saved : undefined;
+    } catch { pending = undefined; }
+  }
   else {
     catalog = pending = undefined;
     for (const id of ['forms', 'lots', 'reservations', 'sales', 'detail']) $(id).replaceChildren();
@@ -62,21 +68,31 @@ async function run(control, action) {
     if (control) control.disabled = false;
   }
 }
+function pendingKey() { return 'lotigest-pending-v1-' + actor.name; }
+function savePending(value) {
+  pending = value;
+  try {
+    if (value) sessionStorage.setItem(pendingKey(), JSON.stringify(value));
+    else sessionStorage.removeItem(pendingKey());
+  } catch { /* Mantener la clave en memoria si el navegador bloquea el almacenamiento. */ }
+}
 async function mutate(route, data) {
-  const request = JSON.stringify([route, data]);
-  if (pending && pending.request !== request) {
+  const request = new TextEncoder().encode(JSON.stringify([route, data]));
+  const bytes = await crypto.subtle.digest('SHA-256', request);
+  const fingerprint = Array.from(new Uint8Array(bytes), byte => byte.toString(16).padStart(2, '0')).join('');
+  if (pending && pending.fingerprint !== fingerprint) {
     throw new Error('Hay una operación sin confirmar. Reintenta con los mismos datos antes de iniciar otra.');
   }
-  pending ??= { request, key: crypto.randomUUID() };
+  if (!pending) savePending({ fingerprint, key: crypto.randomUUID() });
   let result;
   try {
     result = await api(route, data, pending.key);
   } catch (error) {
-    if (error.status >= 400 && error.status < 500) pending = undefined;
+    if (error.status >= 400 && error.status < 500 && error.status !== 401) savePending(undefined);
     else throw new Error('El servidor no confirmó la operación. Reintenta con los mismos datos.');
     throw error;
   }
-  pending = undefined;
+  savePending(undefined);
   try {
     await refresh();
     status('Operación guardada.');
@@ -182,11 +198,53 @@ function renderForms() {
       months.oninput();
     }
   }
-  if (['admin', 'cashier'].includes(role) && catalog.sales.length) operation('Registrar pago', 'payments', [
-    ['Venta', select('sale_id', catalog.sales.map(sale => [sale.id, sale.lot_id + ' · ' + clientName(sale.client_id)]))],
-    ['Fecha', input('date', 'date', today(), { max: today() })],
-    ['Abono en lempiras', input('amount', 'number', '', { min: '.01', step: '.01' })],
-  ], data => ({ sale_id: data.sale_id, date: data.date, amount_cents: cents(data.amount) }));
+  if (['admin', 'cashier'].includes(role) && catalog.sales.length) renderPaymentForm();
+}
+function renderPaymentForm() {
+  const form = element('form');
+  form.className = 'card';
+  const choices = catalog.sales.map(sale => [sale.id, sale.lot_id + ' · ' + clientName(sale.client_id)]);
+  const date = input('date', 'date', today(), { max: today() });
+  const rows = element('div');
+  const add = button('Añadir otro solar', async () => addRow());
+  const submit = element('button', 'Registrar pago');
+  const label = (text, field) => {
+    const node = element('label', text);
+    node.append(field);
+    return node;
+  };
+  function addRow() {
+    const row = element('fieldset');
+    const sale = select('sale_id', choices);
+    const amount = input('amount', 'number', '', { min: '.01', step: '.01' });
+    const remove = button('Quitar solar', async () => {
+      if (rows.children.length > 1) row.remove();
+      update();
+    });
+    row.append(label('Venta', sale), label('Abono en lempiras', amount), remove);
+    rows.append(row);
+    update();
+  }
+  function update() {
+    add.hidden = rows.children.length >= Math.min(20, choices.length);
+    for (const row of rows.children) row.lastElementChild.hidden = rows.children.length < 2;
+  }
+  form.append(element('h2', 'Registrar pago'), label('Fecha', date), rows, add, submit);
+  addRow();
+  form.onsubmit = event => {
+    event.preventDefault();
+    return run(submit, async () => {
+      const entries = Array.from(rows.children, row => ({
+        sale_id: row.querySelector('select').value,
+        amount_cents: cents(row.querySelector('input').value),
+      }));
+      const result = entries.length === 1
+        ? await mutate('payments', { ...entries[0], date: date.value })
+        : await mutate('payment-batches', { date: date.value, entries });
+      if (result) await showReceipt((result.payments?.[0] ?? result).receipt);
+    });
+  };
+  $('forms').append(form);
 }
 function clientName(id) { return catalog.clients.find(client => client.id === id)?.name ?? id; }
 async function showSale(id) {
@@ -199,23 +257,36 @@ async function showSale(id) {
   table(schedule, ['Cuota', 'Vence', 'Importe', 'Pendiente', 'Estado'], sale.installments.map(row =>
     [row.number, row.due, money(row.amount_cents), money(row.pending_cents), labels[row.status]]));
   table(payments, ['Recibo', 'Fecha', 'Importe', ''], sale.payments.map(row =>
-    [row.receipt, row.payment_date, money(row.amount_cents), button('Ver recibo', () => showReceipt(sale, row.receipt))]));
+    [row.receipt, row.payment_date, money(row.amount_cents), button('Ver recibo', () => showReceipt(row.receipt))]));
   section.append(element('h3', 'Cuotas'), schedule, element('h3', 'Pagos'), payments);
   section.scrollIntoView({ block: 'start' });
 }
-async function showReceipt(sale, number) {
-  const receipt = await api('receipts/' + number);
+async function showReceipt(number) {
+  const rows = await api('receipt-details/' + number);
   const section = $('detail');
-  section.replaceChildren(element('h2', 'LOTIGEST · Recibo ' + receipt.receipt),
-    element('p', 'Cliente: ' + clientName(sale.client_id)), element('p', 'Solar: ' + sale.lot_id),
-    element('p', 'Fecha: ' + receipt.payment_date), element('p', 'Monto: ' + money(receipt.amount_cents)),
-    element('p', 'Saldo actual: ' + money(sale.balance_cents)),
-    button('Imprimir o guardar PDF', () => window.print()), button('Volver a la venta', () => showSale(sale.id)));
+  const lines = element('div');
+  const first = rows[0];
+  table(lines, ['Folio', 'Cliente', 'Solar', 'Abono', 'Saldo al emitir'], rows.map(row =>
+    [row.legacy_id ?? row.receipt, row.client_name, row.lot_id, money(row.amount_cents), money(row.balance_at_receipt_cents)]));
+  section.hidden = false;
+  section.replaceChildren(element('h2', 'LOTIGEST · Recibo ' + (first.legacy_id ?? first.receipt)),
+    element('p', 'Fecha: ' + first.payment_date), lines,
+    element('p', 'Total recibido: ' + money(rows.reduce((sum, row) => sum + row.amount_cents, 0))),
+    button('Imprimir o guardar PDF', () => window.print()), button('Ver venta', () => showSale(first.sale_id)));
   section.scrollIntoView({ block: 'start' });
 }
 async function refresh() {
-  const [lots, clients, reservations, sales] = await Promise.all(['lots', 'clients', 'reservations', 'sales'].map(path => api(path)));
-  catalog = { lots, clients, reservations, sales };
+  if (pending) {
+    const { saved } = await api('command-status/' + pending.key);
+    if (saved) {
+      savePending(undefined);
+      status('Se confirmó la operación anterior. Consulta los registros actualizados.');
+    } else {
+      status('Hay una operación sin confirmar. Reintenta con los mismos datos.');
+    }
+  }
+  catalog = await api('catalog');
+  const { lots, reservations, sales } = catalog;
   renderForms();
   table($('lots'), ['Solar', 'Precio', 'Estado'], lots.map(lot => [lot.id, money(lot.price_cents), labels[lot.status]]));
   table($('reservations'), ['Solar', 'Cliente', 'Vence', 'Estado', ''], reservations.map(row => [

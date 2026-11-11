@@ -50,9 +50,11 @@ export function createLotigestServer(store, { secureCookies = false } = {}) {
       if (request.method === 'POST' && request.headers['sec-fetch-site'] &&
           request.headers['sec-fetch-site'] !== 'same-origin') throw new HttpError(403, 'Origen no autorizado.');
       const sessionId = /(?:^|; *)lotigest_session=([a-f0-9]{64})(?:;|$)/.exec(request.headers.cookie ?? '')?.[1];
-      const session = sessions.get(sessionId);
-      const authorization = () => request.headers.authorization ??
-        (session && session.expires > Date.now() ? session.authorization : undefined);
+      function authorization() {
+        const session = sessions.get(sessionId);
+        return request.headers.authorization ??
+          (session && session.expires > Date.now() ? session.authorization : undefined);
+      }
       if (request.method === 'POST' && path === '/api/v1/session') {
         const data = await readJson(request);
         const credential = typeof data?.token === 'string' ? 'Bearer ' + data.token : '';
@@ -80,7 +82,9 @@ export function createLotigestServer(store, { secureCookies = false } = {}) {
       if (!match) throw new HttpError(404, 'Ruta inexistente.');
       const [, resource, id] = match;
       if (request.method === 'GET') {
-        send(200, resource === 'me' && !id ? actor : store.read(resource, id));
+        const data = resource === 'me' && !id ? actor :
+          resource === 'command-status' && id ? store.commandStatus(actor, id) : store.read(resource, id);
+        send(200, data);
         return;
       }
       if (request.method === 'POST' && !id) {

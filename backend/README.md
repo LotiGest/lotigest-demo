@@ -27,10 +27,21 @@ Todas las rutas llevan el prefijo `/api/v1/`. En cada petición incluye `Authori
 | `cancel-reservation` | `id` del apartado | Ventas |
 | `sales` | `lot_id`, `client_id`, `date`, `months`, `down_cents` para crédito, `reservation_id` cuando exista apartado | Ventas |
 | `payments` | `sale_id`, `date`, `amount_cents` | Caja |
+| `payment-batches` | `date`, `entries` con 2–20 objetos `{ sale_id, amount_cents }` | Caja |
 
 Para contado envía `months: 0`. Para crédito, los vencimientos se calculan desde el día de la venta, ajustado al último día del mes cuando corresponde. Los centavos sobrantes se distribuyen entre las primeras cuotas. Las ventas y los pagos usan transacciones, y SQLite impide una segunda venta del mismo solar.
 
 Los perfiles autenticados pueden consultar `me`, `lots`, `clients`, `reservations`, `sales`, `sales/<id>` y `receipts/<número>`. El detalle de venta incluye saldo, mora, cuotas y recibos.
+
+El cobro múltiple se guarda en una transacción y emite un recibo agrupado. `receipt-details/<número>` muestra el saldo que quedó al emitir el recibo. `catalog` devuelve una lectura coherente del inventario comercial. `command-status/<clave>` informa si el usuario autenticado ya registró una operación cuya confirmación se perdió.
+
+## Respaldo de la base central
+
+```bash
+LOTIGEST_DB=/ruta/lotigest.sqlite node backend/backup.mjs /ruta/privada/copia-nueva.sqlite
+```
+
+El comando permite respaldar una base activa. Comprueba integridad y referencias antes de publicar la copia en la ruta solicitada y rechaza destinos existentes. Para verificar una restauración, abre una copia en una instancia de prueba con otro puerto y comprueba los saldos antes de reemplazar una base operativa.
 
 ## Migración de registros comerciales
 

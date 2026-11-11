@@ -10,8 +10,16 @@ const roles = {
   'cancel-reservation': ['admin', 'sales'],
   sales: ['admin', 'sales'],
   payments: ['admin', 'cashier'],
+  'payment-batches': ['admin', 'cashier'],
 };
 const digest = value => createHash('sha256').update(value).digest('hex');
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])]));
+  }
+  return value;
+}
 const dateFormat = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Tegucigalpa', year: 'numeric', month: '2-digit', day: '2-digit' });
 export class HttpError extends Error {
   constructor(status, message) {
@@ -120,6 +128,15 @@ export function openStore(filename, today = hondurasToday) {
       saleId, amount, paymentDate, kind).lastInsertRowid);
     return get('SELECT * FROM payments WHERE receipt=?', receipt);
   }
+  function pay(data, paymentDate) {
+    const sale = requireRecord('sales', data.sale_id);
+    if (paymentDate < sale.sale_date || paymentDate > today()) bad('Fecha de pago fuera del período válido.');
+    const amount = integer(data.amount_cents, 1);
+    const paid = get(`SELECT COALESCE((SELECT SUM(amount_cents) FROM payments WHERE sale_id=?),0)
+      + COALESCE((SELECT opening_cents FROM legacy_sale_terms WHERE sale_id=?),0) AS cents`, sale.id, sale.id).cents;
+    if (amount > sale.price_cents - paid) conflict('El pago supera el saldo.');
+    return recordPayment(sale.id, amount, paymentDate, 'installment');
+  }
   function execute(operation, data) {
     if (operation === 'lots') {
       const id = identifier(data.id);
@@ -135,14 +152,21 @@ export function openStore(filename, today = hondurasToday) {
       run('INSERT INTO clients VALUES (?,?)', id, name);
       return requireRecord('clients', id);
     }
-    if (operation === 'payments') {
-      const sale = requireRecord('sales', data.sale_id);
+    if (operation === 'payments') return pay(data, date(data.date));
+    if (operation === 'payment-batches') {
       const paymentDate = date(data.date);
-      if (paymentDate < sale.sale_date || paymentDate > today()) bad('Fecha de pago fuera del período válido.');
-      const amount = integer(data.amount_cents, 1);
-      const { balance_cents: balance } = saleLedger(sale);
-      if (amount > balance) conflict('El pago supera el saldo.');
-      return recordPayment(sale.id, amount, paymentDate, 'installment');
+      if (!Array.isArray(data.entries) || data.entries.length < 2 || data.entries.length > 20) bad('Selecciona entre 2 y 20 ventas.');
+      const group = randomUUID();
+      const sales = new Set();
+      const payments = data.entries.map(entry => {
+        const id = identifier(entry?.sale_id);
+        if (sales.has(id)) bad('La misma venta aparece dos veces en el cobro.');
+        sales.add(id);
+        const payment = pay(entry, paymentDate);
+        run('INSERT INTO payment_groups VALUES (?,?)', payment.receipt, group);
+        return payment;
+      });
+      return { group_id: group, payments };
     }
     if (operation === 'cancel-reservation') {
       const reservation = requireRecord('reservations', data.id);
@@ -181,7 +205,9 @@ export function openStore(filename, today = hondurasToday) {
     if (!roles[operation].includes(actor.role)) throw new HttpError(403, 'El usuario no tiene permiso.');
     identifier(key);
     if (!data || typeof data !== 'object' || Array.isArray(data)) bad('Se requiere un objeto JSON.');
-    const fingerprint = digest(JSON.stringify([operation, Object.fromEntries(Object.entries(data).sort(([a], [b]) => a.localeCompare(b)))]));
+    const normalized = operation === 'payment-batches' ? canonical(data) :
+      Object.fromEntries(Object.entries(data).sort(([a], [b]) => a.localeCompare(b)));
+    const fingerprint = digest(JSON.stringify([operation, normalized]));
     return transaction(() => {
       const existing = get('SELECT fingerprint,response FROM commands WHERE actor=? AND request_id=?', actor.name, key);
       if (existing) {
@@ -193,7 +219,36 @@ export function openStore(filename, today = hondurasToday) {
       return result;
     });
   }
+  function receiptDetails(id) {
+    const receipt = read('receipts', id);
+    const group = get('SELECT group_id FROM payment_groups WHERE receipt=?', receipt.receipt);
+    const ids = group ? all('SELECT receipt FROM payment_groups WHERE group_id=? ORDER BY receipt', group.group_id) : [receipt];
+    return ids.map(item => {
+      const payment = read('receipts', String(item.receipt));
+      const sale = requireRecord('sales', payment.sale_id);
+      const client = requireRecord('clients', sale.client_id);
+      const paid = get(`SELECT COALESCE((SELECT SUM(amount_cents) FROM payments WHERE sale_id=? AND receipt<=?),0)
+        + COALESCE((SELECT opening_cents FROM legacy_sale_terms WHERE sale_id=?),0) AS cents`, sale.id, payment.receipt, sale.id).cents;
+      return { ...payment, lot_id: sale.lot_id, client_name: client.name, balance_at_receipt_cents: sale.price_cents - paid };
+    });
+  }
+  function commandStatus(actor, key) {
+    const result = get('SELECT 1 AS saved FROM commands WHERE actor=? AND request_id=?', actor.name, identifier(key));
+    return { saved: !!result };
+  }
   function read(resource, id) {
+    if (resource === 'catalog' && !id) {
+      db.exec('BEGIN');
+      try {
+        const result = Object.fromEntries(['lots', 'clients', 'reservations', 'sales'].map(name => [name, read(name)]));
+        db.exec('COMMIT');
+        return result;
+      } catch (error) {
+        db.exec('ROLLBACK');
+        throw error;
+      }
+    }
+    if (resource === 'receipt-details' && id) return receiptDetails(id);
     if (resource === 'sales' && id) return saleLedger(requireRecord('sales', id));
     if (resource === 'receipts' && id) {
       const receipt = get('SELECT payments.*,legacy_receipts.legacy_id FROM payments LEFT JOIN legacy_receipts USING (receipt) WHERE receipt=?', integer(Number(id), 1));
@@ -225,6 +280,7 @@ export function openStore(filename, today = hondurasToday) {
       for (const payment of plan.payments) {
         const receipt = recordPayment(payment.saleId, payment.amount, payment.date, payment.kind);
         run('INSERT INTO legacy_receipts VALUES (?,?)', receipt.receipt, payment.id);
+        if (payment.groupId) run('INSERT INTO payment_groups VALUES (?,?)', receipt.receipt, 'legacy-' + payment.groupId);
       }
       for (const sale of plan.sales) {
         if (saleLedger(requireRecord('sales', sale.id)).balance_cents !== sale.balance) conflict('El saldo importado no coincide.');
@@ -236,5 +292,5 @@ export function openStore(filename, today = hondurasToday) {
       throw error;
     }
   }
-  return { addUser, authenticate, command, read, importLegacy, close: () => db.close() };
+  return { addUser, authenticate, command, commandStatus, read, importLegacy, close: () => db.close() };
 }

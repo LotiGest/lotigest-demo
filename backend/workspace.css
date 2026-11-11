@@ -28,3 +28,4 @@ td, th { padding: 8px; border-bottom: 1px solid #d1e2d8; text-align: left; }
   :root, #detail { color: #142633; background: #fff; }
   @page { size: letter; margin: 15mm; }
 }
+fieldset { display: grid; gap: 8px; border: 1px solid #749589; border-radius: 7px; margin: 0 0 8px; min-width: 0; }
