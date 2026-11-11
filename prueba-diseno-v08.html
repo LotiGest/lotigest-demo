@@ -1301,7 +1301,9 @@ body{background:#f5f8f5}
 .login-card .field-aux{color:#d3e4d2!important}.login-card .btn-primary{background:#b9f600!important;color:#153318!important;font-weight:850}
 .demo-login-hint{background:rgba(255,255,255,.09)!important;color:#e4f3e5!important;border:1px solid rgba(255,255,255,.17)!important;margin-top:15px!important;padding:11px 13px!important}
 .demo-login-hint .muted{color:#b9cabe!important}.login-bottom{bottom:17px!important;left:0!important;right:0!important;color:#c5ddc9!important}
-.nexora-footer{position:fixed;z-index:20;bottom:5px;right:20px;width:155px;pointer-events:none;opacity:.95}.nexora-footer img{display:block;width:100%;height:auto}
+/* Nexora permanece en el pie de página: NO flotante, NO fijo y sin cuadro blanco */
+.nexora-footer{position:relative!important;inset:auto!important;bottom:auto!important;right:auto!important;z-index:1!important;width:100%!important;max-width:none!important;display:flex!important;justify-content:flex-end;align-items:center;margin:0!important;padding:12px clamp(18px,3vw,42px) 20px!important;background:transparent!important;border:0!important;box-shadow:none!important;pointer-events:auto!important;opacity:1!important;transform:none!important}
+.nexora-footer img{display:block;width:min(205px,46vw)!important;max-width:100%;height:auto!important;object-fit:contain}
 /* Barra lateral verde glass, flotante y compacta. Se expande al pasar mouse cuando está contraída. */
 .shell{gap:12px;padding:12px 12px 12px 0;align-items:stretch}
 .sidebar,body[data-panel-theme] .sidebar{width:251px;top:12px;min-height:0;height:calc(100svh - 24px);margin-left:12px;border-radius:22px;padding:20px 12px 14px;overflow-x:hidden;background:linear-gradient(145deg,rgba(23,56,35,.86),rgba(8,36,22,.88))!important;border:1px solid rgba(210,250,223,.22);box-shadow:0 14px 36px rgba(5,25,11,.17),inset 1px 1px rgba(255,255,255,.11);backdrop-filter:blur(18px) saturate(125%);-webkit-backdrop-filter:blur(18px) saturate(125%);color:#d7e9d9;transition:width .24s ease,padding .24s ease;z-index:30}
