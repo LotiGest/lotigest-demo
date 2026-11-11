@@ -1,0 +1,126 @@
+import assert from 'node:assert/strict';
+import { once } from 'node:events';
+import { Worker } from 'node:worker_threads';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { test } from 'node:test';
+import { createLotigestServer } from './server.mjs';
+import { hondurasToday, openStore } from './store.mjs';
+
+test('calendario comercial de Honduras', () => {
+  assert.equal(hondurasToday(new Date('2026-11-11T02:00:00Z')), '2026-11-10');
+});
+
+test('permisos, apartado, venta concurrente, cuotas, mora y recibo persistente', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'lotigest-'));
+  const filename = join(dir, 'test.sqlite');
+  const today = () => '2026-11-11';
+  const primary = openStore(filename, today);
+  const secondary = openStore(filename, today);
+  const tokens = { admin: 'a'.repeat(64), sales: 'b'.repeat(64), cashier: 'c'.repeat(64), reader: 'd'.repeat(64) };
+  for (const [role, token] of Object.entries(tokens)) primary.addUser(role, role, token);
+  const servers = [primary, secondary].map(store => createLotigestServer(store).listen(0, '127.0.0.1'));
+  try {
+    await Promise.all(servers.map(server => once(server, 'listening')));
+    async function request(path, role, key, data, instance = 0) {
+      const response = await fetch(`http://127.0.0.1:${servers[instance].address().port}/api/v1/${path}`, {
+        method: key ? 'POST' : 'GET',
+        headers: { ...(role && { Authorization: 'Bearer ' + tokens[role] }),
+          ...(key && { 'Idempotency-Key': key, 'Content-Type': 'application/json' }) },
+        body: key ? JSON.stringify(data) : undefined,
+      });
+      return { status: response.status, body: await response.json() };
+    }
+    assert.equal((await request('lots')).status, 401);
+    assert.equal((await request('lots', 'reader', 'bad', { id: 'L1', price_cents: 10001 })).status, 403);
+    assert.equal((await request('lots', 'admin', 'lot', { id: 'L1', price_cents: 10001 })).status, 200);
+    for (const id of ['C1', 'C2']) assert.equal((await request('clients', 'sales', id, { id, name: id })).status, 200);
+    const reserve = { lot_id: 'L1', client_id: 'C1', reserved_until: '2026-11-30' };
+    const apart = await request('reservations', 'sales', 'reserve', reserve);
+    assert.equal(apart.status, 200);
+    assert.deepEqual(await request('reservations', 'sales', 'reserve', reserve, 1), apart);
+    assert.equal((await request('reservations', 'sales', 'again', { ...reserve, client_id: 'C2' })).status, 409);
+    const purchase = { lot_id: 'L1', client_id: 'C1', reservation_id: apart.body.id, date: '2026-07-31', months: 3, down_cents: 1000 };
+    assert.equal((await request('sales', 'sales', 'wrong', { ...purchase, client_id: 'C2' })).status, 409);
+    const purchases = await Promise.all([request('sales', 'sales', 'buy-a', purchase), request('sales', 'sales', 'buy-b', purchase, 1)]);
+    assert.deepEqual(purchases.map(result => result.status).sort(), [200, 409]);
+    const sale = purchases.find(result => result.status === 200).body;
+    assert.equal(sale.installments.reduce((total, row) => total + row.amount_cents, 0), 9001);
+    assert.deepEqual(sale.installments.map(row => row.due), ['2026-08-31', '2026-09-30', '2026-10-31']);
+    assert.equal(sale.overdue_cents, 9001);
+    assert.equal((await request('reservations', 'reader')).body[0].status, 'converted');
+    assert.equal((await request('lots', 'reader')).body[0].status, 'sold');
+    const payment = { sale_id: sale.id, date: '2026-11-11', amount_cents: 9001 };
+    assert.equal((await request('payments', 'sales', 'pay', payment)).status, 403);
+    assert.equal((await request('payments', 'cashier', 'future', { ...payment, date: '2026-11-12' })).status, 400);
+    const payments = await Promise.all([request('payments', 'cashier', 'pay-a', payment), request('payments', 'cashier', 'pay-b', payment, 1)]);
+    assert.deepEqual(payments.map(result => result.status).sort(), [200, 409]);
+    const winner = payments.findIndex(result => result.status === 200);
+    const key = winner === 0 ? 'pay-a' : 'pay-b';
+    const receipt = payments[winner].body;
+    assert.deepEqual((await request('payments', 'cashier', key, payment, 1 - winner)).body, receipt);
+    assert.equal((await request('payments', 'cashier', key, { ...payment, amount_cents: 1 })).status, 409);
+    assert.equal((await request('sales/' + sale.id, 'reader', null, null, 1)).body.balance_cents, 0);
+    const reopened = openStore(filename, today);
+    try {
+      assert.deepEqual({ ...reopened.read('receipts', String(receipt.receipt)) }, receipt);
+      assert.equal(reopened.read('sales', sale.id).overdue_cents, 0);
+    } finally {
+      reopened.close();
+    }
+  } finally {
+    await Promise.all(servers.map(server => new Promise(resolve => server.close(resolve))));
+    primary.close();
+    secondary.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+
+test('dos hilos de ejecución independientes compiten por el mismo solar', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'lotigest-lock-'));
+  const filename = join(dir, 'test.sqlite');
+  const store = openStore(filename);
+  const actor = { name: 'admin', role: 'admin' };
+  const workers = [];
+  const barrier = new Int32Array(new SharedArrayBuffer(4));
+  try {
+    store.addUser(actor.name, actor.role, 'a'.repeat(64));
+    store.command(actor, 'lots', 'lot', { id: 'L1', price_cents: 100 });
+    store.command(actor, 'clients', 'client', { id: 'C1', name: 'Cliente de prueba' });
+    const code = `
+      import { parentPort, workerData } from 'node:worker_threads';
+      import { openStore } from ${JSON.stringify(new URL('./store.mjs', import.meta.url).href)};
+      const db = openStore(workerData.filename, () => '2026-11-11');
+      parentPort.postMessage('ready');
+      Atomics.wait(workerData.barrier, 0, 0);
+      try {
+        const sale = db.command(workerData.actor, 'sales', workerData.key,
+          { lot_id: 'L1', client_id: 'C1', date: '2026-01-01', months: 0 });
+        parentPort.postMessage({ status: 200, sale });
+      } catch (error) {
+        parentPort.postMessage({ status: error.status ?? 500 });
+      } finally {
+        db.close();
+      }
+    `;
+    for (const key of ['purchase-a', 'purchase-b']) {
+      workers.push(new Worker(code, { eval: true, workerData: { filename, actor, key, barrier } }));
+    }
+    assert.deepEqual(await Promise.all(workers.map(worker => once(worker, 'message'))), [['ready'], ['ready']]);
+    const results = Promise.all(workers.map(worker => once(worker, 'message')));
+    Atomics.store(barrier, 0, 1);
+    Atomics.notify(barrier, 0);
+    const responses = (await results).map(([response]) => response);
+    assert.deepEqual(responses.map(row => row.status).sort(), [200, 409]);
+    const sale = store.read('sales')[0];
+    assert.equal(store.read('sales').length, 1);
+    assert.equal(store.read('sales', sale.id).payments.length, 1);
+    assert.equal(store.read('sales', sale.id).balance_cents, 0);
+  } finally {
+    await Promise.all(workers.map(worker => worker.terminate()));
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
