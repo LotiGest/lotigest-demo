@@ -96,3 +96,28 @@ sirviendo la versión local por separado.
    conteos y saldos. Conserva la copia original y toma un respaldo SQLite
    verificado antes de habilitar la operación. Las pruebas de escritura se
    realizan con datos ficticios.
+
+## Importación de clientes desde Excel
+
+En **Clientes**, Ventas y Administración pueden cargar una hoja `.xlsx` o
+`.csv` de hasta 100 filas. Usa la plantilla descargable o encabezados compatibles.
+La vista previa muestra el destino de cada campo y advierte qué columnas se
+omitirán. Nombre y Código o Identidad son obligatorios. Formatea Identidad y
+Teléfono como texto en Excel para preservar los ceros iniciales.
+El lote se guarda en una transacción. Si el código o la identidad ya existen,
+se rechaza el lote completo. La importación cubre la ficha de cliente.
+Solar, modalidad, cuotas, pagos y saldos históricos requieren su propio proceso
+de importación y conciliación.
+
+## Cobertura de verificación comercial
+
+| Área | Evidencia disponible | Pendiente |
+| --- | --- | --- |
+| Acceso, roles y panel central | Dos sesiones HTTPS y permisos por API | Navegación visual y temas claro/oscuro |
+| Terrenos, apartados y ventas | Alta, conversión de apartado y concurrencia | Recorrido completo en navegador |
+| Cuotas, mora, caja y recibos | Cálculo, abono, cobro agrupado, reintento y saldo histórico | Impresión carta y envío de recibos |
+| Clientes y Excel | Mapeo, duplicados, permisos y transacción | Probar archivos reales anonimizados y selección de hoja en navegador |
+| Respaldo y migración | Copia de SQLite activa, restauración de prueba y conciliación ficticia | Conciliar un respaldo operativo |
+| Residenciales, mapas y croquis | Implementación en el HTML local | Integración central y pruebas funcionales |
+| Contratos y OCR | Implementación en el HTML local | Integración central y pruebas con documentos ficticios |
+| Finanzas, reportes y configuración | Implementación en el HTML local | Integración central y pruebas funcionales |

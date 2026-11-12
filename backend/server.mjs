@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { HttpError, openStore } from './store.mjs';
 
-async function readJson(request) {
+async function readJson(request, limit = 64 * 1024) {
   if (!/^application\/json(?:\s*;|$)/i.test(request.headers['content-type'] ?? '')) {
     throw new HttpError(415, 'Usa Content-Type application/json.');
   }
@@ -13,9 +13,9 @@ async function readJson(request) {
   let size = 0;
   for await (const chunk of request) {
     size += chunk.length;
-    if (size <= 64 * 1024) chunks.push(chunk);
+    if (size <= limit) chunks.push(chunk);
   }
-  if (size > 64 * 1024) throw new HttpError(413, 'La solicitud supera 64 KiB.');
+  if (size > limit) throw new HttpError(413, 'La solicitud supera el tamaño permitido.');
   try {
     return JSON.parse(Buffer.concat(chunks).toString('utf8'));
   } catch {
@@ -36,6 +36,13 @@ const approvedIcon = approvedPanel.match(/<link rel="icon" href="data:image\/web
 if (!approvedStyles || !approvedIcon) throw new Error('Faltan los estilos o el icono del panel aprobado.');
 assets.set('/approved-panel.css', [approvedStyles, 'text/css']);
 assets.set('/lotigest-icon.webp', [Buffer.from(approvedIcon[1], 'base64'), 'image/webp']);
+
+const excelReader = approvedPanel.match(/<script>\s*\/\/ Read ordinary \.xlsx[\s\S]*?<\/script>/)?.[0]
+  .replace(/^<script>|<\/script>$/g, '');
+const csvReader = approvedPanel.match(/function buyerCsvRows\(text\) \{[\s\S]*?(?=\nfunction buyerImportTemplate)/)?.[0];
+if (!excelReader || !csvReader) throw new Error('Faltan los lectores de Excel del panel aprobado.');
+assets.set('/spreadsheet-reader.mjs', [excelReader + csvReader + '\nexport { readExcelRows, buyerCsvRows };', 'text/javascript']);
+assets.set('/client-import.mjs', [readFileSync(new URL('./client-import.mjs', import.meta.url)), 'text/javascript']);
 
 export function createLotigestServer(store, { tls, secureCookies = !!tls } = {}) {
   const sessions = new Map();
@@ -98,7 +105,7 @@ export function createLotigestServer(store, { tls, secureCookies = !!tls } = {})
         return;
       }
       if (request.method === 'POST' && !id) {
-        const data = await readJson(request);
+        const data = await readJson(request, resource === 'client-import' ? 512 * 1024 : undefined);
         const currentActor = store.authenticate(authorization());
         if (!currentActor) throw new HttpError(401, 'La credencial ya no es válida.');
         send(200, store.command(currentActor, resource, request.headers['idempotency-key'], data));

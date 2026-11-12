@@ -6,6 +6,7 @@ const schema = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8');
 const roles = {
   lots: ['admin'],
   clients: ['admin', 'sales'],
+  'client-import': ['admin', 'sales'],
   reservations: ['admin', 'sales'],
   'cancel-reservation': ['admin', 'sales'],
   sales: ['admin', 'sales'],
@@ -29,6 +30,11 @@ export class HttpError extends Error {
 }
 function bad(message) {
   throw new HttpError(400, message);
+}
+function contactText(value, max) {
+  if (value == null) return '';
+  if (typeof value !== 'string' || value.trim().length > max) bad('Campo de contacto inválido.');
+  return value.trim();
 }
 function conflict(message) {
   throw new HttpError(409, message);
@@ -144,6 +150,31 @@ export function openStore(filename, today = hondurasToday) {
       run('INSERT INTO lots VALUES (?,?)', id, integer(data.price_cents, 1));
       return requireRecord('lots', id);
     }
+    if (operation === 'client-import') {
+      if (!Array.isArray(data.rows) || !data.rows.length || data.rows.length > 100) bad('Importa entre 1 y 100 clientes por archivo.');
+      for (const [index, row] of data.rows.entries()) {
+        try {
+          if (!row || typeof row !== 'object' || Array.isArray(row)) bad('Registro inválido.');
+          const name = contactText(row.name, 180);
+          if (!name) bad('Falta el nombre.');
+          const identity = contactText(row.identity, 32).toUpperCase().replace(/[ -]/g, '');
+          if (identity && !/^[A-Z0-9]+$/.test(identity)) bad('Identidad inválida.');
+          const id = identifier(row.id || (identity && 'ID-' + identity)).toUpperCase();
+          const phone = contactText(row.phone, 40);
+          const email = contactText(row.email, 180);
+          const address = contactText(row.address, 250);
+          if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) bad('Correo inválido.');
+          if (get('SELECT id FROM clients WHERE id=? COLLATE NOCASE', id)) conflict('El código ya existe.');
+          if (identity && get('SELECT client_id FROM client_contacts WHERE identity=?', identity)) conflict('La identidad ya existe.');
+          run('INSERT INTO clients VALUES (?,?)', id, name);
+          run('INSERT INTO client_contacts VALUES (?,?,?,?,?)', id, identity || null, phone, email, address);
+        } catch (error) {
+          if (error instanceof HttpError) throw new HttpError(error.status, 'Registro ' + (index + 1) + ': ' + error.message);
+          throw error;
+        }
+      }
+      return { imported: data.rows.length };
+    }
     if (operation === 'clients') {
       const id = identifier(data.id);
       const name = typeof data.name === 'string' ? data.name.trim() : '';
@@ -205,7 +236,7 @@ export function openStore(filename, today = hondurasToday) {
     if (!roles[operation].includes(actor.role)) throw new HttpError(403, 'El usuario no tiene permiso.');
     identifier(key);
     if (!data || typeof data !== 'object' || Array.isArray(data)) bad('Se requiere un objeto JSON.');
-    const normalized = operation === 'payment-batches' ? canonical(data) :
+    const normalized = ['payment-batches', 'client-import'].includes(operation) ? canonical(data) :
       Object.fromEntries(Object.entries(data).sort(([a], [b]) => a.localeCompare(b)));
     const fingerprint = digest(JSON.stringify([operation, normalized]));
     return transaction(() => {
@@ -261,6 +292,9 @@ export function openStore(filename, today = hondurasToday) {
       return all(`SELECT lots.*, CASE WHEN EXISTS(SELECT 1 FROM sales WHERE lot_id=lots.id) THEN 'sold'
         WHEN EXISTS(SELECT 1 FROM reservations WHERE lot_id=lots.id AND status='active' AND reserved_until>=?) THEN 'reserved'
         ELSE 'available' END AS status FROM lots ORDER BY id`, today());
+    }
+    if (resource === 'clients') {
+      return all('SELECT clients.id, clients.name, identity, phone, email, address FROM clients LEFT JOIN client_contacts ON client_id=id ORDER BY id');
     }
     return all('SELECT * FROM ' + resource + ' ORDER BY id');
   }

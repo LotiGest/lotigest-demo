@@ -61,3 +61,10 @@ CREATE TABLE IF NOT EXISTS payment_groups (
 ) STRICT;
 CREATE INDEX IF NOT EXISTS payment_groups_id ON payment_groups(group_id);
 CREATE INDEX IF NOT EXISTS payments_sale_receipt ON payments(sale_id, receipt);
+CREATE TABLE IF NOT EXISTS client_contacts (
+  client_id TEXT PRIMARY KEY REFERENCES clients(id),
+  identity TEXT UNIQUE,
+  phone TEXT NOT NULL DEFAULT '',
+  email TEXT NOT NULL DEFAULT '',
+  address TEXT NOT NULL DEFAULT ''
+) STRICT;

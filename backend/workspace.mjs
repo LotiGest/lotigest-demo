@@ -1,3 +1,6 @@
+import { mapClientRows } from '/client-import.mjs';
+import { buyerCsvRows, readExcelRows } from '/spreadsheet-reader.mjs';
+
 const $ = id => document.getElementById(id);
 const roles = { admin: 'Administración', sales: 'Ventas', cashier: 'Caja', reader: 'Consulta' };
 const labels = { available: 'Disponible', reserved: 'Apartado', sold: 'Vendido', active: 'Activo',
@@ -98,7 +101,7 @@ function showUser(user) {
   }
   else {
     catalog = pending = undefined;
-    for (const id of ['summary', 'forms', 'lots', 'reservations', 'sales', 'detail']) $(id).replaceChildren();
+    for (const id of ['summary', 'forms', 'lots', 'clients', 'reservations', 'sales', 'detail']) $(id).replaceChildren();
     $('detail').hidden = true;
   }
 }
@@ -200,7 +203,7 @@ function select(name, choices, optional = false) {
 function operation(title, route, fields, encode) {
   const form = element('form');
   form.className = 'card';
-  form.dataset.panel = { lots: 'inventory', clients: 'sales', reservations: 'pending', sales: 'sales' }[route];
+  form.dataset.panel = { lots: 'inventory', clients: 'clients', reservations: 'pending', sales: 'sales' }[route];
   form.hidden = form.dataset.panel !== activeModule;
   form.append(element('h2', title));
   for (const [label, field] of fields) {
@@ -219,6 +222,73 @@ function operation(title, route, fields, encode) {
   return form;
 }
 const cents = value => Math.round(Number(value) * 100);
+function renderClientImport() {
+  const form = element('form');
+  form.className = 'card';
+  form.dataset.panel = 'clients';
+  form.hidden = activeModule !== 'clients';
+  const picker = input('spreadsheet', 'file', '', { accept: '.xlsx,.csv' });
+  const label = element('label', 'Archivo Excel o CSV');
+  label.append(picker);
+  const sheet = select('sheet', []);
+  sheet.hidden = true;
+  sheet.required = false;
+  sheet.setAttribute('aria-label', 'Hoja de Excel');
+  const preview = element('div');
+  const commit = element('button', 'Confirmar importación');
+  commit.className = 'btn btn-primary';
+  commit.disabled = true;
+  const template = element('a', 'Descargar plantilla CSV');
+  template.href = 'data:text/csv;charset=utf-8,%EF%BB%BFCodigo%3BNombre%3BIdentidad%3BTelefono%3BCorreo%3BDireccion%0D%0A';
+  template.download = 'LOTIGEST-clientes.csv';
+  let sheets = [], mapped, version = 0;
+  function showPreview() {
+    preview.replaceChildren();
+    mapped = undefined;
+    commit.disabled = true;
+    if (!sheets.length) return;
+    try {
+      mapped = mapClientRows(sheets[Number(sheet.value)].rows, catalog.clients);
+      const grid = element('div');
+      table(grid, ['Código', 'Nombre', 'Identidad', 'Teléfono', 'Correo', 'Dirección'], mapped.clients.map(row =>
+        [row.id, row.name, row.identity, row.phone, row.email, row.address]));
+      preview.append(element('p', mapped.clients.length + ' clientes nuevos.'), grid);
+      if (mapped.ignored.length) preview.append(element('p', 'Columnas que no se importarán: ' + mapped.ignored.join(', ')));
+      commit.disabled = false;
+    } catch (error) { preview.textContent = error.message; }
+  }
+  picker.onchange = async () => {
+    const current = ++version;
+    sheets = [];
+    sheet.hidden = true;
+    showPreview();
+    const file = picker.files[0];
+    if (!file) return;
+    try {
+      if (file.size > 5 * 1024 * 1024) throw new Error('El archivo supera los 5 MiB.');
+      let parsed;
+      if (/\.xlsx$/i.test(file.name)) parsed = await readExcelRows(file);
+      else if (/\.csv$/i.test(file.name)) parsed = [{ sheet: 'CSV', rows: buyerCsvRows(await file.text()) }];
+      else throw new Error('Selecciona un archivo .xlsx o CSV UTF-8.');
+      if (current !== version) return;
+      if (!parsed.length) throw new Error('El archivo no contiene hojas con datos.');
+      sheets = parsed;
+      sheet.replaceChildren(...sheets.map((item, index) => new Option(item.sheet, String(index))));
+      sheet.hidden = sheets.length < 2;
+      showPreview();
+    } catch (error) { if (current === version) preview.textContent = error.message; }
+  };
+  sheet.onchange = showPreview;
+  form.onsubmit = event => {
+    event.preventDefault();
+    if (!mapped) return;
+    const data = { rows: mapped.clients };
+    return run(commit, () => mutate('client-import', data));
+  };
+  form.append(element('h2', 'Importar clientes'), template, label, sheet, preview, commit);
+  $('forms').append(form);
+}
+
 function renderForms() {
   $('forms').replaceChildren();
   const { role } = actor;
@@ -231,6 +301,7 @@ function renderForms() {
     ['Precio en lempiras', input('price', 'number', '', { step: '.01', min: '.01' })],
   ], data => ({ id: data.id.trim().toUpperCase(), price_cents: cents(data.price) }));
   if (['admin', 'sales'].includes(role)) {
+    renderClientImport();
     operation('Registrar cliente', 'clients', [
       ['Código', input('id', 'text', '', { maxLength: 100 })],
       ['Nombre', input('name', 'text', '', { maxLength: 180 })],
@@ -370,6 +441,8 @@ async function refresh() {
   });
   $('summary').replaceChildren(...summary);
   renderForms();
+  table($('clients'), ['Código', 'Nombre', 'Identidad', 'Teléfono', 'Correo', 'Dirección'], catalog.clients.map(row =>
+    [row.id, row.name, row.identity, row.phone, row.email, row.address]));
   table($('lots'), ['Solar', 'Precio', 'Estado'], lots.map(lot => [lot.id, money(lot.price_cents), labels[lot.status]]));
   table($('reservations'), ['Solar', 'Cliente', 'Vence', 'Estado', ''], reservations.map(row => [
     row.lot_id, clientName(row.client_id), row.reserved_until, labels[row.status],
