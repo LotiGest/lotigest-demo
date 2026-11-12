@@ -1,6 +1,6 @@
 # LOTIGEST · Backend de la Fase 3
 
-Portal y API para operar los registros comerciales en una única base SQLite. Requiere Node.js 24. La aplicación estática de GitHub Pages conserva su almacenamiento local. La API requiere un proceso Node.js con almacenamiento persistente.
+Portal y API para operar los registros comerciales en una única base SQLite. Requiere Node.js 24. La instalación Node sirve la operación central con la barra lateral, la cabecera, el icono y la hoja de estilos del panel aprobado. GitHub Pages sigue sirviendo el modo local. La API requiere almacenamiento persistente.
 
 ## Inicio local
 
@@ -13,7 +13,7 @@ node backend/server.mjs
 node --test backend/*.test.mjs
 ```
 
-Cada comando `user` imprime una credencial nueva e invalida la anterior del mismo usuario. El servidor escucha en `127.0.0.1:8787`. Abre http://127.0.0.1:8787 e inicia sesión con la credencial del perfil correspondiente. El portal usa una sesión de ocho horas con cookie HttpOnly y SameSite=Strict. Guarda las credenciales y el archivo SQLite fuera de GitHub. Usa datos ficticios en la instancia local.
+Las pruebas HTTPS requieren OpenSSL. Cada comando `user` imprime una credencial nueva e invalida la anterior del mismo usuario. El servidor escucha en `127.0.0.1:8787`. Abre http://127.0.0.1:8787 e inicia sesión con la credencial del perfil correspondiente. El portal usa una sesión de ocho horas con cookie HttpOnly y SameSite=Strict. Guarda las credenciales y el archivo SQLite fuera de GitHub. Usa datos ficticios en la instancia local.
 
 ## API
 
@@ -54,9 +54,16 @@ LOTIGEST_DB=/ruta/prueba.sqlite node backend/migrate.mjs /ruta/respaldo.json --a
 
 El importador conserva los identificadores de venta, los folios originales de recibos, los abonos históricos y la fecha de primera cuota. Exige estados de solares coherentes y rechaza códigos incompatibles, solares privados o solares sin precio. La migración cubre las tablas comerciales del portal. Croquis, residenciales, contratos, datos de contacto y personalización siguen en el respaldo original.
 
-## Validación pendiente para operación con datos reales
+## HTTPS y dos equipos
 
-- Incorporar la API al panel completo de LOTIGEST. El portal de prueba usa sus propias pantallas de operación y la página de GitHub Pages sigue operando con su almacenamiento local.
-- Conciliar un respaldo representativo de LOTIGEST y verificar los campos que no tienen equivalencia en el portal.
-- Configurar un alojamiento Node con almacenamiento persistente, HTTPS y `LOTIGEST_SECURE_COOKIES=1` detrás del proxy. El servicio escucha en loopback y las sesiones están en memoria.
-- Probar recuperación y operación comercial en dos navegadores independientes. Las pruebas automatizadas incluidas ejecutan el servidor y dos clientes HTTP.
+Si usas un proxy HTTPS, deja el proceso en loopback y activa `LOTIGEST_SECURE_COOKIES=1`. También puedes servir TLS directamente con un certificado válido para el nombre usado por los equipos:
+
+```bash
+LOTIGEST_DB=/ruta/lotigest.sqlite LOTIGEST_HOST=0.0.0.0 LOTIGEST_PORT=8443 \
+LOTIGEST_TLS_CERT=/ruta/certificado.pem LOTIGEST_TLS_KEY=/ruta/llave.pem \
+node backend/server.mjs
+```
+
+El servidor exige TLS para escuchar fuera de loopback. Los perfiles usan sesiones independientes, mantenidas en memoria. Las pruebas automatizadas usan dos sesiones HTTPS, un certificado de prueba y una base desechable. También concilian un respaldo ficticio de 120 solares, 60 ventas y 15 apartados.
+
+Antes de activar el uso real, configura el servidor persistente, verifica el panel en dos navegadores y concilia una copia representativa del respaldo operativo. El modo central cubre la operación comercial. Croquis, OCR, personalización y otros módulos locales requieren una migración aparte.

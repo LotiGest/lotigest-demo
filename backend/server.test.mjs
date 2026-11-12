@@ -203,3 +203,69 @@ test('cobro de dos solares es atómico, idempotente y conserva el saldo del reci
     store.close();
   }
 });
+
+test('dos sesiones HTTPS comparten registros con permisos independientes', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { readFileSync } = await import('node:fs');
+  const { request } = await import('node:https');
+  const dir = mkdtempSync(join(tmpdir(), 'lotigest-tls-'));
+  const store = openStore(':memory:', () => '2026-11-11');
+  let server;
+  try {
+    const certFile = join(dir, 'cert.pem'), keyFile = join(dir, 'key.pem');
+    execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
+      '-subj', '/CN=localhost', '-addext', 'subjectAltName=IP:127.0.0.1', '-keyout', keyFile, '-out', certFile],
+    { stdio: 'ignore' });
+    const cert = readFileSync(certFile);
+    server = createLotigestServer(store, { tls: { cert, key: readFileSync(keyFile) } }).listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    store.addUser('ventas', 'admin', 'a'.repeat(64));
+    store.addUser('caja', 'cashier', 'b'.repeat(64));
+    function call(path, { data, cookie, id } = {}) {
+      return new Promise((resolve, reject) => {
+        const req = request({
+          hostname: '127.0.0.1', port: server.address().port, ca: cert, path,
+          method: data === undefined ? 'GET' : 'POST',
+          headers: { ...(data !== undefined && { 'Content-Type': 'application/json' }),
+            ...(cookie && { Cookie: cookie }), ...(id && { 'Idempotency-Key': id }) },
+        }, res => {
+          const chunks = [];
+          res.on('data', chunk => chunks.push(chunk));
+          res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString() }));
+          res.on('error', reject);
+        });
+        req.on('error', reject);
+        req.end(data === undefined ? undefined : JSON.stringify(data));
+      });
+    }
+    const signin = async token => {
+      const result = await call('/api/v1/session', { data: { token } });
+      assert.equal(result.status, 200);
+      assert.match(result.headers['set-cookie'][0], /HttpOnly; SameSite=Strict; Max-Age=28800; Secure/);
+      return result.headers['set-cookie'][0].split(';')[0];
+    };
+    const shell = await call('/');
+    assert.equal(shell.status, 200);
+    assert.match(shell.body, /lotigest-sidebar/);
+    assert.match((await call('/approved-panel.css')).body, /\.lotigest-sidebar\{/);
+    const icon = await call('/lotigest-icon.webp');
+    assert.match(icon.headers['content-type'], /^image\/webp/);
+    const [sales, cash] = await Promise.all([signin('a'.repeat(64)), signin('b'.repeat(64))]);
+    const post = (path, cookie, id, data) => call('/api/v1/' + path, { cookie, id, data });
+    assert.equal((await post('lots', sales, 'lot', { id: 'L1', price_cents: 10000 })).status, 200);
+    assert.equal((await post('clients', sales, 'client', { id: 'C1', name: 'Cliente ficticio' })).status, 200);
+    const reserve = JSON.parse((await post('reservations', sales, 'apart', { lot_id: 'L1', client_id: 'C1', reserved_until: '2026-11-30' })).body);
+    const purchase = { lot_id: 'L1', client_id: 'C1', reservation_id: reserve.id, date: '2026-11-11', months: 12, down_cents: 1000 };
+    assert.equal((await post('sales', cash, 'denied', purchase)).status, 403);
+    const sale = JSON.parse((await post('sales', sales, 'buy', purchase)).body);
+    const payment = await post('payments', cash, 'pay', { sale_id: sale.id, date: '2026-11-11', amount_cents: 2500 });
+    assert.equal(payment.status, 200);
+    const ledger = JSON.parse((await call('/api/v1/sales/' + sale.id, { cookie: sales })).body);
+    assert.equal(ledger.balance_cents, 6500);
+    assert.equal(ledger.payments.length, 2);
+  } finally {
+    if (server) await new Promise(resolve => server.close(resolve));
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

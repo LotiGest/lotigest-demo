@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { createServer as createHttpsServer } from 'node:https';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
@@ -28,10 +29,19 @@ const assets = new Map([
   ['/workspace.css', ['workspace.css', 'text/css']],
 ].map(([route, [file, type]]) => [route, [readFileSync(new URL(file, import.meta.url)), type]]));
 
-export function createLotigestServer(store, { secureCookies = false } = {}) {
+const approvedPanel = readFileSync(new URL('../prueba-diseno-v08.html', import.meta.url), 'utf8');
+const approvedMarkup = approvedPanel.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+const approvedStyles = [...approvedMarkup.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].map(match => match[1]).join('\n');
+const approvedIcon = approvedPanel.match(/<link rel="icon" href="data:image\/webp;base64,([A-Za-z0-9+/=]+)"/);
+if (!approvedStyles || !approvedIcon) throw new Error('Faltan los estilos o el icono del panel aprobado.');
+assets.set('/approved-panel.css', [approvedStyles, 'text/css']);
+assets.set('/lotigest-icon.webp', [Buffer.from(approvedIcon[1], 'base64'), 'image/webp']);
+
+export function createLotigestServer(store, { tls, secureCookies = !!tls } = {}) {
   const sessions = new Map();
   const sessionCookie = (id, age) => 'lotigest_session=' + id + '; Path=/; HttpOnly; SameSite=Strict; Max-Age=' + age + (secureCookies ? '; Secure' : '');
-  return createServer({ requestTimeout: 15_000 }, async (request, response) => {
+  const options = { requestTimeout: 15_000 };
+  const handle = async (request, response) => {
     const send = (status, body) => {
       response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
@@ -43,7 +53,7 @@ export function createLotigestServer(store, { secureCookies = false } = {}) {
       if (request.method === 'GET' && asset) {
         response.writeHead(200, { 'Content-Type': asset[1] + '; charset=utf-8',
           'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
-          'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'" });
+          'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'" });
         response.end(asset[0]);
         return;
       }
@@ -103,7 +113,8 @@ export function createLotigestServer(store, { secureCookies = false } = {}) {
       console.error('Error interno en LOTIGEST', error.code ?? error.name);
       send(500, { error: 'No se pudo completar la operación.' });
     }
-  });
+  };
+  return tls ? createHttpsServer({ ...tls, ...options }, handle) : createServer(options, handle);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -120,8 +131,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     }
   } else {
     const port = Number(process.env.LOTIGEST_PORT ?? 8787);
-    createLotigestServer(store, { secureCookies: process.env.LOTIGEST_SECURE_COOKIES === '1' }).listen(port, '127.0.0.1', () => {
-      console.log(`LOTIGEST API en http://127.0.0.1:${port}`);
+    const { LOTIGEST_TLS_CERT: cert, LOTIGEST_TLS_KEY: key, LOTIGEST_HOST: host = '127.0.0.1' } = process.env;
+    if (!!cert !== !!key) throw new Error('Define LOTIGEST_TLS_CERT y LOTIGEST_TLS_KEY juntos.');
+    const tls = cert ? { cert: readFileSync(cert), key: readFileSync(key) } : undefined;
+    if (!tls && !['127.0.0.1', '::1', 'localhost'].includes(host)) throw new Error('Se requiere TLS para escuchar fuera de loopback.');
+    createLotigestServer(store, { tls, secureCookies: !!tls || process.env.LOTIGEST_SECURE_COOKIES === '1' }).listen(port, host, () => {
+      console.log('LOTIGEST en ' + (tls ? 'https://' : 'http://') + host + ':' + port);
     });
   }
 }

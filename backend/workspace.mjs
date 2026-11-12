@@ -11,7 +11,66 @@ const today = () => {
   return parts.year + '-' + parts.month + '-' + parts.day;
 };
 
-let actor, catalog, pending;
+let actor, catalog, pending, activeModule = 'overview';
+const navigation = Array.from(document.querySelectorAll('[data-module]'));
+function showModule(name, { focus = true } = {}) {
+  activeModule = name;
+  for (const item of navigation) {
+    const active = item.dataset.module === name;
+    item.classList.toggle('active', active);
+    if (active) {
+      item.setAttribute('aria-current', 'page');
+      $('module-title').textContent = item.querySelector('em').textContent;
+    } else item.removeAttribute('aria-current');
+  }
+  for (const item of document.querySelectorAll('[data-panel]')) item.hidden = !item.dataset.panel.split(' ').includes(name);
+  $('detail').hidden = true;
+  setMenu(false);
+  if (focus) {
+    $('module-title').tabIndex = -1;
+    $('module-title').focus();
+  }
+}
+function setMenu(open) {
+  $('central-sidebar').classList.toggle('open', open);
+  $('menu').setAttribute('aria-expanded', String(open));
+}
+function panelPreference(key, value) {
+  try {
+    if (value === undefined) return localStorage.getItem(key);
+    localStorage.setItem(key, value);
+  } catch { /* La apariencia sigue disponible cuando se bloquea el almacenamiento. */ }
+}
+function setTheme(dark) {
+  document.body.classList.toggle('lotigest-dark', dark);
+  $('theme').setAttribute('aria-pressed', String(dark));
+  $('theme').textContent = dark ? '☀' : '◐';
+}
+function setPin(pinned) {
+  $('central-sidebar').classList.toggle('pinned', pinned);
+  $('pin').setAttribute('aria-pressed', String(pinned));
+  $('pin').textContent = pinned ? '◆' : '♧';
+}
+setTheme(panelPreference('lotigest-v08-theme') === 'dark');
+setPin(panelPreference('lotigest-v08-pin') === 'true');
+$('theme').onclick = () => {
+  const dark = !document.body.classList.contains('lotigest-dark');
+  setTheme(dark);
+  panelPreference('lotigest-v08-theme', dark ? 'dark' : 'light');
+};
+$('pin').onclick = () => {
+  const pinned = !$('central-sidebar').classList.contains('pinned');
+  setPin(pinned);
+  panelPreference('lotigest-v08-pin', String(pinned));
+};
+$('menu').onclick = () => setMenu($('menu').getAttribute('aria-expanded') !== 'true');
+for (const item of navigation) item.onclick = () => showModule(item.dataset.module);
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && $('menu').getAttribute('aria-expanded') === 'true') {
+    setMenu(false);
+    $('menu').focus();
+  }
+});
 function element(tag, content) {
   const node = document.createElement(tag);
   if (content != null) node.textContent = content;
@@ -20,6 +79,7 @@ function element(tag, content) {
 function button(label, action) {
   const node = element('button', label);
   node.type = 'button';
+  node.className = 'btn btn-soft';
   node.onclick = event => run(event.currentTarget, action);
   return node;
 }
@@ -28,7 +88,7 @@ function showUser(user) {
   actor = user;
   $('login').hidden = !!user;
   $('workspace').hidden = !user;
-  $('logout').hidden = !user;
+  showModule('overview', { focus: false });
   if (user) {
     $('actor').textContent = user.name + ' · ' + roles[user.role];
     try {
@@ -38,7 +98,7 @@ function showUser(user) {
   }
   else {
     catalog = pending = undefined;
-    for (const id of ['forms', 'lots', 'reservations', 'sales', 'detail']) $(id).replaceChildren();
+    for (const id of ['summary', 'forms', 'lots', 'reservations', 'sales', 'detail']) $(id).replaceChildren();
     $('detail').hidden = true;
   }
 }
@@ -140,6 +200,8 @@ function select(name, choices, optional = false) {
 function operation(title, route, fields, encode) {
   const form = element('form');
   form.className = 'card';
+  form.dataset.panel = { lots: 'inventory', clients: 'sales', reservations: 'pending', sales: 'sales' }[route];
+  form.hidden = form.dataset.panel !== activeModule;
   form.append(element('h2', title));
   for (const [label, field] of fields) {
     const node = element('label', label);
@@ -147,6 +209,7 @@ function operation(title, route, fields, encode) {
     form.append(node);
   }
   const submit = element('button', 'Guardar');
+  submit.className = 'btn btn-primary';
   form.append(submit);
   form.onsubmit = event => {
     event.preventDefault();
@@ -203,11 +266,14 @@ function renderForms() {
 function renderPaymentForm() {
   const form = element('form');
   form.className = 'card';
+  form.dataset.panel = 'cash';
+  form.hidden = activeModule !== 'cash';
   const choices = catalog.sales.map(sale => [sale.id, sale.lot_id + ' · ' + clientName(sale.client_id)]);
   const date = input('date', 'date', today(), { max: today() });
   const rows = element('div');
   const add = button('Añadir otro solar', async () => addRow());
   const submit = element('button', 'Registrar pago');
+  submit.className = 'btn btn-primary';
   const label = (text, field) => {
     const node = element('label', text);
     node.append(field);
@@ -287,6 +353,22 @@ async function refresh() {
   }
   catalog = await api('catalog');
   const { lots, reservations, sales } = catalog;
+  const summary = [
+    ['Solares disponibles', lots.filter(lot => lot.status === 'available').length],
+    ['Solares apartados', lots.filter(lot => lot.status === 'reserved').length],
+    ['Solares vendidos', sales.length],
+    ['Valor de ventas', money(sales.reduce((sum, sale) => sum + sale.price_cents, 0))],
+  ].map(([label, value]) => {
+    const card = element('div');
+    card.className = 'card central-section';
+    const title = element('div', label);
+    title.className = 'stat-label';
+    const amount = element('strong', value);
+    amount.className = 'stat-value';
+    card.append(title, amount);
+    return card;
+  });
+  $('summary').replaceChildren(...summary);
   renderForms();
   table($('lots'), ['Solar', 'Precio', 'Estado'], lots.map(lot => [lot.id, money(lot.price_cents), labels[lot.status]]));
   table($('reservations'), ['Solar', 'Cliente', 'Vence', 'Estado', ''], reservations.map(row => [

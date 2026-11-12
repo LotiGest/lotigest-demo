@@ -50,3 +50,39 @@ test('respaldo incompatible falla antes de importar', () => {
     assert.throws(() => prepareLegacyMigration(data));
   }
 });
+
+test('respaldo ficticio de escala demo concilia todos los solares y saldos', () => {
+  const data = { version: 3, lots: [], clients: [], sales: [], payments: [], reservations: [] };
+  for (let index = 1; index <= 120; index++) {
+    const lotId = 'L-' + index;
+    const clientId = 'C-' + index;
+    const saleId = 'V-' + index;
+    const status = index <= 60 ? 'sold' : index <= 75 ? 'reserved' : 'available';
+    const price = 180000 + index * 10.01;
+    data.lots.push({ id: lotId, status, price: price.toFixed(2) });
+    if (index > 75) continue;
+    data.clients.push({ id: clientId, name: 'Cliente de prueba ' + index });
+    if (status === 'reserved') {
+      data.reservations.push({ id: 'AP-' + index, lotId, clientId, status: 'active', reservedUntil: '2026-11-30' });
+      continue;
+    }
+    const type = index % 2 ? 'cash' : 'credit';
+    const downPayment = type === 'cash' ? price.toFixed(2) : '25000.00';
+    data.sales.push({ id: saleId, lotId, clientId, type, price: price.toFixed(2), downPayment, date: '2026-01-31',
+      months: type === 'cash' ? 0 : 48 });
+    data.payments.unshift({ id: 'R-' + index, saleId, amount: downPayment, date: '2026-01-31' });
+  }
+  const store = openStore(':memory:', () => '2026-11-11');
+  try {
+    const plan = prepareLegacyMigration(JSON.parse(JSON.stringify(data)));
+    assert.deepEqual(store.importLegacy(plan), { lots: 120, clients: 75, sales: 60, payments: 60, reservations: 15 });
+    assert.equal(store.read('lots').length, 0);
+    store.importLegacy(plan, true);
+    const statuses = store.read('lots').map(row => row.status);
+    assert.equal(statuses.filter(status => status === 'reserved').length, 15);
+    assert.equal(statuses.filter(status => status === 'sold').length, 60);
+    for (const sale of plan.sales) assert.equal(store.read('sales', sale.id).balance_cents, sale.balance);
+  } finally {
+    store.close();
+  }
+});

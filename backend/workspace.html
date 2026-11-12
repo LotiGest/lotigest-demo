@@ -4,28 +4,68 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LOTIGEST · Operación multiusuario</title>
+  <link rel="icon" href="/lotigest-icon.webp">
+  <link rel="stylesheet" href="/approved-panel.css">
   <link rel="stylesheet" href="/workspace.css">
   <script type="module" src="/workspace.mjs"></script>
 </head>
 <body>
-  <header><strong>LOTIGEST</strong><span>GRUPO H · Operación multiusuario</span><button id="logout" hidden>Cerrar sesión</button></header>
-  <main>
-    <section id="login" class="card">
-      <h1>Iniciar sesión</h1>
-      <form id="login-form">
+  <section id="login" class="login-page central-login">
+    <div class="login-showcase">
+      <div class="brand-login"><img src="/lotigest-icon.webp" alt=""><span>GRUPO H</span></div>
+      <div class="login-hero"><h1>LOTIGEST</h1><p>Sistema de Gestión de Lotificaciones</p></div>
+    </div>
+    <div class="central-login-content">
+      <form id="login-form" class="login-card card">
+        <h1>Iniciar sesión</h1>
         <label>Credencial de acceso<input name="token" type="password" autocomplete="current-password" required></label>
-        <button>Entrar</button>
+        <button class="btn btn-primary">Entrar</button>
       </form>
-    </section>
-    <section id="workspace" hidden>
-      <div class="toolbar"><h1>Operaciones</h1><span id="actor"></span><button id="refresh">Actualizar</button></div>
-      <div id="forms" class="cards"></div>
-      <section class="card"><h2>Solares</h2><div id="lots"></div></section>
-      <section class="card"><h2>Apartados</h2><div id="reservations"></div></section>
-      <section class="card"><h2>Ventas y recibos</h2><div id="sales"></div></section>
-      <section id="detail" class="card" hidden></section>
-    </section>
-    <p id="status" role="status" aria-live="polite"></p>
-  </main>
+    </div>
+  </section>
+  <div id="workspace" class="shell lotigest-shell" hidden>
+    <aside id="central-sidebar" class="sidebar lotigest-sidebar">
+      <div class="lg-side-head">
+        <div class="lg-company"><div class="lg-company-icon">H</div><div class="lg-side-label">GRUPO <b>H</b><small>Gestión de lotificaciones</small></div></div>
+        <button class="lg-pin" id="pin" aria-label="Fijar barra lateral" aria-pressed="false">♧</button>
+      </div>
+      <div class="lg-side-divider"></div>
+      <nav class="nav-links lg-nav" aria-label="Módulos de operación central">
+        <button class="nav-btn active" data-module="overview" aria-current="page"><span class="nav-symbol" aria-hidden="true">⌂</span><em>Panel principal</em></button>
+        <button class="nav-btn" data-module="inventory"><span class="nav-symbol" aria-hidden="true">▦</span><em>Terrenos / Predios</em></button>
+        <button class="nav-btn" data-module="pending"><span class="nav-symbol" aria-hidden="true">◷</span><em>Apartados</em></button>
+        <button class="nav-btn" data-module="sales"><span class="nav-symbol" aria-hidden="true">▤</span><em>Ventas</em></button>
+        <button class="nav-btn" data-module="cash"><span class="nav-symbol" aria-hidden="true">Ｌ</span><em>Cuotas y pagos</em></button>
+      </nav>
+      <div class="sidebar-spacer"></div>
+      <div class="lg-side-bottom"><div class="lg-product"><img src="/lotigest-icon.webp" alt=""><small>LOTIGEST</small></div></div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar lg-topbar">
+        <div class="lg-top-title">
+          <button class="lg-mobile-menu" id="menu" aria-label="Abrir módulos" aria-controls="central-sidebar" aria-expanded="false">☰</button>
+          <span>GRUPO H / LOTIGEST</span><strong id="module-title">Panel principal</strong>
+        </div>
+        <div class="lg-top-tools">
+          <span id="actor" class="lg-username"></span>
+          <button id="theme" class="lg-iconbtn" aria-label="Cambiar modo claro u oscuro" aria-pressed="false">◐</button>
+          <button id="refresh" class="btn btn-soft">Actualizar</button>
+          <button id="logout" class="btn btn-soft">Cerrar sesión</button>
+        </div>
+      </header>
+      <main class="workspace-inner">
+        <section id="overview" class="central-section" data-panel="overview">
+          <div class="page-head"><div><h1>Panel principal</h1><p>Operación central · GRUPO H</p></div></div>
+          <div id="summary" class="cards-four"></div>
+        </section>
+        <div id="forms" class="cards"></div>
+        <section class="card central-section" data-panel="inventory" hidden><h2>Solares</h2><div id="lots"></div></section>
+        <section class="card central-section" data-panel="pending" hidden><h2>Apartados</h2><div id="reservations"></div></section>
+        <section class="card central-section" data-panel="sales cash" hidden><h2>Ventas y recibos</h2><div id="sales"></div></section>
+        <section id="detail" class="card central-section" hidden></section>
+      </main>
+    </div>
+  </div>
+  <p id="status" role="status" aria-live="polite"></p>
 </body>
 </html>
