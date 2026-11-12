@@ -1,3 +1,4 @@
+import { documentFields, extractDocumentFields } from '/document-fields.mjs';
 import { offlineRoutes, openOperationQueue, synchronizeQueue } from '/offline-queue.mjs';
 import { mapClientRows } from '/client-import.mjs';
 import { buyerCsvRows, readExcelRows } from '/spreadsheet-reader.mjs';
@@ -70,7 +71,10 @@ $('pin').onclick = () => {
   panelPreference('lotigest-v08-pin', String(pinned));
 };
 $('menu').onclick = () => setMenu($('menu').getAttribute('aria-expanded') !== 'true');
-for (const item of navigation) item.onclick = () => showModule(item.dataset.module);
+for (const item of navigation) item.onclick = () => {
+  showModule(item.dataset.module);
+  if (item.dataset.module === 'documents') run(null, loadDocuments);
+};
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && $('menu').getAttribute('aria-expanded') === 'true') {
     setMenu(false);
@@ -96,6 +100,7 @@ function showUser(user) {
   $('workspace').hidden = !user;
   showModule('overview', { focus: false });
   if (user) {
+    navigation.find(item => item.dataset.module === 'documents').hidden = !['admin', 'sales'].includes(user.role);
     $('actor').textContent = user.name + ' · ' + roles[user.role];
     try {
       const saved = JSON.parse(sessionStorage.getItem(pendingKey()));
@@ -104,7 +109,7 @@ function showUser(user) {
   }
   else {
     catalog = pending = undefined;
-    for (const id of ['summary', 'forms', 'lots', 'clients', 'reservations', 'sales', 'detail']) $(id).replaceChildren();
+    for (const id of ['summary', 'forms', 'lots', 'clients', 'reservations', 'sales', 'documents', 'detail']) $(id).replaceChildren();
     $('detail').hidden = true;
     $('offline-status').replaceChildren();
     $('offline-status').hidden = true;
@@ -270,6 +275,7 @@ function select(name, choices, optional = false) {
 function operation(title, route, fields, encode) {
   const form = element('form');
   form.className = 'card';
+  form.dataset.operation = route;
   form.dataset.panel = { lots: 'inventory', clients: 'clients', reservations: 'pending', sales: 'sales' }[route];
   form.hidden = form.dataset.panel !== activeModule;
   form.append(element('h2', title));
@@ -369,10 +375,14 @@ function renderForms() {
   ], data => ({ id: data.id.trim().toUpperCase(), price_cents: cents(data.price) }));
   if (['admin', 'sales'].includes(role)) {
     renderClientImport();
+    renderDocumentScanner();
     operation('Registrar cliente', 'clients', [
       ['Código', input('id', 'text', '', { maxLength: 100 })],
       ['Nombre', input('name', 'text', '', { maxLength: 180 })],
-    ], data => ({ id: data.id.trim().toUpperCase(), name: data.name }));
+      ['Identidad', input('identity', 'text', '', { required: false, maxLength: 32 })],
+      ['Teléfono', input('phone', 'tel', '', { required: false, maxLength: 40 })],
+      ['Dirección', input('address', 'text', '', { required: false, maxLength: 250 })],
+    ], data => ({ ...data, id: data.id.trim().toUpperCase() }));
     if (available.length && clients.length) operation('Apartar solar', 'reservations', [
       ['Solar', select('lot_id', available)], ['Cliente', select('client_id', clients)],
       ['Vence el', input('reserved_until', 'date', today(), { min: today() })],
@@ -386,8 +396,9 @@ function renderForms() {
       const form = operation('Registrar venta', 'sales', [
         ['Solar', lot], ['Cliente', client], ['Fecha', input('date', 'date', today(), { max: today() })],
         ['Meses de crédito (0 para contado)', months], ['Prima en lempiras', down],
+        ['Primera cuota (opcional)', input('first_due_date', 'date', '', { required: false })],
       ], data => ({ lot_id: data.lot_id, client_id: client.value, date: data.date, months: Number(data.months),
-        down_cents: cents(data.down), ...(reservation.value && { reservation_id: reservation.value }) }));
+        down_cents: cents(data.down), ...(data.first_due_date && { first_due_date: data.first_due_date }), ...(reservation.value && { reservation_id: reservation.value }) }));
       form.append(reservation);
       lot.onchange = () => {
         const apart = active.find(item => item.lot_id === lot.value);
@@ -559,3 +570,161 @@ run(null, async () => {
   await refresh();
   await synchronize();
 });
+
+const documentLabels = {
+  name: 'Nombre', identity: 'Identidad', phone: 'Teléfono', address: 'Dirección',
+  residence: 'Residencial', block: 'Bloque', lot: 'Solar', area: 'Medidas',
+  price: 'Precio', down: 'Prima', months: 'Plazo', firstDue: 'Primera cuota',
+  paid: 'Pagado según documento', balance: 'Saldo según documento',
+};
+
+async function loadDocuments() {
+  const documents = await api('documents');
+  table($('documents'), ['Contrato', 'Cliente', 'Fecha', ''], documents.map(row => [
+    row.title, clientName(row.client_id), row.created_at,
+    button('Ver texto', async () => {
+      const record = await api('documents/' + row.id);
+      const detail = $('detail');
+      detail.hidden = false;
+      detail.replaceChildren(element('h2', record.title));
+      record.pages.forEach((page, index) => {
+        detail.append(element('h3', 'Página ' + (index + 1)), element('pre', page));
+      });
+    }),
+  ]));
+}
+
+function renderDocumentScanner() {
+  const form = element('form');
+  form.className = 'card';
+  form.dataset.panel = 'documents';
+  form.hidden = activeModule !== 'documents';
+  const titled = (label, node) => {
+    const container = element('label', label);
+    container.append(node);
+    return container;
+  };
+  const title = input('title', 'text', '', { maxLength: 160 });
+  const client = select('client_id', catalog.clients.map(row => [row.id, row.name + ' · ' + row.id]));
+  const fields = Object.fromEntries(documentFields.map(key => [key, input(key, 'text', '', { required: false, maxLength: 250 })]));
+  const photos = [];
+  const picker = input('image', 'file', '', { required: false, accept: 'image/jpeg,image/png,image/webp', capture: 'environment' });
+  const pages = element('div');
+  const note = element('p', 'Toma o adjunta hasta tres fotos. Revisa el texto y los campos antes de guardar.');
+  const submit = element('button', 'Guardar contrato revisado');
+  submit.className = 'btn btn-primary';
+  submit.disabled = true;
+  picker.onchange = async () => {
+    const file = picker.files[0];
+    picker.value = '';
+    if (!file || photos.length >= 3 || picker.disabled) return;
+    picker.disabled = true;
+    let bitmap;
+    try {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 20 * 1024 * 1024) throw new Error('Selecciona una imagen JPG, PNG o WebP de hasta 20 MiB.');
+      bitmap = await createImageBitmap(file);
+      const canvas = element('canvas');
+      const factor = Math.min(1, 2200 / Math.max(bitmap.width, bitmap.height));
+      canvas.width = Math.max(1, Math.round(bitmap.width * factor));
+      canvas.height = Math.max(1, Math.round(bitmap.height * factor));
+      const context = canvas.getContext('2d');
+      context.fillStyle = 'white';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const image = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (!image) throw new Error('No se pudo preparar la imagen.');
+      const preview = element('img');
+      preview.src = canvas.toDataURL('image/jpeg', 0.72);
+      preview.alt = 'Vista previa de la página';
+      preview.className = 'scan-preview';
+      const editor = element('textarea');
+      editor.required = true;
+      editor.rows = 7;
+      editor.maxLength = 30000;
+      const group = element('fieldset');
+      const page = { group, editor };
+      const remove = button('Quitar página', async () => {
+        photos.splice(photos.indexOf(page), 1);
+        group.remove();
+        picker.disabled = false;
+        submit.disabled = !photos.length;
+      });
+      group.append(preview, titled('Texto revisado', editor), remove);
+      photos.push(page);
+      pages.append(group);
+      submit.disabled = true;
+      note.textContent = 'Leyendo la página…';
+      try {
+        const response = await fetch('/api/v1/document-ocr', { method: 'POST', headers: { 'Content-Type': 'image/png' },
+          body: image, signal: AbortSignal.timeout(25000) });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error);
+        editor.value = body.text;
+        for (const [key, value] of Object.entries(extractDocumentFields(photos.map(row => row.editor.value)))) {
+          if (!fields[key].value) fields[key].value = value.slice(0, 250);
+        }
+        note.textContent = 'Revisa el texto y confirma los campos detectados.';
+      } catch (error) {
+        note.textContent = error.message + ' Puedes transcribir el texto de esta página.';
+      } finally { submit.disabled = !photos.length; }
+    } catch (error) { note.textContent = error.message; }
+    finally { bitmap?.close(); picker.disabled = photos.length >= 3; }
+  };
+  const detect = button('Volver a detectar campos', async () => {
+    const found = extractDocumentFields(photos.map(page => page.editor.value));
+    for (const [key, value] of Object.entries(found)) if (!fields[key].value) fields[key].value = value.slice(0, 250);
+    note.textContent = 'Se completaron los campos vacíos que se pudieron identificar.';
+  });
+  const prepareClient = button('Pasar datos a ficha de cliente', async () => {
+    const target = $('forms').querySelector('[data-operation="clients"]');
+    if (!target) return;
+    for (const key of ['name', 'identity', 'phone', 'address']) target.elements[key].value = fields[key].value;
+    showModule('clients');
+    target.scrollIntoView({ block: 'start' });
+    status('Revisa la ficha del cliente antes de guardarla.');
+  });
+  const prepareSale = button('Preparar venta con datos revisados', async () => {
+    const target = $('forms').querySelector('[data-operation="sales"]');
+    const lot = catalog.lots.find(row => row.id.toUpperCase() === fields.lot.value.trim().toUpperCase());
+    if (!target || !lot || !client.value || !Array.from(target.elements.lot_id.options).some(option => option.value === lot.id)) {
+      throw new Error('Selecciona un cliente existente y un solar disponible o apartado antes de preparar la venta.');
+    }
+    const amount = value => /^\d+(?:\.\d{1,2})?$/.test(value) ? cents(value) : null;
+    const price = amount(fields.price.value.trim());
+    if (fields.price.value.trim() && price !== lot.price_cents) throw new Error('El precio del documento debe coincidir con el precio registrado del solar.');
+    const months = /^\d{1,3}$/.test(fields.months.value.trim()) ? Number(fields.months.value) : NaN;
+    const down = amount(fields.down.value.trim());
+    if (!Number.isInteger(months) || months < 0 || months > 360 || (months && (down == null || down >= lot.price_cents))) {
+      throw new Error('Escribe el plazo como número de meses (0 para contado) y la prima como importe decimal.');
+    }
+    const reservation = catalog.reservations.find(row => row.lot_id === lot.id && row.status === 'active' && row.reserved_until >= today());
+    if (reservation && reservation.client_id !== client.value) throw new Error('El solar está apartado para otro cliente.');
+    target.elements.lot_id.value = lot.id;
+    target.elements.lot_id.dispatchEvent(new Event('change'));
+    target.elements.client_id.value = client.value;
+    target.elements.months.value = months;
+    target.elements.months.dispatchEvent(new Event('input'));
+    target.elements.down.value = months ? down / 100 : 0;
+    target.elements.first_due_date.value = fields.firstDue.value.trim();
+    if (fields.firstDue.value.trim() && !target.elements.first_due_date.value) {
+      throw new Error('Escribe la fecha de la primera cuota como AAAA-MM-DD.');
+    }
+    showModule('sales');
+    target.scrollIntoView({ block: 'start' });
+    status('Revisa la fecha y los datos antes de registrar la venta. Los saldos y pagos del documento quedaron como referencia.');
+  });
+  form.onsubmit = event => {
+    event.preventDefault();
+    if (!photos.length) return;
+    return run(submit, async () => {
+      await mutate('documents', { title: title.value, client_id: client.value,
+        pages: photos.map(page => page.editor.value),
+        fields: Object.fromEntries(documentFields.map(key => [key, fields[key].value])) });
+      await loadDocuments();
+    });
+  };
+  form.append(element('h2', 'Escanear documento'), titled('Cliente existente', client), titled('Título del contrato', title),
+    titled('Fotografiar o adjuntar página', picker), note, pages, detect,
+    ...documentFields.map(key => titled(documentLabels[key], fields[key])), prepareClient, prepareSale, submit);
+  $('forms').append(form);
+}

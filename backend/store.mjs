@@ -1,11 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
+import { documentFields } from './document-fields.mjs';
 
 const schema = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8');
 const roles = {
   lots: ['admin'],
   clients: ['admin', 'sales'],
+  documents: ['admin', 'sales'],
   'client-import': ['admin', 'sales'],
   reservations: ['admin', 'sales'],
   'cancel-reservation': ['admin', 'sales'],
@@ -107,6 +109,7 @@ export function openStore(filename, today = hondurasToday) {
       LEFT JOIN legacy_receipts USING (receipt) WHERE sale_id=? ORDER BY receipt`, sale.id);
     for (const payment of payments) if (payment.legacy_id === null) delete payment.legacy_id;
     const terms = get('SELECT * FROM legacy_sale_terms WHERE sale_id=?', sale.id);
+    const firstDue = terms?.first_due_date || get('SELECT first_due_date FROM sale_due_dates WHERE sale_id=?', sale.id)?.first_due_date;
     const paid = payments.reduce((sum, payment) => sum + payment.amount_cents, terms?.opening_cents ?? 0);
     const principal = sale.price_cents - sale.down_cents;
     const scheduled = sale.months ? Math.floor(principal / sale.months) : 0;
@@ -121,7 +124,7 @@ export function openStore(filename, today = hondurasToday) {
       }
       const covered = Math.min(applied, amount);
       applied -= covered;
-      const due = terms?.first_due_date ? dueDate(terms.first_due_date, index) : dueDate(sale.sale_date, index + 1);
+      const due = firstDue ? dueDate(firstDue, index) : dueDate(sale.sale_date, index + 1);
       const pending = amount - covered;
       return { number: index + 1, due, amount_cents: amount, pending_cents: pending,
         status: pending === 0 ? 'paid' : due < asOf ? 'late' : 'pending' };
@@ -143,7 +146,20 @@ export function openStore(filename, today = hondurasToday) {
     if (amount > sale.price_cents - paid) conflict('El pago supera el saldo.');
     return recordPayment(sale.id, amount, paymentDate, 'installment');
   }
-  function execute(operation, data) {
+  function execute(operation, data, actor) {
+    if (operation === 'documents') {
+      const client = requireRecord('clients', data.client_id);
+      const title = contactText(data.title, 160);
+      if (!title || !Array.isArray(data.pages) || !data.pages.length || data.pages.length > 3) bad('Indica un título y entre una y tres páginas.');
+      const pages = data.pages.map(page => contactText(page, 30000));
+      if (pages.some(page => !page)) bad('Revisa el texto de cada página.');
+      if (!data.fields || typeof data.fields !== 'object' || Array.isArray(data.fields)) bad('Revisa los campos detectados.');
+      const fields = Object.fromEntries(documentFields.map(key => [key, contactText(data.fields[key], 250)]));
+      const id = randomUUID();
+      run('INSERT INTO documents (id,client_id,title,pages_json,fields_json,created_by) VALUES (?,?,?,?,?,?)',
+        id, client.id, title, JSON.stringify(pages), JSON.stringify(fields), actor.name);
+      return { id, client_id: client.id, title };
+    }
     if (operation === 'lots') {
       const id = identifier(data.id);
       if (get('SELECT id FROM lots WHERE id=?', id)) conflict('El solar ya existe.');
@@ -177,10 +193,15 @@ export function openStore(filename, today = hondurasToday) {
     }
     if (operation === 'clients') {
       const id = identifier(data.id);
-      const name = typeof data.name === 'string' ? data.name.trim() : '';
-      if (!name || name.length > 180) bad('Nombre de cliente inválido.');
-      if (get('SELECT id FROM clients WHERE id=?', id)) conflict('El cliente ya existe.');
-      run('INSERT INTO clients VALUES (?,?)', id, name);
+      if (data.identity || data.phone || data.address || data.email) {
+        if (id !== id.toUpperCase()) bad('Usa el código de cliente en mayúsculas.');
+        execute('client-import', { rows: [data] }, actor);
+      } else {
+        const name = contactText(data.name, 180);
+        if (!name) bad('Nombre de cliente inválido.');
+        if (get('SELECT id FROM clients WHERE id=? COLLATE NOCASE', id)) conflict('El cliente ya existe.');
+        run('INSERT INTO clients VALUES (?,?)', id, name);
+      }
       return requireRecord('clients', id);
     }
     if (operation === 'payments') return pay(data, date(data.date));
@@ -225,8 +246,11 @@ export function openStore(filename, today = hondurasToday) {
     const saleDate = date(data.date);
     if (saleDate > current) bad('La fecha de venta no puede ser futura.');
     const months = integer(data.months, 0, 360);
+    const firstDue = data.first_due_date ? date(data.first_due_date) : null;
+    if (firstDue && (!months || firstDue < saleDate)) bad('Revisa la fecha de primera cuota.');
     const down = months ? integer(data.down_cents, 0, lot.price_cents - 1) : lot.price_cents;
     run('INSERT INTO sales VALUES (?,?,?,?,?,?,?,?)', id, lot.id, client.id, active?.id ?? null, lot.price_cents, down, months, saleDate);
+    if (firstDue) run('INSERT INTO sale_due_dates VALUES (?,?)', id, firstDue);
     if (down) recordPayment(id, down, saleDate, months ? 'down' : 'cash');
     if (active) run("UPDATE reservations SET status='converted' WHERE id=?", active.id);
     return saleLedger(requireRecord('sales', id));
@@ -245,7 +269,7 @@ export function openStore(filename, today = hondurasToday) {
         if (existing.fingerprint !== fingerprint) conflict('La clave ya se usó con otra operación.');
         return JSON.parse(existing.response);
       }
-      const result = execute(operation, data);
+      const result = execute(operation, data, actor);
       run('INSERT INTO commands (actor,request_id,fingerprint,response) VALUES (?,?,?,?)', actor.name, key, fingerprint, JSON.stringify(result));
       return result;
     });
@@ -266,6 +290,12 @@ export function openStore(filename, today = hondurasToday) {
   function commandStatus(actor, key) {
     const result = get('SELECT 1 AS saved FROM commands WHERE actor=? AND request_id=?', actor.name, identifier(key));
     return { saved: !!result };
+  }
+  function readDocument(id) {
+    if (!id) return all('SELECT id, client_id, title, created_at FROM documents ORDER BY created_at DESC, id');
+    const row = requireRecord('documents', id);
+    const { pages_json, fields_json, ...metadata } = row;
+    return { ...metadata, pages: JSON.parse(pages_json), fields: JSON.parse(fields_json) };
   }
   function read(resource, id) {
     if (resource === 'catalog' && !id) {
@@ -331,5 +361,5 @@ export function openStore(filename, today = hondurasToday) {
       throw error;
     }
   }
-  return { addUser, authenticate, command, commandStatus, read, importLegacy, close: () => db.close() };
+  return { addUser, authenticate, command, commandStatus, read, readDocument, importLegacy, close: () => db.close() };
 }

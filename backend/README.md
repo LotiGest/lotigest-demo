@@ -168,3 +168,21 @@ usa la misma clave en cada reintento para evitar pagos duplicados.
 El inicio de sesión, la apertura de una nueva pestaña, la importación y las
 consultas de detalle aún requieren Internet. Trabaja con dispositivos
 autorizados, pues la cola local contiene referencias e importes.
+
+## Escanear contratos
+
+En **Contratos**, Administración y Ventas pueden adjuntar hasta tres fotos,
+revisar cada página y guardar el texto con el cliente correspondiente.
+LOTIGEST propone campos cuando encuentra rótulos claros. Los botones para
+preparar una ficha o venta copian campos revisados a los formularios para
+confirmación. El saldo y pagado detectados quedan como referencia documental.
+Las fotos se procesan y se descartan. La base conserva el texto y los campos
+revisados, y el respaldo SQLite incluye los contratos.
+
+Instala el ejecutable `tesseract` y los datos de idioma español en el servidor.
+El idioma predeterminado es `spa`. Si los datos de idioma están en una ruta
+personalizada, define `LOTIGEST_TESSDATA`. La prueba de OCR real admite
+`LOTIGEST_OCR_TEST_FIXTURE` con `spa.traineddata` y tres PNG ficticios
+`page-1.png`, `page-2.png` y `page-3.png`. GitHub Pages sirve el modo
+local; el escáner de ese modo descarga Tesseract.js y el modelo de español
+para ejecutar OCR en el navegador.

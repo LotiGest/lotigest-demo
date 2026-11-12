@@ -68,3 +68,17 @@ CREATE TABLE IF NOT EXISTS client_contacts (
   email TEXT NOT NULL DEFAULT '',
   address TEXT NOT NULL DEFAULT ''
 ) STRICT;
+CREATE TABLE IF NOT EXISTS documents (
+  id TEXT PRIMARY KEY,
+  client_id TEXT NOT NULL REFERENCES clients(id),
+  title TEXT NOT NULL,
+  pages_json TEXT NOT NULL,
+  fields_json TEXT NOT NULL,
+  created_by TEXT NOT NULL REFERENCES users(name),
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+) STRICT;
+CREATE INDEX IF NOT EXISTS documents_by_client ON documents(client_id, created_at);
+CREATE TABLE IF NOT EXISTS sale_due_dates (
+  sale_id TEXT PRIMARY KEY REFERENCES sales(id),
+  first_due_date TEXT NOT NULL
+) STRICT;

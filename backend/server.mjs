@@ -3,6 +3,7 @@ import { createServer as createHttpsServer } from 'node:https';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import { scanDocumentPage } from './document-ocr.mjs';
 import { HttpError, openStore } from './store.mjs';
 
 async function readJson(request, limit = 64 * 1024) {
@@ -46,7 +47,10 @@ assets.set('/client-import.mjs', [readFileSync(new URL('./client-import.mjs', im
 
 assets.set('/offline-queue.mjs', [readFileSync(new URL('./offline-queue.mjs', import.meta.url)), 'text/javascript']);
 
-export function createLotigestServer(store, { tls, secureCookies = !!tls } = {}) {
+assets.set('/document-fields.mjs', [readFileSync(new URL('./document-fields.mjs', import.meta.url)), 'text/javascript']);
+
+export function createLotigestServer(store, { tls, secureCookies = !!tls, ocr } = {}) {
+  let scanning = false;
   const sessions = new Map();
   const sessionCookie = (id, age) => 'lotigest_session=' + id + '; Path=/; HttpOnly; SameSite=Strict; Max-Age=' + age + (secureCookies ? '; Secure' : '');
   const options = { requestTimeout: 15_000 };
@@ -62,7 +66,7 @@ export function createLotigestServer(store, { tls, secureCookies = !!tls } = {})
       if (request.method === 'GET' && asset) {
         response.writeHead(200, { 'Content-Type': asset[1] + '; charset=utf-8',
           'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
-          'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'" });
+          'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'" });
         response.end(asset[0]);
         return;
       }
@@ -100,14 +104,26 @@ export function createLotigestServer(store, { tls, secureCookies = !!tls } = {})
       const match = /^\/api\/v1\/([a-z-]+)(?:\/([A-Za-z0-9_-]+))?$/.exec(path);
       if (!match) throw new HttpError(404, 'Ruta inexistente.');
       const [, resource, id] = match;
+      if (['documents', 'document-ocr'].includes(resource) && !['admin', 'sales'].includes(actor.role)) {
+        throw new HttpError(403, 'El usuario no tiene acceso a contratos.');
+      }
+      if (request.method === 'POST' && resource === 'document-ocr' && !id) {
+        if (!ocr) throw new HttpError(503, 'OCR no configurado.');
+        if (scanning) throw new HttpError(429, 'Hay otra página en proceso. Inténtalo de nuevo.');
+        scanning = true;
+        try { send(200, await scanDocumentPage(request, ocr)); }
+        finally { scanning = false; }
+        return;
+      }
       if (request.method === 'GET') {
         const data = resource === 'me' && !id ? actor :
-          resource === 'command-status' && id ? store.commandStatus(actor, id) : store.read(resource, id);
+          resource === 'command-status' && id ? store.commandStatus(actor, id) :
+          resource === 'documents' ? store.readDocument(id) : store.read(resource, id);
         send(200, data);
         return;
       }
       if (request.method === 'POST' && !id) {
-        const data = await readJson(request, resource === 'client-import' ? 512 * 1024 : undefined);
+        const data = await readJson(request, ['client-import', 'documents'].includes(resource) ? 512 * 1024 : undefined);
         const currentActor = store.authenticate(authorization());
         if (!currentActor) throw new HttpError(401, 'La credencial ya no es válida.');
         const owner = request.headers['lotigest-operation-owner'];
@@ -146,7 +162,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (!!cert !== !!key) throw new Error('Define LOTIGEST_TLS_CERT y LOTIGEST_TLS_KEY juntos.');
     const tls = cert ? { cert: readFileSync(cert), key: readFileSync(key) } : undefined;
     if (!tls && !['127.0.0.1', '::1', 'localhost'].includes(host)) throw new Error('Se requiere TLS para escuchar fuera de loopback.');
-    createLotigestServer(store, { tls, secureCookies: !!tls || process.env.LOTIGEST_SECURE_COOKIES === '1' }).listen(port, host, () => {
+    createLotigestServer(store, { tls, secureCookies: !!tls || process.env.LOTIGEST_SECURE_COOKIES === '1',
+      ocr: { language: process.env.LOTIGEST_OCR_LANGUAGE || 'spa', tessdata: process.env.LOTIGEST_TESSDATA } }).listen(port, host, () => {
       console.log('LOTIGEST en ' + (tls ? 'https://' : 'http://') + host + ':' + port);
     });
   }
