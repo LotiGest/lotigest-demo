@@ -67,3 +67,32 @@ node backend/server.mjs
 El servidor exige TLS para escuchar fuera de loopback. Los perfiles usan sesiones independientes, mantenidas en memoria. Las pruebas automatizadas usan dos sesiones HTTPS, un certificado de prueba y una base desechable. También concilian un respaldo ficticio de 120 solares, 60 ventas y 15 apartados.
 
 Antes de activar el uso real, configura el servidor persistente, verifica el panel en dos navegadores y concilia una copia representativa del respaldo operativo. El modo central cubre la operación comercial. Croquis, OCR, personalización y otros módulos locales requieren una migración aparte.
+
+## Puesta en marcha en Linux
+
+El servicio de ejemplo `backend/deploy/lotigest.service` usa una cuenta de sistema
+`lotigest`, el checkout en `/opt/lotigest`, Node.js 24 en el PATH del servicio y
+una base privada en `/var/lib/lotigest`. Coloca un proxy HTTPS delante del
+servicio y dirige sus solicitudes a `127.0.0.1:8787`. GitHub Pages puede seguir
+sirviendo la versión local por separado.
+
+1. Ejecuta `node --test backend/*.test.mjs` en el checkout que vas a instalar.
+2. Concilia una copia del respaldo local con
+   `node backend/readiness.mjs backup /ruta/privada/respaldo.json`. El comando usa
+   una base temporal en memoria e informa conteos y montos exactos en centavos.
+3. Instala la unidad y crea las cuentas de acceso con el comando `user` descrito
+   arriba. Ejecuta las tareas de base como el usuario del servicio y usa la ruta
+   configurada en la unidad. Guarda la credencial de cada perfil fuera del repositorio.
+4. Valida la instalación con
+   `node backend/readiness.mjs server https://tu-dominio`. Define
+   `LOTIGEST_READER_TOKEN` en el entorno con una credencial de consulta. El
+   comando comprueba la interfaz, los recursos estáticos y el acceso al catálogo
+   sin registrar movimientos.
+5. En una instalación de pruebas y con dos navegadores, inicia sesión con
+   perfiles distintos. Registra un apartado desde uno, conviértelo en venta
+   y confirma que Caja ve la venta tras actualizar. Registra un pago de prueba
+   y verifica el saldo y el recibo desde el otro. Prueba claro y oscuro.
+6. Importa el respaldo operativo a una base vacía después de conciliar los
+   conteos y saldos. Conserva la copia original y toma un respaldo SQLite
+   verificado antes de habilitar la operación. Las pruebas de escritura se
+   realizan con datos ficticios.

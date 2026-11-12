@@ -1,0 +1,24 @@
+[Unit]
+Description=LOTIGEST central
+After=network.target
+
+[Service]
+Type=simple
+User=lotigest
+Group=lotigest
+WorkingDirectory=/opt/lotigest
+Environment=LOTIGEST_DB=/var/lib/lotigest/lotigest.sqlite
+Environment=LOTIGEST_SECURE_COOKIES=1
+StateDirectory=lotigest
+StateDirectoryMode=0700
+UMask=0077
+ExecStart=/usr/bin/env node /opt/lotigest/backend/server.mjs
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target
