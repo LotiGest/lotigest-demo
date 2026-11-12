@@ -44,6 +44,8 @@ if (!excelReader || !csvReader) throw new Error('Faltan los lectores de Excel de
 assets.set('/spreadsheet-reader.mjs', [excelReader + csvReader + '\nexport { readExcelRows, buyerCsvRows };', 'text/javascript']);
 assets.set('/client-import.mjs', [readFileSync(new URL('./client-import.mjs', import.meta.url)), 'text/javascript']);
 
+assets.set('/offline-queue.mjs', [readFileSync(new URL('./offline-queue.mjs', import.meta.url)), 'text/javascript']);
+
 export function createLotigestServer(store, { tls, secureCookies = !!tls } = {}) {
   const sessions = new Map();
   const sessionCookie = (id, age) => 'lotigest_session=' + id + '; Path=/; HttpOnly; SameSite=Strict; Max-Age=' + age + (secureCookies ? '; Secure' : '');
@@ -108,6 +110,8 @@ export function createLotigestServer(store, { tls, secureCookies = !!tls } = {})
         const data = await readJson(request, resource === 'client-import' ? 512 * 1024 : undefined);
         const currentActor = store.authenticate(authorization());
         if (!currentActor) throw new HttpError(401, 'La credencial ya no es válida.');
+        const owner = request.headers['lotigest-operation-owner'];
+        if (owner !== undefined && owner !== currentActor.name) throw new HttpError(401, 'Inicia sesión con el usuario que registró la operación.');
         send(200, store.command(currentActor, resource, request.headers['idempotency-key'], data));
         return;
       }

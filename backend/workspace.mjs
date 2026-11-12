@@ -1,3 +1,4 @@
+import { offlineRoutes, openOperationQueue, synchronizeQueue } from '/offline-queue.mjs';
 import { mapClientRows } from '/client-import.mjs';
 import { buyerCsvRows, readExcelRows } from '/spreadsheet-reader.mjs';
 
@@ -14,6 +15,8 @@ const today = () => {
   return parts.year + '-' + parts.month + '-' + parts.day;
 };
 
+let queue;
+function operationQueue() { return queue ??= openOperationQueue(); }
 let actor, catalog, pending, activeModule = 'overview';
 const navigation = Array.from(document.querySelectorAll('[data-module]'));
 function showModule(name, { focus = true } = {}) {
@@ -103,14 +106,17 @@ function showUser(user) {
     catalog = pending = undefined;
     for (const id of ['summary', 'forms', 'lots', 'clients', 'reservations', 'sales', 'detail']) $(id).replaceChildren();
     $('detail').hidden = true;
+    $('offline-status').replaceChildren();
+    $('offline-status').hidden = true;
   }
 }
-async function api(path, data, key) {
-  const response = await fetch('/api/v1/' + path, data === undefined ? {} : {
+async function api(path, data, key, owner) {
+  const options = data === undefined ? {} : {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(key && { 'Idempotency-Key': key }) },
+    headers: { 'Content-Type': 'application/json', ...(key && { 'Idempotency-Key': key }), ...(owner && { 'Lotigest-Operation-Owner': owner }) },
     body: JSON.stringify(data),
-  });
+  };
+  const response = await fetch('/api/v1/' + path, { ...options, signal: AbortSignal.timeout(12000) });
   const body = await response.json();
   if (!response.ok) throw Object.assign(new Error(body.error), { status: response.status });
   return body;
@@ -139,10 +145,71 @@ function savePending(value) {
     else sessionStorage.removeItem(pendingKey());
   } catch { /* Mantener la clave en memoria si el navegador bloquea el almacenamiento. */ }
 }
+const operationNames = { reservations: 'Apartado', 'cancel-reservation': 'Cancelar apartado', sales: 'Venta',
+  payments: 'Pago', 'payment-batches': 'Cobro agrupado' };
+async function renderQueue() {
+  const box = $('offline-status');
+  if (!actor) return;
+  const items = await operationQueue().list(actor.name);
+  box.replaceChildren();
+  box.hidden = !items.length && navigator.onLine;
+  if (box.hidden) return;
+  box.append(element('strong', navigator.onLine ? 'Operaciones pendientes de sincronizar' : 'Sin conexión'));
+  if (!navigator.onLine) box.append(element('p', 'Puedes consultar los datos cargados y guardar movimientos pendientes. Conserva esta sesión abierta.'));
+  if (!items.length) return;
+  box.append(element('p', items.length + ' operaciones pendientes. Los saldos y estados cambian cuando el servidor confirme.'));
+  const list = element('ul');
+  for (const item of items) {
+    const label = operationNames[item.route] + ' · ' + (item.data.lot_id || item.data.sale_id || item.data.id || item.data.entries.length + ' ventas');
+    const line = element('li', label + (item.conflict ? ' · ' + item.conflict : ' · Pendiente'));
+    if (item.conflict) {
+      line.append(button('Descartar operación rechazada', async () => {
+        if (!confirm('¿Quitar esta operación rechazada de la cola?')) return;
+        await operationQueue().remove(item.sequence);
+        await synchronize();
+      }));
+    }
+    list.append(line);
+  }
+  box.append(list, button('Sincronizar', async () => { await synchronize(); }));
+}
+async function synchronize() {
+  if (!actor) return [];
+  if (!navigator.onLine) {
+    await renderQueue();
+    return [];
+  }
+  const owner = actor.name;
+  const drain = () => synchronizeQueue(operationQueue(), owner, item => api(item.route, item.data, item.key, owner));
+  const result = navigator.locks ? await navigator.locks.request('lotigest-sync-' + owner, drain) : await drain();
+  if (result.confirmed.some(item => item.key === pending?.key)) savePending(undefined);
+  if (result.confirmed.length) {
+    try { await refresh(); } catch { /* El servidor ya confirmó los movimientos. */ }
+    status(result.confirmed.length + ' operaciones confirmadas por el servidor.');
+  }
+  await renderQueue();
+  if (result.sessionRequired) {
+    showUser(null);
+    status('La cola sigue guardada. Inicia sesión con el mismo usuario para sincronizar.');
+  } else if (result.waiting) status('Las operaciones siguen guardadas en este equipo. Se reintentarán cuando el servidor esté disponible.');
+  return result.confirmed;
+}
+
 async function mutate(route, data) {
   const request = new TextEncoder().encode(JSON.stringify([route, data]));
   const bytes = await crypto.subtle.digest('SHA-256', request);
   const fingerprint = Array.from(new Uint8Array(bytes), byte => byte.toString(16).padStart(2, '0')).join('');
+  if (offlineRoutes.has(route)) {
+    const items = await operationQueue().list(actor.name);
+    let item = items.find(candidate => candidate.fingerprint === fingerprint);
+    if (!item) {
+      if (pending && pending.fingerprint !== fingerprint) throw new Error('Actualiza el estado de la operación anterior antes de continuar.');
+      item = await operationQueue().add({ owner: actor.name, route, data, fingerprint, key: pending?.key ?? crypto.randomUUID() });
+    }
+    const results = await synchronize();
+    return results.find(entry => entry.key === item.key)?.result;
+  }
+  if (!navigator.onLine) throw new Error('Esta función requiere conexión. Conéctate para continuar.');
   if (pending && pending.fingerprint !== fingerprint) {
     throw new Error('Hay una operación sin confirmar. Reintenta con los mismos datos antes de iniciar otra.');
   }
@@ -466,17 +533,29 @@ $('login-form').onsubmit = event => {
     form.reset();
     showUser(await api('session', { token }));
     await refresh();
+    await synchronize();
   });
 };
 $('logout').onclick = event => run(event.currentTarget, async () => {
   await api('logout', {});
   showUser(null);
 });
-$('refresh').onclick = event => run(event.currentTarget, refresh);
+$('refresh').onclick = event => run(event.currentTarget, async () => {
+  if (navigator.onLine) await refresh();
+  await synchronize();
+});
+window.addEventListener('online', () => run(null, synchronize));
+window.addEventListener('offline', () => run(null, renderQueue));
+setInterval(() => {
+  if (actor && navigator.onLine) run(null, async () => {
+    if ((await operationQueue().list(actor.name)).length) await synchronize();
+  });
+}, 30_000);
 run(null, async () => {
   try { showUser(await api('me')); } catch (error) {
     if (error.status !== 401) throw error;
     return;
   }
   await refresh();
+  await synchronize();
 });

@@ -150,3 +150,21 @@ El importe histórico se conserva como acumulado inicial. Para conservar
 cada pago antiguo y su folio se requiere el historial desglosado y el proceso
 de migración JSON. La pantalla de importación de clientes sigue destinada a
 fichas de contacto. Prueba la cartera en una copia antes del corte operativo.
+
+## Operación durante un corte de Internet
+
+Abre LOTIGEST e inicia sesión mientras haya conexión. Con la sesión abierta
+puedes consultar el catálogo ya cargado y dejar en cola apartados,
+cancelaciones, ventas y cobros para registros existentes. La cola se guarda
+en IndexedDB por usuario y vuelve a intentarse al recuperar conexión o al
+pulsar **Sincronizar**. Si cierras la pestaña, al volver a entrar con Internet
+y con el mismo usuario se recuperan los pendientes.
+
+El catálogo muestra el último estado confirmado. Las ventas, saldos y recibos
+cambian cuando el servidor acepta la operación. Si un solar ya se vendió en
+otro equipo, el conflicto aparece en la cola para revisión. El servidor
+usa la misma clave en cada reintento para evitar pagos duplicados.
+
+El inicio de sesión, la apertura de una nueva pestaña, la importación y las
+consultas de detalle aún requieren Internet. Trabaja con dispositivos
+autorizados, pues la cola local contiene referencias e importes.
