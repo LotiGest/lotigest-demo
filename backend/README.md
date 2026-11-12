@@ -121,3 +121,32 @@ de importación y conciliación.
 | Residenciales, mapas y croquis | Implementación en el HTML local | Integración central y pruebas funcionales |
 | Contratos y OCR | Implementación en el HTML local | Integración central y pruebas con documentos ficticios |
 | Finanzas, reportes y configuración | Implementación en el HTML local | Integración central y pruebas funcionales |
+
+## Migrar una cartera completa desde Excel
+
+Esta herramienta de instalación importa ventas históricas y fichas de clientes
+en una base central vacía. Exporta la hoja como CSV UTF-8 separado por punto y
+coma. Usa una fila por venta y estos encabezados:
+
+```text
+cliente;nombre;identidad;direccion;telefono;solar;venta;modalidad;fecha_venta;primera_cuota;precio;prima;plazo_meses;pagado_acumulado;saldo
+```
+
+Usa fechas AAAA-MM-DD, importes con punto decimal, y texto para identidades,
+teléfonos y códigos. Modalidad admite contado o crédito. El pagado acumulado
+incluye la prima. Para contado, usa prima y pagado iguales al precio, plazo
+cero y saldo cero. Para crédito, indica el plazo y, si existe, la fecha
+de primera cuota. Una persona con varios solares usa el mismo código de cliente
+y los mismos datos de contacto.
+
+```bash
+node backend/portfolio-import.mjs /ruta/privada/cartera.csv
+LOTIGEST_DB=/ruta/privada/base-vacia.sqlite node backend/portfolio-import.mjs /ruta/privada/cartera.csv --apply
+```
+
+El primer comando valida y revierte la importación en memoria. El segundo
+confirma una transacción si la cartera concilia y la base está vacía.
+El importe histórico se conserva como acumulado inicial. Para conservar
+cada pago antiguo y su folio se requiere el historial desglosado y el proceso
+de migración JSON. La pantalla de importación de clientes sigue destinada a
+fichas de contacto. Prueba la cartera en una copia antes del corte operativo.

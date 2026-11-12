@@ -30,9 +30,19 @@ export function prepareLegacyMigration(data) {
     if (!['available', 'reserved', 'sold'].includes(lot.status)) fail('Estado de solar sin equivalencia: ' + lot.id);
     plan.lots.push({ id: lot.id, price: cents(lot.price, 1) });
   }
+  const identities = new Set();
   for (const client of clients.values()) {
     if (typeof client.name !== 'string' || !client.name.trim() || client.name.length > 180) fail('Nombre de cliente inválido: ' + client.id);
-    plan.clients.push({ id: client.id, name: client.name.trim() });
+    const contact = (value, limit) => {
+      if (value == null) return '';
+      if (typeof value !== 'string' || value.trim().length > limit) fail('Dato de contacto inválido para ' + client.id);
+      return value.trim();
+    };
+    const identity = contact(client.identity, 32).toUpperCase().replace(/[ -]/g, '');
+    if (identity && (!/^[A-Z0-9]+$/.test(identity) || identities.has(identity))) fail('Identidad inválida o duplicada: ' + client.id);
+    if (identity) identities.add(identity);
+    plan.clients.push({ id: client.id, name: client.name.trim(), identity,
+      phone: contact(client.phone, 40), email: contact(client.email, 180), address: contact(client.address, 250) });
   }
   for (const sale of sales.values()) {
     if (!lots.has(sale.lotId) || !clients.has(sale.clientId) || salesByLot.has(sale.lotId)) fail('Venta duplicada o sin referencia: ' + sale.id);

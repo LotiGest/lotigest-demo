@@ -389,7 +389,9 @@ async function showSale(id) {
   const section = $('detail');
   section.hidden = false;
   section.replaceChildren(element('h2', 'Venta · ' + sale.lot_id),
-    element('p', clientName(sale.client_id) + ' · Saldo ' + money(sale.balance_cents) + ' · Mora ' + money(sale.overdue_cents)));
+    element('p', clientName(sale.client_id) + ' · Saldo ' + money(sale.balance_cents) + ' · Mora ' + money(sale.overdue_cents)),
+    element('p', 'Precio ' + money(sale.price_cents) + ' · Prima pactada ' + money(sale.down_cents) + ' · Total pagado ' + money(sale.paid_cents)));
+  if (sale.opening_cents) section.append(element('p', 'Pagado antes de la migración: ' + money(sale.opening_cents)));
   const schedule = element('div'), payments = element('div');
   table(schedule, ['Cuota', 'Vence', 'Importe', 'Pendiente', 'Estado'], sale.installments.map(row =>
     [row.number, row.due, money(row.amount_cents), money(row.pending_cents), labels[row.status]]));

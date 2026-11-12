@@ -126,7 +126,7 @@ export function openStore(filename, today = hondurasToday) {
       return { number: index + 1, due, amount_cents: amount, pending_cents: pending,
         status: pending === 0 ? 'paid' : due < asOf ? 'late' : 'pending' };
     });
-    return { ...sale, payments, installments, paid_cents: paid, balance_cents: sale.price_cents - paid,
+    return { ...sale, payments, installments, opening_cents: terms?.opening_cents ?? 0, paid_cents: paid, balance_cents: sale.price_cents - paid,
       overdue_cents: installments.filter(item => item.status === 'late').reduce((sum, item) => sum + item.pending_cents, 0) };
   }
   function recordPayment(saleId, amount, paymentDate, kind) {
@@ -305,7 +305,12 @@ export function openStore(filename, today = hondurasToday) {
         conflict('La migración requiere una base comercial vacía.');
       }
       for (const lot of plan.lots) run('INSERT INTO lots VALUES (?,?)', lot.id, lot.price);
-      for (const client of plan.clients) run('INSERT INTO clients VALUES (?,?)', client.id, client.name);
+      for (const client of plan.clients) {
+        run('INSERT INTO clients VALUES (?,?)', client.id, client.name);
+        if (client.identity || client.phone || client.email || client.address) {
+          run('INSERT INTO client_contacts VALUES (?,?,?,?,?)', client.id, client.identity || null, client.phone, client.email, client.address);
+        }
+      }
       for (const res of plan.reservations) run('INSERT INTO reservations VALUES (?,?,?,?,?)', res.id, res.lotId, res.clientId, res.until, res.status);
       for (const sale of plan.sales) {
         run('INSERT INTO sales VALUES (?,?,?,?,?,?,?,?)', sale.id, sale.lotId, sale.clientId, sale.reservationId, sale.price, sale.down, sale.months, sale.date);
