@@ -21,6 +21,7 @@ function operationQueue() { return queue ??= openOperationQueue(); }
 let actor, catalog, pending, activeModule = 'overview';
 const navigation = Array.from(document.querySelectorAll('[data-module]'));
 function showModule(name, { focus = true } = {}) {
+  if (actor && !canUse(name, true)) { status('Tu usuario no tiene acceso a este panel.'); return; }
   activeModule = name;
   for (const item of navigation) {
     const active = item.dataset.module === name;
@@ -74,6 +75,7 @@ $('menu').onclick = () => setMenu($('menu').getAttribute('aria-expanded') !== 't
 for (const item of navigation) item.onclick = () => {
   showModule(item.dataset.module);
   if (item.dataset.module === 'documents') run(null, loadDocuments);
+  if (item.dataset.module === 'settings') run(null, loadSettings);
 };
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && $('menu').getAttribute('aria-expanded') === 'true') {
@@ -94,14 +96,28 @@ function button(label, action) {
   return node;
 }
 function status(message = '') { $('status').textContent = message; }
+function canUse(panel, legacy = true) {
+  return actor?.role === 'admin' || (actor?.panels ? actor.panels.includes(panel) : legacy);
+}
 function showUser(user) {
   actor = user;
   $('login').hidden = !!user;
   $('workspace').hidden = !user;
   showModule('overview', { focus: false });
   if (user) {
-    navigation.find(item => item.dataset.module === 'documents').hidden = !['admin', 'sales'].includes(user.role);
-    $('actor').textContent = user.name + ' · ' + roles[user.role];
+    for (const item of navigation) {
+      const panel = item.dataset.module;
+      item.hidden = panel === 'settings' ? user.role !== 'admin' :
+        !canUse(panel, panel !== 'documents' || user.role === 'sales');
+    }
+    const initial = navigation.find(item => !item.hidden);
+    if (initial) showModule(initial.dataset.module, { focus: false });
+    else {
+      activeModule = '';
+      for (const item of document.querySelectorAll('[data-panel]')) item.hidden = true;
+      status('Tu usuario todavía no tiene paneles asignados.');
+    }
+    $('actor').textContent = user.name + ' · ' + (user.panels ? 'Normal' : roles[user.role]);
     try {
       const saved = JSON.parse(sessionStorage.getItem(pendingKey()));
       pending = saved && typeof saved.key === 'string' && typeof saved.fingerprint === 'string' ? saved : undefined;
@@ -369,13 +385,14 @@ function renderForms() {
   const lots = catalog.lots.filter(lot => ['available', 'reserved'].includes(lot.status));
   const available = lots.filter(lot => lot.status === 'available').map(lot => [lot.id, lot.id]);
   const active = catalog.reservations.filter(res => res.status === 'active' && res.reserved_until >= today());
-  if (role === 'admin') operation('Registrar solar', 'lots', [
+  if (canUse('inventory', false)) operation('Registrar solar', 'lots', [
     ['Código', input('id', 'text', '', { maxLength: 100 })],
     ['Precio en lempiras', input('price', 'number', '', { step: '.01', min: '.01' })],
   ], data => ({ id: data.id.trim().toUpperCase(), price_cents: cents(data.price) }));
-  if (['admin', 'sales'].includes(role)) {
+  if (canUse('documents', role === 'sales')) renderDocumentScanner();
+  if (role === 'admin') renderUserSettings();
+  if (canUse('clients', role === 'sales')) {
     renderClientImport();
-    renderDocumentScanner();
     operation('Registrar cliente', 'clients', [
       ['Código', input('id', 'text', '', { maxLength: 100 })],
       ['Nombre', input('name', 'text', '', { maxLength: 180 })],
@@ -383,11 +400,12 @@ function renderForms() {
       ['Teléfono', input('phone', 'tel', '', { required: false, maxLength: 40 })],
       ['Dirección', input('address', 'text', '', { required: false, maxLength: 250 })],
     ], data => ({ ...data, id: data.id.trim().toUpperCase() }));
-    if (available.length && clients.length) operation('Apartar solar', 'reservations', [
+  }
+  if (canUse('pending', role === 'sales') && available.length && clients.length) operation('Apartar solar', 'reservations', [
       ['Solar', select('lot_id', available)], ['Cliente', select('client_id', clients)],
       ['Vence el', input('reserved_until', 'date', today(), { min: today() })],
     ], data => data);
-    if (lots.length && clients.length) {
+    if (canUse('sales', role === 'sales') && lots.length && clients.length) {
       const lot = select('lot_id', lots.map(item => [item.id, item.id]));
       const client = select('client_id', clients);
       const reservation = input('reservation_id', 'hidden', '', { required: false });
@@ -409,8 +427,7 @@ function renderForms() {
       months.oninput = () => { down.readOnly = Number(months.value) === 0; };
       months.oninput();
     }
-  }
-  if (['admin', 'cashier'].includes(role) && catalog.sales.length) renderPaymentForm();
+  if (canUse('cash', role === 'cashier') && catalog.sales.length) renderPaymentForm();
 }
 function renderPaymentForm() {
   const form = element('form');
@@ -474,8 +491,10 @@ async function showSale(id) {
   table(schedule, ['Cuota', 'Vence', 'Importe', 'Pendiente', 'Estado'], sale.installments.map(row =>
     [row.number, row.due, money(row.amount_cents), money(row.pending_cents), labels[row.status]]));
   table(payments, ['Recibo', 'Fecha', 'Importe', ''], sale.payments.map(row =>
-    [row.receipt, row.payment_date, money(row.amount_cents), button('Ver recibo', () => showReceipt(row.receipt))]));
+    [row.receipt, row.payment_date, money(row.amount_cents), canUse('cash') ? button('Ver recibo', () => showReceipt(row.receipt)) : '']));
   section.append(element('h3', 'Cuotas'), schedule, element('h3', 'Pagos'), payments);
+  if (actor.role === 'admin') section.append(button('Anular venta y liberar solar', () =>
+    administrativeRemoval('release-sale', sale.id, 'Se liberará el solar y se retirarán sus cuotas y cobros del registro activo. La operación quedará archivada.')));
   section.scrollIntoView({ block: 'start' });
 }
 async function showReceipt(number) {
@@ -490,6 +509,8 @@ async function showReceipt(number) {
     element('p', 'Fecha: ' + first.payment_date), lines,
     element('p', 'Total recibido: ' + money(rows.reduce((sum, row) => sum + row.amount_cents, 0))),
     button('Imprimir o guardar PDF', () => window.print()), button('Ver venta', () => showSale(first.sale_id)));
+  if (actor.role === 'admin') section.append(button('Anular cobro', () =>
+    administrativeRemoval('void-payment', String(first.receipt), 'Se anulará el recibo completo y se recalculará el saldo.')));
   section.scrollIntoView({ block: 'start' });
 }
 async function refresh() {
@@ -526,14 +547,14 @@ async function refresh() {
   table($('lots'), ['Solar', 'Precio', 'Estado'], lots.map(lot => [lot.id, money(lot.price_cents), labels[lot.status]]));
   table($('reservations'), ['Solar', 'Cliente', 'Vence', 'Estado', ''], reservations.map(row => [
     row.lot_id, clientName(row.client_id), row.reserved_until, labels[row.status],
-    row.status === 'active' && row.reserved_until >= today() && ['admin', 'sales'].includes(actor.role)
+    row.status === 'active' && row.reserved_until >= today() && canUse('pending', actor.role === 'sales')
       ? button('Cancelar apartado', () => {
         if (window.confirm('¿Cancelar el apartado de ' + row.lot_id + '?')) return mutate('cancel-reservation', { id: row.id });
       }) : '',
   ]));
   table($('sales'), ['Solar', 'Cliente', 'Fecha', 'Precio', ''], sales.map(sale => [
     sale.lot_id, clientName(sale.client_id), sale.sale_date, money(sale.price_cents),
-    button('Ver cuotas y recibos', () => showSale(sale.id)),
+    sale.id ? button('Ver cuotas y recibos', () => showSale(sale.id)) : '',
   ]));
 }
 $('login-form').onsubmit = event => {
@@ -727,4 +748,72 @@ function renderDocumentScanner() {
     titled('Fotografiar o adjuntar página', picker), note, pages, detect,
     ...documentFields.map(key => titled(documentLabels[key], fields[key])), prepareClient, prepareSale, submit);
   $('forms').append(form);
+}
+
+async function administrativeRemoval(route, id, warning) {
+  const reason = window.prompt(warning + '\nMotivo obligatorio:');
+  if (!reason?.trim()) return;
+  const result = await mutate(route, { id, reason });
+  if (result) $('detail').hidden = true;
+}
+
+function renderUserSettings() {
+  const name = input('name', 'text', '', { maxLength: 100 });
+  const role = select('role', [['normal','Normal'],['admin','Administrador']]);
+  role.value = 'normal';
+  const list = element('fieldset');
+  const checks = navigation.filter(item => item.dataset.module !== 'settings').map(item => {
+    const check = input('panel', 'checkbox', item.dataset.module, { required: false });
+    const label = element('label', item.querySelector('em').textContent);
+    label.prepend(check);
+    list.append(label);
+    return check;
+  });
+  role.onchange = () => { list.hidden = role.value === 'admin'; };
+  const form = element('form');
+  form.className = 'card';
+  form.dataset.panel = 'settings';
+  form.hidden = activeModule !== 'settings';
+  for (const [text, field] of [['Usuario nuevo o existente', name], ['Tipo de usuario', role]]) {
+    const label = element('label', text);
+    label.append(field);
+    form.append(label);
+  }
+  const rotate = input('rotate', 'checkbox', 'yes', { required: false });
+  const rotateLabel = element('label', 'Generar o reemplazar la credencial de acceso');
+  rotateLabel.prepend(rotate);
+  const submit = element('button', 'Guardar usuario');
+  submit.className = 'btn btn-primary';
+  form.prepend(element('h2', 'Usuarios y permisos'));
+  form.append(list, rotateLabel, submit);
+  form.onsubmit = event => {
+    event.preventDefault();
+    return run(submit, async () => {
+      const token = rotate.checked ? Array.from(crypto.getRandomValues(new Uint8Array(32)), byte => byte.toString(16).padStart(2,'0')).join('') : undefined;
+      try {
+        const result = await api('manage-user', { name: name.value.trim(), role: role.value,
+          panels: checks.filter(check => check.checked).map(check => check.value), ...(token && { token }) }, crypto.randomUUID());
+        status('Usuario guardado: ' + result.name);
+        if (token) window.prompt('Copia la credencial y entrégala al usuario por un medio privado.', token);
+      } catch (error) {
+        if (token && !error.status) window.prompt('No se confirmó el cambio. Conserva esta credencial para comprobar el acceso.', token);
+        throw error;
+      }
+      await loadSettings();
+    });
+  };
+  $('forms').append(form);
+}
+async function loadSettings() {
+  const [users, log] = await Promise.all([api('users'), api('removal-log')]);
+  const output = $('removal-log');
+  table(output, ['Fecha UTC', 'Administrador', 'Acción', 'Referencia', 'Motivo', 'Detalle'], log.map(row =>
+    [row.created_at, row.actor, row.action === 'release-sale' ? 'Anular venta y liberar solar' : 'Anular cobro', row.target, row.reason, button('Ver datos archivados', async () => {
+      const record = await api('removal-log/' + row.id);
+      $('detail').replaceChildren(element('h2', 'Registro de anulación'), element('pre', JSON.stringify(record.snapshot, null, 2)));
+      $('detail').hidden = false;
+      $('detail').scrollIntoView({ block: 'start' });
+    })]));
+  output.prepend(element('h3', 'Usuarios actuales'), element('p', users.map(row =>
+    row.name + ' (' + (row.panels ? row.panels.map(panel => navigation.find(item => item.dataset.module === panel)?.textContent.trim()).join(', ') || 'sin paneles' : roles[row.role]) + ')').join(' · ')));
 }

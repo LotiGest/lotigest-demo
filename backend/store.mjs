@@ -15,6 +15,12 @@ const roles = {
   payments: ['admin', 'cashier'],
   'payment-batches': ['admin', 'cashier'],
 };
+const panels = ['overview','inventory','pending','clients','sales','documents','cash'];
+const writePanel = { lots:'inventory', clients:'clients', 'client-import':'clients', reservations:'pending',
+  'cancel-reservation':'pending', sales:'sales', documents:'documents', payments:'cash', 'payment-batches':'cash' };
+const readPanel = { lots:'inventory', clients:'clients', reservations:'pending', sales:'sales', documents:'documents',
+  'document-ocr':'documents', receipts:'cash', 'receipt-details':'cash' };
+for (const name of ['manage-user','release-sale','void-payment']) roles[name] = ['admin'];
 const digest = value => createHash('sha256').update(value).digest('hex');
 function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
@@ -94,10 +100,15 @@ export function openStore(filename, today = hondurasToday) {
       bad('Rol o token inválido.');
     }
     run('INSERT INTO users VALUES (?,?,?) ON CONFLICT(name) DO UPDATE SET role=excluded.role,token_hash=excluded.token_hash', name, role, digest(token));
+    if (role === 'admin') run('DELETE FROM user_panels WHERE name=?', name);
   }
   function authenticate(header) {
     const token = typeof header === 'string' && /^Bearer ([a-f0-9]{64})$/.exec(header)?.[1];
-    return token ? get('SELECT name,role FROM users WHERE token_hash=?', digest(token)) : undefined;
+    if (!token) return;
+    const user = get('SELECT users.name,role,panels_json FROM users LEFT JOIN user_panels USING(name) WHERE token_hash=?', digest(token));
+    if (!user) return;
+    const { panels_json, ...actor } = user;
+    return panels_json ? { ...actor, panels: JSON.parse(panels_json) } : actor;
   }
   function requireRecord(table, id) {
     const row = get('SELECT * FROM ' + table + ' WHERE id=?', identifier(id));
@@ -106,7 +117,7 @@ export function openStore(filename, today = hondurasToday) {
   }
   function saleLedger(sale, asOf = today()) {
     const payments = all(`SELECT payments.*,legacy_receipts.legacy_id FROM payments
-      LEFT JOIN legacy_receipts USING (receipt) WHERE sale_id=? ORDER BY receipt`, sale.id);
+      LEFT JOIN legacy_receipts USING (receipt) WHERE sale_id=? AND receipt NOT IN (SELECT receipt FROM void_payments) ORDER BY receipt`, sale.id);
     for (const payment of payments) if (payment.legacy_id === null) delete payment.legacy_id;
     const terms = get('SELECT * FROM legacy_sale_terms WHERE sale_id=?', sale.id);
     const firstDue = terms?.first_due_date || get('SELECT first_due_date FROM sale_due_dates WHERE sale_id=?', sale.id)?.first_due_date;
@@ -141,12 +152,60 @@ export function openStore(filename, today = hondurasToday) {
     const sale = requireRecord('sales', data.sale_id);
     if (paymentDate < sale.sale_date || paymentDate > today()) bad('Fecha de pago fuera del período válido.');
     const amount = integer(data.amount_cents, 1);
-    const paid = get(`SELECT COALESCE((SELECT SUM(amount_cents) FROM payments WHERE sale_id=?),0)
+    const paid = get(`SELECT COALESCE((SELECT SUM(amount_cents) FROM payments WHERE sale_id=? AND receipt NOT IN (SELECT receipt FROM void_payments)),0)
       + COALESCE((SELECT opening_cents FROM legacy_sale_terms WHERE sale_id=?),0) AS cents`, sale.id, sale.id).cents;
     if (amount > sale.price_cents - paid) conflict('El pago supera el saldo.');
     return recordPayment(sale.id, amount, paymentDate, 'installment');
   }
   function execute(operation, data, actor) {
+    if (operation === 'manage-user') {
+      const name = identifier(data.name);
+      if (name === actor.name) bad('No puedes cambiar tu propio usuario aquí.');
+      if (!['admin','normal'].includes(data.role) || !Array.isArray(data.panels) ||
+          data.panels.some(panel => !panels.includes(panel))) bad('Revisa el tipo de usuario y sus paneles.');
+      const existing = get('SELECT name FROM users WHERE name=?', name);
+      const role = data.role === 'admin' ? 'admin' : 'reader';
+      if (data.token) addUser(name, role, data.token);
+      else if (existing) run('UPDATE users SET role=? WHERE name=?', role, name);
+      else bad('Genera una credencial para el usuario nuevo.');
+      if (role === 'admin') run('DELETE FROM user_panels WHERE name=?', name);
+      else run('INSERT INTO user_panels VALUES (?,?) ON CONFLICT(name) DO UPDATE SET panels_json=excluded.panels_json',
+        name, JSON.stringify([...new Set(data.panels)]));
+      return { name, role: data.role };
+    }
+    if (operation === 'release-sale' || operation === 'void-payment') {
+      const reason = contactText(data.reason, 250);
+      if (!reason) bad('Indica el motivo.');
+      let snapshot;
+      if (operation === 'release-sale') {
+        const sale = requireRecord('sales', data.id);
+        const payments = all('SELECT * FROM payments WHERE sale_id=?', sale.id);
+        snapshot = { sale, payments, ledger: saleLedger(sale),
+          reservation: sale.reservation_id ? requireRecord('reservations', sale.reservation_id) : null,
+          due: get('SELECT * FROM sale_due_dates WHERE sale_id=?', sale.id),
+          terms: get('SELECT * FROM legacy_sale_terms WHERE sale_id=?', sale.id),
+          receipt_links: all('SELECT receipt, legacy_id, group_id, void_payments.receipt IS NOT NULL AS voided FROM payments LEFT JOIN legacy_receipts USING(receipt) LEFT JOIN payment_groups USING(receipt) LEFT JOIN void_payments USING(receipt) WHERE sale_id=?', sale.id) };
+        if (snapshot.receipt_links.some(link => link.group_id &&
+            get('SELECT 1 FROM payment_groups JOIN payments USING(receipt) WHERE group_id=? AND sale_id<>?', link.group_id, sale.id))) {
+          conflict('La venta tiene un recibo compartido con otro solar. Requiere conciliación administrativa.');
+        }
+        for (const table of ['void_payments','legacy_receipts','payment_groups']) {
+          run('DELETE FROM ' + table + ' WHERE receipt IN (SELECT receipt FROM payments WHERE sale_id=?)', sale.id);
+        }
+        for (const table of ['payments','legacy_sale_terms','sale_due_dates']) run('DELETE FROM ' + table + ' WHERE sale_id=?', sale.id);
+        run('DELETE FROM sales WHERE id=?', sale.id);
+      } else {
+        const receipt = read('receipts', data.id);
+        const group = get('SELECT group_id FROM payment_groups WHERE receipt=?', receipt.receipt);
+        snapshot = group ? all('SELECT payments.* FROM payment_groups JOIN payments USING(receipt) WHERE group_id=?', group.group_id) : [receipt];
+        if (snapshot.some(item => item.kind !== 'installment')) conflict('Para revertir la prima o una compra de contado, usa Anular venta.');
+        if (snapshot.some(item => get('SELECT 1 FROM void_payments WHERE receipt=?', item.receipt))) conflict('El recibo ya está anulado.');
+        for (const item of snapshot) run('INSERT INTO void_payments VALUES (?)', item.receipt);
+      }
+      run('INSERT INTO removal_log (actor,action,target,reason,snapshot_json) VALUES (?,?,?,?,?)', actor.name, operation,
+        String(data.id), reason, JSON.stringify(snapshot));
+      return { id: data.id };
+    }
     if (operation === 'documents') {
       const client = requireRecord('clients', data.client_id);
       const title = contactText(data.title, 160);
@@ -257,7 +316,7 @@ export function openStore(filename, today = hondurasToday) {
   }
   function command(actor, operation, key, data) {
     if (!Object.hasOwn(roles, operation)) throw new HttpError(404, 'Operación inexistente.');
-    if (!roles[operation].includes(actor.role)) throw new HttpError(403, 'El usuario no tiene permiso.');
+    if (!(actor.role === 'admin' || (actor.panels ? actor.panels.includes(writePanel[operation]) : roles[operation].includes(actor.role)))) throw new HttpError(403, 'El usuario no tiene permiso.');
     identifier(key);
     if (!data || typeof data !== 'object' || Array.isArray(data)) bad('Se requiere un objeto JSON.');
     const normalized = ['payment-batches', 'client-import'].includes(operation) ? canonical(data) :
@@ -291,6 +350,36 @@ export function openStore(filename, today = hondurasToday) {
     const result = get('SELECT 1 AS saved FROM commands WHERE actor=? AND request_id=?', actor.name, identifier(key));
     return { saved: !!result };
   }
+  function readFor(actor, resource, id) {
+    if (['users','removal-log'].includes(resource)) {
+      if (actor.role !== 'admin') throw new HttpError(403, 'El usuario no tiene permiso.');
+      if (id && resource === 'removal-log') {
+        const event = get('SELECT * FROM removal_log WHERE id=?', integer(Number(id), 1));
+        if (!event) throw new HttpError(404, 'Registro no encontrado.');
+        const { snapshot_json, ...metadata } = event;
+        return { ...metadata, snapshot: JSON.parse(snapshot_json) };
+      }
+      if (id) throw new HttpError(404, 'Registro no encontrado.');
+      return resource === 'users' ? all('SELECT users.name,role,panels_json FROM users LEFT JOIN user_panels USING(name) ORDER BY name').map(row =>
+        ({ name: row.name, role: row.role, panels: row.panels_json ? JSON.parse(row.panels_json) : null })) :
+        all('SELECT id,actor,action,target,reason,created_at FROM removal_log ORDER BY id DESC');
+    }
+    if (resource === 'catalog' && !id && actor.panels) {
+      const rights = actor.panels;
+      const any = (...names) => names.some(name => rights.includes(name));
+      const catalog = read('catalog');
+      return {
+        lots: any('inventory','pending','sales') ? catalog.lots : rights.includes('overview') ? catalog.lots.map(({status}) => ({status})) : [],
+        clients: rights.includes('clients') ? catalog.clients : any('pending','sales','cash','documents') ? catalog.clients.map(({id,name}) => ({id,name})) : [],
+        reservations: any('pending','sales') ? catalog.reservations : [],
+        sales: any('sales','cash') ? catalog.sales : rights.includes('overview') ? catalog.sales.map(({price_cents}) => ({price_cents})) : [],
+      };
+    }
+    if (actor.panels && !(actor.panels.includes(readPanel[resource]) || resource === 'sales' && id && actor.panels.includes('cash'))) {
+      throw new HttpError(403, 'El usuario no tiene permiso para este panel.');
+    }
+    return resource === 'documents' ? readDocument(id) : read(resource, id);
+  }
   function readDocument(id) {
     if (!id) return all('SELECT id, client_id, title, created_at FROM documents ORDER BY created_at DESC, id');
     const row = requireRecord('documents', id);
@@ -313,6 +402,7 @@ export function openStore(filename, today = hondurasToday) {
     if (resource === 'sales' && id) return saleLedger(requireRecord('sales', id));
     if (resource === 'receipts' && id) {
       const receipt = get('SELECT payments.*,legacy_receipts.legacy_id FROM payments LEFT JOIN legacy_receipts USING (receipt) WHERE receipt=?', integer(Number(id), 1));
+      if (receipt && get('SELECT 1 FROM void_payments WHERE receipt=?', receipt.receipt)) conflict('El recibo está anulado.');
       if (!receipt) throw new HttpError(404, 'Recibo no encontrado.');
       if (receipt.legacy_id === null) delete receipt.legacy_id;
       return receipt;
@@ -361,5 +451,5 @@ export function openStore(filename, today = hondurasToday) {
       throw error;
     }
   }
-  return { addUser, authenticate, command, commandStatus, read, readDocument, importLegacy, close: () => db.close() };
+  return { addUser, authenticate, command, commandStatus, read, readFor, readDocument, importLegacy, close: () => db.close() };
 }

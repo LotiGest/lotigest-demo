@@ -104,7 +104,7 @@ export function createLotigestServer(store, { tls, secureCookies = !!tls, ocr } 
       const match = /^\/api\/v1\/([a-z-]+)(?:\/([A-Za-z0-9_-]+))?$/.exec(path);
       if (!match) throw new HttpError(404, 'Ruta inexistente.');
       const [, resource, id] = match;
-      if (['documents', 'document-ocr'].includes(resource) && !['admin', 'sales'].includes(actor.role)) {
+      if (['documents', 'document-ocr'].includes(resource) && !(actor.role === 'admin' || (actor.panels ? actor.panels.includes('documents') : actor.role === 'sales'))) {
         throw new HttpError(403, 'El usuario no tiene acceso a contratos.');
       }
       if (request.method === 'POST' && resource === 'document-ocr' && !id) {
@@ -118,7 +118,7 @@ export function createLotigestServer(store, { tls, secureCookies = !!tls, ocr } 
       if (request.method === 'GET') {
         const data = resource === 'me' && !id ? actor :
           resource === 'command-status' && id ? store.commandStatus(actor, id) :
-          resource === 'documents' ? store.readDocument(id) : store.read(resource, id);
+          store.readFor(actor, resource, id);
         send(200, data);
         return;
       }

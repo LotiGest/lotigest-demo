@@ -82,3 +82,19 @@ CREATE TABLE IF NOT EXISTS sale_due_dates (
   sale_id TEXT PRIMARY KEY REFERENCES sales(id),
   first_due_date TEXT NOT NULL
 ) STRICT;
+CREATE TABLE IF NOT EXISTS user_panels (
+  name TEXT PRIMARY KEY REFERENCES users(name),
+  panels_json TEXT NOT NULL
+) STRICT;
+CREATE TABLE IF NOT EXISTS removal_log (
+  id INTEGER PRIMARY KEY,
+  actor TEXT NOT NULL REFERENCES users(name),
+  action TEXT NOT NULL,
+  target TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  snapshot_json TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+) STRICT;
+CREATE TABLE IF NOT EXISTS void_payments (
+  receipt INTEGER PRIMARY KEY REFERENCES payments(receipt)
+) STRICT;
