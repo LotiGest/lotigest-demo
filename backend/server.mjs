@@ -50,6 +50,8 @@ assets.set('/offline-queue.mjs', [readFileSync(new URL('./offline-queue.mjs', im
 
 assets.set('/document-fields.mjs', [readFileSync(new URL('./document-fields.mjs', import.meta.url)), 'text/javascript']);
 
+assets.set('/payment-fields.mjs', [readFileSync(new URL('./payment-fields.mjs', import.meta.url)), 'text/javascript']);
+
 export function createLotigestServer(store, { tls, secureCookies = !!tls, ocr, whatsappConfigured = false } = {}) {
   let scanning = false;
   const sessions = new Map();
@@ -105,10 +107,13 @@ export function createLotigestServer(store, { tls, secureCookies = !!tls, ocr, w
       const match = /^\/api\/v1\/([a-z-]+)(?:\/([A-Za-z0-9_-]+))?$/.exec(path);
       if (!match) throw new HttpError(404, 'Ruta inexistente.');
       const [, resource, id] = match;
+      if (resource === 'payment-ocr' && !(actor.role === 'admin' || (actor.panels ? actor.panels.includes('cash') : actor.role === 'cashier'))) {
+        throw new HttpError(403, 'El usuario no tiene acceso a Caja.');
+      }
       if (['documents', 'document-ocr'].includes(resource) && !(actor.role === 'admin' || (actor.panels ? actor.panels.includes('documents') : actor.role === 'sales'))) {
         throw new HttpError(403, 'El usuario no tiene acceso a contratos.');
       }
-      if (request.method === 'POST' && resource === 'document-ocr' && !id) {
+      if (request.method === 'POST' && ['document-ocr','payment-ocr'].includes(resource) && !id) {
         if (!ocr) throw new HttpError(503, 'OCR no configurado.');
         if (scanning) throw new HttpError(429, 'Hay otra página en proceso. Inténtalo de nuevo.');
         scanning = true;

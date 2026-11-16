@@ -1,3 +1,4 @@
+import { extractPaymentFields, suggestPaymentSale } from '/payment-fields.mjs';
 import { documentFields, extractDocumentFields } from '/document-fields.mjs';
 import { offlineRoutes, openOperationQueue, synchronizeQueue } from '/offline-queue.mjs';
 import { mapClientRows } from '/client-import.mjs';
@@ -461,10 +462,79 @@ function renderPaymentForm() {
     add.hidden = rows.children.length >= Math.min(20, choices.length);
     for (const row of rows.children) row.lastElementChild.hidden = rows.children.length < 2;
   }
-  form.append(element('h2', 'Registrar pago'), label('Fecha', date), rows, add, submit);
+  const scan = element('div');
+  const photo = input('payment-photo', 'file', '', { required: false, accept: 'image/jpeg,image/png,image/webp', capture: 'environment' });
+  const preview = element('img');
+  preview.className = 'scan-preview';
+  preview.alt = 'Foto del recibo';
+  preview.hidden = true;
+  const extracted = element('textarea');
+  extracted.rows = 5;
+  extracted.hidden = true;
+  const feedback = element('p', 'La foto solo prepara el abono. Revisa monto, fecha y venta antes de registrarlo.');
+  feedback.setAttribute('role', 'status');
+  const useText = button('Rellenar desde el texto revisado', async () => {
+    if (rows.children.length !== 1) throw new Error('Para usar un recibo escaneado, deja una sola venta en el formulario.');
+    const data = extractPaymentFields(extracted.value);
+    const sale = rows.querySelector('select');
+    const amount = rows.querySelector('input');
+    sale.value = suggestPaymentSale(data, catalog.sales, catalog.clients) ?? '';
+    amount.value = data.amount ?? '';
+    date.value = data.date && data.date <= today() ? data.date : '';
+    feedback.textContent = [
+      data.name && 'Nombre leído: ' + data.name,
+      data.lot && 'Solar leído: ' + data.lot,
+      data.reference && 'Referencia leída: ' + data.reference,
+      'Comprueba la foto y completa los campos vacíos antes de registrar.',
+    ].filter(Boolean).join(' · ');
+  });
+  useText.hidden = true;
+  photo.onchange = async () => {
+    const file = photo.files[0];
+    photo.value = '';
+    if (!file || photo.disabled) return;
+    photo.disabled = submit.disabled = useText.disabled = true;
+    preview.hidden = extracted.hidden = useText.hidden = true;
+    extracted.value = '';
+    let bitmap;
+    try {
+      if (!['image/jpeg','image/png','image/webp'].includes(file.type) || file.size > 20 * 1024 * 1024) {
+        throw new Error('Usa una foto JPG, PNG o WebP de hasta 20 MiB.');
+      }
+      feedback.textContent = 'Leyendo el recibo…';
+      bitmap = await createImageBitmap(file);
+      const canvas = element('canvas');
+      const scale = Math.min(1, 2200 / Math.max(bitmap.width, bitmap.height));
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      preview.src = canvas.toDataURL('image/jpeg', 0.75);
+      preview.hidden = false;
+      const image = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (!image) throw new Error('No se pudo preparar la imagen.');
+      const response = await fetch('/api/v1/payment-ocr', { method: 'POST',
+        headers: { 'Content-Type': 'image/png' }, body: image, signal: AbortSignal.timeout(25000) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      extracted.value = result.text;
+      extracted.hidden = useText.hidden = false;
+      feedback.textContent = 'Revisa el texto y pulsa Rellenar desde el texto revisado.';
+    } catch (error) { feedback.textContent = error.message; }
+    finally {
+      bitmap?.close();
+      photo.disabled = submit.disabled = useText.disabled = false;
+    }
+  };
+  extracted.setAttribute('aria-label', 'Texto editable del recibo');
+  scan.append(label('Escanear recibo de abono', photo), preview, extracted, useText, feedback);
+  form.append(element('h2', 'Registrar pago'), scan, label('Fecha', date), rows, add, submit);
   addRow();
   form.onsubmit = event => {
     event.preventDefault();
+    if (photo.disabled) return;
     return run(submit, async () => {
       const entries = Array.from(rows.children, row => ({
         sale_id: row.querySelector('select').value,
