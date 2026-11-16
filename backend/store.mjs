@@ -147,6 +147,11 @@ export function openStore(filename, today = hondurasToday) {
   function recordPayment(saleId, amount, paymentDate, kind) {
     const receipt = Number(run('INSERT INTO payments (sale_id,amount_cents,payment_date,kind) VALUES (?,?,?,?)',
       saleId, amount, paymentDate, kind).lastInsertRowid);
+    const balance = get(`SELECT sales.price_cents - COALESCE(legacy_sale_terms.opening_cents, 0)
+      - COALESCE((SELECT SUM(amount_cents) FROM payments WHERE sale_id=sales.id
+        AND receipt NOT IN (SELECT receipt FROM void_payments)), 0) AS cents
+      FROM sales LEFT JOIN legacy_sale_terms ON legacy_sale_terms.sale_id=sales.id WHERE sales.id=?`, saleId).cents;
+    run('INSERT INTO receipt_balances VALUES (?,?)', receipt, balance);
     return get('SELECT * FROM payments WHERE receipt=?', receipt);
   }
   function pay(data, paymentDate) {
@@ -358,9 +363,10 @@ export function openStore(filename, today = hondurasToday) {
       const payment = read('receipts', String(item.receipt));
       const sale = requireRecord('sales', payment.sale_id);
       const client = requireRecord('clients', sale.client_id);
-      const paid = get(`SELECT COALESCE((SELECT SUM(amount_cents) FROM payments WHERE sale_id=? AND receipt<=?),0)
-        + COALESCE((SELECT opening_cents FROM legacy_sale_terms WHERE sale_id=?),0) AS cents`, sale.id, payment.receipt, sale.id).cents;
-      return { ...payment, lot_id: sale.lot_id, client_name: client.name, balance_at_receipt_cents: sale.price_cents - paid };
+      const recordedBalance = get('SELECT balance_cents FROM receipt_balances WHERE receipt=?', payment.receipt)?.balance_cents;
+      const paid = recordedBalance === undefined ? get(`SELECT COALESCE((SELECT SUM(amount_cents) FROM payments WHERE sale_id=? AND receipt<=?),0)
+        + COALESCE((SELECT opening_cents FROM legacy_sale_terms WHERE sale_id=?),0) AS cents`, sale.id, payment.receipt, sale.id).cents : 0;
+      return { ...payment, lot_id: sale.lot_id, client_name: client.name, balance_at_receipt_cents: recordedBalance ?? sale.price_cents - paid };
     });
   }
   function commandStatus(actor, key) {

@@ -119,3 +119,8 @@ CREATE TABLE IF NOT EXISTS whatsapp_attempts (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (sale_id, installment, due, kind)
 ) STRICT;
+
+CREATE TABLE IF NOT EXISTS receipt_balances (
+  receipt INTEGER PRIMARY KEY REFERENCES payments(receipt) ON DELETE CASCADE,
+  balance_cents INTEGER NOT NULL
+) STRICT;
