@@ -1785,7 +1785,7 @@ body .lotigest-shell .lg-popup,body .lotigest-shell .lg-search-results{z-index:4
 /* LOTIGEST v0.10 · Revisión de nuevas versiones en GitHub Pages.
    Para cada nueva publicación: actualizar el archivo version.json DESPUÉS del HTML. */
 (()=>{'use strict';
- const CURRENT_VERSION='0.17.1';
+ const CURRENT_VERSION='0.17.2';
  const MANIFEST='version.json';
  const CHECK_MS=120000;
  const STORAGE_KEY='lg-update-dismissed-v1';
@@ -1995,6 +1995,12 @@ body.lotigest-dark #modal-root .payment-receipt-card {
   background-color: #243b2b;
   color: #edf7ed;
   border-color: #49634f;
+}
+</style>
+<style id="lotigest-modal-topbar">
+/* Reserva el espacio de la barra para evitar saltos al abrir y cerrar. */
+body:has(#modal-root .modal-cover, dialog[open]) .lotigest-shell .lg-topbar {
+  visibility: hidden !important;
 }
 </style>
 </body>
