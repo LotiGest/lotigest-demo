@@ -1,3 +1,4 @@
+import { reminderMatches, whatsappPhone } from './whatsapp-reminders.mjs';
 import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
@@ -20,7 +21,7 @@ const writePanel = { lots:'inventory', clients:'clients', 'client-import':'clien
   'cancel-reservation':'pending', sales:'sales', documents:'documents', payments:'cash', 'payment-batches':'cash' };
 const readPanel = { lots:'inventory', clients:'clients', reservations:'pending', sales:'sales', documents:'documents',
   'document-ocr':'documents', receipts:'cash', 'receipt-details':'cash' };
-for (const name of ['manage-user','release-sale','void-payment']) roles[name] = ['admin'];
+for (const name of ['manage-user','release-sale','void-payment','whatsapp-settings','whatsapp-consent']) roles[name] = ['admin'];
 const digest = value => createHash('sha256').update(value).digest('hex');
 function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
@@ -158,6 +159,22 @@ export function openStore(filename, today = hondurasToday) {
     return recordPayment(sale.id, amount, paymentDate, 'installment');
   }
   function execute(operation, data, actor) {
+    if (operation === 'whatsapp-settings') {
+      if (typeof data.enabled !== 'boolean') bad('Estado inválido.');
+      run('UPDATE whatsapp_settings SET enabled=?,days_before=?,days_after=? WHERE id=1',
+        Number(data.enabled), integer(data.before, 0, 365), integer(data.after, 1, 365));
+      return reminderSettings();
+    }
+    if (operation === 'whatsapp-consent') {
+      const client = requireRecord('clients', data.client_id);
+      if (typeof data.allowed !== 'boolean') bad('Confirma el consentimiento.');
+      if (data.allowed) {
+        const phone = whatsappPhone(get('SELECT phone FROM client_contacts WHERE client_id=?', client.id)?.phone);
+        if (!phone) bad('El cliente necesita un teléfono de WhatsApp válido.');
+        run('INSERT INTO whatsapp_consent VALUES (?,?) ON CONFLICT(client_id) DO UPDATE SET phone=excluded.phone', client.id, phone);
+      } else run('DELETE FROM whatsapp_consent WHERE client_id=?', client.id);
+      return { allowed: data.allowed };
+    }
     if (operation === 'manage-user') {
       const name = identifier(data.name);
       if (name === actor.name) bad('No puedes cambiar tu propio usuario aquí.');
@@ -350,7 +367,51 @@ export function openStore(filename, today = hondurasToday) {
     const result = get('SELECT 1 AS saved FROM commands WHERE actor=? AND request_id=?', actor.name, identifier(key));
     return { saved: !!result };
   }
+  function reminderSettings() {
+    const row = get('SELECT * FROM whatsapp_settings WHERE id=1');
+    return { enabled: !!row.enabled, before: row.days_before, after: row.days_after };
+  }
+  function reminderCandidates(saleId) {
+    const settings = reminderSettings();
+    if (!settings.enabled) return [];
+    const currentDate = today();
+    const candidates = [];
+    for (const sale of all(`SELECT sales.*,client_contacts.phone, whatsapp_consent.phone AS consent_phone
+      FROM sales JOIN whatsapp_consent ON whatsapp_consent.client_id=sales.client_id
+      JOIN client_contacts ON client_contacts.client_id=sales.client_id
+      WHERE months>0 AND (? IS NULL OR sales.id=?)`, saleId ?? null, saleId ?? null)) {
+      const phone = whatsappPhone(sale.phone);
+      if (!phone || phone !== sale.consent_phone) continue;
+      for (const installment of saleLedger(sale, currentDate).installments) {
+        if (!installment.pending_cents) continue;
+        for (const kind of ['before','after']) {
+          if (!reminderMatches(kind, installment.due, currentDate, settings)) continue;
+          if (get('SELECT 1 FROM whatsapp_attempts WHERE sale_id=? AND installment=? AND due=? AND kind=?',
+              sale.id, installment.number, installment.due, kind)) continue;
+          candidates.push({ saleId: sale.id, number: installment.number, due: installment.due, kind, phone });
+        }
+      }
+    }
+    return candidates;
+  }
+  function claimReminder(reminder) {
+    return transaction(() => {
+      if (!reminderCandidates(reminder.saleId).some(item => item.number === reminder.number &&
+          item.due === reminder.due && item.kind === reminder.kind && item.phone === reminder.phone)) return false;
+      return run("INSERT OR IGNORE INTO whatsapp_attempts (sale_id,installment,due,kind,status) VALUES (?,?,?,?,'sending')",
+        reminder.saleId, reminder.number, reminder.due, reminder.kind).changes === 1;
+    });
+  }
+  function finishReminder(reminder, status) {
+    run("UPDATE whatsapp_attempts SET status=? WHERE sale_id=? AND installment=? AND due=? AND kind=? AND status='sending'",
+      status, reminder.saleId, reminder.number, reminder.due, reminder.kind);
+  }
   function readFor(actor, resource, id) {
+    if (resource === 'whatsapp-settings' && !id) {
+      if (actor.role !== 'admin') throw new HttpError(403, 'El usuario no tiene permiso.');
+      return { ...reminderSettings(), consent: all('SELECT client_id FROM whatsapp_consent ORDER BY client_id').map(row => row.client_id),
+        attempts: all('SELECT sale_id,installment,due,kind,status,created_at FROM whatsapp_attempts ORDER BY created_at DESC,rowid DESC LIMIT 30') };
+    }
     if (['users','removal-log'].includes(resource)) {
       if (actor.role !== 'admin') throw new HttpError(403, 'El usuario no tiene permiso.');
       if (id && resource === 'removal-log') {
@@ -451,5 +512,5 @@ export function openStore(filename, today = hondurasToday) {
       throw error;
     }
   }
-  return { addUser, authenticate, command, commandStatus, read, readFor, readDocument, importLegacy, close: () => db.close() };
+  return { addUser, authenticate, command, commandStatus, read, readFor, readDocument, reminderCandidates, claimReminder, finishReminder, importLegacy, close: () => db.close() };
 }

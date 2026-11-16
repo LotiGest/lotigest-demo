@@ -805,7 +805,7 @@ function renderUserSettings() {
   $('forms').append(form);
 }
 async function loadSettings() {
-  const [users, log] = await Promise.all([api('users'), api('removal-log')]);
+  const [users, log, reminders] = await Promise.all([api('users'), api('removal-log'), api('whatsapp-settings')]);
   const output = $('removal-log');
   table(output, ['Fecha UTC', 'Administrador', 'Acción', 'Referencia', 'Motivo', 'Detalle'], log.map(row =>
     [row.created_at, row.actor, row.action === 'release-sale' ? 'Anular venta y liberar solar' : 'Anular cobro', row.target, row.reason, button('Ver datos archivados', async () => {
@@ -816,4 +816,54 @@ async function loadSettings() {
     })]));
   output.prepend(element('h3', 'Usuarios actuales'), element('p', users.map(row =>
     row.name + ' (' + (row.panels ? row.panels.map(panel => navigation.find(item => item.dataset.module === panel)?.textContent.trim()).join(', ') || 'sin paneles' : roles[row.role]) + ')').join(' · ')));
+  output.prepend(renderWhatsAppSettings(reminders));
+}
+
+function renderWhatsAppSettings(settings) {
+  const panel = element('section');
+  const form = element('form');
+  const enabled = input('enabled', 'checkbox', 'yes', { required: false });
+  enabled.checked = settings.enabled;
+  const before = input('before', 'number', String(settings.before), { min: '0', max: '365' });
+  const after = input('after', 'number', String(settings.after), { min: '1', max: '365' });
+  function labeled(text, field) {
+    const label = element('label', text);
+    label.append(field);
+    return label;
+  }
+  const save = element('button', 'Guardar plazos');
+  save.className = 'btn btn-primary';
+  form.append(labeled('Activar avisos automáticos', enabled), labeled('Días antes del vencimiento', before),
+    labeled('Días después del vencimiento', after), save);
+  form.onsubmit = event => {
+    event.preventDefault();
+    return run(save, async () => {
+      await api('whatsapp-settings', { enabled: enabled.checked, before: Number(before.value), after: Number(after.value) }, crypto.randomUUID());
+      status('Plazos de WhatsApp guardados.');
+    });
+  };
+  const consent = element('form');
+  const client = select('client', (catalog?.clients || []).map(row => [row.id, row.name + ' · ' + row.id]));
+  const allowed = input('allowed', 'checkbox', 'yes', { required: false });
+  client.onchange = () => { allowed.checked = settings.consent.includes(client.value); };
+  const saveConsent = element('button', 'Guardar permiso del cliente');
+  saveConsent.className = 'btn btn-soft';
+  consent.append(labeled('Cliente', client), labeled('El cliente autorizó recibir avisos de WhatsApp en el teléfono de su ficha', allowed), saveConsent);
+  consent.onsubmit = event => {
+    event.preventDefault();
+    return run(saveConsent, async () => {
+      await api('whatsapp-consent', { client_id: client.value, allowed: allowed.checked }, crypto.randomUUID());
+      settings.consent = settings.consent.filter(id => id !== client.value);
+      if (allowed.checked) settings.consent.push(client.value);
+      status('Permiso de WhatsApp guardado.');
+    });
+  };
+  const log = element('div');
+  table(log, ['Venta', 'Cuota', 'Fecha de vencimiento', 'Aviso', 'Estado'],
+    settings.attempts.map(row => [row.sale_id, row.installment, row.due,
+      row.kind === 'before' ? 'Previo' : 'Vencida', { accepted: 'Aceptado por WhatsApp', review: 'Revisar', sending: 'En curso o sin confirmación' }[row.status]]));
+  panel.append(element('h3', 'Avisos automáticos por WhatsApp'),
+    element('p', 'El envío requiere conectar WhatsApp Business en el servidor. Solo se envían avisos a clientes que dieron su permiso.'),
+    form, consent, element('h4', 'Últimos intentos'), log);
+  return panel;
 }

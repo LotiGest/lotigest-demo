@@ -186,3 +186,28 @@ personalizada, define `LOTIGEST_TESSDATA`. La prueba de OCR real admite
 `page-1.png`, `page-2.png` y `page-3.png`. GitHub Pages sirve el modo
 local; el escáner de ese modo descarga Tesseract.js y el modelo de español
 para ejecutar OCR en el navegador.
+
+## Avisos automáticos por WhatsApp
+
+En Configuración, el administrador activa los avisos, cambia ambos plazos
+y registra la autorización de cada cliente para el teléfono de su ficha.
+Los valores iniciales son 3 días antes y 15 días después, con el envío
+desactivado. El servidor usa el calendario de Honduras y comprueba la
+cuota pendiente y el permiso del destinatario al reservar cada envío.
+Si el servidor permanece apagado todo el día programado, ese aviso se omite.
+Una solicitud incierta queda para revisión y no se reenvía automáticamente.
+
+Configura el proceso Node con `LOTIGEST_WA_TOKEN`, `LOTIGEST_WA_PHONE_ID`,
+`LOTIGEST_WA_API_VERSION`, `LOTIGEST_WA_BEFORE_TEMPLATE` y
+`LOTIGEST_WA_AFTER_TEMPLATE`. Opcionalmente define `LOTIGEST_WA_LANGUAGE`
+con el idioma exacto de las dos plantillas (predeterminado: es).
+Mantén el token en el servidor. Ambas plantillas deben estar aprobadas en
+WhatsApp Business y tener un solo parámetro de texto con la fecha ISO de
+vencimiento. Usa textos de aviso sin montos, por ejemplo:
+
+- Te recordamos que tu cuota vence el {{1}}. Este mensaje es solo un aviso.
+- La cuota con fecha de vencimiento {{1}} sigue pendiente. Si ya realizaste el pago, comunícate con nosotros.
+
+La revisión se ejecuta al iniciar el servidor y cada cinco minutos. El
+registro distingue las solicitudes aceptadas por Meta de las que requieren
+revisión. La aceptación por Meta no confirma la entrega al teléfono.

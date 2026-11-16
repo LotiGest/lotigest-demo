@@ -98,3 +98,24 @@ CREATE TABLE IF NOT EXISTS removal_log (
 CREATE TABLE IF NOT EXISTS void_payments (
   receipt INTEGER PRIMARY KEY REFERENCES payments(receipt)
 ) STRICT;
+
+CREATE TABLE IF NOT EXISTS whatsapp_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
+  days_before INTEGER NOT NULL CHECK (days_before BETWEEN 0 AND 365),
+  days_after INTEGER NOT NULL CHECK (days_after BETWEEN 1 AND 365)
+) STRICT;
+INSERT OR IGNORE INTO whatsapp_settings VALUES (1,0,3,15);
+CREATE TABLE IF NOT EXISTS whatsapp_consent (
+  client_id TEXT PRIMARY KEY REFERENCES clients(id),
+  phone TEXT NOT NULL
+) STRICT;
+CREATE TABLE IF NOT EXISTS whatsapp_attempts (
+  sale_id TEXT NOT NULL,
+  installment INTEGER NOT NULL,
+  due TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('sending','accepted','review')),
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (sale_id, installment, due, kind)
+) STRICT;

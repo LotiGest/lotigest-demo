@@ -1,3 +1,4 @@
+import { createWhatsAppSender, dispatchReminders } from './whatsapp-reminders.mjs';
 import { createServer } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
 import { randomBytes } from 'node:crypto';
@@ -157,6 +158,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       store.close();
     }
   } else {
+    const sender = createWhatsAppSender();
+    let checkingReminders = false;
+    async function checkReminders() {
+      if (checkingReminders) return;
+      checkingReminders = true;
+      try { await dispatchReminders(store, sender); }
+      catch { console.error('LOTIGEST: no se pudo completar la revisión de avisos.'); }
+      finally { checkingReminders = false; }
+    }
     const port = Number(process.env.LOTIGEST_PORT ?? 8787);
     const { LOTIGEST_TLS_CERT: cert, LOTIGEST_TLS_KEY: key, LOTIGEST_HOST: host = '127.0.0.1' } = process.env;
     if (!!cert !== !!key) throw new Error('Define LOTIGEST_TLS_CERT y LOTIGEST_TLS_KEY juntos.');
@@ -164,6 +174,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (!tls && !['127.0.0.1', '::1', 'localhost'].includes(host)) throw new Error('Se requiere TLS para escuchar fuera de loopback.');
     createLotigestServer(store, { tls, secureCookies: !!tls || process.env.LOTIGEST_SECURE_COOKIES === '1',
       ocr: { language: process.env.LOTIGEST_OCR_LANGUAGE || 'spa', tessdata: process.env.LOTIGEST_TESSDATA } }).listen(port, host, () => {
+      if (sender) {
+        void checkReminders();
+        setInterval(checkReminders, 5 * 60_000).unref();
+      }
       console.log('LOTIGEST en ' + (tls ? 'https://' : 'http://') + host + ':' + port);
     });
   }
