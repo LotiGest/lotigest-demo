@@ -1004,9 +1004,80 @@ function newPayment(saleId){
  paymentDraft={residenceId:rid,clientId:sale?.clientId||null,amounts:{},snapshot:JSON.stringify(db),stored:localStorage.getItem(STORAGE)};
  if(!paymentCandidates().length){toast('No hay terrenos con saldo en '+residence().name,'error');return;}
  if(sale)paymentDraft.amounts[sale.id]='';
- showModal('Registrar pago o abono',`<p><b>${esc(residence().name)}</b> · Puedes abonar a varios terrenos del mismo cliente.</p><form id="multi-payment-form"><label for="multi-payment-search">Buscar cliente, bloque o número de terreno</label><input id="multi-payment-search" placeholder="Nombre, bloque A o solar 12" autocomplete="off"><div id="multi-payment-results" style="max-height:220px;overflow:auto;margin:12px 0"></div><h3>Terrenos seleccionados</h3><div id="multi-payment-selected"></div><div class="form-grid">${field('Fecha del pago','date',businessToday(),{type:'date',required:true})}${field('Método de pago','method','Efectivo',{required:true})}${field('Concepto / observación','concept','Abono a crédito',{full:true,required:true})}</div><div id="multi-payment-total" class="sale-summary"></div><p id="multi-payment-error" role="alert" style="color:#bd3742"></p></form>`, '<button class="btn btn-soft" data-action="close-modal">Cancelar</button><button class="btn btn-primary" form="multi-payment-form" type="submit">Registrar pagos y crear recibo</button>',true);
- renderPaymentResults();renderPaymentSelected();
+ showModal('Registrar pago o abono',`<p><b>${esc(residence().name)}</b> · Puedes abonar a varios terrenos del mismo cliente.</p><form id="multi-payment-form"><fieldset class="card" style="padding:12px;margin-bottom:12px"><legend>Escanear recibo de abono</legend><label for="payment-ocr-photo">Tomar foto o adjuntar imagen (JPG, PNG o WebP)</label><input id="payment-ocr-photo" type="file" accept="image/jpeg,image/png,image/webp"><p id="payment-ocr-status" role="status">La foto se procesa en este navegador.</p><img id="payment-ocr-preview" alt="Foto del recibo" style="max-width:100%;max-height:220px" hidden><label id="payment-ocr-text-label" for="payment-ocr-text" hidden>Texto del recibo (editable)</label><textarea id="payment-ocr-text" rows="5" hidden></textarea><button type="button" class="btn btn-outline" id="payment-ocr-apply" hidden>Rellenar abono</button></fieldset><label for="multi-payment-search">Buscar cliente, bloque o número de terreno</label><input id="multi-payment-search" placeholder="Nombre, bloque A o solar 12" autocomplete="off"><div id="multi-payment-results" style="max-height:220px;overflow:auto;margin:12px 0"></div><h3>Terrenos seleccionados</h3><div id="multi-payment-selected"></div><div class="form-grid">${field('Fecha del pago','date',businessToday(),{type:'date',required:true})}${field('Método de pago','method','Efectivo',{required:true})}${field('Concepto / observación','concept','Abono a crédito',{full:true,required:true})}</div><div id="multi-payment-total" class="sale-summary"></div><p id="multi-payment-error" role="alert" style="color:#bd3742"></p></form>`, '<button class="btn btn-soft" data-action="close-modal">Cancelar</button><button class="btn btn-primary" form="multi-payment-form" type="submit">Registrar pagos y crear recibo</button>',true);
+ renderPaymentResults();renderPaymentSelected();bindPaymentOcr($('#multi-payment-form'),paymentDraft);
 }
+
+function bindPaymentOcr(form,draft){
+ const picker=$('#payment-ocr-photo'), preview=$('#payment-ocr-preview'), text=$('#payment-ocr-text');
+ const label=$('#payment-ocr-text-label'), apply=$('#payment-ocr-apply'), status=$('#payment-ocr-status');
+ const alive=()=>form.isConnected&&paymentDraft===draft;
+ let reading=false;
+ picker.onchange=async()=>{
+  const file=picker.files[0];picker.value='';
+  if(!file||reading)return;
+  preview.hidden=text.hidden=label.hidden=apply.hidden=true;
+  preview.removeAttribute('src');text.value='';
+  reading=true;picker.disabled=true;
+  let bitmap,worker,canvas;
+  try{
+   if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>20*1024*1024)throw Error('Usa JPG, PNG o WebP de hasta 20 MB.');
+   status.textContent='Preparando foto…';
+   bitmap=await createImageBitmap(file);
+   if(!alive())return;
+   const scale=Math.min(1,2200/Math.max(bitmap.width,bitmap.height));
+   canvas=document.createElement('canvas');
+   canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+   const ctx=canvas.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,canvas.width,canvas.height);
+   ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+   preview.src=canvas.toDataURL('image/jpeg',.75);preview.hidden=false;
+   status.textContent='Cargando lector de español…';
+   const T=await loadContractOcr();
+   if(!alive())return;
+   const root=new URL('ocr/',location.href).href;
+   worker=await T.createWorker('spa',1,{
+    workerPath:pagesContractOcr?contractOcrCdn+'worker.min.js':root+'worker.min.js',
+    corePath:pagesContractOcr?'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.0.0':root+'core',
+    langPath:pagesContractOcr?'https://tessdata.projectnaptha.com/4.0.0':root+'lang'
+   });
+   if(!alive())return;
+   status.textContent='Leyendo recibo…';
+   const {data}=await worker.recognize(canvas,{rotateAuto:true});
+   if(!alive())return;
+   text.value=data.text.trim();
+   if(!text.value)throw Error('No se detectó texto legible.');
+   text.hidden=label.hidden=apply.hidden=false;
+   status.textContent='Revisa el texto y pulsa Rellenar abono.';
+  }catch(error){if(alive())status.textContent=error.message||'No se pudo leer la foto.'}
+  finally{bitmap?.close();if(canvas)canvas.width=canvas.height=1;if(worker)await worker.terminate().catch(()=>{});reading=false;picker.disabled=false;}
+ };
+ apply.onclick=async()=>{
+  if(reading)return;
+  try{
+   const {extractPaymentFields,suggestPaymentSale}=await import('./payment-fields.mjs');
+   if(!alive())return;
+   const fields=extractPaymentFields(text.value);
+   const candidates=paymentCandidates('');
+   const sales=candidates.map(sale=>({id:sale.id,client_id:sale.clientId,lot_id:sale.lotId}));
+   let suggested=suggestPaymentSale(fields,sales,db.clients);
+   if(!suggested&&fields.lot){
+    suggested=suggestPaymentSale(fields,candidates.map(sale=>({id:sale.id,client_id:sale.clientId,lot_id:getLot(sale.lotId)?.sourceNumber})),db.clients);
+   }
+   const selected=Object.keys(draft.amounts);
+   if(selected.length>1)throw Error('Deja un solo terreno seleccionado para aplicar este recibo.');
+   if(selected.length&&suggested&&selected[0]!==suggested)throw Error('El recibo corresponde a otro terreno. Revisa la selección.');
+   if(!suggested)throw Error('No hay una coincidencia única. Referencia leída: '+(fields.reference||'sin folio')+'. Revisa los datos e ingresa el pago manualmente.');
+   const sale=getSale(suggested);
+   if(!fields.amount||Number(fields.amount)>balance(sale))throw Error('El monto no es claro o supera el saldo. Revisa el texto o escribe el abono manualmente.');
+   if(!selected.length)addPaymentSale(suggested);
+   draft.amounts[suggested]=fields.amount;
+   form.elements.date.value=fields.date&&fields.date<=businessToday()?fields.date:'';
+   renderPaymentSelected();
+   status.textContent='Monto preparado. Revisa terreno y fecha antes de registrar. Folio leído: '+(fields.reference||'sin folio')+'.';
+  }catch(error){if(alive())status.textContent=error.message;}
+ };
+}
+
 function renderPaymentResults(){const el=$('#multi-payment-results');if(!el||!paymentDraft)return;const query=$('#multi-payment-search').value;let list=paymentCandidates(query);el.innerHTML=list.length?list.slice(0,80).map(s=>{let l=getLot(s.lotId);return `<button type="button" class="btn btn-outline" style="display:block;width:100%;margin:5px 0;text-align:left;white-space:normal" data-action="multi-payment-add" data-id="${esc(s.id)}">${esc(getClient(s.clientId)?.name||'Cliente')} · Bloque ${esc(l.block)} · Solar ${esc(l.sourceNumber||l.id)} · ${esc(l.id)} · Saldo ${money(balance(s))}</button>`;}).join(''):'<p>No se encontraron terrenos con saldo en esta residencial.</p>';}
 function addPaymentSale(id){const s=getSale(id);if(!paymentDraft||!s||getLot(s.lotId)?.residenceId!==paymentDraft.residenceId||balance(s)<=.009)return;
  if(paymentDraft.clientId&&paymentDraft.clientId!==s.clientId){toast('Este recibo es para un solo cliente. Quita los terrenos seleccionados para cambiar de cliente.','error');return;}
@@ -1785,7 +1856,7 @@ body .lotigest-shell .lg-popup,body .lotigest-shell .lg-search-results{z-index:4
 /* LOTIGEST v0.10 · Revisión de nuevas versiones en GitHub Pages.
    Para cada nueva publicación: actualizar el archivo version.json DESPUÉS del HTML. */
 (()=>{'use strict';
- const CURRENT_VERSION='0.17.2';
+ const CURRENT_VERSION='0.17.3';
  const MANIFEST='version.json';
  const CHECK_MS=120000;
  const STORAGE_KEY='lg-update-dismissed-v1';
