@@ -371,9 +371,9 @@ export function openStore(filename, today = hondurasToday) {
     const row = get('SELECT * FROM whatsapp_settings WHERE id=1');
     return { enabled: !!row.enabled, before: row.days_before, after: row.days_after };
   }
-  function reminderCandidates(saleId) {
+  function reminderCandidates(saleId, preview = false) {
     const settings = reminderSettings();
-    if (!settings.enabled) return [];
+    if (!settings.enabled && !preview) return [];
     const currentDate = today();
     const candidates = [];
     for (const sale of all(`SELECT sales.*,client_contacts.phone, whatsapp_consent.phone AS consent_phone
@@ -409,7 +409,9 @@ export function openStore(filename, today = hondurasToday) {
   function readFor(actor, resource, id) {
     if (resource === 'whatsapp-settings' && !id) {
       if (actor.role !== 'admin') throw new HttpError(403, 'El usuario no tiene permiso.');
-      return { ...reminderSettings(), consent: all('SELECT client_id FROM whatsapp_consent ORDER BY client_id').map(row => row.client_id),
+      const dueToday = { before: 0, after: 0 };
+      for (const reminder of reminderCandidates(undefined, true)) dueToday[reminder.kind]++;
+      return { ...reminderSettings(), dueToday, consent: all('SELECT client_id FROM whatsapp_consent ORDER BY client_id').map(row => row.client_id),
         attempts: all('SELECT sale_id,installment,due,kind,status,created_at FROM whatsapp_attempts ORDER BY created_at DESC,rowid DESC LIMIT 30') };
     }
     if (['users','removal-log'].includes(resource)) {

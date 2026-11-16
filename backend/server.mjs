@@ -50,7 +50,7 @@ assets.set('/offline-queue.mjs', [readFileSync(new URL('./offline-queue.mjs', im
 
 assets.set('/document-fields.mjs', [readFileSync(new URL('./document-fields.mjs', import.meta.url)), 'text/javascript']);
 
-export function createLotigestServer(store, { tls, secureCookies = !!tls, ocr } = {}) {
+export function createLotigestServer(store, { tls, secureCookies = !!tls, ocr, whatsappConfigured = false } = {}) {
   let scanning = false;
   const sessions = new Map();
   const sessionCookie = (id, age) => 'lotigest_session=' + id + '; Path=/; HttpOnly; SameSite=Strict; Max-Age=' + age + (secureCookies ? '; Secure' : '');
@@ -120,7 +120,7 @@ export function createLotigestServer(store, { tls, secureCookies = !!tls, ocr } 
         const data = resource === 'me' && !id ? actor :
           resource === 'command-status' && id ? store.commandStatus(actor, id) :
           store.readFor(actor, resource, id);
-        send(200, data);
+        send(200, resource === 'whatsapp-settings' ? { ...data, whatsappConfigured } : data);
         return;
       }
       if (request.method === 'POST' && !id) {
@@ -129,6 +129,9 @@ export function createLotigestServer(store, { tls, secureCookies = !!tls, ocr } 
         if (!currentActor) throw new HttpError(401, 'La credencial ya no es válida.');
         const owner = request.headers['lotigest-operation-owner'];
         if (owner !== undefined && owner !== currentActor.name) throw new HttpError(401, 'Inicia sesión con el usuario que registró la operación.');
+        if (resource === 'whatsapp-settings' && currentActor.role === 'admin' && data?.enabled === true && !whatsappConfigured) {
+          throw new HttpError(409, 'Configura primero WhatsApp Business en el servidor.');
+        }
         send(200, store.command(currentActor, resource, request.headers['idempotency-key'], data));
         return;
       }
@@ -158,7 +161,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       store.close();
     }
   } else {
-    const sender = createWhatsAppSender();
+    let sender;
+    try { sender = createWhatsAppSender(); }
+    catch { console.error('LOTIGEST: configuración incompleta de WhatsApp Business.'); }
     let checkingReminders = false;
     async function checkReminders() {
       if (checkingReminders) return;
@@ -172,7 +177,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (!!cert !== !!key) throw new Error('Define LOTIGEST_TLS_CERT y LOTIGEST_TLS_KEY juntos.');
     const tls = cert ? { cert: readFileSync(cert), key: readFileSync(key) } : undefined;
     if (!tls && !['127.0.0.1', '::1', 'localhost'].includes(host)) throw new Error('Se requiere TLS para escuchar fuera de loopback.');
-    createLotigestServer(store, { tls, secureCookies: !!tls || process.env.LOTIGEST_SECURE_COOKIES === '1',
+    createLotigestServer(store, { tls, whatsappConfigured: !!sender, secureCookies: !!tls || process.env.LOTIGEST_SECURE_COOKIES === '1',
       ocr: { language: process.env.LOTIGEST_OCR_LANGUAGE || 'spa', tessdata: process.env.LOTIGEST_TESSDATA } }).listen(port, host, () => {
       if (sender) {
         void checkReminders();

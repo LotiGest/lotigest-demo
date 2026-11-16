@@ -824,6 +824,7 @@ function renderWhatsAppSettings(settings) {
   const form = element('form');
   const enabled = input('enabled', 'checkbox', 'yes', { required: false });
   enabled.checked = settings.enabled;
+  if (!settings.whatsappConfigured && !settings.enabled) enabled.disabled = true;
   const before = input('before', 'number', String(settings.before), { min: '0', max: '365' });
   const after = input('after', 'number', String(settings.after), { min: '1', max: '365' });
   function labeled(text, field) {
@@ -839,6 +840,7 @@ function renderWhatsAppSettings(settings) {
     event.preventDefault();
     return run(save, async () => {
       await api('whatsapp-settings', { enabled: enabled.checked, before: Number(before.value), after: Number(after.value) }, crypto.randomUUID());
+      await loadSettings();
       status('Plazos de WhatsApp guardados.');
     });
   };
@@ -855,6 +857,7 @@ function renderWhatsAppSettings(settings) {
       await api('whatsapp-consent', { client_id: client.value, allowed: allowed.checked }, crypto.randomUUID());
       settings.consent = settings.consent.filter(id => id !== client.value);
       if (allowed.checked) settings.consent.push(client.value);
+      await loadSettings();
       status('Permiso de WhatsApp guardado.');
     });
   };
@@ -864,6 +867,9 @@ function renderWhatsAppSettings(settings) {
       row.kind === 'before' ? 'Previo' : 'Vencida', { accepted: 'Aceptado por WhatsApp', review: 'Revisar', sending: 'En curso o sin confirmación' }[row.status]]));
   panel.append(element('h3', 'Avisos automáticos por WhatsApp'),
     element('p', 'El envío requiere conectar WhatsApp Business en el servidor. Solo se envían avisos a clientes que dieron su permiso.'),
-    form, consent, element('h4', 'Últimos intentos'), log);
+    element('p', settings.whatsappConfigured ? 'Configuración del servidor presente. Verifica el primer envío en el historial.' : 'Falta configurar WhatsApp Business en el servidor. Puedes guardar los plazos mientras tanto.'),
+    form, consent, element('h4', 'Vista previa para hoy (hora de Honduras)'),
+    element('p', 'Recordatorios previos: ' + settings.dueToday.before + ' · Cuotas vencidas: ' + settings.dueToday.after),
+    element('h4', 'Últimos intentos'), log);
   return panel;
 }
