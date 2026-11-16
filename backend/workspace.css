@@ -28,3 +28,14 @@ fieldset { display: grid; gap: 8px; border: 1px solid #749589; border-radius: 7p
 
 .scan-preview { display: block; max-width: 100%; max-height: 360px; object-fit: contain; }
 #detail pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* En papel, usa tinta oscura aunque el panel esté en modo oscuro. */
+@media print {
+  body.lotigest-dark #workspace .workspace-inner #detail,
+  body.lotigest-dark #workspace .workspace-inner #detail :is(h2, h3, p, strong, table, th, td) {
+    color: #142633 !important;
+    background: #fff !important;
+    border-color: #cdd8de !important;
+    color-scheme: light;
+  }
+}

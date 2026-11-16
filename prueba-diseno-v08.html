@@ -1043,7 +1043,7 @@ function receiptNextDate(s,paid){if(s.type!=='credit'||paid>=s.price-.009)return
 function buildReceiptInfo(payment,priorPaid){const s=getSale(payment.saleId),l=getLot(s?.lotId),c=getClient(s?.clientId);if(!s)return null;return {version:1,clientName:c?.name||'Cliente',identity:c?.identity||'',residence:residenceName(l?.residenceId),block:l?.block||'',solar:l?.sourceNumber||l?.id||'',lotId:l?.id||'',area:l?.area||null,dimensions:{...l?.dimensions},monthly:installment(s),nextDueDate:receiptNextDate(s,priorPaid+payment.amount),before:Math.max(0,Math.round((s.price-priorPaid)*100)/100),after:Math.max(0,Math.round((s.price-priorPaid-payment.amount)*100)/100),allocations:receiptAllocation(s,priorPaid,payment.amount)};}
 function receiptInfo(p){if(p.receiptInfo)return p.receiptInfo;const index=db.payments.findIndex(x=>x.id===p.id);const s=getSale(p.saleId);const prior=(Number(s?.openingPaid)||0)+sum(db.payments.slice(index+1).filter(x=>x.saleId===p.saleId),x=>x.amount);return buildReceiptInfo(p,prior);}
 function receiptPeriodText(info){return info.allocations.map(a=>`${a.number?'Cuota '+a.number+' - ':''}${a.label}${a.complete?' (cancelada)':' (abono parcial)'}: ${money(a.amount)}`).join('; ');}
-function paymentReceiptPreview(id){const rows=paymentReceiptRows(id);if(!rows.length)return;const p=rows[0],infos=rows.map(receiptInfo),months=[...new Set(infos.flatMap(i=>i.allocations.filter(a=>a.month).map(a=>a.label)))];showModal('Recibo de pago · Tamaño carta',`<p><b>${esc(db.company.name)}</b><br>${esc(infos[0].clientName)} · Fecha de pago: ${fmtDate(p.date)}<br>Recibo ${esc(p.groupId||p.id)}</p><h3>${months.length?'Recibo de '+esc(months.join(', ')):'Recibo de '+esc(p.concept||'pago')}</h3>${rows.map((x,i)=>{const n=infos[i];return `<section class="card" style="padding:14px;margin-bottom:12px"><strong>${esc(n.residence)} · Bloque ${esc(n.block)} · Solar ${esc(n.solar)}</strong><p><b>Concepto:</b> ${esc(receiptPeriodText(n))}</p><p>Deuda anterior: ${money(n.before)}<br>Pago recibido: <b>${money(x.amount)}</b><br>Deuda pendiente después de este pago: <b>${money(n.after)}</b></p></section>`;}).join('')}<h3>Total recibido: ${money(sum(rows,x=>x.amount))}</h3><p>Deuda pendiente de los terrenos de este recibo: <b>${money(sum(infos,x=>x.after))}</b></p><p>Observación: ${esc(p.concept||'Sin observación')} · ${esc(p.method||'No indicado')}</p><p class="sm muted">Los abonos cubren primero las cuotas pendientes más antiguas. La deuda corresponde al momento del pago y se conserva al volver a descargar el recibo.</p>`,button('Descargar PDF carta','payment-receipt-pdf','btn-outline',`data-id="${esc(id)}"`)+button('Compartir PDF por WhatsApp','payment-receipt-share','btn-primary',`data-id="${esc(id)}"`),true);}
+function paymentReceiptPreview(id){const rows=paymentReceiptRows(id);if(!rows.length)return;const p=rows[0],infos=rows.map(receiptInfo),months=[...new Set(infos.flatMap(i=>i.allocations.filter(a=>a.month).map(a=>a.label)))];showModal('Recibo de pago · Tamaño carta',`<p><b>${esc(db.company.name)}</b><br>${esc(infos[0].clientName)} · Fecha de pago: ${fmtDate(p.date)}<br>Recibo ${esc(p.groupId||p.id)}</p><h3>${months.length?'Recibo de '+esc(months.join(', ')):'Recibo de '+esc(p.concept||'pago')}</h3>${rows.map((x,i)=>{const n=infos[i];return `<section class="card payment-receipt-card" style="padding:14px;margin-bottom:12px"><strong>${esc(n.residence)} · Bloque ${esc(n.block)} · Solar ${esc(n.solar)}</strong><p><b>Concepto:</b> ${esc(receiptPeriodText(n))}</p><p>Deuda anterior: ${money(n.before)}<br>Pago recibido: <b>${money(x.amount)}</b><br>Deuda pendiente después de este pago: <b>${money(n.after)}</b></p></section>`;}).join('')}<h3>Total recibido: ${money(sum(rows,x=>x.amount))}</h3><p>Deuda pendiente de los terrenos de este recibo: <b>${money(sum(infos,x=>x.after))}</b></p><p>Observación: ${esc(p.concept||'Sin observación')} · ${esc(p.method||'No indicado')}</p><p class="sm muted">Los abonos cubren primero las cuotas pendientes más antiguas. La deuda corresponde al momento del pago y se conserva al volver a descargar el recibo.</p>`,button('Descargar PDF carta','payment-receipt-pdf','btn-outline',`data-id="${esc(id)}"`)+button('Compartir PDF por WhatsApp','payment-receipt-share','btn-primary',`data-id="${esc(id)}"`),true);}
 function paymentReceiptPdf(id){
  const rows=paymentReceiptRows(id);if(!rows.length)throw Error('No existe el recibo.');const p=rows[0],infos=rows.map(receiptInfo),parts=[],ref=p.groupId||p.id;
  const months=[...new Set(infos.flatMap(i=>i.allocations.filter(a=>a.month).map(a=>a.label)))];
@@ -1785,7 +1785,7 @@ body .lotigest-shell .lg-popup,body .lotigest-shell .lg-search-results{z-index:4
 /* LOTIGEST v0.10 · Revisión de nuevas versiones en GitHub Pages.
    Para cada nueva publicación: actualizar el archivo version.json DESPUÉS del HTML. */
 (()=>{'use strict';
- const CURRENT_VERSION='0.17.0';
+ const CURRENT_VERSION='0.17.1';
  const MANIFEST='version.json';
  const CHECK_MS=120000;
  const STORAGE_KEY='lg-update-dismissed-v1';
@@ -1973,5 +1973,29 @@ body.lotigest-dark :is(.lotigest-shell,#modal-root,.modal-cover) :is(hr,.separat
 })();
 
 </script>
+<style id="lotigest-receipt-contrast">
+/* Las hojas de recibo y contrato mantienen el contraste de un documento en papel. */
+body.lotigest-dark #modal-root .print-preview,
+body.lotigest-dark #print-portal .print-sheet {
+  background-color: #fff !important;
+  color-scheme: light;
+}
+body.lotigest-dark #modal-root .print-preview .print-sheet,
+body.lotigest-dark #modal-root .print-preview .print-sheet *,
+body.lotigest-dark #print-portal .print-sheet,
+body.lotigest-dark #print-portal .print-sheet * {
+  color: #142633 !important;
+}
+body.lotigest-dark #modal-root .print-preview .print-sheet :is(.detail-line, th, td) {
+  background-color: #fff !important;
+  border-color: #cdd8de !important;
+}
+/* El recibo agrupado es una ficha del modal, no una hoja blanca. */
+body.lotigest-dark #modal-root .payment-receipt-card {
+  background-color: #243b2b;
+  color: #edf7ed;
+  border-color: #49634f;
+}
+</style>
 </body>
 </html>
