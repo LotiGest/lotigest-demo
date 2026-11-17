@@ -9,10 +9,23 @@
 <main>
 <a href="/">LOTIGEST</a> · <a href="/clientes-nube">Clientes en la nube</a>
 <h1>Operaciones en la nube</h1>
-<form id="login"><label>Clave privada <input name="token" type="password" required pattern="[a-f0-9]{64}" autocomplete="off"></label><button>Entrar</button></form>
+<form id="login"><label>Usuario <input name="username" maxlength="40" autocomplete="username"></label><label>Contraseña o clave privada <input name="token" type="password" required maxlength="128" autocomplete="current-password"></label><p>Si usas una clave privada, deja el usuario vacío.</p><button>Entrar</button></form>
 <p role="status" id="status"></p>
 <div id="operations" hidden>
 <button id="logout" type="button">Cerrar sesión</button>
+<section id="users" hidden>
+<h2>Usuarios y contraseñas</h2>
+<form id="add-user">
+<label>Usuario <input name="name" required pattern="[a-zA-Z0-9][a-zA-Z0-9_-]{2,39}" autocomplete="off"></label>
+<label>Perfil <select name="role"><option value="sales">Ventas</option><option value="admin">Administrador</option></select></label>
+<label>Contraseña <input name="password" type="password" required minlength="14" maxlength="128" autocomplete="new-password"></label>
+<label>Confirmar contraseña <input name="confirm" type="password" required minlength="14" maxlength="128" autocomplete="new-password"></label>
+<button>Crear usuario</button>
+</form>
+<button id="list-users" type="button">Ver usuarios</button>
+<button id="more-users" type="button" hidden>Ver más usuarios</button>
+<ul id="users-list"></ul>
+</section>
 <form data-op="lots"><h2>Registrar terreno</h2><label>Código del solar <input name="id" required></label><label>Precio en lempiras <input name="price_cents" type="number" min=".01" step=".01" required></label><button>Guardar terreno</button></form>
 <form data-op="reservations"><h2>Apartar solar</h2><label>Código del solar <input name="lot_id" required></label><label>Código del cliente <input name="client_id" required></label><label>Fecha de vencimiento <input name="reserved_until" type="date" required></label><button>Guardar apartado</button></form>
 <form data-op="sales"><h2>Registrar venta</h2><label>Código del solar <input name="lot_id" required></label><label>Código del cliente <input name="client_id" required></label><label>Código de apartado, si aplica <input name="reservation_id"></label><label>Fecha de venta <input name="date" type="date" required></label><label>Meses de crédito (0 para contado) <input name="months" type="number" min="0" max="360" value="0" required></label><label>Prima en lempiras <input name="down_cents" type="number" min="0" step=".01" value="0" required></label><label>Fecha de primera cuota, opcional <input name="first_due_date" type="date"></label><button>Guardar venta</button></form>
@@ -22,6 +35,7 @@
 </div>
 <section id="results" hidden aria-label="Resultados"></section>
 </main>
+<script src="/acceso-nube.js"></script>
 <script>
 const el = id => document.getElementById(id);
 const forms = [...document.querySelectorAll('[data-op]')];
@@ -80,12 +94,12 @@ async function act(task) {
 }
 el('login').onsubmit=event=>{
   event.preventDefault();
-  const entered = new FormData(el('login')).get('token');
+  const login = new FormData(el('login'));
   act(async()=>{
-    token=entered;
     el('login').reset();
     let role;
-    try {role=await api('');} catch (error) {token='';throw error;}
+    try {token=await lotigestAccess.credential(login.get('username'),login.get('token'));role=await api('');} catch (error) {token='';throw error;}
+    el('users').hidden=role.role!=='admin';
     forms[0].hidden=role.role!=='admin';
     forms[1].hidden=!role.pending;
     forms[2].hidden=!role.sales;
@@ -101,6 +115,10 @@ el('login').onsubmit=event=>{
 el('logout').onclick=()=>{
   token='';
   drafts.clear();
+  el('add-user').reset();
+  el('users-list').replaceChildren();
+  el('more-users').hidden=true;
+  nextUser=null;
   forms.forEach(form=>form.reset());
   clearResults();
   el('operations').hidden=true;
@@ -147,6 +165,31 @@ el('lookup').onsubmit=event=>{
     return 'Consulta completada.';
   });
 };
+let nextUser=null;
+async function listUsers(append=false) {
+  const {users,next}=await lotigestAccess.list(token,append?nextUser:'');
+  if (!append) el('users-list').replaceChildren();
+  const roles={admin:'Administrador',sales:'Ventas',cashier:'Caja',reader:'Consulta'};
+  for (const user of users) {
+    const item=document.createElement('li');
+    item.textContent=user.name+' · '+(roles[user.role]||user.role);
+    el('users-list').append(item);
+  }
+  nextUser=next;
+  el('more-users').hidden=!nextUser;
+  return 'Usuarios consultados.';
+}
+el('add-user').onsubmit=event=>{
+  event.preventDefault();
+  const form=new FormData(el('add-user'));
+  act(async()=>{
+    const user=await lotigestAccess.create(token,form);
+    el('add-user').reset();
+    return 'Usuario '+user.name+' creado.';
+  });
+};
+el('list-users').onclick=()=>act(()=>listUsers());
+el('more-users').onclick=()=>act(()=>listUsers(true));
 el('print').onclick=()=>window.print();
 </script>
 </html>
