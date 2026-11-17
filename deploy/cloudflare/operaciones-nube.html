@@ -10,6 +10,16 @@
 <a href="/">LOTIGEST</a> · <a href="/clientes-nube">Clientes en la nube</a>
 <h1>Operaciones en la nube</h1>
 <form id="login"><label>Usuario <input name="username" maxlength="40" autocomplete="username"></label><label>Contraseña o clave privada <input name="token" type="password" required maxlength="128" autocomplete="current-password"></label><p>Si usas una clave privada, deja el usuario vacío.</p><button>Entrar</button></form>
+<details id="setup">
+<summary>Configurar el primer administrador</summary>
+<form id="activate">
+<label>Clave de activación <input name="activation" type="password" required pattern="[a-f0-9]{64}" autocomplete="off"></label>
+<label>Nuevo usuario <input name="name" required pattern="[a-zA-Z0-9][a-zA-Z0-9_-]{2,39}" autocomplete="username"></label>
+<label>Nueva contraseña <input name="password" type="password" required minlength="14" maxlength="128" autocomplete="new-password"></label>
+<label>Confirmar contraseña <input name="confirm" type="password" required minlength="14" maxlength="128" autocomplete="new-password"></label>
+<button>Activar administrador</button>
+</form>
+</details>
 <p role="status" id="status"></p>
 <div id="operations" hidden>
 <button id="logout" type="button">Cerrar sesión</button>
@@ -107,6 +117,7 @@ el('login').onsubmit=event=>{
     const choices=[['lots','Terrenos',role.inventory],['reservations','Apartados',role.pending],['sales','Ventas, cuotas y abonos',role.sales||role.cash],['receipts','Recibo',role.sales||role.cash]];
     el('resource').replaceChildren(...choices.filter(x=>x[2]).map(([key,label])=>new Option(label,key)));
     el('lookup').hidden=!el('resource').options.length;
+    el('setup').hidden=true;
     el('login').hidden=true;
     el('operations').hidden=false;
     return 'Sesión iniciada.';
@@ -122,6 +133,7 @@ el('logout').onclick=()=>{
   forms.forEach(form=>form.reset());
   clearResults();
   el('operations').hidden=true;
+  el('setup').hidden=false;
   el('login').hidden=false;
   el('status').textContent='Sesión cerrada.';
 };
@@ -163,6 +175,17 @@ el('lookup').onsubmit=event=>{
       show(el('resource').selectedOptions[0].textContent,result[type]);
     }
     return 'Consulta completada.';
+  });
+};
+el('activate').onsubmit=event=>{
+  event.preventDefault();
+  const form=new FormData(el('activate'));
+  act(async()=>{
+    const user=await lotigestAccess.create(form.get('activation').trim(),form,true);
+    el('activate').reset();
+    el('setup').open=false;
+    el('login').elements.username.value=user.name;
+    return 'Administrador activado. Entra con tu nueva contraseña.';
   });
 };
 let nextUser=null;
