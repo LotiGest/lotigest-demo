@@ -55,12 +55,22 @@ async function cloudLoad(){
  cloudPersist();cloudReady=true;sessionStorage.setItem(SESSION,'yes');page='dashboard';render();
  // render may initialize the built-in inventory; persist the resulting state.
  cloudWrite(JSON.stringify(db));await cloudFlush();
- if(!remote.state&&localStorage.getItem(STORAGE))setTimeout(cloudImportOffer,50);
+ if(localStorage.getItem(STORAGE)&&!sessionStorage.getItem('lotigest_migration_offer_seen'))setTimeout(cloudImportOffer,50);
 }
 function cloudImportOffer(){
- showModal('Conservar tus datos anteriores',`<p>El servidor inició sin datos de ejemplo. Tu copia anterior de este navegador sigue intacta.</p><p>Puedes descargarla y revisarla antes de importarla desde Respaldo. No se importará ni reemplazará información automáticamente.</p><button class="btn btn-primary" id="cloud-old-backup">Descargar copia anterior</button>`);
- document.getElementById('cloud-old-backup').onclick=()=>download('LOTIGEST_copia_anterior.json',localStorage.getItem(STORAGE),'application/json');
+ sessionStorage.setItem('lotigest_migration_offer_seen','yes');
+ const raw=localStorage.getItem(STORAGE);if(!raw){toast('No hay una copia anterior en este navegador.','error');return;}
+ let info;try{info=validateLotigestBackup(JSON.parse(raw));}catch(e){toast('La copia anterior requiere revisión. Descárgala antes de importar.','error');download('LOTIGEST_copia_anterior.json',raw,'application/json');return;}
+ showModal('Revisar tu copia anterior',`<p>Se conservó la información anterior de este navegador. Puede incluir datos de demostración: revísala antes de importarla.</p><p><strong>${info.clients} clientes · ${info.lots} terrenos · ${info.sales} ventas · ${info.payments} abonos.</strong></p><p>Importar reemplaza los registros actuales de D1 por esta copia completa. Los PDF antiguos deben adjuntarse de nuevo desde sus archivos originales.</p><button class="btn btn-outline" id="cloud-old-backup">Descargar copia para revisar</button> <button class="btn btn-primary" id="cloud-old-import">Importar esta copia a D1</button>`);
+ document.getElementById('cloud-old-backup').onclick=()=>download('LOTIGEST_copia_anterior.json',raw,'application/json');
+ document.getElementById('cloud-old-import').onclick=async()=>{
+  if(cloudBusy||cloudBlocked){toast('Resuelve primero el guardado pendiente.','error');return;}
+  if(!confirm('¿Importar esta copia completa al servidor? Se descargará antes un respaldo del estado actual.'))return;
+  download('LOTIGEST_antes_de_importar.json',JSON.stringify(db),'application/json');
+  try{const next=readStoredLotigest(raw);cloudWrite(JSON.stringify(next));db=next;closeModal();render();await cloudFlush();}catch(e){toast(e.message,'error');}
+ };
 }
+document.addEventListener('click',e=>{if(e.target.closest('#cloud-local-review'))cloudImportOffer();});
 async function cloudLogin(form){
  const button=form.querySelector('button[type="submit"],.login-submit');if(button)button.disabled=true;
  try{const d=new FormData(form);const credential=await lotigestAccess.credential(d.get('user'),d.get('password'));await cloudApi('session',{method:'POST',body:JSON.stringify({credential})});form.reset();await cloudLoad();toast('Sesión conectada a Cloudflare D1');}

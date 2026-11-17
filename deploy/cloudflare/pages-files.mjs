@@ -37,9 +37,10 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace('Restaura datos desde un respaldo de este mismo prototipo.', 'Importa un respaldo compatible. Revisa su contenido antes de reemplazar datos en D1.')
     .replace(/function pdfStore\(mode,operation\)\{[^\n]+/, 'function pdfStore(mode,operation){return cloudPdfStore(mode,operation)}')
     .replace('El PDF no está disponible en este navegador. Puedes adjuntarlo de nuevo.', 'El PDF no está disponible en D1. Adjunta de nuevo la copia original.')
+    .replace('<strong>Importar respaldo</strong>', '<strong>Importar respaldo</strong><p><button class="btn btn-outline" id="cloud-local-review" type="button">Revisar copia anterior de este navegador</button></p>')
     .replace('Acceso de prueba', 'Acceso privado')
     .replace('Prueba de interfaz', 'Servidor Cloudflare D1')
-    .replace('</head>', '<script src="/acceso-nube.js"></script><style>#lotigest-cloud-status{position:fixed;bottom:8px;left:8px;right:8px;z-index:10000;background:#164532;color:#fff;padding:8px 12px;border-radius:8px;font:13px system-ui;box-shadow:0 2px 10px #0003}#lotigest-cloud-status[data-error=true]{background:#6b291c}#lotigest-cloud-status button{margin:2px 4px;padding:4px 8px;border:1px solid #ffffff60;border-radius:5px;background:transparent;color:inherit;cursor:pointer}body{padding-bottom:55px}@media print{#lotigest-cloud-status{display:none!important}}</style></head>');
+    .replace('</head>', '<script src="/acceso-nube.js"></script><style>#lotigest-cloud-status{position:fixed;bottom:8px;left:8px;right:8px;z-index:10000;background:#164532;color:#fff;padding:8px 12px;border-radius:8px;font:13px system-ui;box-shadow:0 2px 10px #0003}#lotigest-cloud-status[data-error=true]{background:#6b291c}#lotigest-cloud-status button{margin:2px 4px;padding:4px 8px;border:1px solid #ffffff60;border-radius:5px;background:transparent;color:inherit;cursor:pointer}body{padding-bottom:55px}body:has(.modal-cover) #lotigest-cloud-status{display:none}@media print{#lotigest-cloud-status{display:none!important}}</style></head>');
   if (demo === html || !demo.includes('lotigest_cloudflare_demo_v1') ||
       !demo.includes('if (cloudflareDemo) return;') || !demo.includes('const pagesContractOcr = true;')) {
     throw new Error('No se pudo aislar el modo de demostración.');
