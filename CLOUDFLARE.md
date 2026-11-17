@@ -34,7 +34,7 @@ Las pruebas verifican 2,000 clientes y datos de todos los módulos, relectura co
 El mapa público, avisos WhatsApp y evaluación completa para venta requieren validación independiente. Este cambio conecta el almacenamiento del panel y no certifica todo el programa para comercialización.
 
 
-## Actualización 0.18.0: desconexiones y aprendizaje
+## Actualización 0.18.1: desconexiones y aprendizaje
 
 Consulta `AUDITORIA-2026-11-17.md` para los resultados y límites de la revisión. La aplicación incorpora service worker, manifest y cola local de PDF. Abre el programa e inicia sesión con internet en cada equipo antes de necesitarlo sin red. En Guía de uso se muestra si el arranque sin conexión está preparado. El acceso offline se renueva con un inicio online cada siete días.
 

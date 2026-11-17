@@ -10,6 +10,7 @@ self.addEventListener('fetch',event=>{
  const request=event.request,url=new URL(request.url);
  if(request.method!=='GET'||(url.origin===self.location.origin&&url.pathname.startsWith('/api/')))return;
  if(request.mode==='navigate'&&url.origin===self.location.origin){event.respondWith((async()=>{try{const r=await network(request);if(r.ok){const cache=await caches.open(SHELL);await cache.put('/',r.clone());return r;}throw Error('unavailable');}catch{return (await caches.open(SHELL)).match('/')||Response.error();}})());return;}
+ if(url.origin===self.location.origin&&url.pathname==='/version.json'){event.respondWith((async()=>{const cache=await caches.open(SHELL);try{const response=await network(request);if(!response.ok)throw Error('unavailable');await cache.put('/version.json',response.clone());return response;}catch{return await cache.match('/version.json')||Response.error();}})());return;}
  if(url.origin===self.location.origin&&CORE.includes(url.pathname)){event.respondWith((async()=>{const cached=await (await caches.open(SHELL)).match(url.pathname);return cached||fetch(request);})());return;}
  const external=['cdn.jsdelivr.net','tessdata.projectnaptha.com','fonts.googleapis.com','fonts.gstatic.com','tile.openstreetmap.org','server.arcgisonline.com'].includes(url.hostname);
  if(!external)return;

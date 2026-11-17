@@ -124,7 +124,7 @@ window.addEventListener('online',()=>{cloudRefresh();});
 window.addEventListener('focus',()=>{cloudRefresh();});
 window.addEventListener('beforeunload',e=>{if(cloudQueue&&(cloudQueue.pending||cloudQueue.latest!==cloudQueue.confirmed)){e.preventDefault();e.returnValue='Hay cambios pendientes de guardar.';}});
 setInterval(()=>{if(cloudReady&&!cloudBlocked)cloudFlush();},15000);
-setInterval(()=>{cloudRefresh();cloudActivateUpdate();},60000);
+setInterval(()=>{cloudRefresh();cloudActivateUpdate();if(navigator.onLine!==false)cloudRegistration?.update().catch(()=>{});},60000);
 function cloudUsersPage(){return `${header('Cuenta del servidor','Acceso privado de administración conectado a D1.')}<div class="card card-padding"><p>Sesión: <strong>${esc(cloudUser?.name||'')}</strong> · Administrador</p><form id="cloud-password-form"><label>Contraseña actual<input name="current" type="password" autocomplete="current-password" required></label><label>Nueva contraseña (mínimo 14 caracteres)<input name="password" type="password" minlength="14" maxlength="128" autocomplete="new-password" required></label><label>Confirmar nueva contraseña<input name="confirm" type="password" minlength="14" maxlength="128" autocomplete="new-password" required></label><button class="btn btn-primary">Cambiar contraseña</button><p id="cloud-password-result" role="status"></p></form></div>`;}
 document.addEventListener('submit',async e=>{
  if(e.target.id!=='cloud-password-form')return;e.preventDefault();const form=e.target,button=form.querySelector('button'),output=form.querySelector('#cloud-password-result');button.disabled=true;

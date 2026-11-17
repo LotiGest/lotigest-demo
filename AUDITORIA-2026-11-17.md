@@ -1,6 +1,6 @@
 # Revisión de LOTIGEST — 17 de noviembre de 2026
 
-Versión revisada: **0.18.0**. Repositorio oficial: `LotiGest/lotigest-demo`, rama `main`. Único programa publicado: https://lotigest-demo.pages.dev/.
+Versión revisada: **0.18.1**. Repositorio oficial: `LotiGest/lotigest-demo`, rama `main`. Único programa publicado: https://lotigest-demo.pages.dev/.
 
 ## Resultado y alcance
 
