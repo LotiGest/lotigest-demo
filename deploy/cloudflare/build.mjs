@@ -14,6 +14,12 @@ files['index.html'] = files['index.html'].replace('Clientes en la nube</a></div>
 files['clientes-nube.html'] = files['clientes-nube.html']
   .replace('Volver a LOTIGEST</a>', 'Volver a LOTIGEST</a> · <a href="/operaciones-nube">Operaciones en la nube</a>')
   .replace('[client.name, client.identity', '[client.name, client.id, client.identity');
+files['acceso-nube.js'] = await readFile(new URL('./acceso-nube.js', import.meta.url), 'utf8');
+files['clientes-nube.html'] = files['clientes-nube.html']
+  .replace('<label for="token">Clave privada de LOTIGEST</label>', '<label for="username">Usuario</label><input id="username" autocomplete="username" maxlength="40"><label for="token">Contraseña o clave privada</label><p>Si usas una clave privada, deja el usuario vacío.</p>')
+  .replace('pattern="[a-f0-9]{64}"', 'maxlength="128"')
+  .replace('<script>', '<script src="/acceso-nube.js"></script><script>')
+  .replace("    credential = el('token').value.trim();\n    el('login').reset();\n    try { await load(); }", "    const username = el('username').value, password = el('token').value;\n    el('login').reset();\n    try { credential = await lotigestAccess.credential(username, password); await load(); }");
 await mkdir(out, { recursive: true });
 await Promise.all(Object.entries(files).map(([name, content]) => writeFile(new URL(name, out), content)));
 console.log('Cloudflare Pages: ' + Object.keys(files).join(', '));
