@@ -1,1 +1,1 @@
-{"version":"0.17.5","notes":"Panel original conectado a Cloudflare D1: guardado persistente, sesiones privadas, recuperación de pendientes y PDF en servidor."}
+{"version":"0.18.0","notes":"Trabajo sin conexión, sincronización automática, notificaciones que se pueden cerrar y revisión de guardado y operaciones."}

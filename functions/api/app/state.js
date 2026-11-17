@@ -1,16 +1,47 @@
 import {json,hash,sameOrigin,actor,body,failure} from './shared.js';
 const limit=4*1024*1024;
 const invalid=message=>{throw Object.assign(Error(message),{status:400});};
+function cents(value,label,min=0){
+ if(typeof value!=='number'&&(typeof value!=='string'||!/^\d+(?:\.\d{1,2})?$/.test(value)))invalid(label+' inválido.');
+ const n=Number(value),c=Math.round(n*100);if(!Number.isFinite(n)||!Number.isSafeInteger(c)||c<min||Math.abs(n*100-c)>.00001)invalid(label+' debe tener un importe válido y hasta dos decimales.');return c;
+}
+function date(value,label){
+ if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value))invalid(label+' inválida.');
+ const d=new Date(value+'T12:00:00Z');if(!Number.isFinite(+d)||d.toISOString().slice(0,10)!==value)invalid(label+' inválida.');return value;
+}
 export function validate(state){
  if(!state||Array.isArray(state)||state.version!==3||!state.company||typeof state.company!=='object'||Array.isArray(state.company))invalid('Formato incompatible.');
  for(const key of Object.keys(state))if(!/^[A-Za-z][A-Za-z0-9_]{0,80}$/.test(key)||['__proto__','constructor','prototype'].includes(key))invalid('Campo incompatible.');
- for(const key of ['lots','clients','sales','payments']){
+ for(const key of ['lots','clients','sales','payments',...(state.reservations!==undefined?['reservations']:[])]){
   if(!Array.isArray(state[key])||state[key].length>100000)invalid('Colección incompatible: '+key);
   const ids=new Set();for(const row of state[key]){if(!row||typeof row.id!=='string'||!row.id||row.id.length>150||ids.has(row.id))invalid('Código duplicado o inválido en '+key);ids.add(row.id);}
  }
- const lots=new Set(state.lots.map(r=>r.id)),clients=new Set(state.clients.map(r=>r.id)),sales=new Set(state.sales.map(r=>r.id));
- for(const s of state.sales){if(!lots.has(s.lotId)||!clients.has(s.clientId)||!Number.isFinite(s.price)||s.price<0)invalid('Venta sin terreno, cliente o precio válido.');}
- for(const p of state.payments){if(!sales.has(p.saleId)||!Number.isFinite(p.amount)||p.amount<0)invalid('Abono sin venta o monto válido.');}
+ for(const key of ['cashEntries','contractTexts','residences'])if(state[key]!==undefined&&!Array.isArray(state[key]))invalid('Colección incompatible: '+key);
+ const lots=new Map(state.lots.map(r=>[r.id,r])),clients=new Set(state.clients.map(r=>r.id)),sales=new Map(state.sales.map(r=>[r.id,r])),sold=new Set(),identities=new Set(),totals=new Map(),prices=new Map();
+ for(const c of state.clients){
+  if(typeof c.name!=='string'||!c.name.trim()||c.name.length>200)invalid('Nombre de cliente inválido.');
+  if(c.identity!=null&&typeof c.identity!=='string')invalid('Identidad inválida.');const identity=(c.identity||'').replace(/[\s-]/g,'').toUpperCase();
+  if(identity&&identities.has(identity))invalid('La identidad está registrada en más de un cliente.');if(identity)identities.add(identity);
+ }
+ for(const s of state.sales){
+  if(!lots.has(s.lotId)||!clients.has(s.clientId)||sold.has(s.lotId))invalid('Venta duplicada o sin terreno/cliente válido.');sold.add(s.lotId);
+  const price=cents(s.price,'Precio de venta',1),down=cents(s.downPayment??0,'Prima'),opening=cents(s.openingPaid??0,'Saldo inicial abonado');prices.set(s.id,price);totals.set(s.id,opening);
+  if(!['cash','credit'].includes(s.type)||down>price||opening>price)invalid('Modalidad o prima de venta inválida.');
+  if(s.type==='credit'&&(!Number.isInteger(Number(s.months))||Number(s.months)<1||Number(s.months)>360||down>=price))invalid('Revisa la prima y el plazo del crédito (1 a 360 meses).');
+  date(s.date,'Fecha de venta');if(s.firstDueDate&&date(s.firstDueDate,'Primer vencimiento')<s.date)invalid('El primer vencimiento no puede ser anterior a la venta.');
+ }
+ for(const p of state.payments){
+  const sale=sales.get(p.saleId);if(!sale)invalid('Abono sin venta válida.');
+  if(date(p.date,'Fecha de pago')<sale.date)invalid('El pago no puede ser anterior a la venta.');
+  const total=totals.get(p.saleId)+cents(p.amount,'Abono',1);if(!Number.isSafeInteger(total)||total>prices.get(p.saleId))invalid('Los pagos superan el precio de la venta.');totals.set(p.saleId,total);
+ }
+ for(const s of state.sales)if(s.type==='cash'&&(cents(s.downPayment??0,'Prima')!==prices.get(s.id)||totals.get(s.id)!==prices.get(s.id)))invalid('Una venta de contado debe quedar pagada completamente.');
+ const active=new Set();for(const r of state.reservations||[]){
+  if(!lots.has(r.lotId)||!clients.has(r.clientId)||!['active','cancelled','converted','expired'].includes(r.status))invalid('Apartado sin terreno, cliente o estado válido.');
+  if(r.status==='active'){if(active.has(r.lotId)||sold.has(r.lotId))invalid('Apartado activo duplicado o sobre un terreno vendido.');active.add(r.lotId);date(r.reservedUntil,'Vencimiento del apartado');}
+  if(r.status==='converted'){const sale=sales.get(r.saleId);if(!sale||sale.lotId!==r.lotId||sale.clientId!==r.clientId)invalid('Apartado convertido sin venta compatible.');}
+ }
+ for(const e of state.cashEntries||[]){if(!['income','expense'].includes(e.kind))invalid('Tipo de movimiento financiero inválido.');cents(e.amount,'Movimiento financiero',1);date(e.date,'Fecha del movimiento');}
 }
 export function encode(state){
  const entries=[],shape={};
@@ -31,6 +62,7 @@ export async function onRequest({request,env}){
  try{
   const user=await actor(request,db);if(!user)return json({error:'La sesión terminó. Vuelve a iniciar sesión; tus cambios se conservan.'},401);
   if(user.role!=='admin')return json({error:'Se requiere una cuenta administradora.'},403);
+  if(request.method==='GET'&&new URL(request.url).searchParams.get('revision')==='1'){const meta=await db.prepare('SELECT revision FROM app_meta WHERE id=1').first();return json({revision:meta.revision,user});}
   if(request.method==='GET'){const s=await snapshot(db);return json({revision:s.revision,state:decode(s.rows),user});}
   if(request.method!=='PUT')return json({error:'Método no permitido.'},405);
   const {state,revision,mutation}=await body(request,limit);

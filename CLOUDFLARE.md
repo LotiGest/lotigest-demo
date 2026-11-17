@@ -32,3 +32,12 @@ Aplicar `deploy/cloudflare/migrations/0003_app_persistence.sql` en la base exist
 Las pruebas verifican 2,000 clientes y datos de todos los módulos, relectura completa, cambios incrementales, reintentos, conflictos, rollback por fallo SQL, sesiones, restricciones de rol y origen, límites, contraseña y PDF. También se verificó el DOM del panel original con inicio de sesión, alta de cliente, reapertura y recuperación de cambios sin red. Esas comprobaciones locales no sustituyen las comprobaciones del despliegue real.
 
 El mapa público, avisos WhatsApp y evaluación completa para venta requieren validación independiente. Este cambio conecta el almacenamiento del panel y no certifica todo el programa para comercialización.
+
+
+## Actualización 0.18.0: desconexiones y aprendizaje
+
+Consulta `AUDITORIA-2026-11-17.md` para los resultados y límites de la revisión. La aplicación incorpora service worker, manifest y cola local de PDF. Abre el programa e inicia sesión con internet en cada equipo antes de necesitarlo sin red. En Guía de uso se muestra si el arranque sin conexión está preparado. El acceso offline se renueva con un inicio online cada siete días.
+
+La notificación de sincronización se puede cerrar. El indicador pequeño permite consultarla de nuevo. Se reintenta el envío automáticamente y se comprueba la revisión del servidor sin cambiar un formulario que esté abierto. Los conflictos financieros requieren revisión; no se sobrescriben ni se fusionan automáticamente.
+
+Aplicar también `deploy/cloudflare/migrations/0004_login_limits.sql` antes de desplegar. Desarrollo reproducible: `npm ci`, `npm run build`, `npm test`. El service worker se actualiza cuando no hay cambios pendientes ni un modal abierto.

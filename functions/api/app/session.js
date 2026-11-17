@@ -13,6 +13,12 @@ export async function onRequest({request,env}){
   if(request.method!=='POST')return json({error:'Método no permitido.'},405);
   const {credential}=await body(request,1024);
   if(typeof credential!=='string'||!/^[a-f0-9]{64}$/.test(credential))return json({error:'Credenciales incorrectas.'},401);
+  const now=Date.now(),windowStart=Math.floor(now/900000)*900000;
+  const ipHash=await hash('lotigest-signin:'+ (request.headers.get('CF-Connecting-IP')||'local'));
+  const gate=await db.prepare(`INSERT INTO app_login_limits(ip_hash,window_start,attempts) VALUES(?,?,1)
+   ON CONFLICT(ip_hash) DO UPDATE SET attempts=CASE WHEN window_start=excluded.window_start THEN attempts+1 ELSE 1 END,
+   window_start=excluded.window_start RETURNING attempts`).bind(ipHash,windowStart).first();
+  if(gate.attempts>30)return json({error:'Demasiados intentos de acceso. Espera unos minutos antes de reintentar.'},429,{'Retry-After':String(Math.ceil((windowStart+900000-now)/1000))});
   const user=await db.prepare('SELECT name,role FROM users WHERE token_hash=?').bind(await hash(credential)).first();
   if(!user)return json({error:'Credenciales incorrectas.'},401);
   if(user.role!=='admin')return json({error:'El panel integrado requiere una cuenta administradora.'},403);

@@ -6,7 +6,7 @@ export function buildPagesFiles(html, version, parser, bridge) {
       !html.includes("import('./payment-fields.mjs')") || !parser.includes('export function extractPaymentFields')) {
     throw new Error('La demo cambió. Revisa los archivos de entrada para Pages.');
   }
-  if (!bridge?.includes('async function cloudLoad()')) throw new Error('Falta el puente D1.');
+  if (!bridge?.includes('async function cloudLoad(')) throw new Error('Falta el puente D1.');
   const release = JSON.parse(version).version;
   if (!/^\d+\.\d+\.\d+$/.test(release) || !html.includes("CURRENT_VERSION='" + release + "'")) {
     throw new Error('El HTML y version.json deben declarar la misma versión.');
@@ -37,10 +37,15 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace('Restaura datos desde un respaldo de este mismo prototipo.', 'Importa un respaldo compatible. Revisa su contenido antes de reemplazar datos en D1.')
     .replace(/function pdfStore\(mode,operation\)\{[^\n]+/, 'function pdfStore(mode,operation){return cloudPdfStore(mode,operation)}')
     .replace('El PDF no está disponible en este navegador. Puedes adjuntarlo de nuevo.', 'El PDF no está disponible en D1. Adjunta de nuevo la copia original.')
-    .replace('<strong>Importar respaldo</strong>', '<strong>Importar respaldo</strong><p><button class="btn btn-outline" id="cloud-local-review" type="button">Revisar copia anterior de este navegador</button></p>')
+    .replace('<strong>Importar respaldo</strong>', '<strong>Importar respaldo</strong><p><button class="btn btn-outline" id="cloud-local-review" type="button">Revisar copia anterior de este navegador</button> <button class="btn btn-outline" id="cloud-recovery-copies" type="button">Copias de recuperación</button></p>')
+    .replace("backup:['Respaldo','download']};", "backup:['Respaldo','download'],help:['Guía de uso','bookClock']};")
+    .replace("function basePageContent(){switch(page){", "function basePageContent(){if(page==='help')return cloudHelpPage();switch(page){")
+    .replace('Personaliza los datos de la empresa y el comportamiento del prototipo.', 'Configura los datos y la apariencia de tu lotificadora.')
+    .replace('Prototipo Fase 2', 'Versión conectada a Cloudflare')
+    .replace('La base de datos compartida, los permisos por usuario y el mapa GPS estarán disponibles en fases posteriores. Este prototipo guarda datos en el navegador utilizado.', 'Los registros se guardan en Cloudflare D1. Espera la confirmación de guardado antes de cerrar. El panel integrado requiere una cuenta administradora.')
     .replace('Acceso de prueba', 'Acceso privado')
     .replace('Prueba de interfaz', 'Servidor Cloudflare D1')
-    .replace('</head>', '<script src="/acceso-nube.js"></script><style>#lotigest-cloud-status{position:fixed;bottom:8px;left:8px;right:8px;z-index:10000;background:#164532;color:#fff;padding:8px 12px;border-radius:8px;font:13px system-ui;box-shadow:0 2px 10px #0003}#lotigest-cloud-status[data-error=true]{background:#6b291c}#lotigest-cloud-status button{margin:2px 4px;padding:4px 8px;border:1px solid #ffffff60;border-radius:5px;background:transparent;color:inherit;cursor:pointer}body{padding-bottom:55px}body:has(.modal-cover) #lotigest-cloud-status{display:none}@media print{#lotigest-cloud-status{display:none!important}}</style></head>');
+    .replace('</head>', '<script src="/acceso-nube.js"></script><script src="/offline-files.js"></script><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#164532"><style>#lotigest-cloud-status{position:fixed;bottom:54px;right:12px;max-width:390px;width:calc(100% - 24px);z-index:10000;box-sizing:border-box;background:#164532;color:#fff;padding:14px 36px 14px 14px;border-radius:12px;font:13px system-ui;box-shadow:0 3px 18px #0004}#lotigest-cloud-status[hidden]{display:none!important}#lotigest-cloud-status[data-error=true]{background:#6b291c}#lotigest-cloud-status button{margin:6px 4px 0 0;padding:5px 8px;border:1px solid #ffffff60;border-radius:5px;background:transparent;color:inherit;cursor:pointer}#lotigest-cloud-status .cloud-notice-close{position:absolute;right:6px;top:2px;font-size:20px;border:0;margin:0}#lotigest-sync-indicator{position:fixed;bottom:10px;right:12px;z-index:9999;border:0;border-radius:20px;padding:8px 12px;background:#164532;color:#fff;box-shadow:0 2px 8px #0003;font:12px system-ui;cursor:pointer}body:has(.modal-cover) #lotigest-cloud-status,body:has(.modal-cover) #lotigest-sync-indicator{display:none}@media print{#lotigest-cloud-status,#lotigest-sync-indicator{display:none!important}}</style></head>');
   if (demo === html || !demo.includes('lotigest_cloudflare_demo_v1') ||
       !demo.includes('if (cloudflareDemo) return;') || !demo.includes('const pagesContractOcr = true;')) {
     throw new Error('No se pudo aislar el modo de demostración.');
@@ -50,7 +55,7 @@ export function buildPagesFiles(html, version, parser, bridge) {
     'index.html': demo,
     'version.json': version,
     'payment-fields.mjs': parser,
-    '_headers': '/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: no-referrer\n',
+    '_headers': '/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: no-referrer\n  X-Frame-Options: DENY\n  Content-Security-Policy: frame-ancestors \'none\'; base-uri \'self\'; object-src \'none\'\n',
     '_redirects': '/prueba-diseno-v08.html / 302\n',
   };
 }
