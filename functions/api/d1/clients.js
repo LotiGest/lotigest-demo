@@ -1,4 +1,5 @@
 const headers = { 'Cache-Control': 'no-store' };
+const clientColumns = "SELECT c.id, c.name, x.identity, COALESCE(x.phone, '') AS phone, COALESCE(x.email, '') AS email, COALESCE(x.address, '') AS address FROM clients c LEFT JOIN client_contacts x ON x.client_id = c.id";
 const json = (body, status = 200) => Response.json(body, { status, headers });
 
 export async function onRequest({ request, env }) {
@@ -24,7 +25,7 @@ export async function onRequest({ request, env }) {
       const after = new URL(request.url).searchParams.get('after') ?? '';
       if (after && !/^[A-Za-z0-9_-]{1,100}$/.test(after)) return json({ error: 'Paginación inválida.' }, 400);
       const { results } = await env.LOTIGEST_DB.prepare(
-        'SELECT id, name FROM clients WHERE id > ? ORDER BY id LIMIT 101'
+        clientColumns + ' WHERE c.id > ? ORDER BY c.id LIMIT 101'
       ).bind(after).all();
       const clients = results.slice(0, 100);
       return json({ clients, next: results.length > 100 ? clients.at(-1).id : null });
@@ -57,15 +58,37 @@ export async function onRequest({ request, env }) {
       return json({ error: 'Identificador o nombre inválido.' }, 400);
     }
 
+    const fields = {};
+    for (const [key, limit] of Object.entries({ identity: 32, phone: 40, email: 180, address: 250 })) {
+      const value = body[key] ?? '';
+      if (typeof value !== 'string' || value.trim().length > limit) {
+        return json({ error: 'Revisa los datos de contacto.' }, 400);
+      }
+      fields[key] = value.trim();
+    }
+    fields.identity = fields.identity.toUpperCase().replace(/[ -]/g, '') || null;
+    if ((fields.identity && !/^[A-Z0-9]+$/.test(fields.identity)) ||
+        (fields.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(fields.email))) {
+      return json({ error: 'Revisa la identidad y el correo.' }, 400);
+    }
+
     const db = env.LOTIGEST_DB;
-    const [write, read] = await db.batch([
+    const [write, , read] = await db.batch([
       db.prepare('INSERT INTO clients (id, name) VALUES (?, ?) ON CONFLICT(id) DO NOTHING').bind(id, name),
-      db.prepare('SELECT id, name FROM clients WHERE id = ?').bind(id)
+      db.prepare(`INSERT INTO client_contacts (client_id, identity, phone, email, address)
+        SELECT id, ?, ?, ?, ? FROM clients WHERE id = ? AND name = ? AND changes() = 1
+        ON CONFLICT(client_id) DO NOTHING`).bind(fields.identity, fields.phone, fields.email, fields.address, id, name),
+      db.prepare(clientColumns + ' WHERE c.id = ?').bind(id)
     ]);
     const client = read.results[0];
-    if (client?.name !== name) return json({ error: 'El identificador ya pertenece a otro cliente.' }, 409);
+    if (client?.name !== name || Object.entries(fields).some(([key, value]) => Object.hasOwn(body, key) && client[key] !== value)) {
+      return json({ error: 'El código ya está registrado con otros datos.' }, 409);
+    }
     return json({ client }, write.meta.changes ? 201 : 200);
   } catch (error) {
+    if (/UNIQUE constraint failed: client_contacts.identity/i.test(error.message)) {
+      return json({ error: 'La identidad ya está registrada.' }, 409);
+    }
     console.error('LOTIGEST D1 clients request failed', error.name);
     return json({ error: 'No fue posible consultar o guardar el cliente.' }, 503);
   }
