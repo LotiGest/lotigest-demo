@@ -7,9 +7,9 @@ async function derive(password,salt) {
   return hex(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',iterations:600000,salt:bytes(salt)},key,256));
 }
 async function api(token,options={}) {
-  const {query='',data}=options;
+  const {query='',data,method=data?'POST':'GET'}=options;
   const response=await fetch('/api/d1/users'+query,{
-    method:data?'POST':'GET',cache:'no-store',
+    method,cache:'no-store',
     headers:{...(token?{Authorization:'Bearer '+token}:{}),...(data?{'Content-Type':'application/json'}:{})},
     body:data?JSON.stringify(data):undefined
   });
@@ -27,7 +27,7 @@ window.lotigestAccess={
   list(token,after='') {
     return api(token,{query:'?'+new URLSearchParams({after})});
   },
-  async create(token,form) {
+  async create(token,form,activate=false) {
     const name=form.get('name').trim().toLowerCase(), role=form.get('role');
     const password=form.get('password');
     if (password.length<14||password.length>128||password!==form.get('confirm')) {
@@ -36,6 +36,6 @@ window.lotigestAccess={
     const salt=hex(crypto.getRandomValues(new Uint8Array(32)));
     const credential=await derive(password,salt);
     const token_hash=hex(await crypto.subtle.digest('SHA-256',bytes(credential)));
-    return api(token,{data:{name,role,salt,token_hash}});
+    return api(token,{data:{name,role:activate?'admin':role,salt,token_hash},method:activate?'PUT':'POST'});
   }
 };
