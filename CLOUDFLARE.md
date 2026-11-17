@@ -1,35 +1,29 @@
-# Publicar la demo de LOTIGEST en Cloudflare Pages
+# LOTIGEST: publicación oficial
 
-Esta rama genera una demo con datos ficticios guardados en el navegador.
-El artefacto incluye solo el panel, el lector de campos de recibos, el
-manifiesto de versión y la configuración estática de Pages. El OCR
-descarga su motor y el idioma desde los mismos servicios externos utilizados
-en la demo anterior y procesa las imágenes en el navegador.
+- Código oficial: https://github.com/LotiGest/lotigest-demo
+- Programa publicado: https://lotigest-demo.pages.dev/
+- Único proyecto de Cloudflare Pages: `lotigest-demo`.
+- Rama de producción: `main`.
+- Publicación automática de producción activada. Publicaciones de vista previa desactivadas.
+- El sitio anterior de Sites quedó archivado y con acceso restringido al propietario. No es el programa oficial.
 
-## Configuración de Cloudflare Pages
+## Compilación
 
-- Repositorio: `LotiGest/lotigest-demo`
-- Rama: `cloudflare/lotigest-demo-ready`
-- Directorio raíz: raíz del repositorio
-- Preset: ninguno
-- Comando de compilación: `node deploy/cloudflare/build.mjs`
-- Directorio de salida: `cloudflare-pages`
+- Directorio raíz: raíz del repositorio.
+- Preset: ninguno.
+- Comando: `node deploy/cloudflare/build.mjs`.
+- Directorio de salida: `cloudflare-pages`.
+- Las funciones HTTP se encuentran en `functions/`.
+- Binding de producción: `LOTIGEST_DB`, base existente `lotigest-pruebas`.
 
-También puedes ejecutar el comando en un checkout limpio y subir la carpeta
-generada mediante Direct Upload. Usa un proyecto de prueba. Antes de compartir
-la URL, prueba en computadora y teléfono: entrada, tema oscuro, cierre de
-ventanas, apartado, venta, abono normal, escaneo OCR e impresión del recibo.
-Usa un recibo ficticio para las pruebas. El mapa interno sigue accesible. La
-publicación del mapa a clientes requiere una API y se desactiva en esta demo.
+Continuar las actualizaciones en este repositorio y publicar en este mismo proyecto. No crear otro sitio, proyecto Pages o base para sustituirlos. No borrar información para cambiar la rama de publicación.
 
-## Backend operativo pendiente
+## Estado real de la integración
 
-El backend Node/SQLite no forma parte del artefacto estático. Para operar en
-Workers hace falta adaptar su API, sesiones y persistencia, y validar cobros,
-anulaciones, permisos, restauración y avisos programados con una base aislada
-de prueba. No se requiere una base de datos de producción para esa etapa.
+El panel principal conserva el diseño completo y utiliza almacenamiento local del navegador. Los paneles `/clientes-nube` y `/operaciones-nube` utilizan las APIs de D1 del mismo despliegue; todavía tienen flujos separados. Unificar el repositorio y la publicación no convierte automáticamente el almacenamiento del panel principal en D1.
 
-Los recibos nuevos del backend Node registran el saldo vigente al emitirse.
-Los recibos antiguos conservan el cálculo anterior, porque no existe una
-instantánea histórica para ellos. Verifica la migración y la secuencia de
-abono, anulación, nuevo abono y reimpresión con SQLite antes de operar.
+La integración pendiente debe conectar los formularios originales, sus consultas, roles y sesiones a la persistencia del servidor; incluir migración revisable de datos locales, concurrencia, recuperación y pruebas del recorrido completo. No presentar el panel local como un sistema conectado íntegramente a D1 ni eliminar los paneles actuales antes de sustituir su funcionalidad.
+
+El OCR procesa imágenes en el navegador y descarga recursos externos. La publicación del mapa a clientes sigue desactivada en esta compilación. El backend Node/SQLite no se ejecuta en Pages; las rutas D1 son funciones independientes.
+
+Antes de operar con clientes reales, validar autenticación, permisos, ventas, apartados, cuotas, abonos, recibos, anulaciones y restauración en el panel integrado. Los datos existentes de D1 y del navegador deben conservarse durante esa transición.
