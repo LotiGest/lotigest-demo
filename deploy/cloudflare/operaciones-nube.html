@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operaciones en la nube · LOTIGEST</title>
+<style>
+:root{color-scheme:light dark;font:1rem system-ui}body{background:Canvas;color:CanvasText;margin:0}main{margin:auto;max-width:64rem;padding:1.5rem}form,section{border:1px solid GrayText;border-radius:.7rem;padding:1rem;margin:1rem 0}label{display:block;margin:.5rem 0}input,button{font:inherit;padding:.5rem;max-width:94%}button{cursor:pointer}#results{overflow-wrap:anywhere}dt{font-weight:bold}dd{margin:0 0 .4rem}article{border-bottom:1px solid GrayText;padding:.5rem 0}@media print{main>*:not(#results){display:none!important}}
+</style>
+<main>
+<a href="/">LOTIGEST</a> · <a href="/clientes-nube">Clientes en la nube</a>
+<h1>Operaciones en la nube</h1>
+<form id="login"><label>Clave privada <input name="token" type="password" required pattern="[a-f0-9]{64}" autocomplete="off"></label><button>Entrar</button></form>
+<p role="status" id="status"></p>
+<div id="operations" hidden>
+<button id="logout" type="button">Cerrar sesión</button>
+<form data-op="lots"><h2>Registrar terreno</h2><label>Código del solar <input name="id" required></label><label>Precio en lempiras <input name="price_cents" type="number" min=".01" step=".01" required></label><button>Guardar terreno</button></form>
+<form data-op="reservations"><h2>Apartar solar</h2><label>Código del solar <input name="lot_id" required></label><label>Código del cliente <input name="client_id" required></label><label>Fecha de vencimiento <input name="reserved_until" type="date" required></label><button>Guardar apartado</button></form>
+<form data-op="sales"><h2>Registrar venta</h2><label>Código del solar <input name="lot_id" required></label><label>Código del cliente <input name="client_id" required></label><label>Código de apartado, si aplica <input name="reservation_id"></label><label>Fecha de venta <input name="date" type="date" required></label><label>Meses de crédito (0 para contado) <input name="months" type="number" min="0" max="360" value="0" required></label><label>Prima en lempiras <input name="down_cents" type="number" min="0" step=".01" value="0" required></label><label>Fecha de primera cuota, opcional <input name="first_due_date" type="date"></label><button>Guardar venta</button></form>
+<form data-op="payments"><h2>Registrar abono</h2><label>Código de venta <input name="sale_id" required></label><label>Fecha del abono <input name="date" type="date" required></label><label>Importe en lempiras <input name="amount_cents" type="number" min=".01" step=".01" required></label><button>Guardar abono</button></form>
+<form id="lookup"><h2>Consultar registros</h2><label>Tipo <select name="type" id="resource"></select></label><label>Código de venta o número de recibo, cuando corresponda <input name="id"></label><label>Continuar después de este código, opcional <input name="after"></label><button>Consultar</button></form>
+<button id="print" type="button" hidden>Imprimir recibo</button>
+</div>
+<section id="results" hidden aria-label="Resultados"></section>
+</main>
+<script>
+const el = id => document.getElementById(id);
+const forms = [...document.querySelectorAll('[data-op]')];
+const drafts = new Map();
+let token = '';
+let busy = false;
+const labels = {id:'Código',name:'Nombre',client_id:'Código del cliente',lot_id:'Solar',client_name:'Cliente',receipt:'Recibo',price_cents:'Precio',amount_cents:'Importe',down_cents:'Prima',paid_cents:'Pagado',balance_cents:'Saldo',pending_cents:'Pendiente',sale_id:'Código de venta',sale_date:'Fecha de venta',payment_date:'Fecha de pago',reserved_until:'Vence',due_date:'Vencimiento',status:'Estado',number:'Cuota',months:'Meses',reservation_id:'Apartado',first_due_date:'Primera cuota',kind:'Concepto',voided:'Anulado'};
+const money = new Intl.NumberFormat('es-HN',{style:'currency',currency:'HNL'});
+async function api(query, data, key) {
+  const response = await fetch('/api/d1/operations'+query,{
+    method:data?'POST':'GET',
+    headers:{Authorization:'Bearer '+token,...(data?{'Content-Type':'application/json','Idempotency-Key':key}:{})},
+    body:data?JSON.stringify(data):undefined
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error||'No fue posible completar la operación.');
+  return result;
+}
+function clearResults() {
+  el('results').replaceChildren();
+  el('results').hidden=true;
+  el('print').hidden=true;
+}
+function show(title, rows) {
+  el('results').hidden=false;
+  const heading=document.createElement('h2');
+  heading.textContent=title;
+  el('results').append(heading);
+  if (!rows.length) {
+    heading.textContent+=' · Sin registros';
+    return;
+  }
+  for (const row of rows) {
+    const list=document.createElement('dl');
+    for (const [key,value] of Object.entries(row)) {
+      if (!labels[key] || value==null) continue;
+      const term=document.createElement('dt'), detail=document.createElement('dd');
+      term.textContent=labels[key];
+      detail.textContent=key.endsWith('_cents') ? money.format(value/100) : key==='voided' ? (value?'Sí':'No') : value;
+      list.append(term,detail);
+    }
+    const article=document.createElement('article');
+    article.append(list);
+    el('results').append(article);
+  }
+}
+async function act(task) {
+  if (busy) return;
+  busy=true;
+  const controls=[...document.querySelectorAll('button,input,select')];
+  controls.forEach(node=>node.disabled=true);
+  el('status').textContent='Consultando…';
+  try { el('status').textContent=await task(); }
+  catch (error) { el('status').textContent=error.message; }
+  finally { busy=false; controls.forEach(node=>node.disabled=false); }
+}
+el('login').onsubmit=event=>{
+  event.preventDefault();
+  const entered = new FormData(el('login')).get('token');
+  act(async()=>{
+    token=entered;
+    el('login').reset();
+    let role;
+    try {role=await api('');} catch (error) {token='';throw error;}
+    forms[0].hidden=role.role!=='admin';
+    forms[1].hidden=!role.pending;
+    forms[2].hidden=!role.sales;
+    forms[3].hidden=!role.cash;
+    const choices=[['lots','Terrenos',role.inventory],['reservations','Apartados',role.pending],['sales','Ventas, cuotas y abonos',role.sales||role.cash],['receipts','Recibo',role.sales||role.cash]];
+    el('resource').replaceChildren(...choices.filter(x=>x[2]).map(([key,label])=>new Option(label,key)));
+    el('lookup').hidden=!el('resource').options.length;
+    el('login').hidden=true;
+    el('operations').hidden=false;
+    return 'Sesión iniciada.';
+  });
+};
+el('logout').onclick=()=>{
+  token='';
+  drafts.clear();
+  forms.forEach(form=>form.reset());
+  clearResults();
+  el('operations').hidden=true;
+  el('login').hidden=false;
+  el('status').textContent='Sesión cerrada.';
+};
+for (const form of forms) form.onsubmit=event=>{
+  event.preventDefault();
+  const data=Object.fromEntries([...new FormData(form)].filter(([,value])=>value.trim()).map(([key,value])=>[key,value.trim()]));
+  const operation=form.dataset.op;
+  const body={operation,...data};
+  for (const key of ['months','price_cents','down_cents','amount_cents']) {
+    if (key in body) body[key]=key==='months'?Number(body[key]):Math.round(Number(body[key])*100);
+  }
+  const payload=JSON.stringify(body);
+  if (drafts.get(form)?.payload!==payload) drafts.set(form,{payload,key:crypto.randomUUID()});
+  act(async()=>{
+    const saved=await api('',body,drafts.get(form).key);
+    drafts.delete(form);
+    form.reset();
+    clearResults();
+    show('Operación guardada en D1',[saved]);
+    return 'Registro guardado.';
+  });
+};
+el('lookup').onsubmit=event=>{
+  event.preventDefault();
+  const data=new FormData(el('lookup'));
+  const type=data.get('type'), id=data.get('id').trim(), after=data.get('after').trim();
+  act(async()=>{
+    if (type==='receipts' && !id) return 'Indica el número del recibo.';
+    const result=await api('?'+new URLSearchParams({type,...(id?{id}:{}),...(after?{after}:{})}));
+    clearResults();
+    if (result.sale) {
+      show('Venta',[{...result.sale,balance_cents:result.balance_cents}]);
+      show('Cuotas',result.installments);
+      show('Abonos y recibos',result.payments);
+    } else if (result.receipt) {
+      show('Recibo LOTIGEST',[result.receipt]);
+      el('print').hidden=false;
+    } else {
+      show(el('resource').selectedOptions[0].textContent,result[type]);
+    }
+    return 'Consulta completada.';
+  });
+};
+el('print').onclick=()=>window.print();
+</script>
+</html>
