@@ -1,1 +1,72 @@
-Y29uc3QgaGVhZGVycyA9IHsgJ0NhY2hlLUNvbnRyb2wnOiAnbm8tc3RvcmUnIH07CmNvbnN0IGpzb24gPSAoYm9keSwgc3RhdHVzID0gMjAwKSA9PiBSZXNwb25zZS5qc29uKGJvZHksIHsgc3RhdHVzLCBoZWFkZXJzIH0pOwoKZXhwb3J0IGFzeW5jIGZ1bmN0aW9uIG9uUmVxdWVzdCh7IHJlcXVlc3QsIGVudiB9KSB7CiAgaWYgKCFbJ0dFVCcsICdQT1NUJ10uaW5jbHVkZXMocmVxdWVzdC5tZXRob2QpKSB7CiAgICByZXR1cm4gbmV3IFJlc3BvbnNlKG51bGwsIHsgc3RhdHVzOiA0MDUsIGhlYWRlcnM6IHsgLi4uaGVhZGVycywgQWxsb3c6ICdHRVQsIFBPU1QnIH0gfSk7CiAgfQogIGNvbnN0IHRva2VuID0gL15CZWFyZXIgKFthLWYwLTldezY0fSkkLy5leGVjKHJlcXVlc3QuaGVhZGVycy5nZXQoJ0F1dGhvcml6YXRpb24nKSB8fCAnJyk/LlsxXTsKICBpZiAoIXRva2VuKSByZXR1cm4ganNvbih7IGVycm9yOiAnU2UgcmVxdWllcmUgdW5hIGNyZWRlbmNpYWwgZGUgTE9USUdFU1QuJyB9LCA0MDEpOwogIGlmICghZW52LkxPVElHRVNUX0RCKSByZXR1cm4ganNvbih7IGVycm9yOiAnTGEgYmFzZSBkZSBkYXRvcyBubyBlc3TDoSBkaXNwb25pYmxlLicgfSwgNTAzKTsKCiAgdHJ5IHsKICAgIGNvbnN0IGJ5dGVzID0gYXdhaXQgY3J5cHRvLnN1YnRsZS5kaWdlc3QoJ1NIQS0yNTYnLCBuZXcgVGV4dEVuY29kZXIoKS5lbmNvZGUodG9rZW4pKTsKICAgIGNvbnN0IGhhc2ggPSBBcnJheS5mcm9tKG5ldyBVaW50OEFycmF5KGJ5dGVzKSwgYnl0ZSA9PiBieXRlLnRvU3RyaW5nKDE2KS5wYWRTdGFydCgyLCAnMCcpKS5qb2luKCcnKTsKICAgIGNvbnN0IHVzZXIgPSBhd2FpdCBlbnYuTE9USUdFU1RfREIucHJlcGFyZSgnU0VMRUNUIHJvbGUsIHBhbmVsc19qc29uIEZST00gdXNlcnMgTEVGVCBKT0lOIHVzZXJfcGFuZWxzIFVTSU5HIChuYW1lKSBXSEVSRSB0b2tlbl9oYXNoID0gPycpLmJpbmQoaGFzaCkuZmlyc3QoKTsKICAgIGlmICghdXNlcikgcmV0dXJuIGpzb24oeyBlcnJvcjogJ0NyZWRlbmNpYWwgaW52w6FsaWRhLicgfSwgNDAxKTsKICAgIGlmICghWydhZG1pbicsICdzYWxlcyddLmluY2x1ZGVzKHVzZXIucm9sZSkpIHJldHVybiBqc29uKHsgZXJyb3I6ICdBY2Nlc28gcmVzdHJpbmdpZG8uJyB9LCA0MDMpOwoKICAgIGlmICh1c2VyLnJvbGUgPT09ICdzYWxlcycgJiYgdXNlci5wYW5lbHNfanNvbiAmJiAhSlNPTi5wYXJzZSh1c2VyLnBhbmVsc19qc29uKS5pbmNsdWRlcygnY2xpZW50cycpKSB7CiAgICAgIHJldHVybiBqc29uKHsgZXJyb3I6ICdBY2Nlc28gcmVzdHJpbmdpZG8uJyB9LCA0MDMpOwogICAgfQoKICAgIGlmIChyZXF1ZXN0Lm1ldGhvZCA9PT0gJ0dFVCcpIHsKICAgICAgY29uc3QgYWZ0ZXIgPSBuZXcgVVJMKHJlcXVlc3QudXJsKS5zZWFyY2hQYXJhbXMuZ2V0KCdhZnRlcicpID8/ICcnOwogICAgICBpZiAoYWZ0ZXIgJiYgIS9eW0EtWmEtejAtOV8tXXsxLDEwMH0kLy50ZXN0KGFmdGVyKSkgcmV0dXJuIGpzb24oeyBlcnJvcjogJ1BhZ2luYWNpw7NuIGludsOhbGlkYS4nIH0sIDQwMCk7CiAgICAgIGNvbnN0IHsgcmVzdWx0cyB9ID0gYXdhaXQgZW52LkxPVElHRVNUX0RCLnByZXBhcmUoCiAgICAgICAgJ1NFTEVDVCBpZCwgbmFtZSBGUk9NIGNsaWVudHMgV0hFUkUgaWQgPiA/IE9SREVSIEJZIGlkIExJTUlUIDEwMScKICAgICAgKS5iaW5kKGFmdGVyKS5hbGwoKTsKICAgICAgY29uc3QgY2xpZW50cyA9IHJlc3VsdHMuc2xpY2UoMCwgMTAwKTsKICAgICAgcmV0dXJuIGpzb24oeyBjbGllbnRzLCBuZXh0OiByZXN1bHRzLmxlbmd0aCA+IDEwMCA/IGNsaWVudHMuYXQoLTEpLmlkIDogbnVsbCB9KTsKICAgIH0KCiAgICBpZiAocmVxdWVzdC5oZWFkZXJzLmdldCgnQ29udGVudC1UeXBlJyk/LnNwbGl0KCc7JylbMF0udHJpbSgpLnRvTG93ZXJDYXNlKCkgIT09ICdhcHBsaWNhdGlvbi9qc29uJykgewogICAgICByZXR1cm4ganNvbih7IGVycm9yOiAnU2UgcmVxdWllcmUgSlNPTi4nIH0sIDQxNSk7CiAgICB9CiAgICBjb25zdCByZWFkZXIgPSByZXF1ZXN0LmJvZHk/LmdldFJlYWRlcigpOwogICAgaWYgKCFyZWFkZXIpIHJldHVybiBqc29uKHsgZXJyb3I6ICdTZSByZXF1aWVyZSB1biBjbGllbnRlLicgfSwgNDAwKTsKICAgIGNvbnN0IGRlY29kZXIgPSBuZXcgVGV4dERlY29kZXIoKTsKICAgIGxldCByYXcgPSAnJzsKICAgIGxldCBzaXplID0gMDsKICAgIGZvciAoOzspIHsKICAgICAgY29uc3QgeyB2YWx1ZSwgZG9uZSB9ID0gYXdhaXQgcmVhZGVyLnJlYWQoKTsKICAgICAgaWYgKGRvbmUpIGJyZWFrOwogICAgICBzaXplICs9IHZhbHVlLmJ5dGVMZW5ndGg7CiAgICAgIGlmIChzaXplID4gNDA5NikgewogICAgICAgIGF3YWl0IHJlYWRlci5jYW5jZWwoKTsKICAgICAgICByZXR1cm4ganNvbih7IGVycm9yOiAnU29saWNpdHVkIGRlbWFzaWFkbyBncmFuZGUuJyB9LCA0MTMpOwogICAgICB9CiAgICAgIHJhdyArPSBkZWNvZGVyLmRlY29kZSh2YWx1ZSwgeyBzdHJlYW06IHRydWUgfSk7CiAgICB9CiAgICBsZXQgYm9keTsKICAgIHRyeSB7IGJvZHkgPSBKU09OLnBhcnNlKHJhdyArIGRlY29kZXIuZGVjb2RlKCkpOyB9CiAgICBjYXRjaCB7IHJldHVybiBqc29uKHsgZXJyb3I6ICdKU09OIGludsOhbGlkby4nIH0sIDQwMCk7IH0KICAgIGNvbnN0IGlkID0gYm9keT8uaWQ7CiAgICBjb25zdCBuYW1lID0gdHlwZW9mIGJvZHk/Lm5hbWUgPT09ICdzdHJpbmcnID8gYm9keS5uYW1lLnRyaW0oKS50b1VwcGVyQ2FzZSgpIDogJyc7CiAgICBpZiAodHlwZW9mIGlkICE9PSAnc3RyaW5nJyB8fCAhL15bQS1aYS16MC05Xy1dezEsMTAwfSQvLnRlc3QoaWQpIHx8ICFuYW1lIHx8IG5hbWUubGVuZ3RoID4gMjAwKSB7CiAgICAgIHJldHVybiBqc29uKHsgZXJyb3I6ICdJZGVudGlmaWNhZG9yIG8gbm9tYnJlIGludsOhbGlkby4nIH0sIDQwMCk7CiAgICB9CgogICAgY29uc3QgZGIgPSBlbnYuTE9USUdFU1RfREI7CiAgICBjb25zdCBbd3JpdGUsIHJlYWRdID0gYXdhaXQgZGIuYmF0Y2goWwogICAgICBkYi5wcmVwYXJlKCdJTlNFUlQgSU5UTyBjbGllbnRzIChpZCwgbmFtZSkgVkFMVUVTICg/LCA/KSBPTiBDT05GTElDVChpZCkgRE8gTk9USElORycpLmJpbmQoaWQsIG5hbWUpLAogICAgICBkYi5wcmVwYXJlKCdTRUxFQ1QgaWQsIG5hbWUgRlJPTSBjbGllbnRzIFdIRVJFIGlkID0gPycpLmJpbmQoaWQpCiAgICBdKTsKICAgIGNvbnN0IGNsaWVudCA9IHJlYWQucmVzdWx0c1swXTsKICAgIGlmIChjbGllbnQ/Lm5hbWUgIT09IG5hbWUpIHJldHVybiBqc29uKHsgZXJyb3I6ICdFbCBpZGVudGlmaWNhZG9yIHlhIHBlcnRlbmVjZSBhIG90cm8gY2xpZW50ZS4nIH0sIDQwOSk7CiAgICByZXR1cm4ganNvbih7IGNsaWVudCB9LCB3cml0ZS5tZXRhLmNoYW5nZXMgPyAyMDEgOiAyMDApOwogIH0gY2F0Y2ggKGVycm9yKSB7CiAgICBjb25zb2xlLmVycm9yKCdMT1RJR0VTVCBEMSBjbGllbnRzIHJlcXVlc3QgZmFpbGVkJywgZXJyb3IubmFtZSk7CiAgICByZXR1cm4ganNvbih7IGVycm9yOiAnTm8gZnVlIHBvc2libGUgY29uc3VsdGFyIG8gZ3VhcmRhciBlbCBjbGllbnRlLicgfSwgNTAzKTsKICB9Cn0K
+const headers = { 'Cache-Control': 'no-store' };
+const json = (body, status = 200) => Response.json(body, { status, headers });
+
+export async function onRequest({ request, env }) {
+  if (!['GET', 'POST'].includes(request.method)) {
+    return new Response(null, { status: 405, headers: { ...headers, Allow: 'GET, POST' } });
+  }
+  const token = /^Bearer ([a-f0-9]{64})$/.exec(request.headers.get('Authorization') || '')?.[1];
+  if (!token) return json({ error: 'Se requiere una credencial de LOTIGEST.' }, 401);
+  if (!env.LOTIGEST_DB) return json({ error: 'La base de datos no está disponible.' }, 503);
+
+  try {
+    const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+    const hash = Array.from(new Uint8Array(bytes), byte => byte.toString(16).padStart(2, '0')).join('');
+    const user = await env.LOTIGEST_DB.prepare('SELECT role, panels_json FROM users LEFT JOIN user_panels USING (name) WHERE token_hash = ?').bind(hash).first();
+    if (!user) return json({ error: 'Credencial inválida.' }, 401);
+    if (!['admin', 'sales'].includes(user.role)) return json({ error: 'Acceso restringido.' }, 403);
+
+    if (user.role === 'sales' && user.panels_json && !JSON.parse(user.panels_json).includes('clients')) {
+      return json({ error: 'Acceso restringido.' }, 403);
+    }
+
+    if (request.method === 'GET') {
+      const after = new URL(request.url).searchParams.get('after') ?? '';
+      if (after && !/^[A-Za-z0-9_-]{1,100}$/.test(after)) return json({ error: 'Paginación inválida.' }, 400);
+      const { results } = await env.LOTIGEST_DB.prepare(
+        'SELECT id, name FROM clients WHERE id > ? ORDER BY id LIMIT 101'
+      ).bind(after).all();
+      const clients = results.slice(0, 100);
+      return json({ clients, next: results.length > 100 ? clients.at(-1).id : null });
+    }
+
+    if (request.headers.get('Content-Type')?.split(';')[0].trim().toLowerCase() !== 'application/json') {
+      return json({ error: 'Se requiere JSON.' }, 415);
+    }
+    const reader = request.body?.getReader();
+    if (!reader) return json({ error: 'Se requiere un cliente.' }, 400);
+    const decoder = new TextDecoder();
+    let raw = '';
+    let size = 0;
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > 4096) {
+        await reader.cancel();
+        return json({ error: 'Solicitud demasiado grande.' }, 413);
+      }
+      raw += decoder.decode(value, { stream: true });
+    }
+    let body;
+    try { body = JSON.parse(raw + decoder.decode()); }
+    catch { return json({ error: 'JSON inválido.' }, 400); }
+    const id = body?.id;
+    const name = typeof body?.name === 'string' ? body.name.trim().toUpperCase() : '';
+    if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(id) || !name || name.length > 200) {
+      return json({ error: 'Identificador o nombre inválido.' }, 400);
+    }
+
+    const db = env.LOTIGEST_DB;
+    const [write, read] = await db.batch([
+      db.prepare('INSERT INTO clients (id, name) VALUES (?, ?) ON CONFLICT(id) DO NOTHING').bind(id, name),
+      db.prepare('SELECT id, name FROM clients WHERE id = ?').bind(id)
+    ]);
+    const client = read.results[0];
+    if (client?.name !== name) return json({ error: 'El identificador ya pertenece a otro cliente.' }, 409);
+    return json({ client }, write.meta.changes ? 201 : 200);
+  } catch (error) {
+    console.error('LOTIGEST D1 clients request failed', error.name);
+    return json({ error: 'No fue posible consultar o guardar el cliente.' }, 503);
+  }
+}
