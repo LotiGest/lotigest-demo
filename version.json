@@ -1,1 +1,1 @@
-{"version":"0.17.4","notes":"Cuotas y pagos permite elegir abono normal o escanear recibo con OCR."}
+{"version":"0.17.5","notes":"Panel original conectado a Cloudflare D1: guardado persistente, sesiones privadas, recuperación de pendientes y PDF en servidor."}
