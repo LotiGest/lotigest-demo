@@ -19,7 +19,7 @@ export async function onRequest({request,env}) {
     }
     const token = /^Bearer ([a-f0-9]{64})$/.exec(request.headers.get('Authorization')||'')?.[1];
     if (!token) return json({error:'Se requiere iniciar sesión.'},401);
-    const actor = await db.prepare('SELECT role FROM users WHERE token_hash=?').bind(await hash(token)).first();
+    const actor = await db.prepare('SELECT name,role FROM users WHERE token_hash=?').bind(await hash(token)).first();
     if (!actor) return json({error:'Credencial inválida.'},401);
     if (actor.role!=='admin') return json({error:'Solo un administrador puede gestionar usuarios.'},403);
     if (request.method==='GET') {
@@ -29,7 +29,7 @@ export async function onRequest({request,env}) {
       const users = results.slice(0,100);
       return json({users,next:results.length>100?users.at(-1).name:null});
     }
-    if (request.method!=='POST') return json({error:'Método no permitido.'},405);
+    if (!['POST','PUT'].includes(request.method)) return json({error:'Método no permitido.'},405);
     if (request.headers.get('Content-Type')?.split(';')[0].trim()!=='application/json') return json({error:'Se requiere JSON.'},415);
     let body;
     try {
@@ -50,6 +50,19 @@ export async function onRequest({request,env}) {
     const {name,role,salt,token_hash}=body??{};
     if (!validName(name)||!['admin','sales'].includes(role)||!hex(salt)||!hex(token_hash)) {
       return json({error:'Revisa el usuario y el perfil.'},400);
+    }
+    if (request.method==='PUT') {
+      if (actor.name!=='lotigest-admin' || name==='lotigest-admin' || role!=='admin') {
+        return json({error:'La clave de activación o el usuario nuevo no es válido.'},403);
+      }
+      const [updated] = await db.batch([
+        db.prepare(`UPDATE OR IGNORE users SET name=?,token_hash=? WHERE name='lotigest-admin'
+          AND role='admin' AND token_hash=? AND NOT EXISTS(SELECT 1 FROM d1_user_passwords WHERE name='lotigest-admin')`)
+          .bind(name,token_hash,await hash(token)),
+        db.prepare('INSERT INTO d1_user_passwords(name,salt) SELECT ?,? WHERE changes()=1').bind(name,salt)
+      ]);
+      return updated.meta.changes ? json({name,role},201) :
+        json({error:'La activación ya se usó o el usuario ya existe.'},409);
     }
     const [created] = await db.batch([
       db.prepare('INSERT INTO users (name,role,token_hash) VALUES (?,?,?) ON CONFLICT DO NOTHING').bind(name,role,token_hash),
