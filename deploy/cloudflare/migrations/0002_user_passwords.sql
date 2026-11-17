@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS d1_user_passwords (
+  name TEXT PRIMARY KEY REFERENCES users(name) ON DELETE CASCADE,
+  salt TEXT NOT NULL CHECK(length(salt)=64)
+) STRICT;
