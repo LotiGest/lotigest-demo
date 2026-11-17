@@ -21,7 +21,7 @@ export async function onRequest({request,env}){
   if(gate.attempts>30)return json({error:'Demasiados intentos de acceso. Espera unos minutos antes de reintentar.'},429,{'Retry-After':String(Math.ceil((windowStart+900000-now)/1000))});
   const user=await db.prepare('SELECT name,role FROM users WHERE token_hash=?').bind(await hash(credential)).first();
   if(!user)return json({error:'Credenciales incorrectas.'},401);
-  if(user.role!=='admin')return json({error:'El panel integrado requiere una cuenta administradora.'},403);
+  if(!['admin','sales'].includes(user.role))return json({error:'La cuenta no tiene acceso a este panel.'},403);
   const token=Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
   await db.batch([db.prepare('DELETE FROM app_sessions WHERE expires<?').bind(Date.now()),db.prepare('INSERT INTO app_sessions(hash,username,expires) VALUES(?,?,?)').bind(await hash(token),user.name,Date.now()+43200000)]);
   return json({user},200,{'Set-Cookie':cookie(token)});

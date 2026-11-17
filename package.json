@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "node deploy/cloudflare/build.mjs",
-    "test": "node --test backend/*.test.mjs deploy/cloudflare/*.test.mjs",
+    "test": "node --test backend/*.test.mjs deploy/cloudflare/*.test.mjs tests/*.test.mjs",
     "test:cloud": "node --test deploy/cloudflare/app.test.mjs deploy/cloudflare/ui.test.mjs"
   },
   "devDependencies": {

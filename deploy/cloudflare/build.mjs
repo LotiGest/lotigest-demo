@@ -6,10 +6,11 @@ const out = new URL('cloudflare-pages/', root);
 const [html, version, parser] = await Promise.all(
   ['prueba-diseno-v08.html', 'version.json', 'payment-fields.mjs'].map(path => readFile(new URL(path, root), 'utf8'))
 );
-const bridge = await readFile(new URL('./app-bridge.js', import.meta.url), 'utf8');
+const bridge = (await readFile(new URL('./app-bridge.js', import.meta.url), 'utf8'))+'\n'+(await readFile(new URL('./ledger-ui.js', import.meta.url), 'utf8'));
 const files = buildPagesFiles(html, version, parser, bridge);
 files['acceso-nube.js'] = await readFile(new URL('./acceso-nube.js', import.meta.url), 'utf8');
 files['offline-files.js'] = await readFile(new URL('./offline-files.js', import.meta.url), 'utf8');
+for (const [path,name,exports] of [['ledger-import.mjs','lotigestLedger',['prepareLedgerImport','applyLedgerImport','regularizeHistoricalContract','historyCents','parseHistoryDate','historyLotCandidates','historyIssueLabels']],['cadastre.mjs','lotigestCadastre',['applyOfficialPlan','areaInVaras','DEFAULT_VARA_M2','VARA_SOURCE']]]) { const source=(await readFile(new URL(path,root),'utf8')).replace(/export /g,''); files[name+'.js']='(()=>{'+source+';window.'+name+'={'+exports.join(',')+'};})();'; }
 files['service-worker.js'] = (await readFile(new URL('./service-worker.js', import.meta.url), 'utf8')).replace('__LOTIGEST_VERSION__', JSON.parse(version).version);
 const icon = /<link rel="icon" href="(data:image\/webp;base64,[^"]+)"/.exec(html)?.[1];
 if (!icon) throw new Error('Falta el icono original de LOTIGEST.');

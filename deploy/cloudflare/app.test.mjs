@@ -20,7 +20,7 @@ test('2000 clientes y todos los módulos se recuperan de D1; guardado incrementa
 test('rechaza sesiones, roles, origen, JSON inválido, referencias corruptas y cargas excesivas sin modificar datos',async()=>{
  const f=await fixture();assert.equal((await onRequest({env:f.env,request:new Request('https://test/api/app/state')})).status,401);
  assert.equal((await onRequest({env:f.env,request:new Request('https://test/api/app/state',{headers:{Cookie:f.cookie,Origin:'https://evil'}})})).status,403);
- f.db.db.prepare("UPDATE users SET role='sales'").run();assert.equal((await request(f)).status,403);f.db.db.prepare("UPDATE users SET role='admin'").run();
+ f.db.db.prepare("UPDATE users SET role='sales'").run();assert.equal((await request(f)).status,200);assert.equal((await put(f,empty())).status,403);f.db.db.prepare("UPDATE users SET role='admin'").run();
  const invalid=empty();invalid.payments=[{id:'bad',saleId:'missing',amount:100}];assert.equal((await put(f,invalid)).status,400);
  const big=empty();big.large='x'.repeat(4*1024*1024);assert.equal((await put(f,big)).status,413);assert.equal((await (await request(f)).json()).state,null);
 });
@@ -45,4 +45,11 @@ test('los intentos de acceso se limitan por origen de red y se puede reintentar 
  for(let i=0;i<31;i++)response=await session({env:f.env,request:new Request('https://test/api/app/session',{method:'POST',headers:{Origin:'https://test','Content-Type':'application/json','CF-Connecting-IP':'192.0.2.123'},body:JSON.stringify({credential:'f'.repeat(64)})})});
  assert.equal(response.status,429);assert.ok(Number(response.headers.get('Retry-After'))>0);
  f.db.db.prepare('UPDATE app_login_limits SET window_start=0').run();response=await session({env:f.env,request:new Request('https://test/api/app/session',{method:'POST',headers:{Origin:'https://test','Content-Type':'application/json','CF-Connecting-IP':'192.0.2.123'},body:JSON.stringify({credential:f.credential})})});assert.equal(response.status,200);
+});
+test('administrador crea vendedor y el servidor filtra datos personales y financieros y rechaza sus escrituras',async()=>{
+ const {onRequest:accounts}=await import('../../functions/api/app/users.js'),f=await fixture(),{hash}=await import('../../functions/api/app/shared.js');const credential='b'.repeat(64),payload={name:'ventas_test',role:'sales',salt:'c'.repeat(64),token_hash:await hash(credential)};
+ let result=await accounts({env:f.env,request:new Request('https://test/api/app/users',{method:'POST',headers:{Cookie:f.cookie,Origin:'https://test','Content-Type':'application/json'},body:JSON.stringify(payload)})});assert.equal(result.status,201);
+ const s=empty();s.clients=[{id:'C1',name:'CLIENTE PRIVADO',identity:'0801199900001'}];s.lots=[{id:'L1',price:1000,status:'sold',area:154}];s.sales=[{id:'V1',lotId:'L1',clientId:'C1',type:'cash',price:1000,downPayment:1000,months:0,date:'2026-01-01'}];s.payments=[{id:'P1',saleId:'V1',amount:1000,date:'2026-01-01'}];s.residences=[{id:'R1',name:'RESIDENCIAL',records:{x:{lotId:'L1',owner:'CLIENTE PRIVADO'}},features:[{key:'x',number:1,points:[[0,0],[1,0],[1,1]],owner:'CLIENTE PRIVADO'}]}];assert.equal((await put(f,s)).status,200);
+ result=await session({env:f.env,request:new Request('https://test/api/app/session',{method:'POST',headers:{Origin:'https://test','Content-Type':'application/json'},body:JSON.stringify({credential})})});assert.equal(result.status,200);const cookie=result.headers.get('Set-Cookie').split(';')[0];const seller={...f,cookie};const catalog=await (await request(seller)).json();assert.equal(catalog.user.role,'sales');assert.equal(catalog.state.lots[0].price,1000);assert.deepEqual(catalog.state.clients,[]);assert.deepEqual(catalog.state.payments,[]);assert.ok(!JSON.stringify(catalog).includes('CLIENTE PRIVADO'));assert.equal((await put(seller,s,1)).status,403);
+ result=await accounts({env:f.env,request:new Request('https://test/api/app/users',{headers:{Cookie:cookie}})});assert.equal(result.status,403);
 });

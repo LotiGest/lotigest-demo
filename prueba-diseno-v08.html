@@ -184,28 +184,28 @@ async function readExcelRows(file) {
   }
   const workbook = await xml('xl/workbook.xml');
   const relationships = await xml('xl/_rels/workbook.xml.rels');
-  const date1904 = workbook?.getElementsByTagName('workbookPr')[0]?.getAttribute('date1904');
+  const date1904 = workbook?.getElementsByTagNameNS('*','workbookPr')[0]?.getAttribute('date1904');
   if (date1904 === '1' || date1904 === 'true') throw Error('Este Excel usa fechas de 1904. Guarda una copia como CSV UTF-8 con fechas AAAA-MM-DD.');
-  const sheets = [...(workbook?.getElementsByTagName('sheet') || [])];
+  const sheets = [...(workbook?.getElementsByTagNameNS('*','sheet') || [])];
   const shared = await xml('xl/sharedStrings.xml');
-  const strings = [...(shared?.getElementsByTagName('si') || [])].map(node => [...node.getElementsByTagName('t')].map(t => t.textContent).join(''));
+  const strings = [...(shared?.getElementsByTagNameNS('*','si') || [])].map(node => [...node.getElementsByTagNameNS('*','t')].map(t => t.textContent).join(''));
   const output = [];
   for (const sheet of sheets) {
-    const relation = [...relationships.getElementsByTagName('Relationship')].find(r => r.getAttribute('Id') === sheet.getAttribute('r:id'));
+    const relation = [...relationships.getElementsByTagNameNS('*','Relationship')].find(r => r.getAttribute('Id') === (sheet.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id')||sheet.getAttribute('r:id')));
     let target = relation?.getAttribute('Target') || '';
     target = target.startsWith('/') ? target.slice(1) : 'xl/' + target.replace(/^\.\//, '');
     const document = await xml(target);
     if (!document) continue;
-    const rows = [...document.getElementsByTagName('row')].map(row => {
+    const rows = [...document.getElementsByTagNameNS('*','row')].map(row => {
       const values = [];
-      for (const cell of row.getElementsByTagName('c')) {
+      for (const cell of row.getElementsByTagNameNS('*','c')) {
         const reference = cell.getAttribute('r') || '';
         let column = 0;
         for (const char of reference.replace(/\d/g, '')) column = column * 26 + char.charCodeAt(0) - 64;
-        if (cell.getElementsByTagName('f').length) throw Error('Convierte las fórmulas a valores antes de importar.');
-        const raw = cell.getElementsByTagName('v')[0]?.textContent || '';
+        if (cell.getElementsByTagNameNS('*','f').length) throw Error('Convierte las fórmulas a valores antes de importar.');
+        const raw = cell.getElementsByTagNameNS('*','v')[0]?.textContent || '';
         const type = cell.getAttribute('t');
-        values[column - 1] = type === 's' ? strings[Number(raw)] || '' : type === 'inlineStr' ? [...cell.getElementsByTagName('t')].map(t => t.textContent).join('') : raw;
+        values[column - 1] = type === 's' ? strings[Number(raw)] || '' : type === 'inlineStr' ? [...cell.getElementsByTagNameNS('*','t')].map(t => t.textContent).join('') : raw;
       }
       return values;
     }).filter(row => row.some(value => String(value || '').trim()));
@@ -456,7 +456,7 @@ function planLotMeasures(sheets,lots){
 async function previewLotMeasures(file){
  const version=++lotImportReadVersion,area=$('#lot-measures-preview'),button=$('#lot-measures-confirm');lotImportPreview=null;if(!file||!area)return;button.disabled=true;area.textContent='Leyendo archivo…';
  try{
-  if(file.size>8*1024*1024)throw Error('El archivo debe pesar menos de 8 MB.');
+  if(file.size>12*1024*1024)throw Error('El archivo debe pesar menos de 12 MB.');
   const sheets=/\.xlsx$/i.test(file.name)?await readExcelRows(file):/\.csv$/i.test(file.name)?[{sheet:'CSV',rows:buyerCsvRows(await file.text())}]:(()=>{throw Error('Usa .xlsx o CSV UTF-8.');})();
   if(!area.isConnected||version!==lotImportReadVersion)return;
   const {plans,errors}=planLotMeasures(sheets,residenceLots());
@@ -598,7 +598,7 @@ async function previewBuyerImport(file) {
   button.disabled = true;
   area.textContent = 'Leyendo archivo…';
   try {
-    if(file.size>8*1024*1024)throw Error('El archivo debe pesar menos de 8 MB.');
+    if(file.size>12*1024*1024)throw Error('El archivo debe pesar menos de 12 MB.');
     const sheets=/\.xlsx$/i.test(file.name)?await readExcelRows(file):/\.csv$/i.test(file.name)?[{sheet:'CSV',rows:buyerCsvRows(await file.text())}]:(()=>{throw Error('Guarda el archivo como .xlsx o CSV UTF-8.');})();
     if(!area.isConnected || readVersion !== buyerImportReadVersion)return;
     const plans=[],errors=[],seen=new Set(),identities=new Map();
@@ -1129,8 +1129,8 @@ function paymentReceiptPdf(id){
  parts.push({text:'TOTAL RECIBIDO: '+money(sum(rows,x=>x.amount)),size:15,bold:true,gap:16});parts.push({text:'Deuda pendiente de los terrenos incluidos: '+money(sum(infos,x=>x.after)),bold:true});parts.push({text:'Observación: '+(p.concept||'Sin observación'),gap:10});parts.push({text:'Aplicación a las cuotas más antiguas. Los saldos corresponden al momento del pago.',size:9});
  return {blob:receiptLetterPdf(parts,db.company.name||'Lotificadora Henríquez',ref),name:'Recibo-'+ref+'.pdf'};
 }
-function documentLogoSettings(){return `<section class="card" style="padding:22px;margin-bottom:20px"><h3>Logo de la empresa · Recibos y cotizaciones</h3><div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap"><div id="company-logo-preview">${db.company.logo?.data?`<img src="${esc(db.company.logo.data)}" alt="Logo de la empresa" style="width:95px;height:80px;object-fit:contain">`:'<strong style="font-size:25px;color:#052747">GRUPO H</strong>'}</div><div><label class="btn btn-primary">Subir logo<input id="company-logo-file" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><button class="btn btn-outline" type="button" data-action="company-logo-remove">Quitar logo</button><p class="sm muted">PNG, JPG o WebP, hasta 8 MB. Se guarda en este navegador y se incluye en el respaldo.</p></div></div><p class="sm">Documentos tamaño carta con azul marino, dorado y verde. Edita el nombre, teléfono y ubicación en Datos de la lotificadora.</p></section>`;}
-async function uploadCompanyLogo(file){if(!file)return;try{if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>8*1024*1024)throw Error('Selecciona una imagen PNG, JPG o WebP de hasta 8 MB.');const img=await createImageBitmap(file);const scale=Math.min(1,500/Math.max(img.width,img.height)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));const ctx=canvas.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);img.close();const logo={data:canvas.toDataURL('image/jpeg',.9),width:canvas.width,height:canvas.height};const next={...db,company:{...db.company,logo}};localStorage.setItem(STORAGE,JSON.stringify(next));db=next;render();toast('Logo guardado para recibos y cotizaciones.');}catch(e){toast(e.message||'No se pudo guardar el logo.','error');}}
+function documentLogoSettings(){return `<section class="card" style="padding:22px;margin-bottom:20px"><h3>Logo de la empresa · Recibos y cotizaciones</h3><div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap"><div id="company-logo-preview">${db.company.logo?.data?`<img src="${esc(db.company.logo.data)}" alt="Logo de la empresa" style="width:95px;height:80px;object-fit:contain">`:'<strong style="font-size:25px;color:#052747">GRUPO H</strong>'}</div><div><label class="btn btn-primary">Subir logo<input id="company-logo-file" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><button class="btn btn-outline" type="button" data-action="company-logo-remove">Quitar logo</button><p class="sm muted">PNG, JPG o WebP, hasta 12 MB. Se guarda en este navegador y se incluye en el respaldo.</p></div></div><p class="sm">Documentos tamaño carta con azul marino, dorado y verde. Edita el nombre, teléfono y ubicación en Datos de la lotificadora.</p></section>`;}
+async function uploadCompanyLogo(file){if(!file)return;try{if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>12*1024*1024)throw Error('Selecciona una imagen PNG, JPG o WebP de hasta 12 MB.');const img=await createImageBitmap(file);const scale=Math.min(1,500/Math.max(img.width,img.height)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));const ctx=canvas.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);img.close();const logo={data:canvas.toDataURL('image/jpeg',.9),width:canvas.width,height:canvas.height};const next={...db,company:{...db.company,logo}};localStorage.setItem(STORAGE,JSON.stringify(next));db=next;render();toast('Logo guardado para recibos y cotizaciones.');}catch(e){toast(e.message||'No se pudo guardar el logo.','error');}}
 function removeCompanyLogo(){try{const next={...db,company:{...db.company,logo:null}};localStorage.setItem(STORAGE,JSON.stringify(next));db=next;render();toast('Logo eliminado.');}catch(e){toast('No se pudo guardar el cambio.','error');}}
 document.addEventListener('change',e=>{if(e.target.id==='company-logo-file')uploadCompanyLogo(e.target.files[0]);});
 function receiptLetterPdf(parts,company,reference,kind='receipt'){
@@ -1533,7 +1533,7 @@ async function importResidentialMap(file){
    };
    return;
   }
-  if(file.size>8*1024*1024)throw Error('El mapa debe pesar menos de 8 MB.');
+  if(file.size>12*1024*1024)throw Error('El mapa debe pesar menos de 12 MB.');
   const data=validateResidentialMap(JSON.parse(await file.text()));
   if(db!==snapshot||residence()!==r||localStorage.getItem(STORAGE)!==stored)throw Error('Los datos cambiaron. Vuelve a seleccionar el mapa.');
   const merged=appendTracedMap(r,data,db.lots,mapFeatures(r));
@@ -1861,7 +1861,7 @@ body .lotigest-shell .lg-popup,body .lotigest-shell .lg-search-results{z-index:4
 /* LOTIGEST v0.10 · Revisión de nuevas versiones en GitHub Pages.
    Para cada nueva publicación: actualizar el archivo version.json DESPUÉS del HTML. */
 (()=>{'use strict';
- const CURRENT_VERSION='0.18.1';
+ const CURRENT_VERSION='0.19.0';
  const MANIFEST='version.json';
  const CHECK_MS=120000;
  const STORAGE_KEY='lg-update-dismissed-v1';

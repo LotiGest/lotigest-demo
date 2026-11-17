@@ -1,3 +1,4 @@
+import {sellerCatalog} from './catalog.js';
 import {json,hash,sameOrigin,actor,body,failure} from './shared.js';
 const limit=4*1024*1024;
 const invalid=message=>{throw Object.assign(Error(message),{status:400});};
@@ -16,7 +17,7 @@ export function validate(state){
   if(!Array.isArray(state[key])||state[key].length>100000)invalid('Colección incompatible: '+key);
   const ids=new Set();for(const row of state[key]){if(!row||typeof row.id!=='string'||!row.id||row.id.length>150||ids.has(row.id))invalid('Código duplicado o inválido en '+key);ids.add(row.id);}
  }
- for(const key of ['cashEntries','contractTexts','residences'])if(state[key]!==undefined&&!Array.isArray(state[key]))invalid('Colección incompatible: '+key);
+ for(const key of ['cashEntries','contractTexts','residences','historicalPayments','historicalContracts','ledgerImportBatches'])if(state[key]!==undefined&&!Array.isArray(state[key]))invalid('Colección incompatible: '+key);
  const lots=new Map(state.lots.map(r=>[r.id,r])),clients=new Set(state.clients.map(r=>r.id)),sales=new Map(state.sales.map(r=>[r.id,r])),sold=new Set(),identities=new Set(),totals=new Map(),prices=new Map();
  for(const c of state.clients){
   if(typeof c.name!=='string'||!c.name.trim()||c.name.length>200)invalid('Nombre de cliente inválido.');
@@ -41,6 +42,14 @@ export function validate(state){
   if(r.status==='active'){if(active.has(r.lotId)||sold.has(r.lotId))invalid('Apartado activo duplicado o sobre un terreno vendido.');active.add(r.lotId);date(r.reservedUntil,'Vencimiento del apartado');}
   if(r.status==='converted'){const sale=sales.get(r.saleId);if(!sale||sale.lotId!==r.lotId||sale.clientId!==r.clientId)invalid('Apartado convertido sin venta compatible.');}
  }
+ const historyIds=new Set(),historyContracts=new Map((state.historicalContracts||[]).map(c=>[c.id,c])),paymentIndex=new Map(state.payments.map(p=>[p.id,p]));
+ for(const c of state.historicalContracts||[]){if(!c||typeof c.id!=='string'||!c.id||!Array.isArray(c.paymentIds)||c.clientId!=null&&!clients.has(c.clientId))invalid('Contrato histórico incompatible.');if(c.saleId&&!sales.has(c.saleId))invalid('Contrato histórico sin venta válida.');}
+ for(const p of state.historicalPayments||[]){
+  if(!p||typeof p.id!=='string'||historyIds.has(p.id)||!Array.isArray(p.issues)||!historyContracts.has(p.contractId)||p.clientId!=null&&!clients.has(p.clientId))invalid('Movimiento histórico incompatible.');historyIds.add(p.id);
+  if(p.amountCents!=null&&(!Number.isSafeInteger(p.amountCents)||p.amountCents<=0))invalid('Monto histórico inválido.');if(p.date!=null)date(p.date,'Fecha histórica');
+  if(p.postedPaymentId){const core=paymentIndex.get(p.postedPaymentId),contract=historyContracts.get(p.contractId);if(!core||core.historicalImportId!==p.id||core.saleId!==contract.saleId||Math.round(Number(core.amount)*100)!==p.amountCents||core.date!==p.date)invalid('El historial no coincide con el abono contabilizado.');}
+ }
+ for(const c of historyContracts.values())if(c.paymentIds.some(id=>!historyIds.has(id)))invalid('Contrato histórico con movimientos inexistentes.');
  for(const e of state.cashEntries||[]){if(!['income','expense'].includes(e.kind))invalid('Tipo de movimiento financiero inválido.');cents(e.amount,'Movimiento financiero',1);date(e.date,'Fecha del movimiento');}
 }
 export function encode(state){
@@ -55,15 +64,15 @@ export function decode(rows){
  for(const [key,length] of Object.entries(shape)){const read=i=>JSON.parse(parts.get(JSON.stringify([key,i])).join(''));result[key]=length<0?read(-1):Array.from({length},(_,i)=>read(i));}return result;
 }
 async function snapshot(db){const [meta,records]=await db.batch([db.prepare('SELECT revision FROM app_meta WHERE id=1'),db.prepare('SELECT key,payload FROM app_records ORDER BY key')]);return {revision:meta.results[0].revision,rows:records.results};}
-function packs(rows){const out=[];let part=[],size=0;for(const row of rows){const n=JSON.stringify(row).length;if(size+n>100000&&part.length){out.push(JSON.stringify(part));part=[];size=0;}part.push(row);size+=n;}if(part.length)out.push(JSON.stringify(part));return out;}
+function packs(rows){const out=[];let part=[],size=0;for(const row of rows){const n=JSON.stringify(row).length;if(size+n>200000&&part.length){out.push(JSON.stringify(part));part=[];size=0;}part.push(row);size+=n;}if(part.length)out.push(JSON.stringify(part));return out;}
 export async function onRequest({request,env}){
  const db=env.LOTIGEST_DB;if(!db)return json({error:'Base de datos no disponible.'},503);
  if(!sameOrigin(request))return json({error:'Origen no permitido.'},403);
  try{
   const user=await actor(request,db);if(!user)return json({error:'La sesión terminó. Vuelve a iniciar sesión; tus cambios se conservan.'},401);
-  if(user.role!=='admin')return json({error:'Se requiere una cuenta administradora.'},403);
+  if(user.role!=='admin'&&(user.role!=='sales'||request.method!=='GET'))return json({error:'Se requiere una cuenta administradora para modificar datos.'},403);
   if(request.method==='GET'&&new URL(request.url).searchParams.get('revision')==='1'){const meta=await db.prepare('SELECT revision FROM app_meta WHERE id=1').first();return json({revision:meta.revision,user});}
-  if(request.method==='GET'){const s=await snapshot(db);return json({revision:s.revision,state:decode(s.rows),user});}
+  if(request.method==='GET'){const s=await snapshot(db);return json({revision:s.revision,state:user.role==='sales'?sellerCatalog(decode(s.rows)):decode(s.rows),user});}
   if(request.method!=='PUT')return json({error:'Método no permitido.'},405);
   const {state,revision,mutation}=await body(request,limit);
   if(!Number.isSafeInteger(revision)||revision<0||typeof mutation!=='string'||!(/^[a-f0-9-]{36}$/).test(mutation))invalid('Revisión o solicitud inválida.');
