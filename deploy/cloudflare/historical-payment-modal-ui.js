@@ -188,10 +188,12 @@
   }
   if(review)entry.body.append(review);
   if(error){error.classList.add('pm-error');entry.body.append(error);}
-  columns.append(summary.card,entry.card);shell.append(columns);
   const cal=pmCard('Calendario de pagos (meses históricos)','calendar');
   cal.card.classList.add('pm-calendar');
-  cal.body.id='pm-history-calendar-body';cal.body.classList.add('pm-calendar-body');shell.append(cal.card);
+  cal.body.id='pm-history-calendar-body';cal.body.classList.add('pm-calendar-body');
+  // Visible desde el comienzo del formulario, incluso en la pantalla de un celular.
+  shell.append(cal.card);
+  columns.append(summary.card,entry.card);shell.append(columns);
   form.replaceChildren(shell);
   modal.querySelector('.modal-content').replaceChildren(form);
   const footer=modal.querySelector('.modal-footer');
@@ -208,7 +210,7 @@
  document.addEventListener('click',event=>{
   const form=document.getElementById('manual-history-form');
   if(!form)return;
-  const btn=event.target.closest('[data-pm-history-type],[data-pm-method],[data-pm-historical-year]');
+  const btn=event.target.closest('[data-pm-history-type],[data-pm-method],[data-pm-historical-year],[data-pm-historical-month]');
   if(!btn||!form.closest('.lg-payment-modern'))return;
   if(btn.dataset.pmHistoryType){
    const select=form.querySelector('[name="type"]');select.value=btn.dataset.pmHistoryType;
@@ -220,15 +222,27 @@
    form.querySelectorAll('[data-pm-method]').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));
    return;
   }
+  if(btn.dataset.pmHistoricalMonth){
+   const month=btn.dataset.pmHistoricalMonth;
+   if(!validMonth(month))return;
+   const field=form.elements.period;
+   if(!field)return;
+   field.value=field.value===month?'':month;
+   if(field.value)historyYear=Number(field.value.slice(0,4));
+   field.dispatchEvent(new Event('change',{bubbles:true}));
+   return;
+  }
   if(btn.dataset.pmHistoricalYear){
-   const payments=clientPayments(form),years=[Number(businessToday().slice(0,4)),...payments.map(p=>Number(p.date?.slice(0,4))),...payments.map(monthOf).filter(Boolean).map(x=>Number(x.slice(0,4)))].filter(Number.isFinite);
-   const min=Math.min(...years),max=Math.max(...years);
-   historyYear=Math.min(max,Math.max(min,historyYear+(btn.dataset.pmHistoricalYear==='next'?1:-1)));
+   const year=Number(businessToday().slice(0,4)),min=Math.max(1900,year-20);
+   historyYear=Math.min(year,Math.max(min,(historyYear||year)+(btn.dataset.pmHistoricalYear==='next'?1:-1)));
    historySummary(form);
   }
  });
  document.addEventListener('change',event=>{
   const form=event.target.closest?.('#manual-history-form');if(!form)return;
+  if(event.target.id==='pm-history-year-select'){
+   historyYear=Number(event.target.value);historySummary(form);return;
+  }
   if(event.target.matches('[name="period"]')&&event.target.value)historyYear=Number(event.target.value.slice(0,4));
   if(event.target.matches('[data-manual-lot],[name="period"]'))historySummary(form);
  });
