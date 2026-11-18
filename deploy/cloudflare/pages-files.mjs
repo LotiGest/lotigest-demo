@@ -57,6 +57,12 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace("L.control.layers({'Calles", "if(cfg.referencePoint)L.marker(cfg.referencePoint).addTo(geoMap).bindPopup('El Arrayán · Referencia de ubicación. Los límites GPS no están georreferenciados por este punto.');L.control.layers({'Calles")
     .replace('function newPayment(saleId, useOcr=false){', 'function baseNewPayment(saleId, useOcr=false){')
     .replace('function receiptsPage(){', 'function baseReceiptsPage(){')
+    // Conservar folio del recibo original y proteger contra importación duplicada.
+    .replace("const groupId=uid('RC'),next=JSON.parse(JSON.stringify(db)),stamp=new Date().toISOString();",
+      "const originalRef=String(d.receiptRef||'').trim();if(originalRef.length>80)throw Error('Folio demasiado largo.');if(originalRef&&db.payments.some(p=>String(p.receiptReference||'').trim().toUpperCase()===originalRef.toUpperCase()&&getLot(getSale(p.saleId)?.lotId)?.residenceId===residence().id))throw Error('Este folio ya existe en un pago de esta residencial. Revisa el historial.');const groupId=uid('RC'),next=JSON.parse(JSON.stringify(db)),stamp=new Date().toISOString();")
+    .replace("method:String(d.method||'').trim().slice(0,80),recordedAt:stamp",
+      "method:String(d.method||'').trim().slice(0,80),receiptReference:originalRef,recordedAt:stamp")
+
     .replace('function financeMovements(){', 'function baseFinanceMovements(){')
     .replace('function totals(){', 'function baseTotals(){')
     .replace('function paymentReceiptPreview(id){', 'function basePaymentReceiptPreview(id){')
