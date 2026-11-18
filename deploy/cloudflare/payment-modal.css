@@ -105,3 +105,9 @@
  #modal-root .lg-payment-modern .modal-footer .pm-cancel{grid-column:1/-1;order:3}
  #modal-root .lg-payment-modern .modal-footer>.btn{min-height:45px;font-size:12px}
 }
+
+#modal-root .lg-payment-modern .pm-picker-results{margin-top:12px;display:grid;gap:7px}
+#modal-root .lg-payment-modern .pm-picker-results>button{width:100%;white-space:normal;min-height:49px;text-align:left;background:#f1f8f3;color:#143d26;border:1px solid #cce4d2;border-radius:10px;padding:10px 12px;display:block}
+#modal-root .lg-payment-modern .pm-picker-results>button:hover,
+#modal-root .lg-payment-modern .pm-picker-results>button:focus-visible{border-color:#299751;background:#e6f6e9}
+#app .lg-top-title .lg-version{display:inline-block;margin-left:7px;padding:2px 5px;border:1px solid #a8bdb1;border-radius:5px;font-size:10px;font-weight:650;opacity:.75;vertical-align:middle}
