@@ -6,7 +6,7 @@
   const previousPayment=newPayment;
   const previousContractsPage=contractsPage;
   const previousClientView=viewClient;
-  let historyDraft=null;
+  let historyDraft=null,manualPrimaFilter=false;
 
   function ownerLots(clientId,rid,withoutSale=false){
     return db.lots.filter(l=>l.residenceId===rid && l.type!=='private' && l.status!=='private' && (l.ownerClientId===clientId || db.sales.some(s=>s.lotId===l.id&&s.clientId===clientId)) && (!withoutSale||!db.sales.some(s=>s.lotId===l.id)));
@@ -72,7 +72,11 @@
   function renderHistoricalPicker(){
     const target=$('#manual-history-owners');if(!target)return;
     const rid=residence().id,term=normalizeClientLookup($('#manual-history-search')?.value||'');
-    target.innerHTML=contractOwners(rid).filter(c=>!term||normalizeClientLookup(c.name).includes(term)).slice(0,100).map(c=>`<button class="btn btn-outline" style="display:block;width:100%;text-align:left;margin:8px 0;white-space:normal" data-action="manual-history-person" data-id="${esc(c.id)}"><strong>${esc(c.name)}</strong> · ${esc(ownerClientSolarSummary(c.id,rid).label)}</button>`).join('')||'<p>No hay propietarios vinculados a solares de esta residencial.</p>';
+    const all=contractOwners(rid).filter(c=>!term||normalizeClientLookup(c.name).includes(term));
+    const missing=all.filter(c=>lotigestPrimaHighlight(lotigestPrimaStatus(c.id,rid)));
+    const rows=all.filter(c=>!manualPrimaFilter||lotigestPrimaHighlight(lotigestPrimaStatus(c.id,rid))).slice(0,100);
+    target.innerHTML=`<label class="pm-prima-filter"><input type="checkbox" data-manual-prima-filter ${manualPrimaFilter?'checked':''}> Mostrar solo sin prima registrada / incompleta (${missing.length})</label>`+
+     (rows.map(c=>{const status=lotigestPrimaStatus(c.id,rid);return `<button class="btn btn-outline" style="display:block;width:100%;text-align:left;margin:8px 0;white-space:normal" data-action="manual-history-person" data-id="${esc(c.id)}"><strong>${esc(c.name)}</strong> · ${esc(ownerClientSolarSummary(c.id,rid).label)}<br><span class="pm-prima-tag ${lotigestPrimaHighlight(status)?'pm-prima-tag-red':'pm-prima-tag-neutral'}">${esc(lotigestPrimaLabel(status))}</span></button>`;}).join('')||'<p>No hay propietarios que coincidan con el filtro.</p>');
   }
 
   function openHistoricalManual(clientId,rid=residence().id){
@@ -139,6 +143,7 @@
     root.insertAdjacentHTML('beforeend',ownerClientHistory(id,residence().id)+`<button class="btn btn-primary" data-action="manual-history-person" data-id="${esc(id)}">Registrar prima / abono anterior</button>`);
   };
   document.addEventListener('input',e=>{if(e.target.id==='manual-history-search')renderHistoricalPicker();});
+  document.addEventListener('change',e=>{if(e.target.matches('[data-manual-prima-filter]')){manualPrimaFilter=e.target.checked;renderHistoricalPicker();}});
   document.addEventListener('submit',e=>{if(e.target.id==='manual-history-form'){e.preventDefault();submitHistoricalManual(e.target);}});
   document.addEventListener('click',e=>{
     const b=e.target.closest('[data-action]');if(!b)return;
