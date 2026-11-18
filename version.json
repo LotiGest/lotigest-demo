@@ -1,4 +1,4 @@
 {
-  "version": "0.21.7",
-  "notes": "Se retiró Pagos de abonos OCR como panel independiente del menú; se conservan los abonos, recibos, lectura OCR integrada y comprobaciones de duplicados."
+  "version": "0.21.8",
+  "notes": "Los módulos de la barra lateral muestran ícono y nombre de manera predeterminada en computadora. Se conserva la opción de contraer; el menú móvil permanece igual."
 }
