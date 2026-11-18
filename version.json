@@ -1,1 +1,1 @@
-{"version": "0.19.4", "notes": "Etiquetas del mapa corregidas: I de 20 solares y L inferior de 12. Fichas indican si cada persona tiene uno o varios solares según las celdas del Excel."}
+{"version": "0.20.0", "notes": "Mapa por etapas según lindero del PDF. Etapa, bloque y solar visibles en fichas e inventario; recuperación de cuatro solares omitidos, sin alterar pagos."}

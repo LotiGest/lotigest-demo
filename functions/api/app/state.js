@@ -85,6 +85,8 @@ export async function onRequest({request,env}){
   const prior=await db.prepare('SELECT revision,digest FROM app_mutations WHERE id=?').bind(mutation).first();
   if(prior)return prior.digest===digest?json({revision:prior.revision,mutation}):json({error:'La solicitud ya existe con otros datos.'},409);
   const old=await snapshot(db);if(old.revision!==revision)return json({error:'Otra sesión guardó cambios. Descarga tu respaldo pendiente y vuelve a cargar los datos del servidor antes de continuar.'},409);
+  const priorShape=JSON.parse(old.rows.find(r=>r.key==='$shape')?.payload||'{}');
+  for(const collection of ['historicalPayments','historicalContracts','ownershipStatements','ownerPayments'])if(priorShape[collection]>0&&!Array.isArray(state[collection]))return json({error:'Esta copia no contiene el historial guardado. Carga los datos del servidor antes de guardar.'},409);
   const next=encode(state),previous=new Map(old.rows.map(r=>[r.key,r.payload])),keys=new Set(next.map(r=>r.key));
   const changes=next.filter(r=>previous.get(r.key)!==r.payload),removed=old.rows.filter(r=>!keys.has(r.key)).map(r=>({key:r.key}));
   const affected=[...changes,...removed].filter(r=>previous.has(r.key)).map(r=>({key:r.key,payload:previous.get(r.key)}));
