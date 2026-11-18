@@ -1,4 +1,4 @@
 {
-  "version": "0.22.3",
-  "notes": "Ventana de Registrar Pago / Abono rediseñada: cliente, solares, resumen real de contrato, forma de pago, prima y saldo, calendario de cuotas verificadas, OCR y recibo con QR. Funciona en móvil y mantiene sincronización D1/offline."
+  "version": "0.22.4",
+  "notes": "Corrección de ventana de abonos en todos los accesos (cuotas, propietarios, residenciales y búsqueda), con versión visible; Actualizar LOTIGEST fuerza una recarga de red a petición del usuario sin perder abonos pendientes."
 }
