@@ -12,7 +12,7 @@ export function ocrReference(text){
 }
 export function ownerLotsForOcr(state,clientId,residenceId){
  return state.lots.filter(l=>l.residenceId===residenceId && l.type!=='private' && l.status!=='private' &&
- (l.ownerClientId===clientId || state.sales.some(s=>s.clientId===clientId&&s.lotId===l.id)));
+ ((l.status==='sold'&&l.ownerClientId===clientId) || state.sales.some(s=>s.clientId===clientId&&s.lotId===l.id)));
 }
 export function matchOcrReceipt(state,receipt,rawText,residenceId){
  const warnings=[],identified=normOcr(receipt.name),owners=state.clients.filter(c=>ownerLotsForOcr(state,c.id,residenceId).length>0);
