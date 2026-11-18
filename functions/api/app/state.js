@@ -38,6 +38,17 @@ export function validate(state){
   if(date(p.date,'Fecha de pago')<sale.date)invalid('El pago no puede ser anterior a la venta.');
   const total=totals.get(p.saleId)+cents(p.amount,'Abono',1);if(!Number.isSafeInteger(total)||total>prices.get(p.saleId))invalid('Los pagos superan el precio de la venta.');totals.set(p.saleId,total);
  }
+ const qrTokens=new Map();
+ const addQr=(payment,group)=>{
+  if(payment.verifyToken==null)return;
+  const token=payment.verifyToken;
+  if(typeof token!=='string'||!/^[a-f0-9]{32}$/.test(token))invalid('Código QR de recibo inválido.');
+  const existing=qrTokens.get(token);
+  if(existing&&existing!==group)invalid('Un código QR no puede identificar dos recibos distintos.');
+  qrTokens.set(token,group);
+ };
+ for(const p of state.payments)addQr(p,'payment:'+(p.groupId||p.id));
+ for(const p of state.ownerPayments||[])addQr(p,'owner:'+p.id);
  for(const s of state.sales)if(s.type==='cash'&&(cents(s.downPayment??0,'Prima')!==prices.get(s.id)||totals.get(s.id)!==prices.get(s.id)))invalid('Una venta de contado debe quedar pagada completamente.');
  const active=new Set();for(const r of state.reservations||[]){
   if(!lots.has(r.lotId)||!clients.has(r.clientId)||!['active','cancelled','converted','expired'].includes(r.status))invalid('Apartado sin terreno, cliente o estado válido.');
