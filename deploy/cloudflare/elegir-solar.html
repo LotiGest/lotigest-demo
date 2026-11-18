@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#144f32">
+<title>Elegir solar · LOTIGEST</title>
+<style>
+:root{color-scheme:light;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#17392a;background:#f2f8f4}
+*{box-sizing:border-box}body{margin:0}header{background:linear-gradient(110deg,#123d2c,#25754b);color:white;padding:23px max(17px,calc((100vw - 1160px)/2));box-shadow:0 3px 18px #16412920}
+header small{font-weight:700;letter-spacing:2px;color:#d5f4e0}h1{font-size:clamp(22px,4vw,36px);margin:5px 0 0;line-height:1.18}
+main{max-width:1160px;padding:24px 16px 60px;margin:auto}p{line-height:1.5}.muted{color:#597366}
+.panel{border:1px solid #dcebe0;background:white;border-radius:16px;padding:20px;box-shadow:0 8px 28px #194a2410}
+.layout{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(320px,1fr);align-items:start;gap:18px}
+h2{font-size:19px;margin:0 0 12px}.legend{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:12px;font-size:13px}
+.legend b{width:13px;height:13px;display:inline-block;border-radius:4px;margin-right:5px;vertical-align:-2px}
+#map{width:100%;height:auto;max-height:70vh;background:#faf8ed;border:1px solid #e3e7dc;border-radius:13px;touch-action:manipulation}
+#map polygon{stroke:#fff;stroke-width:1.2;cursor:default}#map polygon.available{fill:#f0cd65;cursor:pointer}
+#map polygon.sold{fill:#52b882}
+#map polygon.active{stroke:#08552b;stroke-width:3.5;filter:drop-shadow(0 1px 2px #0b7a38)}
+#map polygon.available:hover{fill:#ffd54e;stroke:#167b44;stroke-width:2}
+#map text{pointer-events:none;fill:#1d4633;font-size:7px;font-weight:700;text-anchor:middle}
+#map .road{fill:none;stroke:#d2d7c8;stroke-width:4}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{font:inherit;cursor:pointer;touch-action:manipulation}button:disabled{opacity:.4;cursor:not-allowed}
+#lot-list{display:grid;gap:6px;max-height:345px;overflow:auto;padding:3px}
+.lot-btn{display:flex;justify-content:space-between;align-items:center;width:100%;padding:10px 12px;background:#f5faf5;border:1px solid #dce8dd;border-radius:9px;text-align:left;color:#2e4738}
+.lot-btn.available{border-left:5px solid #c79828}.lot-btn.sold{border-left:5px solid #3baf70}.lot-btn.selected{border:2px solid #0a8844;background:#e1f7e8}
+label{font-size:13px;font-weight:750;display:block;margin-top:11px}
+input,textarea,select{display:block;width:100%;font:inherit;padding:11px 12px;border:1px solid #bcd6c4;border-radius:10px;margin-top:5px;background:#fff;color:#1d3b2a}
+input:focus,textarea:focus{outline:3px solid #bde9cb;border-color:#208d51}
+button.primary{background:#15854a;color:white;border:0;border-radius:10px;font-weight:750;padding:13px 16px;margin-top:15px;width:100%}
+.tag{display:inline-block;border-radius:8px;padding:6px 10px;background:#e0f5e7;color:#19673c;font-weight:700;font-size:13px}
+.notice{background:#eef8ed;border-radius:10px;padding:11px;margin:12px 0;font-size:13px;color:#376046}
+#error{color:#a72433;font-weight:700}#ok{color:#0d6a38;font-weight:700}
+.hidden{display:none!important}footer{text-align:center;font-size:12px;padding:30px 16px;color:#678171}
+@media(max-width:760px){.layout{grid-template-columns:minmax(0,1fr)}#map{max-height:55vh}.panel{padding:15px}main{padding:15px 12px 40px}}
+</style></head>
+<body>
+<header><small>LOTIGEST · MAPA DE LOTIFICACIÓN</small><h1 id="title">Elegir solar</h1><p style="margin:8px 0 0;color:#e0f7e6">Consulta los terrenos y envía una solicitud de cotización a la administración.</p></header>
+<main>
+<div id="loading" role="status" class="panel">Cargando croquis publicado…</div>
+<div id="content" class="layout hidden">
+ <section class="panel">
+  <h2>Croquis de solares</h2>
+  <div class="legend"><span><b style="background:#52b882"></b>Comprado</span><span><b style="background:#f0cd65"></b>Disponible</span><span>Los solares comprados no admiten solicitudes</span></div>
+  <svg id="map" role="img" aria-label="Croquis interactivo de solares" viewBox="0 0 700 500"></svg>
+  <p class="muted" style="font-size:12px">Selecciona en el croquis un solar amarillo o búscalo en la lista. Disponibilidad sujeta a confirmación de la oficina.</p>
+ </section>
+ <aside class="panel">
+  <h2>Solicitar una cotización</h2>
+  <div id="selection" class="notice">Selecciona un solar disponible para continuar.</div>
+  <div class="controls"><label for="filter" style="flex:1;margin:0">Filtrar por solar, bloque o etapa<input id="filter" placeholder="Ej. Bloque A, solar 5"></label></div>
+  <div id="lot-list"></div>
+  <form id="request-form" class="hidden">
+   <h2 style="margin-top:20px">Tus datos</h2>
+   <label>Nombre completo *<input name="name" required minlength="4" maxlength="120" autocomplete="name" placeholder="Nombre y apellido"></label>
+   <label>Teléfono / WhatsApp *<input name="phone" required minlength="8" maxlength="20" inputmode="tel" autocomplete="tel" placeholder="Ej. 9999-9999"></label>
+   <label>¿A cuántos años te gustaría pagar? *<select name="years" id="years" required></select></label>
+   <label>Comentario (opcional)<textarea name="note" maxlength="300" rows="2" placeholder="Escribe tus dudas o preferencias"></textarea></label>
+   <div class="notice">Prima mínima de referencia: <strong>L 50,000.00</strong>. Financiamiento sujeto a cotización formal al <strong>0 % de interés</strong>. La administración determina el plazo autorizado. Este formulario no es compra ni apartado.</div>
+   <button id="send" class="primary" type="submit">Enviar solicitud de cotización</button>
+  </form>
+  <p id="error" role="alert"></p><p id="ok" role="status"></p>
+ </aside>
+</div>
+</main>
+<footer>LOTIGEST · Croquis de consulta · Los precios y datos de propietarios son privados. Ningún solar se reserva automáticamente.</footer>
+<script>
+(()=>{'use strict';
+ const $=id=>document.getElementById(id),query=new URLSearchParams(location.search),
+  token=query.get('map')||'',svgNS='http://www.w3.org/2000/svg';
+ let map=null,selected=null;
+ const text=(tag,value,cls)=>{const e=document.createElement(tag);e.textContent=String(value);if(cls)e.className=cls;return e;};
+ const form=$('request-form');
+ for(let y=1;y<=30;y++){const option=document.createElement('option');option.value=String(y);option.textContent=y+' año'+(y===1?'':'s');if(y===5)option.selected=true;$('years').append(option);}
+ function choose(lot){
+  if(!lot.available)return;
+  selected=lot;$('selection').replaceChildren(text('strong','Etapa '+(lot.stage||'—')+' · Bloque '+lot.block+' · Solar '+lot.number));
+  if(lot.area)$('selection').append(text('div','Área registrada: '+lot.area+' m²','muted'));
+  form.classList.remove('hidden');
+  document.querySelectorAll('.lot-btn').forEach(button=>button.classList.toggle('selected',button.dataset.id===lot.id));
+  document.querySelectorAll('#map polygon').forEach(el=>el.classList.toggle('active',el.dataset.id===lot.id));
+  $('error').textContent='';$('ok').textContent='';
+ }
+ function renderList(){
+  const q=$('filter').value.toLocaleLowerCase('es').trim(),out=$('lot-list');
+  out.replaceChildren();
+  const rows=map.lots.filter(l=>!q||('etapa '+l.stage+' bloque '+l.block+' solar '+l.number).toLocaleLowerCase('es').includes(q));
+  for(const lot of rows){
+   const btn=text('button','', 'lot-btn '+(lot.available?'available':'sold'));btn.type='button';btn.dataset.id=lot.id;
+   btn.append(text('strong','Etapa '+(lot.stage||'—')+' · '+lot.block+' / '+lot.number),
+    text('small',lot.available?'Disponible':'Comprado'));
+   btn.disabled=!lot.available;
+   if(selected?.id===lot.id)btn.classList.add('selected');
+   btn.addEventListener('click',()=>choose(lot));out.append(btn);
+  }
+  if(!rows.length)out.append(text('p','No se encontraron solares con ese filtro.','muted'));
+ }
+ function buildMap(){
+  const svg=$('map'),view=map.viewBox;
+  if(Array.isArray(view)&&view.length===4)svg.setAttribute('viewBox',view.join(' '));
+  svg.replaceChildren();
+  for(const road of map.roads||[]){
+   const poly=document.createElementNS(svgNS,'polyline');poly.classList.add('road');
+   poly.setAttribute('points',(road.points||[]).map(p=>p.join(',')).join(' '));svg.append(poly);
+  }
+  for(const lot of map.lots){
+   const polygon=document.createElementNS(svgNS,'polygon');
+   polygon.setAttribute('points',lot.points.map(p=>p.join(',')).join(' '));
+   polygon.classList.add(lot.available?'available':'sold');polygon.dataset.id=lot.id;
+   const label=document.createElementNS(svgNS,'title');
+   label.textContent='Etapa '+(lot.stage||'—')+' · Bloque '+lot.block+' · Solar '+lot.number+' · '+(lot.available?'Disponible':'Comprado');
+   polygon.append(label);if(lot.available)polygon.addEventListener('click',()=>choose(lot));svg.append(polygon);
+   const center=lot.label||lot.points.reduce((sum,p)=>[sum[0]+p[0]/lot.points.length,sum[1]+p[1]/lot.points.length],[0,0]);
+   const txt=document.createElementNS(svgNS,'text');txt.setAttribute('x',center[0]);txt.setAttribute('y',center[1]);txt.textContent=lot.number;svg.append(txt);
+  }
+ }
+ async function load(){
+  try{
+   if(!/^[a-f0-9]{40}$/.test(token))throw Error('Enlace incompleto. Solicita uno nuevo a la oficina.');
+   const r=await fetch('/api/client-sales/maps?token='+encodeURIComponent(token),{cache:'no-store'});
+   const result=await r.json();if(!r.ok)throw Error(result.error||'No fue posible cargar el croquis.');
+   map=result.map;$('title').textContent=map.title||'Seleccionar solar';
+   buildMap();renderList();$('loading').classList.add('hidden');$('content').classList.remove('hidden');
+  }catch(e){$('loading').textContent=e.message;}
+ }
+ $('filter').addEventListener('input',renderList);
+ form.addEventListener('submit',async e=>{
+  e.preventDefault();if(!selected)return;
+  const send=$('send');send.disabled=true;$('error').textContent='';$('ok').textContent='';
+  try{
+   const f=new FormData(form),data={mapToken:token,lotId:selected.id,name:f.get('name'),phone:f.get('phone'),years:Number(f.get('years')),note:f.get('note')};
+   const r=await fetch('/api/client-sales/requests',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+   const result=await r.json();if(!r.ok)throw Error(result.error||'No se pudo enviar.');
+   $('ok').textContent='Solicitud enviada correctamente. El administrador la revisará y te enviará una cotización por WhatsApp.';
+   form.classList.add('hidden');$('selection').textContent='Solicitud enviada para Etapa '+(selected.stage||'—')+' · '+selected.block+' / '+selected.number;
+  }catch(e){$('error').textContent=e.message;}finally{send.disabled=false;}
+ });
+ load();
+})();
+</script></body></html>
