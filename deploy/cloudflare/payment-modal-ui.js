@@ -89,8 +89,7 @@ function pmMethodButtons(select){
  return box;
 }
 function pmFields(grid,form){
- const labels=[...grid.querySelectorAll('label')];
- const find=name=>labels.find(label=>label.querySelector('[name="'+name+'"]'));
+ const find=name=>{const el=grid.querySelector('[name="'+name+'"]');return el?(el.closest('.field-group')||el.closest('label')):null;};
  const date=find('date'),method=find('method'),concept=find('concept'),ref=find('receiptRef');
  const fields=pmNode('div','pm-fields');
  if(method){
@@ -233,7 +232,7 @@ document.addEventListener('click',e=>{
  if(yearBtn&&document.querySelector('.lg-payment-modern')){
   const years=[...new Set(pmActualSchedule(pmSales()).map(r=>Number(r.dueDate.slice(0,4))))].sort((a,b)=>a-b);
   const index=years.indexOf(pmYear),next=years[index+(yearBtn.dataset.pmYear==='next'?1:-1)];
-  if(next!==undefined){pmYear=next;pmRepaintSales();}return;
+  if(next!==undefined){pmYear=next;const container=document.getElementById('pm-calendar-body');if(container)pmCalendar(container,pmSales());}return;
  }
  const method=e.target.closest('[data-pm-method]');
  if(method&&document.querySelector('.lg-payment-modern')){
@@ -244,7 +243,7 @@ document.addEventListener('click',e=>{
  if(save&&document.querySelector('.lg-payment-modern'))pmSaveOnly=save.dataset.pmSaveMode==='save';
  if(e.target.closest('[data-action="close-modal"]')){pmActive=null;pmSaveOnly=false;}
 },true);
-document.addEventListener('input',e=>{if(pmActive==='sale'&&e.target.matches('[data-payment-amount]'))pmRepaintSales(),e.target.focus();});
+// Los importes actualizan el borrador por el manejador original; no reconstruir el campo mientras se escribe.
 document.addEventListener('submit',e=>{
  if(!e.target.matches('#multi-payment-form,#owner-abono-form'))return;
  // Los botones ya fijaron el modo en click; Enter genera el recibo por defecto.
