@@ -138,7 +138,7 @@ window.addEventListener('online',()=>{cloudRefresh();cloudFlush();});
 window.addEventListener('focus',()=>{cloudRefresh();});
 window.addEventListener('beforeunload',e=>{if(cloudQueue&&(cloudQueue.pending||cloudQueue.latest!==cloudQueue.confirmed)){e.preventDefault();e.returnValue='Hay cambios pendientes de guardar.';}});
 setInterval(()=>{if(cloudReady&&!cloudBlocked)cloudFlush();},15000);
-setInterval(()=>{cloudRefresh();cloudActivateUpdate();if(navigator.onLine!==false)cloudRegistration?.update().catch(()=>{});},60000);
+setInterval(()=>{cloudRefresh();},60000);
 function cloudUsersPage(){return `${header('Cuenta del servidor','Acceso privado conectado a D1.')}<div class="card card-padding"><p>Sesión: <strong>${esc(cloudUser?.name||'')}</strong> · ${cloudUser?.role==='sales'?'Vendedor · catálogo de consulta':'Administrador'}</p>${cloudUser?.role==='admin'?accountCreationForm():''}<form id="cloud-password-form"><label>Contraseña actual<input name="current" type="password" autocomplete="current-password" required></label><label>Nueva contraseña (mínimo 14 caracteres)<input name="password" type="password" minlength="14" maxlength="128" autocomplete="new-password" required></label><label>Confirmar nueva contraseña<input name="confirm" type="password" minlength="14" maxlength="128" autocomplete="new-password" required></label><button class="btn btn-primary">Cambiar contraseña</button><p id="cloud-password-result" role="status"></p></form></div>`;}
 document.addEventListener('submit',async e=>{
  if(e.target.id!=='cloud-password-form')return;e.preventDefault();const form=e.target,button=form.querySelector('button'),output=form.querySelector('#cloud-password-result');button.disabled=true;
@@ -210,13 +210,58 @@ async function cloudRefresh(){
  }catch(e){cloudOffline=true;cloudStatus('No se pudo actualizar. Se conservaron los datos de este equipo; se reintentará automáticamente.');}
  finally{cloudRefreshBusy=false;}
 }
-function cloudActivateUpdate(){if(cloudAuthBusy||document.querySelector('#login-form [name=password]')?.value)return;const dirty=cloudQueue&&(cloudQueue.pending||cloudQueue.latest!==cloudQueue.confirmed);if(cloudRegistration?.waiting&&!dirty&&!activeModal)cloudRegistration.waiting.postMessage({type:'ACTIVATE_UPDATE'});}
+function cloudActivateUpdate(){if(!cloudUserRequestedUpdate||cloudAuthBusy||document.querySelector('#login-form [name=password]')?.value)return;const dirty=cloudQueue&&(cloudQueue.pending||cloudQueue.latest!==cloudQueue.confirmed);if(cloudRegistration?.waiting&&!dirty&&!activeModal)cloudRegistration.waiting.postMessage({type:'ACTIVATE_UPDATE'});}
 async function cloudPrepareOffline(){
  if(!('serviceWorker' in navigator))return;
  try{
   const hadController=Boolean(navigator.serviceWorker.controller);let reloaded=false;
-  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(hadController&&!reloaded&&!(cloudQueue&&(cloudQueue.pending||cloudQueue.latest!==cloudQueue.confirmed))&&!activeModal){reloaded=true;location.reload();}});
-  cloudRegistration=await navigator.serviceWorker.register('/service-worker.js',{updateViaCache:'none'});navigator.serviceWorker.ready.then(()=>{const label=document.getElementById('cloud-offline-readiness');if(label)label.textContent='Inicio sin conexión preparado en este equipo.';});cloudActivateUpdate();cloudRegistration.addEventListener('updatefound',()=>{const worker=cloudRegistration.installing;worker?.addEventListener('statechange',()=>{if(worker.state==='installed')cloudActivateUpdate();});});
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(cloudUserRequestedUpdate&&hadController&&!reloaded&&!(cloudQueue&&(cloudQueue.pending||cloudQueue.latest!==cloudQueue.confirmed))&&!activeModal){reloaded=true;location.reload();}});
+  cloudRegistration=await navigator.serviceWorker.register('/service-worker.js',{updateViaCache:'none'});navigator.serviceWorker.ready.then(()=>{const label=document.getElementById('cloud-offline-readiness');if(label)label.textContent='Inicio sin conexión preparado en este equipo.';});
  }catch{cloudStatus('No se pudo preparar el arranque sin conexión. El guardado sigue disponible; vuelve a intentar con internet.',true);}
 }
+
+async function cloudManualUpdate(){
+ if(navigator.onLine===false){toast('Para actualizar LOTIGEST necesitas conexión a internet.','error');return;}
+ if(cloudBlocked||cloudBusy||(cloudQueue&&(cloudQueue.pending||cloudQueue.latest!==cloudQueue.confirmed))){
+  cloudStatus('Hay cambios pendientes. Antes de actualizar deben sincronizarse o respaldarse.',true);return;
+ }
+ try{
+  const response=await fetch('/version.json?manual='+Date.now(),{cache:'no-store'});
+  if(!response.ok)throw Error('No se pudo comprobar la versión en el servidor.');
+  const info=await response.json();
+  if(typeof info.version!=='string'||!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(info.version))throw Error('Versión remota inválida.');
+  const current=CLOUD_BUILD_VERSION.split('.').map(Number),latest=info.version.split('.').map(Number);
+  const newer=latest.some((n,i)=>n>current[i]&&latest.slice(0,i).every((v,j)=>v===current[j]));
+  if(!newer){toast('LOTIGEST ya está actualizado (versión '+CLOUD_BUILD_VERSION+').');return;}
+  if(!confirm('¿Actualizar LOTIGEST a la versión '+info.version+'? La aplicación se recargará sin borrar tus registros.'))return;
+  cloudUserRequestedUpdate=true;
+  const reg=('serviceWorker' in navigator)?(cloudRegistration||await navigator.serviceWorker.getRegistration()):null;
+  if(reg){
+   await reg.update();
+   if(reg.waiting){cloudActivateUpdate();return;}
+   if(reg.installing){
+    const worker=reg.installing;
+    const changed=()=>{
+     if(worker.state==='installed'){
+      worker.removeEventListener('statechange',changed);
+      if(reg.waiting)cloudActivateUpdate();else location.reload();
+     }else if(worker.state==='redundant'){
+      worker.removeEventListener('statechange',changed);
+      cloudUserRequestedUpdate=false;toast('No se pudo instalar la actualización.','error');
+     }
+    };
+    worker.addEventListener('statechange',changed);changed();return;
+   }
+  }
+  location.reload();
+ }catch(error){cloudUserRequestedUpdate=false;toast(error.message||'No se pudo actualizar LOTIGEST.','error');}
+}
+document.addEventListener('click',event=>{
+ const button=event.target.closest?.('[data-action="cloud-manual-update"]');if(!button)return;
+ event.preventDefault();event.stopImmediatePropagation();
+ if(button.disabled)return;
+ button.disabled=true;
+ Promise.resolve(cloudManualUpdate()).finally(()=>{if(button.isConnected)button.disabled=false;});
+},true);
+
 setTimeout(cloudPrepareOffline,0);
