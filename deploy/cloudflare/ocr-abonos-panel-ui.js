@@ -3,6 +3,7 @@ let ocrAbonosDraft=null;
 const beforeOcrPanelContent=pageContent;
 pageContent=function(){
  if(page!=='ocr-abonos')return beforeOcrPanelContent();
+ if(cloudUser?.role!=='admin')return header('Acceso restringido','Solo administradores pueden revisar recibos y pagos OCR.');
  return residencePicker()+ocrAbonosPage();
 };
 function ocrAvailableClients(){
