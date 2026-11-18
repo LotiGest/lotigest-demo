@@ -67,6 +67,18 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace('function financeMovements(){', 'function baseFinanceMovements(){')
     .replace('function totals(){', 'function baseTotals(){')
     .replace('function paymentReceiptPreview(id){', 'function basePaymentReceiptPreview(id){')
+    // Cada PDF de pago contiene un QR vectorial que apunta a la verificación pública.
+    .replace("function receiptLetterPdf(parts,company,reference,kind='receipt'){",
+      "function receiptLetterPdf(parts,company,reference,kind='receipt',qrUrl=null){")
+    .replace("const footer=()=>{\n if(kind!=='quote')",
+      "const footer=()=>{\n if(qrUrl)cmds.push(receiptQrVector(qrUrl));\n if(kind!=='quote')")
+    .replace("draw('PAGO RECIBIDO',430,126,12,true,green);",
+      "draw('PAGO RECIBIDO',qrUrl?319:430,126,12,true,green);")
+    .replace("draw('Gracias por su pago',44,126,12,true,navy);",
+      "draw('Gracias por su pago',44,126,12,true,navy);if(qrUrl)draw('VERIFICAR QR',471,124,7,true,navy);")
+    .replace("if(y-size<151){footer();header();}", "if(y-size<(qrUrl?233:151)){footer();header();}")
+    .replace("return {blob:receiptLetterPdf(parts,db.company.name||'Lotificadora Henríquez',ref),",
+      "return {blob:receiptLetterPdf(parts,db.company.name||'Lotificadora Henríquez',ref,'receipt',receiptQrUrl('payment',id)),")
     // No salir de Cuotas y pagos al registrar recibos; el comprobante abre sobre el panel actual.
     .replace("paymentDraft=null;closeModal();filter='';page='receipts';render();paymentReceiptPreview(payments[0].id);",
       "paymentDraft=null;closeModal();filter='';render();paymentReceiptPreview(payments[0].id);")
