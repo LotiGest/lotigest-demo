@@ -12,6 +12,7 @@ export function buildPagesFiles(html, version, parser, bridge) {
     throw new Error('El HTML y version.json deben declarar la misma versión.');
   }
   const demo = html
+    .replaceAll('db.residences.map(r=>', 'db.residences.filter(r=>!r.hidden).map(r=>')
     .replace(title, '<title>LOTIGEST · GRUPO H</title>')
     .replace("const STORAGE='lospinos_phase1_demo_v3'; const SESSION='lospinos_demo_session';",
       "const STORAGE='lotigest_cloudflare_demo_v1'; const SESSION='lotigest_cloudflare_session';")
