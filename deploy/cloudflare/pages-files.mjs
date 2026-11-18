@@ -67,6 +67,7 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace('function financeMovements(){', 'function baseFinanceMovements(){')
     .replace('function totals(){', 'function baseTotals(){')
     .replace('function paymentReceiptPreview(id){', 'function basePaymentReceiptPreview(id){')
+    .replace("toast('Pagos registrados. Recibo listo para descargar o compartir.');", '')
     // Cada PDF de pago contiene un QR vectorial que apunta a la verificación pública.
     .replace("function receiptLetterPdf(parts,company,reference,kind='receipt'){",
       "function receiptLetterPdf(parts,company,reference,kind='receipt',qrUrl=null){")
