@@ -46,6 +46,21 @@ test('la copia local no triplica los datos y conserva una recuperación si otra 
  const recovery=Object.keys(app.w.localStorage).find(k=>k.startsWith('lotigest_d1_pending_v1_recovery_'));assert.ok(recovery);assert.ok(JSON.parse(app.w.localStorage.getItem(recovery)).latest.includes('MI COPIA PENDIENTE'));app.click('[data-page=backup]');app.click('#cloud-recovery-copies');assert.ok(app.d.querySelector('[data-recovery-index="0"]'));assert.deepEqual(server.errors,[]);
  }finally{app.close();}
 });
+test('al volver a entrar se conserva el módulo seleccionado, sin regresar al panel principal',async()=>{
+ const server=await setup();let app=boot(server);
+ try{
+  await login(app,server);
+  app.click('[data-page=payments]');
+  const remembered=app.w.localStorage.getItem('lotigest_last_page_v1:admin');
+  assert.equal(remembered,'payments');
+  const cache=app.cache();
+  app.close();
+  app=boot(server,cache,{'lotigest_last_page_v1:admin':remembered});
+  await until(()=>app.d.querySelector('.nav-btn.active')?.dataset.page==='payments','volver al módulo de pagos');
+  assert.deepEqual(server.errors,[]);
+ }finally{app.close();}
+});
+
 test('el guardado automático no muestra mensajes de D1 ni indicadores de éxito',async()=>{
  const server=await setup(),app=boot(server);
  try{
