@@ -7,6 +7,20 @@ test('todos los paneles originales abren, la guía está disponible y Configurac
  app.click('[data-page=settings]');assert.ok(!app.d.body.textContent.includes('Este prototipo guarda datos en el navegador utilizado'));assert.ok(app.d.body.textContent.includes('Cloudflare D1'));assert.deepEqual(server.errors,[]);
  }finally{app.close();}
 });
+
+test('el acceso histórico de Contratos utiliza el nuevo buscador de abonos',async()=>{
+ const server=await setup(),app=boot(server);
+ try{
+  await login(app,server);
+  app.click('[data-page=contracts]');
+  app.click('[data-action=manual-history-picker]');
+  assert.ok(app.d.querySelector('.lg-payment-modern'),'la ventana histórica debe utilizar el estilo nuevo');
+  assert.ok(app.d.querySelector('#manual-history-search'),'la búsqueda sigue disponible');
+  assert.ok(app.d.querySelector('.lg-payment-modern .pm-picker-results'),'se muestran las fichas históricas');
+  assert.deepEqual(server.errors,[]);
+ }finally{app.close();}
+});
+
 test('recorrido cliente, terreno, venta crédito, abono, recibo histórico y finanzas se recupera al reabrir',async()=>{
  const server=await setup();let app=boot(server);try{
  await login(app,server);app.click('[data-page=clients]');app.click('[data-action=new-client]');app.submit('#modal-form',{name:'CLIENTE AUDITORIA',identity:'0801199900001',phone:'99999999'});await saved(app);
