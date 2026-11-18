@@ -230,12 +230,42 @@ function pmOwnerDecorate(){
  const cal=pmCard('Calendario de pagos (Cronograma)','calendar');cal.body.append(pmNode('p','pm-help','Las fichas de propietario no tienen un calendario de cuotas verificable hasta que se registren el contrato, las fechas y el plazo. Puedes registrar el abono sin inventar meses pagados.'));
  shell.append(cal.card);form.replaceChildren(shell);pmFooter(modal,'owner-abono-form');
 }
-const pmOriginalBaseNewPayment=baseNewPayment;
-baseNewPayment=function(saleId,useOcr=false){const ret=pmOriginalBaseNewPayment(saleId,useOcr);pmSalesDecorate();return ret;};
-const pmOriginalOwnerOpen=openOwnerAbono;
-openOwnerAbono=function(clientId,residenceId=null){const ret=pmOriginalOwnerOpen(clientId,residenceId);pmOwnerDecorate();return ret;};
-const pmOriginalPicker=openOwnerCustomerPicker;
-openOwnerCustomerPicker=function(){const ret=pmOriginalPicker();pmModal('Registrar Pago / Abono','Busca al propietario y selecciona su ficha para registrar el abono.');return ret;};
+// Interceptor único: cualquiera que sea el acceso (Cuotas, Clientes, Fichas, Cobros),
+// el formulario se estiliza al crearse. No dependemos del botón que lo abrió.
+function pmPickerDecorate(){
+ const input=document.getElementById('owner-payment-search');
+ const results=document.getElementById('owner-payment-customers');
+ if(!input||!results)return;
+ const modal=pmModal('Registrar Pago / Abono','Busca al cliente para consultar sus solares y registrar el pago.');
+ if(!modal)return;
+ const content=modal.querySelector('.modal-content');
+ const shell=pmNode('div','pm-shell');
+ const card=pmCard('Seleccionar cliente y solares','users');
+ const person=pmNode('div','pm-clientbox');
+ person.innerHTML=pmIcon('users')+'<div><small>Cliente</small><strong>Selecciona al propietario</strong><p>Los pagos y solares aparecerán desde los registros guardados.</p></div>';
+ card.body.append(person);
+ const label=pmNode('label','','Buscar por nombre o seleccionar ficha');
+ label.htmlFor='owner-payment-search';
+ input.placeholder='Escribe el nombre del cliente…';
+ input.style.width='100%';
+ results.classList.add('pm-picker-results');
+ results.style.maxHeight='min(46dvh,440px)';
+ results.style.overflow='auto';
+ card.body.append(label,input,results);
+ shell.append(card.card);
+ // Sustituye únicamente el contenido del buscador, sin destruir los controles originales.
+ content.replaceChildren(shell);
+ const footer=modal.querySelector('.modal-footer');
+ if(footer)footer.innerHTML='<button type="button" class="btn btn-soft pm-cancel" data-action="close-modal">Cancelar</button>';
+}
+const pmOriginalShowModal=showModal;
+showModal=function(title,content,footer='',wide=false,subtitle=''){
+ const result=pmOriginalShowModal(title,content,footer,wide,subtitle);
+ if(document.getElementById('multi-payment-form'))pmSalesDecorate();
+ else if(document.getElementById('owner-abono-form'))pmOwnerDecorate();
+ else if(document.getElementById('owner-payment-search'))pmPickerDecorate();
+ return result;
+};
 choosePaymentMode=function(){newPayment(null,false);};
 const pmOriginalSelected=renderPaymentSelected;
 renderPaymentSelected=function(){const ret=pmOriginalSelected();if(pmActive==='sale')pmRepaintSales();return ret;};
