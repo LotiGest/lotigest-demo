@@ -134,7 +134,7 @@ function pmRepaintSales(){
  const name=document.getElementById('pm-client-name'),identity=document.getElementById('pm-client-id'),tags=document.getElementById('pm-lot-tags');
  if(name)name.textContent=client?.name||'Selecciona un cliente';
  if(identity)identity.textContent=client?.identity?'Identidad: '+client.identity:'Residencial: '+residence().name;
- if(tags){tags.replaceChildren();if(sales.length)for(const s of sales){const l=getLot(s.lotId);tags.append(pmBadge('Etapa '+(l?.stage||'por confirmar')+' · Bloque '+(l?.block||'—')+' · Solar '+(l?.sourceNumber||l?.id||'—')));}else tags.append(pmNode('small','','Busca y selecciona un terreno con saldo'));}
+ if(tags){tags.replaceChildren();if(sales.length)for(const s of sales){const l=getLot(s.lotId),tag=pmBadge('Etapa '+(l?.stage||'por confirmar')+' · Bloque '+(l?.block||'—')+' · Solar '+(l?.sourceNumber||l?.id||'—'));const remove=pmNode('button','pm-remove-lot','×');remove.type='button';remove.dataset.action='multi-payment-remove';remove.dataset.id=s.id;remove.title='Quitar solar del recibo';remove.setAttribute('aria-label','Quitar solar '+(l?.sourceNumber||l?.id||''));tag.append(remove);tags.append(tag);}else tags.append(pmNode('small','','Busca y selecciona un terreno con saldo'));}
  const summary=document.getElementById('pm-summary');
  if(summary){
   summary.replaceChildren();
