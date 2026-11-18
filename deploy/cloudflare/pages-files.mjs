@@ -70,6 +70,13 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace('function viewLot(id){', 'function baseViewLot(id){')
     .replace(/\$\{list\.filter\(x=>x\.lot\.residenceId===st\)\.map\(x=>`[\s\S]*?\.join\(''\)\}/, '${collectionSolarCards(list.filter(x=>x.lot.residenceId===st),st)}')
     .replace('Los cuadros muestran el inventario por residencial; no representan su ubicación geográfica.', 'Cada ficha reúne al propietario, sus solares y sus pagos. Las referencias de Excel con código pendiente se agrupan sin modificar el inventario del mapa.')
+    // La barra muestra íconos y nombres desde el primer ingreso en escritorio.
+    // Nueva preferencia: las barras antiguas contraídas no ocultan los nombres.
+    .replaceAll("'lotigest-v08-pin'", "'lotigest-v08-pin-labels-v1'")
+    .replace("const pinned=localStorage.getItem('lotigest-v08-pin-labels-v1')==='true';",
+      "const pinned=localStorage.getItem('lotigest-v08-pin-labels-v1')!=='false';")
+    .replace("const next=localStorage.getItem('lotigest-v08-pin-labels-v1')!=='true';",
+      "const next=localStorage.getItem('lotigest-v08-pin-labels-v1')==='false';")
     .replace('function render(){', 'function renderBase(){')
     .replace('function openSolarWindow(lotId){', "function openSolarWindow(lotId){if(cloudUser?.role==='sales'){lotClientCard(lotId);return;}")
     .replace('function baseViewLot(id){', "function baseViewLot(id){if(cloudUser?.role==='sales'){lotClientCard(id);return;}")
