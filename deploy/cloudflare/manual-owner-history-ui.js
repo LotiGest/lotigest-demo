@@ -88,7 +88,7 @@
   }
 
   async function submitHistoricalManual(form){
-    const error=$('#manual-history-error'),button=document.querySelector('[form="manual-history-form"]');
+    const error=$('#manual-history-error'),buttons=[...document.querySelectorAll('[form="manual-history-form"]')];
     try{
       if(!historyDraft||historyDraft.snapshot!==JSON.stringify(db))throw Error('Los datos cambiaron. Vuelve a abrir el registro para no sobrescribir pagos.');
       const fields=Object.fromEntries(new FormData(form));
@@ -105,21 +105,20 @@
       const concept=(fields.type==='PRIMA'?'Prima histórica':'Abono histórico')+(fields.period?' · Mes '+fields.period:'')+(note?' · '+note:'');
       const duplicate=(db.ownerPayments||[]).some(p=>p.clientId===historyDraft.clientId&&p.date===fields.date&&p.amountCents===cents&&String(p.concept).startsWith(fields.type==='PRIMA'?'Prima':'Abono')&&ids.every(id=>p.allocations.some(a=>a.references.some(r=>r.lotId===id))));
       if(duplicate)throw Error('Ya existe un pago con igual fecha, monto y solar(es). Revisa el historial antes de continuar; no se duplicó.');
-      if(button)button.disabled=true;
+      buttons.forEach(button=>{button.disabled=true;});
       const next=JSON.parse(JSON.stringify(db));
       next.ownershipStatements??=[];
       next.ownershipStatements.push({id:historyDraft.statementId,residenceId:historyDraft.residenceId,clientId:historyDraft.clientId,clientName:manualOwnerName(historyDraft.clientId),sourceName:'Registro manual de Contratos',rawReference:{block:lots.map(l=>l.block).join(', '),lot:lots.map(l=>String(l.sourceNumber||l.number||l.id)).join(', ')},references:lots.map(l=>({stage:l.stage||null,block:String(l.block),lot:String(l.sourceNumber||l.number||l.id),lotId:l.id,candidateLotIds:[l.id]})),issues:[],documentedDownPaymentCents:null,documentedOpeningBalanceCents:null,documentedBalances:[],paymentIds:[],contractIds:[],manual:true,importedAt:new Date().toISOString()});
       const outcome=lotigestOwnerPayments.createOwnerPayment(next,{id:historyDraft.id,clientId:historyDraft.clientId,residenceId:historyDraft.residenceId,date:fields.date,method:String(fields.method||'Efectivo').trim(),concept,receiptRef:String(fields.receiptRef||'').trim(),reviewed:true,allocations:[{statementId:historyDraft.statementId,referenceIndex:null,amount:fields.amount}]});
       cloudWrite(JSON.stringify(outcome.state));
       db=outcome.state;historyDraft=null;
-      closeModal();page='receipts';render();ownerPaymentPreview(outcome.receipt.id);
+      closeModal();render();ownerPaymentPreview(outcome.receipt.id);
       await cloudFlush();
-      if(cloudBlocked||cloudQueue?.pending||cloudQueue?.latest!==cloudQueue?.confirmed)toast('Recibo creado en el equipo, pero el guardado en D1 está pendiente. Revisa la sincronización.','error');
-      else toast('Prima o abono histórico guardado en D1 con su fecha real.');
+      if(cloudBlocked)toast('El abono se conservó localmente, pero necesita revisión de sincronización.','error');
     }catch(e){
       if(error)error.textContent=e.message||'No se pudo guardar.';
       else toast(e.message||'No se pudo guardar.','error');
-      if(button)button.disabled=false;
+      buttons.forEach(button=>{button.disabled=false;});
     }
   }
 
