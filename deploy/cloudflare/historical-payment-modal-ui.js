@@ -82,7 +82,8 @@
   // No se exige tener abonos anteriores para consultar o elegir 2024, 2023, etc.
   const minYear=Math.max(1900,firstYear),maxYear=currentYear;
   if(historyYear===null||historyYear<minYear||historyYear>maxYear)
-   historyYear=validMonth(period)?Number(period.slice(0,4)):currentYear;
+   historyYear=validMonth(period)?Number(period.slice(0,4)):
+    documentedYears.length?Math.max(...documentedYears):currentYear;
   historyYear=Math.min(maxYear,Math.max(minYear,historyYear));
   const confirmed=new Set(),underReview=new Set(),withoutPeriod=new Map();
   for(const p of pays){
