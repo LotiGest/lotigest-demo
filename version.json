@@ -1,1 +1,1 @@
-{"version": "0.19.3", "notes": "Propietarios y botones Abonar en las tarjetas de solares. Primas, abonos y demás solares de cada persona dentro de su ficha."}
+{"version": "0.19.4", "notes": "Etiquetas del mapa corregidas: I de 20 solares y L inferior de 12. Fichas indican si cada persona tiene uno o varios solares según las celdas del Excel."}

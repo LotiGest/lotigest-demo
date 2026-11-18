@@ -41,3 +41,7 @@ Residenciales, solares y cobros presenta las referencias de los Excel como tarje
 Una referencia que coincide con varios códigos del mapa se muestra una sola vez como ficha de referencia, con la indicación de código pendiente. Dentro de Ficha se pueden consultar sus candidatos y confirmar la asignación. Esto agrupa la presentación para evitar atribuir dos terrenos físicos al mismo dueño por una coincidencia de bloque/número; no elimina ni fusiona registros del inventario. Los solares con venta y cuotas verificadas conservan sus tarjetas y cálculos anteriores.
 
 Las cuotas y la mora solo muestran valores calculados cuando existen condiciones contractuales verificadas. Para las fichas documentales se muestra el saldo de la ficha como referencia, sin repartir un importe conjunto entre varios terrenos ni presentarlo como una deuda individual calculada.
+
+Las fichas y el selector de abonos muestran **1 solar** o **N solares según Excel**. El conteo usa referencias distintas de bloque y número; una referencia con dos candidatos físicos en el mapa sigue contando como un solo solar declarado. Las referencias incompletas se señalan para confirmar su cantidad cuando no puede determinarse.
+
+Las etiquetas dibujadas del plano coinciden con los registros: **I** corresponde al grupo superior de 20 y **L** al grupo inferior de 12. Se conservan los códigos únicos, ubicaciones y abonos existentes. La vista registrada del PDF oficial también superpone estas dos etiquetas corregidas sin modificar el archivo original.
