@@ -83,3 +83,117 @@
  body:has(#lgSidebar.open:not(.pinned)) .mobile-backdrop{display:none!important}
  body:has(#lgSidebar.open:not(.pinned)){overflow:auto!important}
 }
+
+
+/* LOTIGEST 0.22.11: inicio de sesión adaptable en teléfono y tableta. */
+@media screen and (max-width:900px){
+ /* El tema de inicio usa selectores con [data-login-theme] que antes
+    sobreescribían la distribución móvil y forzaban dos columnas. */
+ html body #app .login-page,
+ html body #app .login-page[data-login-theme]{
+  display:flex!important;flex-direction:column!important;
+  align-items:stretch!important;justify-content:flex-start!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  box-sizing:border-box!important;width:100%!important;min-width:0!important;
+  max-width:100%!important;min-height:100svh!important;height:auto!important;
+  gap:15px!important;margin:0!important;
+  padding:max(22px,env(safe-area-inset-top)) clamp(14px,4vw,24px)
+          max(18px,env(safe-area-inset-bottom))!important;
+  overflow-x:hidden!important;overflow-y:auto!important;
+ }
+ html body #app .login-page .login-showcase{
+  display:flex!important;flex-direction:column!important;
+  align-items:center!important;justify-content:center!important;
+  box-sizing:border-box!important;width:100%!important;max-width:440px!important;
+  min-width:0!important;min-height:0!important;margin:0 auto!important;
+  gap:4px!important;text-align:center!important;order:0!important;
+ }
+ html body #app .login-page .brand-login{display:none!important}
+ html body #app .login-page .login-hero{
+  display:flex!important;flex-direction:column!important;
+  align-items:center!important;justify-content:center!important;
+  width:100%!important;max-width:100%!important;
+  margin:0!important;gap:5px!important;
+ }
+ html body #app .login-page .login-hero :is(.eyebrow,h1,p){display:none!important}
+ html body #app .login-page .lotigest-hero-logo{
+  display:block!important;object-fit:contain!important;object-position:center!important;
+  width:min(230px,78vw)!important;max-width:100%!important;
+  height:auto!important;max-height:74px!important;margin:0 auto!important;
+ }
+ html body #app .login-page .login-form-side{
+  display:block!important;box-sizing:border-box!important;
+  width:100%!important;max-width:460px!important;min-width:0!important;
+  margin:0 auto!important;padding:0!important;flex:none!important;
+  align-self:center!important;order:1!important;
+ }
+ html body #app .login-page .login-card,
+ html body #app .login-page[data-login-theme=dark] .login-card{
+  box-sizing:border-box!important;width:100%!important;
+  max-width:440px!important;min-width:0!important;
+  margin:0 auto!important;padding:clamp(20px,5vw,28px)!important;
+  border-radius:23px!important;
+ }
+ html body #app .login-page .login-top-symbol{
+  width:46px!important;height:46px!important;margin:0 0 12px!important;
+ }
+ html body #app .login-page .login-card h2{
+  font-size:clamp(23px,6vw,28px)!important;
+  line-height:1.18!important;letter-spacing:-.8px!important;
+  margin:0 0 9px!important;overflow-wrap:break-word;
+ }
+ html body #app .login-page .login-card .welcome{
+  font-size:14px!important;line-height:1.48!important;
+  margin:0 0 20px!important;
+ }
+ html body #app .login-page .form-field{margin-bottom:14px!important;min-width:0!important}
+ html body #app .login-page .login-card .field-label{
+  display:block!important;font-size:13px!important;margin:0 0 7px!important;
+ }
+ html body #app .login-page .login-card input:not([type=checkbox]){
+  display:block!important;box-sizing:border-box!important;
+  width:100%!important;max-width:100%!important;min-width:0!important;
+  min-height:48px!important;padding:12px 14px!important;
+  font-size:16px!important;
+ }
+ html body #app .login-page .field-aux{
+  display:flex!important;flex-wrap:wrap!important;
+  justify-content:space-between!important;align-items:center!important;
+  gap:8px 12px!important;margin:6px 0 14px!important;
+  font-size:12px!important;line-height:1.4!important;
+ }
+ html body #app .login-page .field-aux label{
+  display:inline-flex!important;align-items:center!important;
+  gap:7px!important;margin:0!important;
+ }
+ html body #app .login-page .field-aux input[type=checkbox]{flex:none!important}
+ html body #app .login-page .login-submit{
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  gap:12px!important;box-sizing:border-box!important;
+  width:100%!important;min-width:0!important;min-height:48px!important;
+  white-space:normal!important;
+ }
+ html body #app .login-page .demo-login-hint{
+  box-sizing:border-box!important;max-width:100%!important;
+  font-size:12px!important;line-height:1.52!important;
+  margin-top:13px!important;padding:10px 12px!important;
+  overflow-wrap:anywhere!important;
+ }
+ html body #app .login-page .login-bottom{
+  display:block!important;position:static!important;inset:auto!important;
+  order:2!important;box-sizing:border-box!important;
+  width:100%!important;max-width:440px!important;
+  margin:0 auto!important;padding:6px 10px!important;
+  text-align:center!important;font-size:11px!important;line-height:1.45!important;
+  overflow-wrap:anywhere!important;
+ }
+}
+@media screen and (max-width:380px){
+ html body #app .login-page,
+ html body #app .login-page[data-login-theme]{
+  gap:11px!important;padding-left:12px!important;padding-right:12px!important;
+ }
+ html body #app .login-page .login-card,
+ html body #app .login-page[data-login-theme=dark] .login-card{padding:19px!important}
+ html body #app .login-page .login-card .welcome{font-size:13px!important}
+}
