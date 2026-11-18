@@ -47,3 +47,21 @@ test('un QR no puede reutilizarse entre pagos diferentes',async()=>{
  s.payments=[{id:'P1',saleId:'V1',date:'2026-01-03',amount:1500,verifyToken:token},{id:'P2',saleId:'V1',date:'2026-01-04',amount:1400,verifyToken:token}];
  const res=await save(f,s);assert.equal(res.status,400);
 });
+
+
+test('el recibo de varios solares confirma importe sin exponer propietario y señala anulaciones',async()=>{
+ const f=await fixture(),token='c'.repeat(32);
+ const owner={id:'OP-PRUEBA',clientName:'PERSONA RESERVADA',identity:'0801200100000',date:'2026-11-17',amountCents:175000,verifyToken:token,
+  allocations:[{references:[{block:'A',solar:'1'},{block:'B',solar:'2'}],amountCents:175000}]};
+ const rowKey=JSON.stringify(['ownerPayments',0,0]);
+ f.db.db.prepare('INSERT INTO app_records(key,payload) VALUES(?,?)').run(rowKey,JSON.stringify(owner));
+ let response=await verification(f,token);
+ assert.equal(response.status,200);
+ let body=await response.json();
+ assert.equal(body.estado,'vigente');assert.equal(body.montoCentavos,175000);assert.equal(body.tipo,'Abono de propietario');
+ assert.ok(!JSON.stringify(body).includes('PERSONA RESERVADA'));assert.ok(!JSON.stringify(body).includes('0801200100000'));
+ owner.voidedAt='2026-11-18T12:00:00Z';
+ f.db.db.prepare('UPDATE app_records SET payload=? WHERE key=?').run(JSON.stringify(owner),rowKey);
+ response=await verification(f,token);assert.equal(response.status,200);
+ body=await response.json();assert.equal(body.estado,'anulado');
+});
