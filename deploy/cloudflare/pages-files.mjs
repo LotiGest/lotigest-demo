@@ -43,6 +43,7 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace('Solicitudes de cotización · <b data-pending-count>…</b></button></div></div>',
       'Solicitudes de cotización · <b data-pending-count>…</b></button></div></div><div class="lg-popup-parent"><button type="button" class="lg-iconbtn" data-action="client-pending-open" title="Solicitudes de cotización" aria-label="Ver nuevas solicitudes de cotización" style="position:relative">🔔<span data-pending-count style="position:absolute;right:-5px;top:-6px;background:#bd3c3c;color:#fff;border-radius:99px;font-size:10px;min-width:17px;height:17px;display:grid;place-items:center;padding:0 3px">…</span></button></div>')
     .replace("setInterval(refreshClientRequests,30000);","setInterval(refreshClientRequests,15000);")
+    .replace("Fecha prevista de pago: '+fmtDate(request.client.paymentDate)","Fecha de solicitud: '+fmtDate(request.createdAt?.slice(0,10)||request.client.paymentDate)")
     .replace("document.head.append(adaptiveStyle);","if(adaptiveStyle) document.head.append(adaptiveStyle);")
     .replace('</head>', '<style>.lotigest-demo-banner{padding:.55rem 1rem;background:#164532;color:white;text-align:center;font:600 .875rem system-ui}@media print{.lotigest-demo-banner{display:none!important}}</style></head>')
     .replace(/localStorage\.setItem\(STORAGE,/g, 'cloudWrite(')
