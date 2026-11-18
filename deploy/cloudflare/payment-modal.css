@@ -233,3 +233,31 @@
 #modal-root .lg-payment-modern .pm-prima-tag{display:inline-block;margin-top:7px;padding:4px 8px;border-radius:7px;font-weight:750;font-size:12px}
 #modal-root .lg-payment-modern .pm-prima-tag-red{color:#9c2530;background:#ffe9e9;border:1px solid #edafb8}
 #modal-root .lg-payment-modern .pm-prima-tag-neutral{color:#355f44;background:#edf5ee;border:1px solid #cfdfd2}
+
+
+/* Conciliación de abonos históricos: importes y cuota real, sin duplicar cobros. */
+#modal-root .lg-payment-modern .pm-historical-reconciled{
+ margin-top:15px;border-top:1px solid #dfe9e2;padding:14px 3px 0;
+}
+#modal-root .lg-payment-modern .pm-historical-reconciled h4{
+ margin:0 0 5px;color:#244b30;font-size:15px;font-weight:850;
+}
+#modal-root .lg-payment-modern .pm-reconcile-scroll{
+ width:100%;max-height:350px;overflow:auto;-webkit-overflow-scrolling:touch;
+ border:1px solid #dbe7de;border-radius:10px;background:#fff;
+}
+#modal-root .lg-payment-modern .pm-reconcile-table{
+ width:100%;min-width:760px;border-collapse:collapse;font-size:12px;color:#213d2c;
+}
+#modal-root .lg-payment-modern .pm-reconcile-table thead{
+ position:sticky;top:0;z-index:1;background:#eff8f0;
+}
+#modal-root .lg-payment-modern .pm-reconcile-table th,
+#modal-root .lg-payment-modern .pm-reconcile-table td{
+ padding:10px 9px;border-bottom:1px solid #e6ece7;text-align:left;vertical-align:middle;
+}
+#modal-root .lg-payment-modern .pm-reconcile-table tbody tr:hover{background:#f3fbf5}
+#modal-root .lg-payment-modern .pm-reconcile-table th{color:#234d31;font-weight:800}
+#modal-root .lg-payment-modern .pm-reconcile-table .btn{
+ font-size:11px;white-space:normal;max-width:160px;line-height:1.3;
+}
