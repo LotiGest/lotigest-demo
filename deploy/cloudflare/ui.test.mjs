@@ -21,6 +21,45 @@ test('el acceso histórico de Contratos utiliza el nuevo buscador de abonos',asy
  }finally{app.close();}
 });
 
+
+test('calendario histórico permite ver y seleccionar meses de 2024 aunque no existan cuotas contratadas',async()=>{
+ const server=await setup();let app=boot(server);
+ try{
+  await login(app,server);
+  const snapshot=await server.read(),rid=snapshot.state.currentResidence||snapshot.state.residences[0].id;
+  snapshot.state.clients.push({id:'HIST-CAL-CLIENT',name:'CLIENTE PRUEBA CALENDARIO',identity:'0801199900311'});
+  snapshot.state.lots.push({id:'HIST-CAL-SOLAR',residenceId:rid,stage:'1',block:'F',sourceNumber:'2',
+   area:154,price:50000,status:'sold',ownerClientId:'HIST-CAL-CLIENT'});
+  snapshot.state.ownerPayments??=[];
+  snapshot.state.ownerPayments.push({
+   id:'HIST-CAL-PAGO',clientId:'HIST-CAL-CLIENT',residenceId:rid,clientName:'CLIENTE PRUEBA CALENDARIO',
+   date:'2024-02-18',amountCents:250000,concept:'Abono histórico · Mes 2024-02',method:'Efectivo',
+   allocations:[{statementId:'HIST-CAL-STATEMENT',referenceIndex:null,amountCents:250000,
+    references:[{lotId:'HIST-CAL-SOLAR',stage:'1',block:'F',solar:'2'}]}]
+  });
+  const write=await server.write({state:snapshot.state,revision:snapshot.revision,mutation:crypto.randomUUID()});
+  assert.equal(write.status,200,'El historial de prueba se guarda sin afectar otros datos');
+  app.close();app=boot(server);
+  await until(()=>app.d.querySelector('[data-page=contracts]'),'reinicio');
+  app.click('[data-page=contracts]');
+  app.click('[data-action=manual-history-picker]');
+  app.input('#manual-history-search','CLIENTE PRUEBA CALENDARIO');
+  app.click('[data-action=manual-history-person]');
+  assert.ok(app.d.querySelector('#manual-history-form'),'Abrir registro histórico');
+  assert.equal(app.d.querySelectorAll('#pm-history-calendar-body [data-pm-historical-month]').length,12);
+  app.change('#pm-history-year-select','2024');
+  assert.equal(app.d.querySelectorAll('#pm-history-calendar-body [data-pm-historical-month]').length,12);
+  const feb=app.d.querySelector('[data-pm-historical-month="2024-02"]');
+  assert.ok(feb.classList.contains('paid'),'Febrero registra abono asociado');
+  const jan=app.d.querySelector('[data-pm-historical-month="2024-01"]');
+  assert.ok(jan.classList.contains('none'),'Enero sin contrato no debe figurar como pagado ni en mora');
+  feb.click();
+  assert.equal(app.d.querySelector('#manual-history-form [name=period]').value,'2024-02');
+  assert.equal(app.d.querySelector('[data-pm-historical-month="2024-02"]').getAttribute('aria-pressed'),'true');
+  assert.deepEqual(server.errors,[]);
+ }finally{app.close();}
+});
+
 test('recorrido cliente, terreno, venta crédito, abono, recibo histórico y finanzas se recupera al reabrir',async()=>{
  const server=await setup();let app=boot(server);try{
  await login(app,server);app.click('[data-page=clients]');app.click('[data-action=new-client]');app.submit('#modal-form',{name:'CLIENTE AUDITORIA',identity:'0801199900001',phone:'99999999'});await saved(app);
