@@ -17,7 +17,7 @@ export async function onRequest({request,env}){
  if(!db)return json({estado:'no_disponible',mensaje:'La verificación en línea no está disponible.'},503);
  try{
   const hits=await db.prepare(`SELECT key FROM app_records
-     WHERE json_extract(key,'$[0]') IN ('payments','ownerPayments')
+     WHERE (CASE WHEN json_valid(key) THEN json_extract(key,'$[0]') ELSE '' END) IN ('payments','ownerPayments')
        AND instr(payload,?)>0 LIMIT 30`).bind(token).all();
   const candidates=new Map();
   for(const hit of hits.results||[]){
@@ -28,7 +28,7 @@ export async function onRequest({request,env}){
   const found=[];
   for(const {kind,index} of candidates.values()){
    const parts=await db.prepare(`SELECT payload FROM app_records
-     WHERE json_extract(key,'$[0]')=? AND json_extract(key,'$[1]')=?
+     WHERE (CASE WHEN json_valid(key) THEN json_extract(key,'$[0]') ELSE '' END)=? AND (CASE WHEN json_valid(key) THEN json_extract(key,'$[1]') ELSE -1 END)=?
      ORDER BY CAST(json_extract(key,'$[2]') AS INTEGER)`).bind(kind,index).all();
    let row;
    try{row=JSON.parse((parts.results||[]).map(r=>r.payload).join(''));}catch{continue;}
