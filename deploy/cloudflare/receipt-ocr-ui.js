@@ -26,7 +26,8 @@ baseNewPayment=function(saleId,useOcr=false){
  if(!form.elements.receiptRef){
   const ref=document.createElement('div');ref.innerHTML=receiptReferenceField();form.querySelector('.form-grid')?.append(ref.firstElementChild);
  }
- if(!useOcr&&!form.querySelector('[data-paper-ocr-photo]')){
+ if(useOcr)form.querySelector('#payment-ocr-photo')?.closest('fieldset')?.remove();
+ if(!form.querySelector('[data-paper-ocr-photo]')){
   const block=document.createElement('div');block.innerHTML=receiptOcrWidget();
   form.prepend(block.firstElementChild);
  }
