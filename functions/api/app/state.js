@@ -54,6 +54,20 @@ export function validate(state){
  for(const c of historyContracts.values())if(c.paymentIds.some(id=>!historyIds.has(id)))invalid('Contrato histórico con movimientos inexistentes.');
  const ownershipIds=new Set();for(const s of state.ownershipStatements||[]){if(!s||typeof s.id!=='string'||ownershipIds.has(s.id)||s.clientId!=null&&!clients.has(s.clientId)||!Array.isArray(s.references)||!Array.isArray(s.paymentIds))invalid('Ficha de propietario incompatible.');ownershipIds.add(s.id);for(const ref of s.references)if(ref.lotId&&!lots.has(ref.lotId))invalid('Propietario sin solar válido.');for(const id of s.paymentIds)if(!historyIds.has(id))invalid('Ficha con abono inexistente.');}
  for(const l of state.lots){if(l.ownerClientId&&!clients.has(l.ownerClientId))invalid('Solar con propietario inexistente.');if(l.ownerClientId){const sale=state.sales.find(s=>s.lotId===l.id);if(sale&&sale.clientId!==l.ownerClientId)invalid('El propietario no coincide con la venta existente.');}}
+ const receiptRefs=new Set();
+ const addReceipt=(rid,raw)=>{
+  const reference=String(raw||'').trim().toUpperCase();
+  if(!reference)return;
+  const key=rid+':'+reference;
+  if(receiptRefs.has(key))invalid('Folio del recibo duplicado en la residencial. No se guardaron cambios.');
+  receiptRefs.add(key);
+ };
+ for(const p of state.ownerPayments||[])addReceipt(p.residenceId,p.receiptReference);
+ for(const p of state.payments){
+  const sale=sales.get(p.saleId),lot=lots.get(sale?.lotId);
+  if(lot)addReceipt(lot.residenceId,p.receiptReference);
+ }
+ for(const p of state.historicalPayments||[])addReceipt(p.residenceId,p.receiptReference||p.sourceRaw?.receiptRef||p.sourceRaw?.folio);
  try{validateOwnerPayments(state);}catch(e){invalid(e.message);}
  for(const e of state.cashEntries||[]){if(!['income','expense'].includes(e.kind))invalid('Tipo de movimiento financiero inválido.');cents(e.amount,'Movimiento financiero',1);date(e.date,'Fecha del movimiento');}
 }
