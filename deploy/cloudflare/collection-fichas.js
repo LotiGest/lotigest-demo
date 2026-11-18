@@ -19,9 +19,9 @@ document.addEventListener('change',e=>{if(e.target.id==='collection-stage-filter
 function arrayanPageRender(){render();}
 
 // Excel export keeps each receipt/allocation once, including documentary payments.
-function collectionPaymentRows(){
+function collectionPaymentRows(exportAllStages=false){
  const out=[],posted=new Set((db.payments||[]).map(p=>p.id));
- const add=(p,refs,rid,clientId,type,amount,notes='')=>{if(collectionStage!=='all'&&rid!==collectionStage)return;const stages=[...new Set(refs.map(r=>String(r.stage||getLot(r.lotId)?.stage||'pending')))];if(collectionStageFilter!=='all'&&!stages.includes(collectionStageFilter))return;out.push([p.date||p.sourceRaw?.date||'',getClient(clientId)?.name||p.clientName||'',getClient(clientId)?.identity||'',residenceName(rid),stages.map(s=>s==='pending'?'Por confirmar':s).join(' / '),[...new Set(refs.map(r=>r.block))].join(' / '),refs.map(r=>String(r.solar||r.lot||'')).join(', '),type,amount,p.method||'',p.id||'',notes]);};
+ const add=(p,refs,rid,clientId,type,amount,notes='')=>{if(collectionStage!=='all'&&rid!==collectionStage)return;const stages=[...new Set(refs.map(r=>String(r.stage||getLot(r.lotId)?.stage||'pending')))];if(!exportAllStages&&collectionStageFilter!=='all'&&!stages.includes(collectionStageFilter))return;out.push([p.date||p.sourceRaw?.date||'',getClient(clientId)?.name||p.clientName||'',getClient(clientId)?.identity||'',residenceName(rid),stages.map(s=>s==='pending'?'Por confirmar':s).join(' / '),[...new Set(refs.map(r=>r.block))].join(' / '),refs.map(r=>String(r.solar||r.lot||'')).join(', '),type,amount,p.method||'',p.id||'',notes]);};
  for(const p of db.historicalPayments||[]){if(p.postedPaymentId&&posted.has(p.postedPaymentId))continue;const s=(db.ownershipStatements||[]).find(s=>(s.paymentIds||[]).includes(p.id));add(p,p.references?.length?p.references:s?.references||[{stage:p.stage,block:p.block,lot:p.lot,lotId:p.lotId}],p.residenceId,p.clientId,p.type,p.amountCents==null?'':p.amountCents/100,(p.issues||[]).map(i=>lotigestLedger.historyIssueLabels[i]||i).join('; '));}
  for(const p of db.payments||[]){if(p.voidedAt)continue;const sale=db.sales.find(s=>s.id===p.saleId),lot=sale&&getLot(sale.lotId);if(!sale||!lot)continue;const historical=(db.historicalPayments||[]).find(h=>h.id===p.historicalImportId||h.postedPaymentId===p.id);const type=historical?.type||(/prima/i.test(p.concept||'')?'Prima':sale.type==='cash'?'Contado':'Abono');add(p,[{block:lot.block,solar:lot.sourceNumber||lot.number||lot.id,lotId:lot.id}],lot.residenceId,sale.clientId,type,p.amount,p.concept||'');}
  for(const p of db.ownerPayments||[]){if(p.voidedAt)continue;for(const a of p.allocations||[])add(p,a.references||[],p.residenceId,p.clientId,'Abono',a.amountCents/100,p.concept||'');}
@@ -56,6 +56,78 @@ function paymentExcelBytes(rows,headers=null,additionalSheets=[]){
  const result=new Uint8Array(parts.reduce((n,a)=>n+a.length,0));let at=0;
  for(const a of parts){result.set(a,at);at+=a.length;}
  return result;
+}
+// Primera hoja del informe: cada cliente aparece aunque aún no tenga ningún pago.
+// Una fila por solar referenciado. Nunca duplicar un pago por cada solar.
+function collectionClientRows(){
+ const rid=residence().id,customers=new Map(),propertyKeys=new Map();
+ const getEntry=(clientId,sourceName='',sourceId='')=>{
+  const person=clientId?getClient(clientId):null;
+  const key=person?'client:'+person.id:'unlinked:'+sourceId;
+  if(!key||key==='unlinked:')return null;
+  if(!customers.has(key))customers.set(key,{id:person?.id||null,name:person?.name||sourceName||'Propietario por vincular',
+   identity:person?.identity||'',phone:person?.phone||'',lots:new Map(),sources:new Set()});
+  return customers.get(key);
+ };
+ const add=(clientId,raw,source,sourceName='',sourceId='')=>{
+  const row=getEntry(clientId,sourceName,sourceId);if(!row)return;
+  row.sources.add(source);
+  if(!raw)return;
+  const lot=raw.lotId?getLot(raw.lotId):null;
+  if(lot&&lot.residenceId!==rid)return;
+  const stage=String(raw.stage||lot?.stage||'Por confirmar');
+  const block=String(raw.block||lot?.block||'Por confirmar');
+  const solar=String(raw.solar||raw.lot||lot?.sourceNumber||lot?.number||lot?.id||'Por confirmar');
+  const lotId=lot?.id||'';
+  const key=[stage.trim().toUpperCase(),block.trim().toUpperCase(),solar.trim().replace(/^0+(?=\d)/,'')].join('|');
+  const previous=row.lots.get(key);
+  if(!previous||!previous.lotId)row.lots.set(key,{stage,block,solar,lotId,
+   state:lot?.status||'Referencia en ficha',source});
+ };
+ // La lista db.clients ya está acotada a la residencial por withResidenceData.
+ for(const c of db.clients||[])getEntry(c.id);
+ for(const l of db.lots||[]){
+  const owners=new Set([l.ownerClientId,...(db.sales||[]).filter(s=>s.lotId===l.id).map(s=>s.clientId)].filter(Boolean));
+  for(const cid of owners)add(cid,{stage:l.stage,block:l.block,lot:l.sourceNumber||l.number||l.id,lotId:l.id},'Solar vinculado');
+ }
+ for(const statement of db.ownershipStatements||[]){
+  const refs=statement.references?.length?statement.references:
+   [{stage:null,block:statement.rawReference?.block,lot:statement.rawReference?.lot}];
+  for(const ref of refs)add(statement.clientId,ref,'Ficha documental',statement.clientName,statement.id);
+ }
+ for(const contract of db.historicalContracts||[]){
+  const refs=contract.references?.length?contract.references:[{stage:contract.stage,block:contract.block,lot:contract.lot}];
+  for(const ref of refs)add(contract.clientId,ref,'Contrato histórico',contract.clientName,contract.id);
+ }
+ // Movimientos importados sin persona vinculada: no ocultar el nombre consignado en el Excel.
+ for(const payment of db.historicalPayments||[]){
+  if(payment.clientId&&getClient(payment.clientId))continue;
+  const refs=payment.references?.length?payment.references:[{stage:payment.stage,block:payment.block,lot:payment.lot,lotId:payment.lotId}];
+  for(const ref of refs)add(null,ref,'Movimiento por vincular',payment.clientName,payment.contractId||payment.id);
+ }
+ const rows=[];
+ for(const row of customers.values()){
+  const status=row.id&&typeof lotigestPrimaStatus==='function'?lotigestPrimaStatus(row.id,rid):
+   {label:'Prima por verificar',agreedCents:null,paidCents:null,remainingCents:null};
+  const refs=row.lots.size?[...row.lots.values()]:[{stage:'',block:'',solar:'',lotId:'',state:'Sin solar vinculado',source:'Cliente registrado'}];
+  for(const ref of refs)rows.push([
+   row.name,row.identity,row.phone,residenceName(rid),ref.stage,ref.block,ref.solar,ref.lotId,ref.state,
+   status.label,status.agreedCents===null?'':status.agreedCents/100,
+   status.paidCents===null?'':status.paidCents/100,
+   status.remainingCents===null?'':status.remainingCents/100,
+   [...row.sources].join(' · ')||ref.source,
+   row.id?'':'Referencia documental: verificar asociación del cliente'
+  ]);
+ }
+ return rows.sort((a,b)=>String(a[0]).localeCompare(String(b[0]),'es')||
+  String(a[4]).localeCompare(String(b[4]))||String(a[5]).localeCompare(String(b[5]))||
+  String(a[6]).localeCompare(String(b[6])));
+}
+function collectionExportWorkbook(){
+ const payments=collectionPaymentRows(true),clients=collectionClientRows();
+ const headers=['Cliente','Identidad','Teléfono','Residencial','Etapa','Bloque','Solar','Código del solar',
+  'Estado solar','Estado de prima','Prima acordada (L)','Prima registrada (L)','Prima pendiente (L)','Origen','Observaciones'];
+ return {payments,clients,headers};
 }
 const paymentExportCollectionPage=collectionPage;
 collectionPage=function(){return paymentExportCollectionPage().replace(/(<button[^>]+data-action="debt-csv"[^>]*>)/,'<button class="btn btn-primary" data-action="payments-excel">Exportar Excel de primas y abonos</button>$1');};
@@ -118,9 +190,9 @@ const residentialFinanceForm=financeEntryForm;financeEntryForm=function(kind,id=
 const residentialRender=render;render=function(){residentialRender();for(const selector of ['#debt-residence','[data-finance-filter="residenceId"]']){const select=document.querySelector(selector);if(select){for(const o of [...select.options])if(o.value!==residence().id)o.remove();select.value=residence().id;}}};
 
 let excelDownloadUrl=null;
-function downloadExcel(name,headers,rows){
+function downloadExcel(name,headers,rows,additionalSheets=[]){
  try{
-  const bytes=paymentExcelBytes(rows,headers),mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',blob=new Blob([bytes],{type:mime});
+  const bytes=paymentExcelBytes(rows,headers,additionalSheets),mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',blob=new Blob([bytes],{type:mime});
   if(excelDownloadUrl)URL.revokeObjectURL?.(excelDownloadUrl);
   document.querySelector('#excel-download-ready')?.remove();excelDownloadUrl=URL.createObjectURL(blob);
   const box=document.createElement('aside');box.id='excel-download-ready';box.setAttribute('role','status');box.style.cssText='position:fixed;bottom:16px;left:16px;right:16px;max-width:560px;z-index:25000;background:white;color:#164532;border:2px solid #164532;border-radius:12px;padding:16px;box-shadow:0 4px 24px #0004';
@@ -139,7 +211,7 @@ const excelLotsPage=lotsPage;lotsPage=function(){return excelLotsPage().replace(
 const excelDebtReport=debtReport;debtReport=function(print=false){if(print)return excelDebtReport(true);return withResidenceData(()=>{const headers=['Residencial','Etapa','Bloque','Solar','Estado','Cliente','Teléfono','Mes','Pendiente del mes (L)','Total vencido (L)','Cuotas vencidas','Meses vencidos','Primer vencimiento','Saldo del crédito (L)'],rows=collectionList().map(x=>[residenceName(x.lot.residenceId),x.lot.stage||'',x.lot.block,String(x.lot.sourceNumber||x.lot.id),overdueLabel(x),x.client?.name||'',x.client?.phone||'',collectionMonth,x.monthAmount,x.lateAmount,x.overdue.length,x.overdueMonths,x.oldest||'',x.sale?balance(x.sale):0]);downloadExcel('Reporte_solares_'+collectionMonth+'.xlsx',headers,rows);});};
 const excelActions=handlerAction;handlerAction=function(action,el){
  if(action==='ledger-excel-template'){ledgerExcelTemplate();return;}
- if(action==='payments-excel'){return withResidenceData(()=>downloadExcel('LOTIGEST_Primas_Abonos_'+dateKey(new Date())+'.xlsx',null,collectionPaymentRows()));}
+ if(action==='payments-excel'){return withResidenceData(()=>{const report=collectionExportWorkbook();if(!report.clients.length&&!report.payments.length){toast('No hay clientes ni pagos vinculados a esta residencial. Revisa la residencial activa.','error');return;}downloadExcel('LOTIGEST_Primas_Abonos_'+dateKey(new Date())+'.xlsx',null,report.payments,[{name:'Clientes y solares',rows:[report.headers,...report.clients]}]);});}
  if(action==='inventory-excel'){return withResidenceData(()=>downloadExcel('Terrenos_'+dateKey(new Date())+'.xlsx',['Código','Residencial','Etapa','Bloque','Solar','Tipo','Área (m²)','Precio (L)','Estado'],db.lots.map(l=>[l.id,residenceName(l.residenceId),l.stage||'',l.block,String(l.sourceNumber||l.id),inventoryKind(l),l.area??'',l.price??'',l.status])));}
  return excelActions(action,el);
 };
