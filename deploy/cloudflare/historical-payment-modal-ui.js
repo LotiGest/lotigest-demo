@@ -21,8 +21,9 @@
  // El pago conjunto se cuenta una vez, aunque incluya varios solares.
  function clientPayments(form){
   const clientId=form.dataset.ownerClientId,rid=residence().id,ids=new Set(chosenLots(form).map(l=>l.id));
-  if(!ids.size)return [];
-  const linkedRef=r=>r&&ids.has(r.lotId);
+  // Sin solares marcados, consultar todos los abonos DEL MISMO cliente, sin
+  // seleccionar solares para un nuevo cobro. Al marcar uno, filtrar su historial.
+  const linkedRef=r=>r&&(!ids.size||ids.has(r.lotId));
   const owner=(db.ownerPayments||[]).filter(p=>!p.voidedAt&&!p.deletedAt&&p.clientId===clientId&&p.residenceId===rid&&
    (p.allocations||[]).some(a=>(a.references||[]).some(linkedRef)));
   const statements=(db.ownershipStatements||[]).filter(s=>s.clientId===clientId&&s.residenceId===rid&&
@@ -30,7 +31,7 @@
   const linkedHistoricalIds=new Set(statements.flatMap(s=>s.paymentIds||[]));
   const historical=(db.historicalPayments||[]).filter(p=>
    (p.clientId===clientId||linkedHistoricalIds.has(p.id))&&p.residenceId===rid&&
-   (ids.has(p.lotId)||(p.references||[]).some(linkedRef)||linkedHistoricalIds.has(p.id)&&
+   (!ids.size||ids.has(p.lotId)||(p.references||[]).some(linkedRef)||linkedHistoricalIds.has(p.id)&&
     statements.some(s=>(s.paymentIds||[]).includes(p.id))));
   const owners=owner.map(p=>({...p,origin:'owner',verifiedPeriod:Boolean(monthOf(p))}));
   // Los movimientos antiguos sin mes explícito NO se declaran cuotas pagadas.
@@ -53,7 +54,7 @@
    total.replaceChildren();
    const owner=pays.filter(p=>p.origin==='owner');
    const sum=owner.reduce((n,p)=>n+Number(p.amountCents||0),0);
-   const status=lotigestPrimaStatus(form.dataset.ownerClientId,residence().id,selected.map(l=>l.id));
+   const status=lotigestPrimaStatus(form.dataset.ownerClientId,residence().id,selected.length?selected.map(l=>l.id):null);
    const alert=make('div','pm-prima-alert '+(lotigestPrimaHighlight(status)?'pm-prima-unpaid':
     status.kind==='paid'||status.kind==='recorded'?'pm-prima-ok':'pm-prima-unknown'));
    alert.append(make('strong','',lotigestPrimaLabel(status)));
