@@ -1,4 +1,4 @@
 {
-  "version": "0.22.10",
-  "notes": "Conciliación segura de los 542 abonos históricos: vinculaciones reales de cliente, etapa, bloque y solar; visualización del mes de ingreso por año en Abonos y Fichas; opción de confirmar mensualidad individual con auditoría, sin crear cuotas ni pagos duplicados. Excel incluye mes de pago, mensualidad y estado."
+  "version": "0.23.0",
+  "notes": "Croquis público en enlace propio de LOTIGEST: comprado verde/disponible amarillo sin datos privados, formulario de solicitud con nombre y años, nueva campana de cotizaciones, respuestas PDF con prima mínima L 50,000, interés 0 %, plazo manual y tabla de amortización, firma del usuario y registro D1."
 }
