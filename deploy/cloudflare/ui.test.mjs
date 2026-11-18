@@ -8,6 +8,27 @@ test('todos los paneles originales abren, la guía está disponible y Configurac
  }finally{app.close();}
 });
 
+test('Excel de primas y abonos incluye clientes sin pagos en la residencial activa',async()=>{
+ const server=await setup();
+ let app=boot(server);
+ try{
+  await login(app,server);
+  const before=await server.read(),rid=before.state.currentResidence||before.state.residences[0].id;
+  before.state.clients.push({id:'EXCEL-CLIENT-A',name:'CLIENTE SIN ABONOS',identity:'0801199900700',phone:'99999999',residenceId:rid});
+  before.state.lots.push({id:'EXCEL-LOT-A',residenceId:rid,ownerClientId:'EXCEL-CLIENT-A',stage:'2',block:'Z',sourceNumber:'17',status:'sold',price:null,area:120});
+  const write=await server.write({state:before.state,revision:before.revision,mutation:crypto.randomUUID()});
+  assert.equal(write.status,200,'Guardar el cliente ficticio de la prueba');
+  app.close();app=boot(server);
+  await until(()=>app.d.querySelector('[data-page=collections]'),'iniciar LOTIGEST');
+  app.click('[data-page=collections]');
+  app.click('[data-action=payments-excel]');
+  const prompt=app.d.querySelector('#excel-download-ready');
+  assert.ok(prompt,'Debe ofrecerse un Excel aun sin primas ni abonos');
+  assert.match(prompt.textContent,/filas de clientes\/solares y 0 movimientos/);
+  assert.ok(prompt.querySelector('a[download$=".xlsx"]'));
+ }finally{app.close();}
+});
+
 test('el acceso histórico de Contratos utiliza el nuevo buscador de abonos',async()=>{
  const server=await setup(),app=boot(server);
  try{
