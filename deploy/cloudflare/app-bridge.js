@@ -68,7 +68,7 @@ async function cloudFlush(){
    cloudQueue.revision=result.revision;cloudQueue.confirmed=p.raw;cloudQueue.pending=null;cloudPersist();
   }
   cloudOffline=false;cloudStatus('Guardado en Cloudflare D1 · revisión '+cloudQueue.revision);
- }catch(e){if(!e.status||e.status>=500)cloudOffline=true;if(e.status===401){cloudReady=false;sessionStorage.removeItem(SESSION);render();}if([409,413,400,403].includes(e.status))cloudBlocked=true;cloudStatus(cloudBlocked?e.message||'Conflicto de sincronización. Descarga tu copia y revisa los cambios.':'Sin conexión. Cambios pendientes conservados en este equipo.',cloudBlocked||e.status===401);}
+ }catch(e){if(!e.status||e.status>=500)cloudOffline=true;if(e.status===401){cloudReady=false;sessionStorage.removeItem(SESSION);render();}if([409,413,400,403].includes(e.status))cloudBlocked=true;cloudStatus(e.message||'Sin conexión. Cambios pendientes conservados en este equipo.',cloudBlocked||e.status===401);}
  finally{cloudBusy=false;}
 }
 function cloudDownload(){const raw=cloudQueue?.latest||JSON.stringify(db);download('LOTIGEST_respaldo_pendiente_'+dateKey(new Date())+'.json',raw,'application/json');}
