@@ -7,20 +7,20 @@ test('recibo rosado Grupo H: lee solo el abono, nunca los dos saldos',()=>{
   'GRUPO H RESIDENCIAL ALTOS DEL ARRAYAN',
   'Por Lps. 10,000.00',
   'Dia Mes Año',
-  '21 10 2026',
-  'Recibí de: PAULA NINOSKA SORIANO',
+  '12 06 2025',
+  'Recibí de: CLIENTE DE PRUEBA',
   'Por concepto de: Abono a primera compra',
-  'Saldo Anterior 827,342.00',
+  'Saldo Anterior 50,000.00',
   'Abono de hoy: 10,000.00',
-  'Saldo Actual 817,342.00',
-  'RECIBO DE CAJA CONTROL INTERNO Nº 00006159'
+  'Saldo Actual 40,000.00',
+  'RECIBO DE CAJA CONTROL INTERNO Nº 00001234'
  ].join('\n');
  assert.deepEqual(extractPaperReceipt(receipt),{
-   amount:10000,date:'2026-10-21',name:'PAULA NINOSKA SORIANO',concept:'Abono a primera compra',reference:'00006159',warnings:[]
+   amount:10000,date:'2025-06-12',name:'CLIENTE DE PRUEBA',concept:'Abono a primera compra',reference:'00001234',warnings:[]
  });
 });
 test('sin etiqueta de pago no importa el saldo como abono',()=>{
- const receipt=extractPaperReceipt('Saldo anterior: 827,342.00\nSaldo actual: 817,342.00');
+ const receipt=extractPaperReceipt('Saldo anterior: 50,000.00\nSaldo actual: 40,000.00');
  assert.equal(receipt.amount,null);
  assert.ok(receipt.warnings.length>0);
 });
