@@ -100,6 +100,7 @@ test('abonos históricos importados se consultan por cliente y solar aunque no s
     status:'sold',ownerClientId:clientId,area:170,price:50000
   });
   record.state.historicalPayments??=[];record.state.historicalContracts??=[];
+  record.state.historicalContracts.push({id:'HC-AUTOMATIC-1',residenceId:rid,clientId,clientName:'CLIENTE CON DOS SOLARES',block:'Z',lot:'1',stage:1,externalId:null,paymentIds:['HP-AUTOMATIC-1'],status:'needs-terms',references:[{stage:1,block:'Z',lot:'1',lotId:ids[0]}]});
   record.state.historicalPayments.push({
     id:'HP-AUTOMATIC-1',contractId:'HC-AUTOMATIC-1',residenceId:rid,clientId,
     clientName:'CLIENTE CON DOS SOLARES',stage:1,block:'Z',lot:'1',lotId:ids[0],
