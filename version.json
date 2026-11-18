@@ -1,4 +1,4 @@
 {
-  "version": "0.22.6",
-  "notes": "Los campos de importes en abonos normales, por solar e históricos ahora muestran L fija, separadores de miles, dos decimales al salir del campo y un cuadro grande verde claro; el valor guardado sigue siendo numérico, compatible con OCR y D1."
+  "version": "0.22.7",
+  "notes": "Calendario de meses históricos visible arriba de Abonos: doce meses por año, selector de años anteriores y selección de mes tocándolo. Distingue abonos asociados, pagos con fecha sin mes y registros importados por revisar, sin inventar cuotas ni mora."
 }
