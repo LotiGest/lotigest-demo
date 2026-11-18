@@ -44,6 +44,9 @@
 #modal-root .lg-payment-modern .pm-searchbox{border:1px solid #dce6df;background:#fff;border-radius:14px;padding:11px 16px}
 #modal-root .lg-payment-modern .pm-searchbox:has(#multi-payment-results:empty){display:none}
 #modal-root .lg-payment-modern .pm-searchbox input{width:100%;margin-top:6px}
+#modal-root .lg-payment-modern .pm-searchbox.has-selection #multi-payment-results{display:none}
+#modal-root .lg-payment-modern .pm-searchbox.has-selection:focus-within #multi-payment-results{display:block}
+#modal-root .lg-payment-modern .pm-searchbox.has-selection{padding:9px 13px}
 #modal-root .lg-payment-modern .pm-searchbox .btn{color:#23452f}
 #modal-root .lg-payment-modern .pm-selected{background:#f6faf7;border:1px solid #dfe9e2;border-radius:12px;padding:10px}
 #modal-root .lg-payment-modern .pm-selected.hidden-single{display:none}
