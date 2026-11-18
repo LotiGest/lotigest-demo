@@ -217,6 +217,17 @@ function pmOwnerDecorate(){
   const v=lotigestOwnerPayments.ownerStatementBalance(db,doc);
   if(v==null){allKnown=false;continue;}totalDocumented+=v;count++;
  }
+ const status=lotigestPrimaStatus(ownerPaymentDraft?.clientId,ownerPaymentDraft?.residenceId,
+  [...new Set(docs.flatMap(s=>(s.references||[]).map(r=>r.lotId).filter(Boolean)))]);
+ const alert=pmNode('div','pm-prima-alert '+(lotigestPrimaHighlight(status)?'pm-prima-unpaid':
+  status.kind==='paid'||status.kind==='recorded'?'pm-prima-ok':'pm-prima-unknown'));
+ alert.append(pmNode('strong','',lotigestPrimaLabel(status)));
+ if(lotigestPrimaHighlight(status))alert.append(pmNode('small','','Prima sin registrar o incompleta: revisa el recibo y selecciona el pago correspondiente antes de guardarlo.'));
+ left.body.append(alert);
+ left.body.append(pmSummaryRow('Prima acordada',status.agreedCents===null?'Por verificar':money(status.agreedCents/100)),
+  pmSummaryRow('Prima registrada',status.paidCents===null?'Por verificar':money(status.paidCents/100)),
+  pmSummaryRow('Prima faltante',status.remainingCents===null?'Importe por verificar':money(status.remainingCents/100),
+   lotigestPrimaHighlight(status)?'pm-warning':''));
  left.body.append(pmSummaryRow('Fichas vinculadas',String(docs.length)),pmSummaryRow('Solares referenciados',String(docs.flatMap(s=>s.references||[]).length)));
  left.body.append(pmSummaryRow('Saldo documentado',allKnown&&count?money(totalDocumented/100):'Por confirmar','pm-good'));
  left.body.append(pmNode('p','pm-help','Las fichas sin contrato de crédito verificado no se presentan como cuotas pagadas ni como mora.'));
