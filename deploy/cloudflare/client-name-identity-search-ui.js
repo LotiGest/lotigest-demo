@@ -34,7 +34,7 @@
       '<div id="name-id-results-'+type+'" role="status" aria-live="polite" style="max-height:420px;overflow:auto"></div></section>';
   }
   function injectNearContent(html,type){
-    const widget=searchWidget(type),markers=['<div class="page-cols">','<div class="cards-four"','<div class="card"'];
+    const widget=searchWidget(type),markers=['<div class="cards-four"','<div class="card"','<div class="page-cols">'];
     const marker=markers.find(m=>html.includes(m));
     return marker?html.replace(marker,widget+marker):widget+html;
   }
@@ -99,7 +99,7 @@
   openOwnerCustomerPicker=function(...args){
     const result=oldPicker(...args);
     const field=$('#owner-payment-search');
-    if(field){const label=field.closest('label');if(label)label.firstChild.textContent='Buscar cliente por nombre o cédula';}
+    if(field){const label=field.closest('label');if(label?.firstChild?.nodeType===3)label.firstChild.textContent='Buscar cliente por nombre o cédula';}
     return result;
   };
   // La ventana clásica de pagos con venta y saldo también reconoce cédula.
