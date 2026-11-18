@@ -5,14 +5,40 @@
  function make(tag,cls,txt){const n=document.createElement(tag);if(cls)n.className=cls;if(txt!==undefined)n.textContent=txt;return n;}
  function field(form,name){const input=form.querySelector('[name="'+name+'"]');return input?.closest('.field-group')||input?.closest('label')||null;}
  function chosenLots(form){return [...form.querySelectorAll('[data-manual-lot]:checked')].map(x=>getLot(x.value)).filter(Boolean);}
+ function validMonth(value){return /^(?:19|20)\d{2}-(?:0[1-9]|1[0-2])$/.test(String(value||''));}
+ function monthOf(p){
+  if(validMonth(p.period))return p.period;
+  if(validMonth(p.paymentMonth))return p.paymentMonth;
+  if(validMonth(p.installmentMonth))return p.installmentMonth;
+  const found=String(p.concept||'').match(/\bMes\s+((?:19|20)\d{2})-(0[1-9]|1[0-2])\b/i);
+  return found?found[1]+'-'+found[2]:null;
+ }
+ function validPaymentDate(p){
+  const date=String(p.date||'');
+  return /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/.test(date)?date:null;
+ }
+ // Solo incluye pagos vinculados por identificador de solar, no por coincidencia de nombre.
+ // El pago conjunto se cuenta una vez, aunque incluya varios solares.
  function clientPayments(form){
-  const clientId=form.dataset.ownerClientId,ids=new Set(chosenLots(form).map(l=>l.id));
+  const clientId=form.dataset.ownerClientId,rid=residence().id,ids=new Set(chosenLots(form).map(l=>l.id));
   if(!ids.size)return [];
-  return (db.ownerPayments||[]).filter(p=>p.clientId===clientId&&p.residenceId===residence().id&&
-   (p.allocations||[]).some(a=>(a.references||[]).some(r=>ids.has(r.lotId))));
+  const linkedRef=r=>r&&ids.has(r.lotId);
+  const owner=(db.ownerPayments||[]).filter(p=>!p.voidedAt&&!p.deletedAt&&p.clientId===clientId&&p.residenceId===rid&&
+   (p.allocations||[]).some(a=>(a.references||[]).some(linkedRef)));
+  const statements=(db.ownershipStatements||[]).filter(s=>s.clientId===clientId&&s.residenceId===rid&&
+   (s.references||[]).some(linkedRef));
+  const linkedHistoricalIds=new Set(statements.flatMap(s=>s.paymentIds||[]));
+  const historical=(db.historicalPayments||[]).filter(p=>
+   (p.clientId===clientId||linkedHistoricalIds.has(p.id))&&p.residenceId===rid&&
+   (ids.has(p.lotId)||(p.references||[]).some(linkedRef)||linkedHistoricalIds.has(p.id)&&
+    statements.some(s=>(s.paymentIds||[]).includes(p.id))));
+  const owners=owner.map(p=>({...p,origin:'owner',verifiedPeriod:Boolean(monthOf(p))}));
+  // Los movimientos antiguos sin mes explícito NO se declaran cuotas pagadas.
+  const imported=historical.map(p=>({...p,origin:'imported',verifiedPeriod:Boolean(monthOf(p))&&
+   !(p.issues||[]).length,amountCents:p.amountCents==null?null:Number(p.amountCents)}));
+  return owners.concat(imported);
  }
  function formatted(cents){return money(Math.round(cents)/100);}
- function monthOf(p){const found=String(p.concept||'').match(/\bMes\s+((?:19|20)\d{2})-(0[1-9]|1[0-2])\b/i);return found?found[1]+'-'+found[2]:null;}
  function historySummary(form){
   const total=document.getElementById('pm-history-total'),client=document.getElementById('pm-history-name');
   const identity=document.getElementById('pm-history-identity'),lotsBox=document.getElementById('pm-history-lots');
@@ -25,47 +51,79 @@
   }
   if(total){
    total.replaceChildren();
-   const sum=pays.reduce((n,p)=>n+Number(p.amountCents||0),0);
-   const prima=pays.filter(p=>/^prima\b/i.test(String(p.concept||''))).reduce((n,p)=>n+Number(p.amountCents||0),0);
+   const owner=pays.filter(p=>p.origin==='owner');
+   const sum=owner.reduce((n,p)=>n+Number(p.amountCents||0),0);
+   const prima=owner.filter(p=>/^prima\b/i.test(String(p.concept||''))).reduce((n,p)=>n+Number(p.amountCents||0),0);
    total.append(pmSummaryRow('Precio total del terreno','Por verificar'),
     pmSummaryRow('Prima acordada','Por verificar','pm-warning'),
     pmSummaryRow('Prima registrada',formatted(prima)),
     pmSummaryRow('Prima faltante','No calculable','pm-warning'),
-    pmSummaryRow('Total de abonos registrados',formatted(sum)),
+    pmSummaryRow('Abonos manuales registrados',formatted(sum)),
     pmSummaryRow('Saldo restante','Pendiente de contrato','pm-good'));
-   total.append(make('p','pm-help','Solo se muestran pagos ya ingresados a las fichas seleccionadas; no se atribuyen deudas ni cuotas sin contrato verificado.'));
+   total.append(make('p','pm-help','El resumen no suma nuevamente los pagos importados de Excel. El calendario los muestra como historial vinculado y evita inventar mora.'));
   }
-  const months=(new Set(pays.map(monthOf).filter(Boolean)));
-  historyCalendar(form,pays,months);
+  historyCalendar(form,pays);
  }
- function historyCalendar(form,pays,months){
+ function historyCalendar(form,pays){
   const host=document.getElementById('pm-history-calendar-body');if(!host)return;
   host.replaceChildren();
-  const currentYear=Number(businessToday().slice(0,4));
-  const years=[currentYear,...pays.map(p=>Number(p.date?.slice(0,4))),...[...months].map(m=>Number(m.slice(0,4)))].filter(y=>Number.isSafeInteger(y)&&y>1900&&y<2200);
-  const min=Math.min(...years),max=Math.max(...years),period=form.elements.period?.value||'';
-  if(historyYear===null||historyYear<min||historyYear>max)historyYear=period?Number(period.slice(0,4)):currentYear;
-  if(historyYear<min||historyYear>max)historyYear=currentYear;
-  const known=months.size,unassigned=pays.filter(p=>!monthOf(p)).length;
+  const today=businessToday(),currentYear=Number(today.slice(0,4));
+  const period=form.elements.period?.value||'';
+  const documentedYears=pays.flatMap(p=>[Number(validPaymentDate(p)?.slice(0,4)),Number(monthOf(p)?.slice(0,4))])
+   .filter(y=>Number.isInteger(y)&&y>=1900&&y<=currentYear);
+  const firstYear=Math.min(currentYear-20,...documentedYears);
+  // No se exige tener abonos anteriores para consultar o elegir 2024, 2023, etc.
+  const minYear=Math.max(1900,firstYear),maxYear=currentYear;
+  if(historyYear===null||historyYear<minYear||historyYear>maxYear)
+   historyYear=validMonth(period)?Number(period.slice(0,4)):currentYear;
+  historyYear=Math.min(maxYear,Math.max(minYear,historyYear));
+  const confirmed=new Set(),underReview=new Set(),withoutPeriod=new Map();
+  for(const p of pays){
+   const month=monthOf(p),date=validPaymentDate(p);
+   if(month&&p.verifiedPeriod)confirmed.add(month);
+   else if(month)underReview.add(month);
+   else if(date){
+    const key=date.slice(0,7);
+    withoutPeriod.set(key,(withoutPeriod.get(key)||0)+1);
+   }
+  }
   const metrics=make('div','pm-progress');
-  for(const [label,value] of [['Abonos registrados',String(pays.length)],['Meses identificados',String(known)],['Sin mes asignado',String(unassigned)],['Mora','No calculada']]){
+  for(const [label,value] of [
+   ['Movimientos vinculados',String(pays.length)],
+   ['Meses con abono asociado',String(confirmed.size)],
+   ['Meses por revisar',String(underReview.size)],
+   ['Pagos sin mes asignado',String(pays.filter(p=>!monthOf(p)).length)]
+  ]){
    const item=make('div');item.append(make('span','',label),make('strong','',value));metrics.append(item);
   }
-  const nav=make('div','pm-yearbar'),prev=make('button','','‹'),next=make('button','','›');
+  const nav=make('div','pm-yearbar pm-historical-yearbar'),prev=make('button','','‹'),next=make('button','','›'),year=make('select');
   prev.type=next.type='button';prev.dataset.pmHistoricalYear='previous';next.dataset.pmHistoricalYear='next';
-  prev.disabled=historyYear<=min;next.disabled=historyYear>=max;
-  nav.append(prev,make('strong','pm-year',String(historyYear)),next);
-  const grid=make('div','pm-months'),labels=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  for(let month=1;month<=12;month++){
-   const key=historyYear+'-'+String(month).padStart(2,'0');
-   const recorded=months.has(key),proposed=period===key;
-   const cell=make('div','pm-month '+(recorded?'paid':'none')+(proposed?' pm-to-register':''));
-   cell.title=recorded?'Pago asignado a '+key+' y registrado':'Sin mes asociado en los recibos registrados';
-   if(proposed)cell.title+=' · Mes seleccionado para el nuevo pago';
-   cell.append(make('strong','',labels[month-1]),make('small','',recorded?'✓':proposed?'+':'—'));
+  prev.disabled=historyYear<=minYear;next.disabled=historyYear>=maxYear;
+  year.id='pm-history-year-select';year.setAttribute('aria-label','Elegir año de los meses históricos');
+  for(let y=maxYear;y>=minYear;y--){
+   const option=make('option','',String(y));option.value=String(y);option.selected=y===historyYear;year.append(option);
+  }
+  const heading=make('label','pm-year-label','Año');heading.append(year);
+  nav.append(prev,heading,next);
+  const grid=make('div','pm-months pm-historical-months'),names=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  for(let m=1;m<=12;m++){
+   const key=String(historyYear)+'-'+String(m).padStart(2,'0');
+   const attached=confirmed.has(key),review=underReview.has(key),dated=withoutPeriod.get(key)||0;
+   const selected=period===key;
+   const status=attached?'paid':review?'mixed':dated?'pending':'none';
+   const cell=make('button','pm-month '+status+(selected?' pm-to-register':''));
+   cell.type='button';cell.dataset.pmHistoricalMonth=key;
+   cell.setAttribute('aria-pressed',String(selected));
+   cell.setAttribute('aria-label',names[m-1]+' '+historyYear+(attached?', abono asociado':review?', revisar historial':dated?', '+dated+' pago(s) por asignar':', sin registro'));
+   cell.title=attached?'Existe un abono con este mes indicado en su recibo (no confirma cuota completa).':
+    review?'El mes figura en un documento importado pendiente de revisión.':
+    dated?dated+' pago(s) con fecha en este mes, pero sin cuota identificada.':'Sin mes asignado en los recibos';
+   cell.append(make('strong','',names[m-1]),make('small','',attached?'✓':review?'◐':dated?'?':selected?'+':'—'));
    grid.append(cell);
   }
-  host.append(metrics,nav,grid,make('p','pm-calendar-note','Verde = mes expresamente identificado en un recibo registrado. Gris = sin mes asignado. No equivale a deuda ni indica mora.'));
+  const legend=make('p','pm-calendar-note','Selecciona un mes para asignarlo al nuevo abono. Verde: abono asociado a ese mes; amarillo: recibo fechado sin mes indicado; morado: historial por revisar; gris: sin registro. Un abono no prueba que la cuota completa esté pagada.');
+  const hint=make('p','pm-calendar-note pm-historical-selection',validMonth(period)?'Mes elegido para este nuevo pago: '+period:'Elige un mes en el calendario o déjalo sin asignar si el recibo no lo indica.');
+  host.append(metrics,nav,grid,legend,hint);
  }
  function historicalPicker(){
   const input=document.getElementById('manual-history-search'),results=document.getElementById('manual-history-owners');
