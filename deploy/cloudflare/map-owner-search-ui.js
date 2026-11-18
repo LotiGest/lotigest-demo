@@ -20,7 +20,9 @@
   function clientCard(c,rid,action){
     const lots=lotsOf(c.id,rid),refs=refsOf(c.id,rid);
     const summary=[...new Set(lots.map(locationText).concat(refs.map(r=>'Etapa '+(r.stage||'pendiente')+' · Bloque '+r.block+' · Solar '+r.lot)))].slice(0,12);
-    return '<button type="button" class="btn btn-outline" style="display:block;width:100%;text-align:left;white-space:normal;margin:6px 0" data-action="'+action+'" data-id="'+esc(c.id)+'"><strong>'+esc(c.name)+'</strong><br><small>Identidad: '+esc(c.identity||'Pendiente')+' · Tel.: '+esc(c.phone||'—')+'</small><br><small>'+esc(summary.join(' | ')||'Sin terrenos vinculados')+'</small></button>';
+    const prima=action==='owner-payment-person' && typeof lotigestPrimaStatus==='function' ? lotigestPrimaStatus(c.id,rid) : null;
+    const primaTag=prima && typeof lotigestPrimaHighlight==='function' ? '<br><span class="pm-prima-tag '+(lotigestPrimaHighlight(prima)?'pm-prima-tag-red':'pm-prima-tag-neutral')+'">'+esc(lotigestPrimaLabel(prima))+'</span>' : '';
+    return '<button type="button" class="btn btn-outline" style="display:block;width:100%;text-align:left;white-space:normal;margin:6px 0" data-action="'+action+'" data-id="'+esc(c.id)+'"><strong>'+esc(c.name)+'</strong><br><small>Identidad: '+esc(c.identity||'Pendiente')+' · Tel.: '+esc(c.phone||'—')+'</small><br><small>'+esc(summary.join(' | ')||'Sin terrenos vinculados')+'</small>'+primaTag+'</button>';
   }
   function eligible(l){
     return Boolean(l && l.type!=='private' && l.status!=='private' && l.status!=='reserved' &&
@@ -94,7 +96,7 @@
         db.clients.push(client);
       }
       const conflicts=(db.ownershipStatements||[]).some(s=>s.residenceId===lot.residenceId && s.clientId && s.clientId!==client.id &&
-        (s.references||[]).some(r=>r.lotId===lot.id));
+        (s.references||[]).some(r=>r.lotId===lot.id || (!r.lotId && norm(r.block)===norm(lot.block) && norm(r.lot)===norm(lot.sourceNumber) && (!r.stage || String(r.stage)===String(lot.stage)))));
       if(conflicts)throw Error('Este solar aparece documentado a nombre de otra persona. Corrige primero la ficha.');
       const current=db.lots.find(l=>l.id===lot.id);
       current.ownerClientId=client.id;
