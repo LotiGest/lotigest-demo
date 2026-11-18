@@ -30,7 +30,7 @@ function collectionPaymentRows(exportAllStages=false){
 function paymentExcelBytes(rows,headers=null,additionalSheets=[]){
  const xml=s=>String(s??'').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
  const paymentHeaders=['Fecha','Cliente','Identidad','Residencial','Etapa','Bloque','Solar(es)','Tipo de pago','Monto (L)','Método','Recibo / Referencia','Observaciones'];
- const sheets=[{name:'Primas y abonos',rows:[headers||paymentHeaders,...rows]},...additionalSheets];
+ const sheets=[...additionalSheets,{name:'Primas y abonos',rows:[headers||paymentHeaders,...rows]}];
  const column=n=>{let out='';for(n++;n;n=Math.floor((n-1)/26))out=String.fromCharCode(65+(n-1)%26)+out;return out;};
  const buildSheet=grid=>'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="'+grid[0].length+'" width="24" customWidth="1"/></cols><sheetData>'+grid.map((row,i)=>'<row r="'+(i+1)+'">'+row.map((v,j)=>'<c r="'+column(j)+(i+1)+'" '+(typeof v==='number'&&Number.isFinite(v)?'t="n"><v>'+v+'</v>':'t="inlineStr"><is><t xml:space="preserve">'+xml(v)+'</t></is>')+'</c>').join('')+'</row>').join('')+'</sheetData><autoFilter ref="A1:'+column(grid[0].length-1)+grid.length+'"/></worksheet>';
  const files={
@@ -196,7 +196,7 @@ function downloadExcel(name,headers,rows,additionalSheets=[]){
   if(excelDownloadUrl)URL.revokeObjectURL?.(excelDownloadUrl);
   document.querySelector('#excel-download-ready')?.remove();excelDownloadUrl=URL.createObjectURL(blob);
   const box=document.createElement('aside');box.id='excel-download-ready';box.setAttribute('role','status');box.style.cssText='position:fixed;bottom:16px;left:16px;right:16px;max-width:560px;z-index:25000;background:white;color:#164532;border:2px solid #164532;border-radius:12px;padding:16px;box-shadow:0 4px 24px #0004';
-  const message=document.createElement('p');message.textContent=rows.length?'Excel listo: '+rows.length+' filas.':'Excel listo con los encabezados de la plantilla. No hay registros para exportar.';box.append(message);
+  const message=document.createElement('p');const extra=additionalSheets.reduce((n,s)=>n+Math.max(0,s.rows.length-1),0);message.textContent=additionalSheets.length?'Excel listo: '+extra+' filas de clientes/solares y '+rows.length+' movimientos de primas y abonos.':rows.length?'Excel listo: '+rows.length+' filas.':'Excel listo con los encabezados de la plantilla. No hay registros para exportar.';box.append(message);
   const link=document.createElement('a');link.href=excelDownloadUrl;link.download=name;link.textContent='Descargar '+name;link.className='btn btn-primary';box.append(link);
   if(typeof File!=='undefined'&&navigator.canShare){const file=new File([bytes],name,{type:mime});if(navigator.canShare({files:[file]})){const share=document.createElement('button');share.textContent='Guardar o compartir';share.className='btn btn-outline';share.onclick=async()=>{try{await navigator.share({files:[file],title:name});}catch(e){if(e.name!=='AbortError')toast('Utiliza el enlace Descargar Excel.','error');}};box.append(share);}}
   const close=document.createElement('button');close.textContent='Cerrar';close.className='btn btn-soft';close.onclick=()=>box.remove();box.append(close);document.body.append(box);link.click();
