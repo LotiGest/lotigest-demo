@@ -64,26 +64,84 @@
 @media screen and (max-width:380px){html body #app .lotigest-shell .cards-four{grid-template-columns:minmax(0,1fr)!important}}
 
 
-/* En teléfonos, si el menú está abierto, permitir alternar nombres e íconos. */
+/* LOTIGEST 0.22.13: el menú del teléfono es un cajón temporal, nunca una barra fija.
+   Evita que los estilos de pin, hover o barra contraída tapen las fichas. */
 @media screen and (max-width:900px){
- html body #app .lotigest-shell .lotigest-sidebar.open:not(.pinned){
-  width:72px!important;max-width:72px!important
+ html,body{max-width:100%;overflow-x:hidden}
+ html body #app,html body #app .lotigest-shell{box-sizing:border-box!important;width:100%!important;max-width:100%!important;min-width:0!important}
+ html body #app .lotigest-shell{display:block!important}
+ html body #app .lotigest-shell .workspace,
+ html body #app .lotigest-shell:has(.lotigest-sidebar.pinned) .workspace,
+ html body.sidebar-collapsed #app .lotigest-shell .workspace{
+  margin-left:0!important;left:auto!important;flex:none!important;
+  width:100%!important;min-width:0!important;max-width:100%!important;
+  box-sizing:border-box!important;overflow:visible!important
  }
- html body #app .lotigest-shell .lotigest-sidebar .lg-pin{
-  display:grid!important;place-items:center!important;opacity:1!important;pointer-events:auto!important
+ html body #app .lotigest-shell .lg-topbar,
+ html body #app .lotigest-shell:has(.lotigest-sidebar.pinned) .lg-topbar{
+  box-sizing:border-box!important;width:calc(100% - 16px)!important;
+  max-width:calc(100vw - 16px)!important;left:8px!important;right:8px!important
  }
- html body #app .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-side-label,
- html body #app .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-nav .nav-btn em,
- html body #app .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-product small{
-  display:none!important;opacity:0!important
+ html body #app .lotigest-shell .lotigest-sidebar,
+ html body #app .lotigest-shell .lotigest-sidebar.pinned,
+ html body.sidebar-collapsed #app .lotigest-shell .lotigest-sidebar{
+  position:fixed!important;z-index:311!important;
+  left:8px!important;top:8px!important;
+  width:min(290px,calc(100vw - 40px))!important;
+  max-width:calc(100vw - 40px)!important;
+  flex-basis:auto!important;overflow:hidden!important;
+  transform:translate3d(calc(-100% - 24px),0,0)!important;
+  visibility:hidden!important;opacity:0!important;pointer-events:none!important;
+  transition:transform .2s ease,opacity .2s ease,visibility .2s!important
  }
- html body #app .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-nav .nav-btn{
-  justify-content:center!important;padding:0!important
+ html body #app .lotigest-shell .lotigest-sidebar.open,
+ html body #app .lotigest-shell .lotigest-sidebar.open.pinned,
+ html body.sidebar-collapsed #app .lotigest-shell .lotigest-sidebar.open,
+ html body #app .lotigest-shell .lotigest-sidebar.open:hover{
+  transform:translate3d(0,0,0)!important;
+  visibility:visible!important;opacity:1!important;pointer-events:auto!important
  }
- body:has(#lgSidebar.open:not(.pinned)) .mobile-backdrop{display:none!important}
- body:has(#lgSidebar.open:not(.pinned)){overflow:auto!important}
+ html body #app .lotigest-shell .lotigest-sidebar .lg-pin{display:none!important}
+ html body #app .lotigest-shell .lotigest-sidebar .lg-side-label,
+ html body #app .lotigest-shell .lotigest-sidebar .lg-nav .nav-btn em,
+ html body #app .lotigest-shell .lotigest-sidebar .lg-product small{
+  display:block!important;opacity:1!important
+ }
+ html body #app .lotigest-shell .lotigest-sidebar .lg-company{gap:12px!important}
+ html body #app .lotigest-shell .lotigest-sidebar .lg-nav .nav-btn{
+  justify-content:flex-start!important;padding:0 13px!important
+ }
+ html body #app .lotigest-shell .mobile-backdrop{
+  display:block!important;position:fixed!important;inset:0!important;
+  z-index:310!important;background:rgba(8,30,20,.54)!important
+ }
+ html body:has(#lgSidebar.open){overflow:hidden!important}
+ html body #app .lotigest-shell .lg-mobile-menu{
+  display:grid!important;place-items:center!important;flex:0 0 42px!important;
+  width:42px!important;min-width:42px!important;height:44px!important;
+  position:relative;z-index:1
+ }
+ html body #app .lotigest-shell .lg-phone-close{
+  display:grid!important;place-items:center!important;
+  flex:none;border:1px solid rgba(255,255,255,.32);
+  color:white;background:rgba(255,255,255,.14);border-radius:10px;
+  width:42px;height:42px;font-size:26px;line-height:1;cursor:pointer
+ }
+ html body #app .lotigest-shell .workspace-inner,
+ html body #app .lotigest-shell .page-head,
+ html body #app .lotigest-shell .card{min-width:0;max-width:100%;box-sizing:border-box}
 }
-
+@media screen and (max-width:600px){
+ html body #app .lotigest-shell .lg-top-title{min-width:0!important;flex:1 1 auto!important;overflow:hidden}
+ html body #app .lotigest-shell .lg-top-title strong{
+  display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  min-width:0!important;max-width:clamp(90px,calc(100vw - 252px),220px)!important
+ }
+ html body #app .lotigest-shell .lg-top-tools{flex:0 0 auto!important;gap:4px!important}
+ html body #app .lotigest-shell .lg-top-tools :is(.lg-iconbtn,.lg-user-button){
+  min-width:40px!important;width:40px!important;height:44px!important
+ }
+}
 
 /* LOTIGEST 0.22.11: inicio de sesión adaptable en teléfono y tableta. */
 @media screen and (max-width:900px){

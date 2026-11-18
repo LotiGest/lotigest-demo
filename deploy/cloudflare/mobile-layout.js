@@ -3,7 +3,25 @@
  const mobile=matchMedia('(max-width:900px)');
  function update(){
   const menu=document.querySelector('.lg-mobile-menu'),sidebar=document.getElementById('lgSidebar');
-  if(menu&&sidebar){menu.setAttribute('aria-controls','lgSidebar');menu.setAttribute('aria-expanded',String(sidebar.classList.contains('open')));menu.setAttribute('aria-label',sidebar.classList.contains('open')?'Cerrar menú':'Abrir menú');}
+  if(sidebar){
+   const opened=mobile.matches && sidebar.classList.contains('open');
+   // La preferencia de barra fija se aplica solo en computadoras.
+   if(mobile.matches)sidebar.classList.remove('pinned');
+   else sidebar.classList.toggle('pinned',localStorage.getItem('lotigest-v08-pin')==='true');
+   sidebar.inert=mobile.matches&&!opened;
+   sidebar.setAttribute('aria-hidden',String(mobile.matches&&!opened));
+   if(mobile.matches){
+    const head=sidebar.querySelector('.lg-side-head');
+    if(head&&!head.querySelector('.lg-phone-close')){
+     const close=document.createElement('button');
+     close.type='button';close.className='lg-phone-close';
+     close.dataset.action='close-menu';close.textContent='×';
+     close.setAttribute('aria-label','Cerrar menú lateral');
+     head.append(close);
+    }
+   }else sidebar.querySelector('.lg-phone-close')?.remove();
+  }
+  if(menu&&sidebar){menu.setAttribute('aria-controls','lgSidebar');menu.setAttribute('aria-expanded',String(mobile.matches&&sidebar.classList.contains('open')));menu.setAttribute('aria-label',sidebar.classList.contains('open')?'Cerrar menú':'Abrir menú');}
   if(mobile.matches)document.documentElement.style.setProperty('--lg-visible-height',(window.visualViewport?.height||window.innerHeight)+'px');
   else document.documentElement.style.removeProperty('--lg-visible-height');
  }
