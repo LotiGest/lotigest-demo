@@ -15,6 +15,7 @@
   }
   function clientHasResidence(c,rid){
     return lotsOf(c.id,rid).length || refsOf(c.id,rid).length ||
+      (db.ownershipStatements||[]).some(s=>s.clientId===c.id && s.residenceId===rid) ||
       db.sales.some(s=>s.clientId===c.id && getLot(s.lotId)?.residenceId===rid);
   }
   function clientCard(c,rid,action){
@@ -78,6 +79,7 @@
   function saveOwner(form){
     const error=$('#map-owner-error'),lot=getLot(form.elements.lotId.value),old=JSON.stringify(db);
     try{
+      if(cloudUser?.role==='sales')throw Error('El perfil actual no puede asignar propietarios. Usa un usuario administrador autorizado.');
       if(!eligible(lot))throw Error('El solar ya está asignado, apartado o tiene una venta. Actualiza la ficha.');
       if(!form.elements.confirmed.checked)throw Error('Confirma que revisaste el contrato y el solar.');
       let client;
@@ -133,9 +135,13 @@
     const out=$('#owner-payment-customers'),input=$('#owner-payment-search');if(!out||!input)return;
     input.placeholder='Nombre, identidad, teléfono, etapa, bloque o solar';
     const rid=residence().id,q=norm(input.value);
-    const clients=db.clients.filter(c=>clientHasResidence(c,rid)&&clientMatches(c,q,rid)).slice(0,100);
-    out.innerHTML=clients.map(c=>clientCard(c,rid,'owner-payment-person')).join('')||
-      '<p>No se encontraron clientes en esta residencial. Revisa nombre, identidad o referencia del solar.</p>';
+    const matching=db.clients.filter(c=>clientHasResidence(c,rid)&&clientMatches(c,q,rid));
+    const withoutPrima=matching.filter(c=>lotigestPrimaHighlight(lotigestPrimaStatus(c.id,rid)));
+    const onlyMissing=typeof ownerPrimaFilter!=='undefined' && ownerPrimaFilter;
+    const clients=matching.filter(c=>!onlyMissing||lotigestPrimaHighlight(lotigestPrimaStatus(c.id,rid))).slice(0,100);
+    out.innerHTML='<label class="pm-prima-filter"><input id="owner-prima-filter" type="checkbox" '+(onlyMissing?'checked':'')+'> Mostrar sin prima registrada / incompleta ('+withoutPrima.length+')</label>'+
+      (clients.map(c=>clientCard(c,rid,'owner-payment-person')).join('')||
+      '<p>No se encontraron clientes en esta residencial. Revisa nombre, identidad o referencia del solar.</p>');
   };
   document.addEventListener('click',e=>{
     const button=e.target.closest?.('[data-action]');if(!button)return;
