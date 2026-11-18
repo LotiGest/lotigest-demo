@@ -1,6 +1,15 @@
 // Runs inside the original application closure. All writes to STORAGE use this bridge.
 const CLOUD_CACHE='lotigest_d1_pending_v1';
-let cloudReady=false,cloudBusy=false,cloudBlocked=false,cloudUser=null,cloudQueue=null,cloudTimer,cloudNoticeTimer,cloudNoticeKind,cloudCredential=null,cloudOffline=false,cloudRegistration=null,cloudRefreshBusy=false,cloudAuthBusy=false;
+let cloudReady=false,cloudBusy=false,cloudBlocked=false,cloudUser=null,cloudQueue=null,cloudTimer,cloudNoticeTimer,cloudNoticeKind,cloudCredential=null,cloudOffline=false,cloudRegistration=null,cloudRefreshBusy=false,cloudAuthBusy=false,cloudUserRequestedUpdate=false;
+const CLOUD_PAGE_KEY='lotigest_last_page_v1';
+function cloudSavedPage(owner){try{const name=String(owner||'').trim().toLowerCase(),value=localStorage.getItem(CLOUD_PAGE_KEY+':'+name);return name&&Object.prototype.hasOwnProperty.call(pages,value)?value:null;}catch{return null;}}
+function cloudRestorePage(owner){const restored=cloudSavedPage(owner);if(restored)page=restored;}
+document.addEventListener('click',event=>{
+ const nav=event.target.closest?.('[data-page]');if(!nav||!cloudUser?.name)return;
+ const target=nav.dataset.page;if(Object.prototype.hasOwnProperty.call(pages,target)){
+  try{localStorage.setItem(CLOUD_PAGE_KEY+':'+cloudUser.name.toLowerCase(),target);}catch{}
+ }
+},true);
 sessionStorage.removeItem(SESSION);
 function cloudStatus(message,error=false){
  let el=document.getElementById('lotigest-cloud-status'),indicator=document.getElementById('lotigest-sync-indicator');
@@ -72,17 +81,17 @@ async function cloudReload(){
  try{await cloudLoad({discardPending:true});}catch(e){cloudReady=Boolean(cloudQueue);cloudBlocked=true;cloudStatus(e.message,true);}
 }
 function cloudEmpty(){return {version:3,created:dateKey(new Date()),company:{name:'GRUPO H',location:'Honduras',phone:'',email:'',documentBrandVersion:1},lots:[],clients:[],sales:[],payments:[]};}
-async function cloudLoad({discardPending=false,preservePage=false}={}){
+async function cloudLoad({discardPending=false,preservePage=true}={}){
  const previousPage=page;
  const remote=await cloudApi('state');cloudUser=remote.user;
  let saved=null;if(!discardPending){try{saved=cloudUnpack(localStorage.getItem(CLOUD_CACHE));}catch{throw Object.assign(Error('La copia local pendiente no pudo leerse y se conservó intacta. Descárgala antes de recuperar los datos del servidor.'),{status:422});}}
  if(!discardPending&&saved&&saved.owner===cloudUser.name&&(saved.pending||saved.latest!==saved.confirmed)){
-  cloudQueue=saved;db=readStoredLotigest(saved.latest);await prepareOfficialBackgrounds();cloudReady=true;sessionStorage.setItem(SESSION,'yes');render();await cloudFlush();if(!cloudBlocked&&cloudReady&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed)await cloudLoad();return;
+  cloudQueue=saved;db=readStoredLotigest(saved.latest);await prepareOfficialBackgrounds();cloudReady=true;sessionStorage.setItem(SESSION,'yes');if(page==='dashboard')cloudRestorePage(cloudUser.name);render();await cloudFlush();if(!cloudBlocked&&cloudReady&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed)await cloudLoad();return;
  }
  if(saved&&saved.owner!==cloudUser.name&&(saved.pending||saved.latest!==saved.confirmed))localStorage.setItem(CLOUD_CACHE+'_recovery_'+crypto.randomUUID(),JSON.stringify(saved));
  db=remote.state?readStoredLotigest(JSON.stringify(remote.state)):cloudEmpty();
  cloudQueue={owner:cloudUser.name,revision:remote.revision,confirmed:remote.state?JSON.stringify(db):null,latest:JSON.stringify(db),pending:null};
- cloudPersist();await prepareOfficialBackgrounds();cloudReady=true;sessionStorage.setItem(SESSION,'yes');page=preservePage?previousPage:'dashboard';cloudOffline=false;render();
+ cloudPersist();await prepareOfficialBackgrounds();cloudReady=true;sessionStorage.setItem(SESSION,'yes');page=preservePage?previousPage:'dashboard';if(page==='dashboard')cloudRestorePage(cloudUser.name);cloudOffline=false;render();
  // render may initialize the built-in inventory; persist the resulting state.
  cloudWrite(JSON.stringify(db));await cloudFlush();
  /* Las copias antiguas se revisan solo desde Respaldo. */
@@ -123,9 +132,9 @@ async function cloudBoot(){
  if(cloudAuthBusy)return;
  if(sessionStorage.getItem('lotigest_signed_out')==='yes'){try{await cloudApi('session',{method:'DELETE'});sessionStorage.removeItem('lotigest_signed_out');}catch{}return;}
  cloudStatus('Comprobando conexión con Cloudflare…');
- try{await cloudApi('session');if(!cloudAuthBusy)await cloudLoad();}catch(e){cloudStatus(e.status===401?'Inicia sesión para consultar y guardar en Cloudflare D1.':e.status&&e.status<500?e.message:'Sin conexión con el servidor. Puedes iniciar sesión sin internet si este equipo ya tiene una copia preparada.',Boolean(e.status!==401));}
+ try{if(navigator.onLine===false)throw Error('Sin conexión');await cloudApi('session');if(!cloudAuthBusy)await cloudLoad();}catch(e){cloudStatus(e.status===401?'Inicia sesión.':e.status&&e.status<500?e.message:'Sin conexión. Puedes entrar con tu contraseña si preparaste una copia local.',Boolean(e.status!==401&&navigator.onLine!==false));}
 }
-window.addEventListener('online',()=>{cloudRefresh();});
+window.addEventListener('online',()=>{cloudRefresh();cloudFlush();});
 window.addEventListener('focus',()=>{cloudRefresh();});
 window.addEventListener('beforeunload',e=>{if(cloudQueue&&(cloudQueue.pending||cloudQueue.latest!==cloudQueue.confirmed)){e.preventDefault();e.returnValue='Hay cambios pendientes de guardar.';}});
 setInterval(()=>{if(cloudReady&&!cloudBlocked)cloudFlush();},15000);
@@ -186,7 +195,7 @@ async function cloudOfflineUnlock(username,password){
  const credential=await derive(password,profile.salt),actual=await cloudVerifier(credential,profile.nonce);let difference=actual.length^profile.verifier.length;for(let i=0;i<actual.length;i++)difference|=actual.charCodeAt(i)^profile.verifier.charCodeAt(i);
  if(difference)throw Error('Usuario o contraseña incorrectos para la copia sin conexión.');
  const saved=cloudUnpack(localStorage.getItem(CLOUD_CACHE));if(!saved||saved.owner!==username)throw Error('No hay datos guardados de esta cuenta en el equipo.');
- cloudQueue=saved;cloudUser={name:username,role:profile.role};cloudCredential=credential;cloudOffline=true;cloudReady=true;cloudBlocked=false;db=readStoredLotigest(saved.latest);await prepareOfficialBackgrounds();sessionStorage.setItem(SESSION,'yes');render();cloudStatus('Sin conexión. Puedes trabajar; los cambios se enviarán automáticamente al volver internet.',true);
+ cloudQueue=saved;cloudUser={name:username,role:profile.role};cloudCredential=credential;cloudOffline=true;cloudReady=true;cloudBlocked=false;db=readStoredLotigest(saved.latest);await prepareOfficialBackgrounds();sessionStorage.setItem(SESSION,'yes');cloudRestorePage(username);render();cloudStatus('Sin conexión. Puedes trabajar; los cambios se enviarán automáticamente al volver internet.');
 }
 async function cloudRefresh(){
  if(cloudAuthBusy||cloudRefreshBusy||cloudBusy||cloudBlocked||navigator.onLine===false)return;
