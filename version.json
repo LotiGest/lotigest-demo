@@ -1,4 +1,4 @@
 {
-  "version": "0.21.5",
-  "notes": "OCR de recibos rosados Grupo H para primas y abonos: escanea «Por Lps», fecha, propietario y folio sin confundir saldos; selección de efectivo, transferencia o tarjeta y confirmación antes del cobro."
+  "version": "0.21.6",
+  "notes": "Panel Pagos de abonos OCR: busca propietario y solares por recibo, evita folios duplicados entre pagos e historiales, muestra meses pagados en verde y vencidos en rojo solo para contratos verificados."
 }
