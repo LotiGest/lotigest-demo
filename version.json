@@ -1,4 +1,4 @@
 {
-  "version": "0.21.2",
-  "notes": "Importación de terrenos desde Excel de varias hojas: omite anexos, conserva compradores sin identidad confirmada y muestra el estado de guardado en Cloudflare D1."
+  "version": "0.21.3",
+  "notes": "Importación Excel: concilia el solar por etapa, bloque y número aunque el código externo difiera; muestra errores y estado de confirmación en teléfonos."
 }
