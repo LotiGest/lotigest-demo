@@ -1,4 +1,4 @@
 {
-  "version": "0.22.0",
-  "notes": "Guardado automático silencioso, botón manual de actualización desde el usuario, recuperación del último módulo y trabajo offline con sincronización al reconectar; se mantiene alerta solo para conflictos y errores importantes."
+  "version": "0.22.1",
+  "notes": "Al registrar primas y abonos LOTIGEST conserva el módulo actual; los recibos siguen disponibles. Guardado silencioso, actualización manual y sincronización offline."
 }
