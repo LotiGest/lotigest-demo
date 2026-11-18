@@ -1,4 +1,4 @@
 {
-  "version": "0.22.8",
-  "notes": "En Abonos se identifican clientes sin prima registrada, primas incompletas y registros pendientes de verificación; filtro de propietarios sin prima y alerta roja con faltante exacto solo cuando existe un contrato. No se duplican primas importadas ni se alteran abonos existentes."
+  "version": "0.22.9",
+  "notes": "Corrección de Exportar Excel de primas y abonos: ahora genera primera hoja Clientes y solares con todos los propietarios de la residencial, incluso sin pagos, y segunda hoja Primas y abonos con historial completo sin duplicar pagos conjuntos. Se conservan identidad, etapa, bloque, solar y estado de prima."
 }
