@@ -1,7 +1,7 @@
 const VERSION='__LOTIGEST_VERSION__';
 const SHELL='lotigest-shell-'+VERSION;
 const RESOURCES='lotigest-resources-v1';
-const CORE=['/','/acceso-nube.js','/payment-fields.mjs','/version.json','/manifest.webmanifest','/offline-files.js','/lotigestLedger.js','/lotigestCadastre.js','/app-icon.svg'];
+const CORE=['/','/acceso-nube.js','/payment-fields.mjs','/version.json','/manifest.webmanifest','/offline-files.js','/lotigestLedger.js','/lotigestCadastre.js','/lotigestOwnerPayments.js','/app-icon.svg'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(SHELL).then(cache=>cache.addAll(CORE))));
 self.addEventListener('message',event=>{if(event.data?.type==='ACTIVATE_UPDATE')self.skipWaiting();});
 self.addEventListener('activate',event=>event.waitUntil((async()=>{for(const name of await caches.keys())if(name.startsWith('lotigest-shell-')&&name!==SHELL)await caches.delete(name);await self.clients.claim();await Promise.allSettled(['https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js','https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css','https://cdn.jsdelivr.net/npm/leaflet-draw@1.0.4/dist/leaflet.draw.js','https://cdn.jsdelivr.net/npm/leaflet-draw@1.0.4/dist/leaflet.draw.css'].map(async url=>{const response=await network(url,5000);if(response.ok)await (await caches.open(RESOURCES)).put(url,response);}));})()));

@@ -6,13 +6,10 @@ const hash=v=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
 const numbers=v=>/^\d+(?:\s*(?:,|Y|\/|&)\s*\d+)*$/.test(norm(v))?norm(v).split(/\s*(?:,|Y|\/|&)\s*/).map(Number):null;
 export function documentReferences(book){
  const c=Object.fromEntries(book.sheets[0].cells.map(x=>[x.cell,x.value])),block=norm(c.D4),ns=numbers(c.E4),issues=[];let refs=[];
- const filename=norm(book.file.replace(/\.xlsx$/i,''));const suffix=/(?:BLOQUE|LOTE)\s+([A-ZÑ])\s*#?\s*(\d+(?:\s*(?:,|Y|\/|&)\s*\d+)*)$/.exec(filename)||/\b([A-ZÑ])\s*(\d+(?:\s*(?:,|Y|\/|&)\s*\d+)*)$/.exec(filename);const fileRefs=suffix?numbers(suffix[2])?.map(lot=>({block:suffix[1],lot})):null;
  if(/^[A-ZÑ]$/.test(block)&&ns)refs=ns.map(lot=>({block,lot}));
- else if(block==='BLOQUE'&&ns&&fileRefs&&ns.slice().sort((a,b)=>a-b).join()===fileRefs.map(r=>r.lot).sort((a,b)=>a-b).join())refs=fileRefs;
  else if(block.includes(',')&&ns){for(const cell of book.sheets[0].cells){if(!/^B\d+$/.test(cell.cell)||!/^BLOQUE\s/i.test(String(cell.value)))continue;const text=norm(cell.value).replace(/^BLOQUE\s+/,'');let lastBlock;const found=[];for(const part of text.split(',')){const m=/^([A-ZÑ])?\s*(\d+)$/.exec(part.trim());if(!m){found.length=0;break;}lastBlock=m[1]||lastBlock;if(!lastBlock){found.length=0;break;}found.push({block:lastBlock,lot:Number(m[2])});}if(found.length===ns.length&&found.map(r=>r.lot).sort((a,b)=>a-b).join()===ns.slice().sort((a,b)=>a-b).join()){refs=found;break;}}
   if(!refs.length&&block.split(',').length===ns.length&&block.split(',').every(b=>/^[A-ZÑ]$/.test(b.trim())))refs=block.split(',').map((b,i)=>({block:b.trim(),lot:ns[i]}));
  }
- if(fileRefs&&refs.length&&JSON.stringify(fileRefs.slice().sort((a,b)=>(a.block+a.lot).localeCompare(b.block+b.lot)))!==JSON.stringify(refs.slice().sort((a,b)=>(a.block+a.lot).localeCompare(b.block+b.lot))))issues.push('La referencia del nombre del archivo difiere de las celdas.');
  if(!refs.length)issues.push('Bloque o solar sin referencia inequívoca.');if(new Set(refs.map(r=>r.block+':'+r.lot)).size!==refs.length)issues.push('Referencia repetida en el documento.');
  return {c,refs,issues};
 }
@@ -34,5 +31,21 @@ export async function prepareOwnerWorkbooks(input,books,residenceId='arrayan'){
   for(const ref of links)if(ref.lotId){const lot=state.lots.find(l=>l.id===ref.lotId);lot.ownerClientId=clientId;lot.ownershipStatementIds=[...new Set([...(lot.ownershipStatementIds||[]),id])];lot.status='sold';lot.historyRequiresReview=true;summary.assignedLots++;}
   if(issues.length||links.some(r=>r.issue)||!links.length)summary.reviewStatements++;
  }
+ return {state,summary};
+}
+
+export function reconcileWorkbookOwners(input,books,residenceId='arrayan'){
+ const state=structuredClone(input),summary={files:books.length,updated:0,assignedLots:0,pending:0,newClients:0};state.ownershipStatements??=[];
+ for(const l of state.lots)if(l.residenceId===residenceId){const b=canonicalBlock(l.sourceFeatureKey);if(b)l.block=b;}
+ for(const book of books){const sourceDigest=hash(book),id='OS-'+sourceDigest.slice(0,28),s=state.ownershipStatements.find(s=>s.id===id);if(!s)throw Error('Falta la ficha original. Importa el archivo antes de conciliar.');const {c,refs,issues}=documentReferences(book),name=norm(c.B4),matches=state.clients.filter(x=>norm(x.name)===name);if(matches.length!==1)throw Error('El nombre de la ficha debe identificar un solo cliente.');const clientId=matches[0].id,oldRefs=s.references;
+  const links=refs.map(ref=>{const old=oldRefs.find(o=>o.block===ref.block&&o.lot===ref.lot),candidates=state.lots.filter(l=>l.residenceId===residenceId&&norm(l.block)===ref.block&&Number(l.sourceNumber)===ref.lot&&l.type!=='private'&&l.status!=='private');let lotId=old?.lotId&&candidates.some(l=>l.id===old.lotId)?old.lotId:candidates.length===1?candidates[0].id:null,issue=lotId?null:candidates.length?'Numeración repetida en el mapa: selecciona el código exacto.':'El solar no se encontró en el inventario.';const l=lotId&&state.lots.find(l=>l.id===lotId),sale=l&&state.sales.find(x=>x.lotId===l.id);if(l&&(l.ownerClientId&&l.ownerClientId!==clientId||sale&&sale.clientId!==clientId)){lotId=null;issue='Ya existe otro propietario o una venta en el solar.';}if(issues.length)lotId=null;return {...ref,candidateLotIds:candidates.map(l=>l.id),lotId,issue,...(old?.confirmedAt&&old.lotId===lotId?{confirmedAt:old.confirmedAt}:{})};});
+  s.referenceCorrections??=[];if(JSON.stringify(s.references)!==JSON.stringify(links)||JSON.stringify(s.issues)!==JSON.stringify(issues))s.referenceCorrections.push({previousReferences:s.references,previousIssues:s.issues,changedAt:new Date().toISOString(),reason:'El administrador confirmó que las celdas del Excel son la referencia correcta; no se usa el nombre del archivo.'});
+  s.references=links;s.issues=issues;s.clientId=clientId;s.clientName=name;s.referenceAuthority='workbook-cells';
+  for(const ref of links)if(ref.lotId){const l=state.lots.find(l=>l.id===ref.lotId);if(l.ownerClientId!==clientId)summary.assignedLots++;l.ownerClientId=clientId;l.ownershipStatementIds=[...new Set([...(l.ownershipStatementIds||[]),s.id])];l.status='sold';l.historyRequiresReview=true;}
+  summary.updated++;if(issues.length||!links.length||links.some(r=>!r.lotId))summary.pending++;
+ }
+ // Retirar únicamente vínculos de esta importación que dependían del nombre del archivo.
+ const reconciled=new Set(state.ownershipStatements.filter(s=>s.referenceAuthority==='workbook-cells').map(s=>s.id));
+ for(const l of state.lots){const old=l.ownershipStatementIds||[];if(!old.length)continue;const remaining=old.filter(id=>!reconciled.has(id)||state.ownershipStatements.find(s=>s.id===id)?.references.some(r=>r.lotId===l.id));if(remaining.length===old.length)continue;l.ownershipStatementIds=remaining;if(!remaining.length&&!state.sales.some(s=>s.lotId===l.id))l.ownerClientId=null;l.historyRequiresReview=true;}
  return {state,summary};
 }

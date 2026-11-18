@@ -23,3 +23,13 @@ Cuando bloque y número coinciden con varios terrenos, la ficha conserva los can
 Las primas, abonos y saldos documentados se conservan con su archivo y fila de origen. El historial no es un ingreso nuevo ni una cuota calculada. Las fechas o montos inválidos permanecen señalados para revisión; los originales no se corrigen por suposición. Importar otra vez una ficha idéntica no duplica datos.
 
 La corrección confirmada de las referencias del plano para los grupos I (20 solares) y L (12 solares) se aplica al leer y guardar, manteniendo intactos sus códigos.
+
+## Abono por persona y varios solares
+
+**Cuotas y pagos → Registrar abono → Registrar abono normal** permite buscar a la persona y mostrar sus solares. Para fichas de Excel, escribe un monto por solar o un abono conjunto por ficha. El total es la suma de los importes indicados; no hay reparto automático. Un recibo corresponde a una sola persona y residencial.
+
+Los abonos nuevos quedan en Recibos y se incorporan una sola vez como ingresos de **Abonos de propietarios** en Finanzas. Funcionan con la cola local sin conexión y se sincronizan al reconectar. El PDF conserva la distribución del momento del cobro. El historial importado continúa separado de los ingresos nuevos.
+
+El saldo documentado de la ficha es una referencia del Excel menos los abonos nuevos vinculados a ella. No representa un cálculo de intereses, cuotas o mora. Cuando faltan condiciones contractuales verificadas, el recibo lo indica. La referencia de un solar puede usarse desde el Excel aunque su código exacto en el mapa siga pendiente, sin asignar por suposición a un terreno físico.
+
+La fuente para nombres, bloques y solares son las celdas del Excel. El nombre del archivo se utiliza únicamente como referencia de origen. Si la celda no identifica el bloque, no se lo completa usando el nombre del archivo. Conciliar una ficha existente mantiene sus códigos y movimientos, y deja constancia de la corrección; no la importa por segunda vez.
