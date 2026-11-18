@@ -40,3 +40,58 @@ const paymentExportCollectionPage=collectionPage;
 collectionPage=function(){return paymentExportCollectionPage().replace(/(<button[^>]+data-action="debt-csv"[^>]*>)/,'<button class="btn btn-primary" data-action="payments-excel">Exportar Excel de primas y abonos</button>$1');};
 const paymentExportHandler=handlerAction;
 handlerAction=function(action,el){if(action!=='payments-excel')return paymentExportHandler(action,el);const rows=collectionPaymentRows();if(!rows.length){toast('No hay pagos para la residencial y etapa seleccionadas.');return;}download('LOTIGEST_Primas_Abonos_'+dateKey(new Date())+'.xlsx',paymentExcelBytes(rows),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');toast('Excel descargado · '+rows.length+' movimientos. Incluye todo el historial de la residencial y etapa seleccionadas.');};
+
+// Residential workspace: filter views without replacing the complete saved database.
+function residentialState(state,rid){
+ const lots=state.lots.filter(l=>l.residenceId===rid),lotIds=new Set(lots.map(l=>l.id)),sales=state.sales.filter(s=>lotIds.has(s.lotId)),saleIds=new Set(sales.map(s=>s.id));
+ const belongs=x=>x.residenceId===rid,linked=new Set([...sales,...lots.map(l=>({clientId:l.ownerClientId})),...(state.reservations||[]).filter(x=>belongs(x)||lotIds.has(x.lotId)),...(state.historicalContracts||[]).filter(belongs),...(state.historicalPayments||[]).filter(belongs),...(state.ownershipStatements||[]).filter(belongs)].map(x=>x.clientId).filter(Boolean));
+ const hasAnyLink=id=>state.sales.some(s=>s.clientId===id)||state.lots.some(l=>l.ownerClientId===id)||['reservations','historicalContracts','historicalPayments','ownershipStatements'].some(k=>(state[k]||[]).some(x=>x.clientId===id));
+ const fallback=state.residences.find(r=>!r.hidden)?.id;
+ const clients=state.clients.filter(c=>linked.has(c.id)||c.residenceId===rid||(c.residenceIds||[]).includes(rid)||(!c.residenceId&&!c.residenceIds?.length&&!hasAnyLink(c.id)&&rid===fallback));
+ const clientIds=new Set(clients.map(c=>c.id)),scoped={...state,lots,clients,sales,payments:state.payments.filter(p=>saleIds.has(p.saleId))};
+ for(const k of ['historicalContracts','historicalPayments','ownershipStatements','ownerPayments','ledgerImportBatches','cashEntries'])if(state[k])scoped[k]=state[k].filter(belongs);
+ if(state.reservations)scoped.reservations=state.reservations.filter(r=>belongs(r)||lotIds.has(r.lotId));
+ if(state.contractTexts)scoped.contractTexts=state.contractTexts.filter(x=>clientIds.has(x.clientId)&&(!x.residenceId||belongs(x)));
+ return scoped;
+}
+withResidenceData=function(fn){const original=db;try{db=residentialState(original,residence().id);return fn();}finally{db=original;}};
+function residentialSettings(){return `<section class="card card-padding" data-residential-settings><h2>Mis residenciales</h2><p>Ingresa a una residencial para consultar y registrar únicamente sus datos.</p><button class="btn btn-primary" data-action="residence-new">+ Crear residencial</button><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:16px">${db.residences.filter(r=>!r.hidden).map(r=>`<article class="card card-padding"><h3>${esc(r.name)}</h3><p>${esc(r.location||'Ubicación por completar')}</p><p>${db.lots.filter(l=>l.residenceId===r.id).length} solares${r.id===residence().id?' · Residencial activa':''}</p><button class="btn btn-primary" data-action="workspace-enter" data-id="${esc(r.id)}">Ingresar a esta residencial</button> <button class="btn btn-outline" data-action="residence-edit" data-id="${esc(r.id)}">Editar</button></article>`).join('')}</div></section>`;}
+const residentialBaseSettings=settingsPage;
+settingsPage=function(){return residentialSettings()+residentialBaseSettings();};
+pageContent=function(){
+ const rid=residence().id;collectionStage=rid;financeFilter.residenceId=rid;
+ const badge=`<div class="notice-card" data-active-residential style="margin-bottom:16px">Residencial activa: <strong>${esc(residence().name)}</strong> <button class="btn btn-outline btn-sm" data-page="settings">Cambiar residencial</button></div>`;
+ const globalPages=['settings','residences','users','backup','help','design'];
+ if(globalPages.includes(page))return badge+basePageContent();
+ return badge+(['gps','arrayan'].includes(page)?'':residencePicker())+withResidenceData(()=>page==='pending'?clientPendingPage():basePageContent());
+};
+const residentialBaseSwitch=setResidence;
+setResidence=function(id){if(!db.residences.some(r=>r.id===id&&!r.hidden))return;closeModal();collectionStage=id;collectionStageFilter='all';collectionFilter='all';financeFilter.residenceId=id;paymentDraft=null;ownerPaymentDraft=null;return residentialBaseSwitch(id);};
+const residentialAction=handlerAction;
+handlerAction=function(action,el){
+ if(action==='workspace-enter'){page='dashboard';setResidence(el.dataset.id);return;}
+ if(['debt-csv','debt-print','payments-excel','finance-csv','finance-print'].includes(action))return withResidenceData(()=>residentialAction(action,el));
+ if(action==='residence-open'){page='arrayan';setResidence(el.dataset.id);return;}
+ return residentialAction(action,el);
+};
+const residentialForm=doForm;
+doForm=function(form){
+ if(form.dataset.form!=='client')return residentialForm(form);
+ const data=Object.fromEntries(new FormData(form)),name=String(data.name||'').trim(),rid=residence().id;
+ if(!name){toast('El nombre es obligatorio.','error');return;}
+ const next=JSON.parse(JSON.stringify(db)),oldId=String(data.oldId||''),client=oldId?next.clients.find(c=>c.id===oldId):null;
+ if(oldId&&(!client||!residentialState(db,rid).clients.some(c=>c.id===oldId))){toast('El cliente no pertenece a esta residencial.','error');return;}
+ const fields={name,identity:String(data.identity||'').trim(),phone:String(data.phone||'').trim(),email:String(data.email||'').trim(),address:String(data.address||'').trim()};
+ if(client)Object.assign(client,fields);else next.clients.unshift({id:uid('C'),residenceId:rid,...fields});
+ try{cloudWrite(JSON.stringify(next));}catch(e){toast('No se pudo guardar el cliente.','error');return;}
+ db=next;closeModal();page='clients';filter='';render();toast('Cliente guardado en '+residence().name);
+};
+// These functions only read state or render controls; writes always use the full state.
+const residentialClientView=viewClient;viewClient=function(id){return withResidenceData(()=>residentialClientView(id));};
+const residentialSaleForm=newSale;newSale=function(){return withResidenceData(()=>residentialSaleForm());};
+const residentialSolarSearch=searchSolarClients;searchSolarClients=function(...args){return withResidenceData(()=>residentialSolarSearch(...args));};
+const residentialContractSearch=renderContractClientResults;renderContractClientResults=function(){return withResidenceData(()=>residentialContractSearch());};
+const residentialFinanceReport=financeReport;financeReport=function(f=financeFilter){financeFilter.residenceId=residence().id;return withResidenceData(()=>residentialFinanceReport({...f,residenceId:residence().id}));};
+const residentialLedgers=ledgers;ledgers=function(...args){return withResidenceData(()=>residentialLedgers(...args));};
+const residentialFinanceForm=financeEntryForm;financeEntryForm=function(kind,id=null){residentialFinanceForm(kind,id,residence().id);const select=document.querySelector('#finance-entry-form [name="residenceId"]');if(select){for(const o of [...select.options])if(o.value!==residence().id)o.remove();select.value=residence().id;}};
+const residentialRender=render;render=function(){residentialRender();for(const selector of ['#debt-residence','[data-finance-filter="residenceId"]']){const select=document.querySelector(selector);if(select){for(const o of [...select.options])if(o.value!==residence().id)o.remove();select.value=residence().id;}}};
