@@ -7,7 +7,8 @@ const [html, version, parser] = await Promise.all(
   ['prueba-diseno-v08.html', 'version.json', 'payment-fields.mjs'].map(path => readFile(new URL(path, root), 'utf8'))
 );
 const bridge = (await readFile(new URL('./app-bridge.js', import.meta.url), 'utf8'))+'\n'+(await readFile(new URL('./ledger-ui.js', import.meta.url), 'utf8'))+'\n'+(await readFile(new URL('./owner-payments-ui.js', import.meta.url), 'utf8'))+'\n'+(await readFile(new URL('./collection-fichas.js', import.meta.url), 'utf8'));
-const files = buildPagesFiles(html.replace(/CURRENT_VERSION='[^']+'/, "CURRENT_VERSION='"+JSON.parse(version).version+"'"), version, parser, bridge);
+const landBridge=(await readFile(new URL('land-inventory.mjs',root),'utf8')).replace(/export /g,'')+'\n'+await readFile(new URL('./land-inventory-ui.js',import.meta.url),'utf8');
+const files = buildPagesFiles(html.replace(/CURRENT_VERSION='[^']+'/, "CURRENT_VERSION='"+JSON.parse(version).version+"'"), version, parser, bridge+'\n'+landBridge);
 files['acceso-nube.js'] = await readFile(new URL('./acceso-nube.js', import.meta.url), 'utf8');
 files['offline-files.js'] = await readFile(new URL('./offline-files.js', import.meta.url), 'utf8');
 for (const [path,name,exports] of [['ledger-import.mjs','lotigestLedger',['prepareLedgerImport','applyLedgerImport','regularizeHistoricalContract','historyCents','parseHistoryDate','historyLotCandidates','historyIssueLabels']],['owner-payments.mjs','lotigestOwnerPayments',['createOwnerPayment','ownerStatementBalance','ownerAllocationReferences','validateOwnerPayments']],['cadastre.mjs','lotigestCadastre',['applyOfficialPlan','areaInVaras','DEFAULT_VARA_M2','VARA_SOURCE']]]) { const source=(await readFile(new URL(path,root),'utf8')).replace(/export /g,''); files[name+'.js']='(()=>{'+source+';window.'+name+'={'+exports.join(',')+'};})();'; }

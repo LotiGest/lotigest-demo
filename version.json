@@ -1,1 +1,1 @@
-{"version":"0.20.5","notes":"Excel de pagos con etapa, bloque y solares separados; mismo cliente en distintas filas y etapas, importación de múltiples solares sin duplicar montos."}
+{"version": "0.21.0", "notes": "Importación y exportación Excel de terrenos con comprador, identidad, etapa, precio y medidas; varios solares por cliente y aviso de terrenos sin croquis."}
