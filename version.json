@@ -1,4 +1,4 @@
 {
-  "version": "0.21.3",
-  "notes": "Importación Excel: concilia el solar por etapa, bloque y número aunque el código externo difiera; muestra errores y estado de confirmación en teléfonos."
+  "version": "0.21.4",
+  "notes": "Permite registrar manualmente desde Contratos primas y abonos de meses anteriores para propietarios con terrenos ya asignados, sin requerir una venta y sin inventar saldos. Vincula fichas al primer registro y conserva el pago conjunto para varios solares."
 }
