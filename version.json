@@ -1,4 +1,4 @@
 {
-  "version": "0.22.1",
-  "notes": "Al registrar primas y abonos LOTIGEST conserva el módulo actual; los recibos siguen disponibles. Guardado silencioso, actualización manual y sincronización offline."
+  "version": "0.22.2",
+  "notes": "Recibos de primas y abonos con QR escaneable en PDF y vista previa. Página de verificación en D1 sin exponer datos personales, incluye pagos conjuntos y recibos históricos al reemitir. Sin conexión se emite con clave local y se verifica tras sincronizar."
 }
