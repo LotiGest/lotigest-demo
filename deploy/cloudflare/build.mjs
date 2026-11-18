@@ -10,6 +10,9 @@ const bridge = (await readFile(new URL('./app-bridge.js', import.meta.url), 'utf
 const landBridge=(await readFile(new URL('land-inventory.mjs',root),'utf8')).replace(/export /g,'')+'\n'+await readFile(new URL('./land-inventory-ui.js',import.meta.url),'utf8');
 const files = buildPagesFiles(html.replace(/CURRENT_VERSION='[^']+'/, "CURRENT_VERSION='"+JSON.parse(version).version+"'"), version, parser, bridge+'\n'+landBridge);
 files['acceso-nube.js'] = await readFile(new URL('./acceso-nube.js', import.meta.url), 'utf8');
+files['mobile-layout.js'] = await readFile(new URL('./mobile-layout.js', import.meta.url), 'utf8');
+files['mobile-layout.css'] = await readFile(new URL('./mobile-layout.css', import.meta.url), 'utf8');
+files['index.html']=files['index.html'].replace('</head>','<link rel="stylesheet" href="/mobile-layout.css"><script src="/mobile-layout.js" defer></script></head>');
 files['offline-files.js'] = await readFile(new URL('./offline-files.js', import.meta.url), 'utf8');
 for (const [path,name,exports] of [['ledger-import.mjs','lotigestLedger',['prepareLedgerImport','applyLedgerImport','regularizeHistoricalContract','historyCents','parseHistoryDate','historyLotCandidates','historyIssueLabels']],['owner-payments.mjs','lotigestOwnerPayments',['createOwnerPayment','ownerStatementBalance','ownerAllocationReferences','validateOwnerPayments']],['cadastre.mjs','lotigestCadastre',['applyOfficialPlan','areaInVaras','DEFAULT_VARA_M2','VARA_SOURCE']]]) { const source=(await readFile(new URL(path,root),'utf8')).replace(/export /g,''); files[name+'.js']='(()=>{'+source+';window.'+name+'={'+exports.join(',')+'};})();'; }
 files['service-worker.js'] = (await readFile(new URL('./service-worker.js', import.meta.url), 'utf8')).replace('__LOTIGEST_VERSION__', JSON.parse(version).version);

@@ -1,0 +1,64 @@
+/* Phone/tablet overrides only. Desktop styling remains owned by the approved theme. */
+@media screen and (max-width:900px){
+ html body #app .lotigest-shell{--lg-float-gap:8px;--lg-top-height:76px;padding:8px!important;min-height:100dvh!important}
+ html body #app .lotigest-shell .workspace,
+ html body #app .lotigest-shell:has(.lotigest-sidebar.pinned) .workspace{margin-left:0!important;width:100%!important;padding-top:calc(var(--lg-top-height) + 8px)!important;transition:none!important}
+ html body #app .lotigest-shell .lg-topbar,
+ html body #app .lotigest-shell:has(.lotigest-sidebar.pinned) .lg-topbar{left:8px!important;right:8px!important;top:8px!important;height:var(--lg-top-height)!important;padding:8px 12px;gap:8px;transition:none!important;box-sizing:border-box}
+ html body #app .lotigest-shell .lotigest-sidebar{left:8px!important;top:8px!important;width:min(290px,88vw)!important;max-width:calc(100vw - 16px)!important;height:calc(100dvh - 16px)!important;max-height:calc(100dvh - 16px)!important;padding:14px 10px!important;transform:translateX(calc(-100% - 20px))!important;visibility:hidden;pointer-events:none;transition:transform .2s ease,visibility .2s!important}
+ html body #app .lotigest-shell .lotigest-sidebar.open{transform:translateX(0)!important;visibility:visible;pointer-events:auto}
+ html body #app .lotigest-shell .lg-mobile-menu{display:grid;place-items:center;color:var(--ink);flex:0 0 44px;width:44px;height:44px;padding:0;border-radius:10px}
+ html body #app .lotigest-shell .lg-top-title{display:flex;flex-direction:row;align-items:center;gap:6px;min-width:0;flex:1}
+ html body #app .lotigest-shell .lg-top-title>span{display:none}
+ html body #app .lotigest-shell .lg-top-title strong{min-width:0;max-width:100%;font-size:16px}
+ html body #app .lotigest-shell .lg-top-tools{flex:none;gap:6px;min-width:0}
+ html body #app .lotigest-shell .lg-username{display:none}
+ html body #app .lotigest-shell .lg-user-button{padding:4px;gap:3px;min-height:44px}
+ html body #app .lotigest-shell .lg-iconbtn{width:44px;height:44px}
+ html body #app .lotigest-shell .lg-search{width:clamp(140px,22vw,220px)}
+ html body #app .lotigest-shell .lg-search input{font-size:16px;min-height:44px}
+ html body #app .lotigest-shell .lg-side-label,
+ html body #app .lotigest-shell .lg-nav .nav-btn em,
+ html body #app .lotigest-shell .lg-product small{opacity:1!important}
+ html body #app .lotigest-shell .lg-pin{display:none!important}
+ html body #app .lotigest-shell .lg-nav{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:8px}
+ html body #app .lotigest-shell .lg-nav .nav-btn{justify-content:flex-start!important;padding:0 13px!important;min-height:46px;flex-basis:46px}
+ html body #app .lotigest-shell .mobile-backdrop{z-index:310;position:fixed;inset:0;touch-action:none}
+ html body:has(#lgSidebar.open){overflow:hidden}
+ html body #app .lotigest-shell .workspace-inner{padding:18px 4px max(28px,env(safe-area-inset-bottom));min-width:0}
+ html body #app .lotigest-shell :is(.page-cols,.main-grid,.geo-layout){grid-template-columns:minmax(0,1fr)!important}
+ html body #app .lotigest-shell .table-scroll{width:100%;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain}
+ html body #app .lotigest-shell .lg-popup{position:fixed;left:auto;right:12px;top:calc(var(--lg-top-height) + 22px);width:min(320px,calc(100vw - 24px));box-sizing:border-box;max-height:calc(100dvh - var(--lg-top-height) - 40px);overflow-y:auto}
+ html body #app .lotigest-shell #arrayan-scroll{width:100%;box-sizing:border-box;max-height:62dvh!important}
+ html body #app .lotigest-shell #arrayan-native{max-width:none}
+}
+@media screen and (max-width:600px){
+ html body #app .lotigest-shell{--lg-top-height:112px}
+ html body #app .lotigest-shell .lg-topbar{align-items:flex-start;padding-top:6px}
+ html body #app .lotigest-shell .lg-top-title{height:44px}
+ html body #app .lotigest-shell .lg-top-tools{height:44px}
+ html body #app .lotigest-shell .lg-search{position:absolute;left:12px;right:12px;bottom:8px;width:auto}
+ html body #app .lotigest-shell .lg-search-results{max-height:50dvh;overflow-y:auto}
+ html body #app .lotigest-shell .lg-top-title strong{font-size:14px}
+ html body #app .lotigest-shell :is(.page-head,.panel-table-head){flex-direction:column;align-items:stretch;gap:12px}
+ html body #app .lotigest-shell .page-head h1{font-size:24px;line-height:1.2}
+ html body #app .lotigest-shell .head-actions{display:flex;flex-wrap:wrap;width:100%;gap:8px}
+ html body #app .lotigest-shell .head-actions .btn{flex:1 1 140px;min-width:0;min-height:44px}
+ html body #app .lotigest-shell :is(.form-grid,.grid-two,.settings-list,.geo-side-stack){grid-template-columns:minmax(0,1fr)!important}
+ html body #app .lotigest-shell :is(input,select,textarea){max-width:100%;box-sizing:border-box;font-size:16px}
+ html body #app .lotigest-shell :is(input:not([type=checkbox]):not([type=radio]),select,textarea){min-width:0!important;min-height:44px}
+ html body #app .lotigest-shell :is(.btn,.round-btn){min-height:44px}
+ html body #modal-root .modal-cover{padding:max(8px,env(safe-area-inset-top)) 8px max(8px,env(safe-area-inset-bottom));align-items:center;box-sizing:border-box}
+ html body #modal-root :is(.modal,.modal-wide){display:flex;flex-direction:column;width:100%!important;min-width:0;max-width:100%;max-height:calc(var(--lg-visible-height,100dvh) - 24px);box-sizing:border-box;overflow:hidden}
+ html body #modal-root .modal-header{flex:none;position:relative;padding:12px;gap:12px;background:var(--canvas,#fff)}
+ html body #modal-root .modal-header h2{font-size:18px;overflow-wrap:anywhere}
+ html body #modal-root .modal-close{width:44px;height:44px;flex:none;min-height:44px}
+ html body #modal-root .modal-content{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:14px}
+ html body #modal-root .modal-footer{flex:none;position:relative;display:flex;flex-wrap:wrap;gap:8px;padding:12px;background:var(--canvas,#fff)}
+ html body #modal-root .modal-footer .btn{flex:1 1 130px;min-width:0;min-height:44px}
+ html body #modal-root .form-grid{grid-template-columns:minmax(0,1fr)!important}
+ html body #modal-root :is(input,select,textarea){min-width:0!important;max-width:100%;box-sizing:border-box;font-size:16px}
+ html body #modal-root .table-scroll{max-width:100%;overflow-x:auto}
+ html body #excel-download-ready{left:8px!important;right:8px!important;bottom:max(8px,env(safe-area-inset-bottom))!important;max-width:none!important;box-sizing:border-box;max-height:50dvh;overflow:auto}
+}
+@media screen and (max-width:380px){html body #app .lotigest-shell .cards-four{grid-template-columns:minmax(0,1fr)!important}}

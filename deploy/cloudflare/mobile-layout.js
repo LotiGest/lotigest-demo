@@ -1,0 +1,14 @@
+// Presentation only; desktop layout and all saved business data stay untouched.
+(()=>{
+ const mobile=matchMedia('(max-width:900px)');
+ function update(){
+  const menu=document.querySelector('.lg-mobile-menu'),sidebar=document.getElementById('lgSidebar');
+  if(menu&&sidebar){menu.setAttribute('aria-controls','lgSidebar');menu.setAttribute('aria-expanded',String(sidebar.classList.contains('open')));menu.setAttribute('aria-label',sidebar.classList.contains('open')?'Cerrar menú':'Abrir menú');}
+  if(mobile.matches)document.documentElement.style.setProperty('--lg-visible-height',(window.visualViewport?.height||window.innerHeight)+'px');
+  else document.documentElement.style.removeProperty('--lg-visible-height');
+ }
+ function init(){update();new MutationObserver(update).observe(document.getElementById('app')||document.body,{childList:true,subtree:true});}
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+ window.visualViewport?.addEventListener('resize',update);window.addEventListener('resize',update);mobile.addEventListener('change',update);
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&mobile.matches&&!document.querySelector('.modal-cover'))document.querySelector('.lotigest-shell .mobile-backdrop')?.click();});
+})();
