@@ -1,1 +1,1 @@
-{"version":"0.20.2","notes":"Exportar Excel de primas y abonos desde Residenciales, solares y cobros, por residencial y etapa, sin duplicar pagos contabilizados."}
+{"version":"0.20.3","notes":"Configuración permite crear e ingresar a residenciales y consultar únicamente sus clientes, solares, cobros y finanzas."}
