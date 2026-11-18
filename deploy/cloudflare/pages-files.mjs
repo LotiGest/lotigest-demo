@@ -11,6 +11,7 @@ export function buildPagesFiles(html, version, parser, bridge) {
   if (!/^\d+\.\d+\.\d+$/.test(release) || !html.includes("CURRENT_VERSION='" + release + "'")) {
     throw new Error('El HTML y version.json deben declarar la misma versión.');
   }
+  const sidebarCollapseCss = "/* El menú solamente se expande al pulsar el botón, no por el :hover persistente de Android. */\nbody .lotigest-shell .lotigest-sidebar:not(.pinned),\nbody[data-panel-theme] .lotigest-shell .lotigest-sidebar:not(.pinned),\nbody.sidebar-collapsed[data-panel-theme] .lotigest-shell .lotigest-sidebar:not(.pinned){\n width:var(--lg-side-small)!important;flex-basis:var(--lg-side-small)!important\n}\nbody .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-side-label,\nbody .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-nav .nav-btn em,\nbody .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-product small{\n display:none!important;opacity:0!important\n}\nbody .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-company{gap:0!important}\nbody .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-company-icon{\n width:29px!important;height:29px!important;flex-basis:29px!important;font-size:15px!important\n}\nbody .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-side-head{gap:2px!important}\nbody .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-nav .nav-btn{\n justify-content:center!important;padding:0!important;gap:0!important\n}\nbody .lotigest-shell .lotigest-sidebar .lg-pin{\n display:grid!important;place-items:center!important;opacity:1!important;pointer-events:auto!important;\n min-width:25px;width:25px;height:27px;padding:0!important;cursor:pointer;touch-action:manipulation;\n font-size:15px;line-height:1;flex:none!important\n}\nbody .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-pin{\n min-width:19px!important;width:19px!important;height:24px!important;font-size:12px\n}\nbody .lotigest-shell .lotigest-sidebar .lg-pin:focus-visible{outline:2px solid #baff58;outline-offset:2px}";
   const demo = html
     .replaceAll('db.residences.map(r=>', 'db.residences.filter(r=>!r.hidden).map(r=>')
     .replace(title, '<title>LOTIGEST · GRUPO H</title>')
@@ -73,6 +74,11 @@ export function buildPagesFiles(html, version, parser, bridge) {
     // La barra muestra íconos y nombres desde el primer ingreso en escritorio.
     // Nueva preferencia: las barras antiguas contraídas no ocultan los nombres.
     .replaceAll("'lotigest-v08-pin'", "'lotigest-v08-pin-labels-v1'")
+    .replace("pinned?'Desfijar barra lateral':'Fijar barra lateral'", "pinned?'Minimizar menú':'Expandir menú'")
+    .replace('aria-label="Fijar barra lateral"', 'aria-label="Expandir o minimizar menú" aria-expanded="${pinned}"')
+    .replace("${pinned?'◆':'♧'}", "${pinned?'«':'»'}")
+    .replace("btn.textContent=next?'◆':'♧';",
+      "btn.textContent=next?'«':'»';btn.setAttribute('aria-expanded',String(next));btn.setAttribute('aria-label',next?'Minimizar menú':'Expandir menú');btn.title=next?'Minimizar menú':'Expandir menú';")
     .replace("const pinned=localStorage.getItem('lotigest-v08-pin-labels-v1')==='true';",
       "const pinned=localStorage.getItem('lotigest-v08-pin-labels-v1')!=='false';")
     .replace("const next=localStorage.getItem('lotigest-v08-pin-labels-v1')!=='true';",
@@ -85,6 +91,7 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace('let obj={id,dimensions,residenceId:', "let obj={id,dimensions,...(data.areaVerified==='on'?{areaVerified:true,areaOrigin:'confirmed-by-admin'}:{}),residenceId:")
     .replace('Acceso de prueba', 'Acceso privado')
     .replace('Prueba de interfaz', 'Servidor Cloudflare D1')
+    .replace('</head>', '<style id="lg-sidebar-collapse-fix">'+sidebarCollapseCss+'</style></head>')
     .replace('</head>', '<script src="/acceso-nube.js"></script><script src="/offline-files.js"></script><script src="/lotigestLedger.js"></script><script src="/lotigestCadastre.js"></script><script src="/lotigestOwnerPayments.js"></script><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#164532"><style>#lotigest-cloud-status{position:fixed;bottom:54px;right:12px;max-width:390px;width:calc(100% - 24px);z-index:10000;box-sizing:border-box;background:#164532;color:#fff;padding:14px 36px 14px 14px;border-radius:12px;font:13px system-ui;box-shadow:0 3px 18px #0004}#lotigest-cloud-status[hidden]{display:none!important}#lotigest-cloud-status[data-error=true]{background:#6b291c}#lotigest-cloud-status button{margin:6px 4px 0 0;padding:5px 8px;border:1px solid #ffffff60;border-radius:5px;background:transparent;color:inherit;cursor:pointer}#lotigest-cloud-status .cloud-notice-close{position:absolute;right:6px;top:2px;font-size:20px;border:0;margin:0}#lotigest-sync-indicator{position:fixed;bottom:10px;right:12px;z-index:9999;border:0;border-radius:20px;padding:8px 12px;background:#164532;color:#fff;box-shadow:0 2px 8px #0003;font:12px system-ui;cursor:pointer}body:has(.modal-cover) #lotigest-cloud-status,body:has(.modal-cover) #lotigest-sync-indicator{display:none}@media print{#lotigest-cloud-status,#lotigest-sync-indicator{display:none!important}}</style></head>');
   if (demo === html || !demo.includes('lotigest_cloudflare_demo_v1') ||
       !demo.includes('if (cloudflareDemo) return;') || !demo.includes('const pagesContractOcr = true;')) {
