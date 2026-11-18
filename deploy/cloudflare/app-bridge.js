@@ -17,7 +17,11 @@ function cloudStatus(message,error=false){
   for(const [label,run] of actions){const b=document.createElement('button');b.textContent=label;b.onclick=run;el.append(b);}
  }
  if(error&&!cloudReady&&localStorage.getItem(CLOUD_CACHE)){const b=document.createElement('button');b.textContent='Descargar copia local';b.onclick=()=>download('LOTIGEST_copia_local_original.json',localStorage.getItem(CLOUD_CACHE),'application/json');el.append(b);const restore=document.createElement('button');restore.textContent='Recuperar del servidor';restore.onclick=async()=>{if(!confirm('¿Recuperar los datos del servidor? Se descargará primero la copia local original para conservarla.'))return;b.click();try{await cloudLoad({discardPending:true});}catch(e){cloudStatus(e.message,true);}};el.append(restore);}
- if(open)el.hidden=false;clearTimeout(cloudNoticeTimer);if(kind==='saved'||kind==='info')cloudNoticeTimer=setTimeout(()=>{el.hidden=true;},4500);
+ // Guardado y sincronización correctos son silenciosos. Los fallos graves se informan.
+ const routine=!cloudBlocked&&(!error||/^(Sin conexión|No se pudo actualizar)/i.test(message));
+ indicator.hidden=!cloudOffline&&!cloudBlocked&&!error;
+ if(routine){el.hidden=true;clearTimeout(cloudNoticeTimer);return;}
+ if(open)el.hidden=false;clearTimeout(cloudNoticeTimer);
 }
 async function cloudApi(path,options={}){
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),30000);
@@ -44,7 +48,7 @@ function cloudWrite(raw){
  cloudStatus('Pendiente de guardar en D1…');clearTimeout(cloudTimer);cloudTimer=setTimeout(cloudFlush,350);
 }
 async function cloudFlush(){
- if(!cloudReady||cloudBusy||cloudBlocked)return;if(cloudUser?.role==='sales'){cloudStatus('Guardado en Cloudflare D1 · Catálogo de consulta');return;}if(navigator.onLine===false){cloudOffline=true;cloudStatus('Sin conexión. Los cambios se conservan en este equipo y se enviarán automáticamente.',true);return;}cloudBusy=true;
+ if(!cloudReady||cloudBusy||cloudBlocked)return;if(cloudUser?.role==='sales')return;if(navigator.onLine===false){cloudOffline=true;cloudStatus('Sin conexión. Los cambios se conservan en este equipo y se enviarán automáticamente.');return;}cloudBusy=true;
  try{
   await cloudFlushFiles();
   while(cloudQueue.pending||cloudQueue.latest!==cloudQueue.confirmed){
@@ -55,7 +59,7 @@ async function cloudFlush(){
    cloudQueue.revision=result.revision;cloudQueue.confirmed=p.raw;cloudQueue.pending=null;cloudPersist();
   }
   cloudOffline=false;cloudStatus('Guardado en Cloudflare D1 · revisión '+cloudQueue.revision);
- }catch(e){if(!e.status||e.status>=500)cloudOffline=true;if(e.status===401){cloudReady=false;sessionStorage.removeItem(SESSION);render();}if([409,413,400,403].includes(e.status))cloudBlocked=true;cloudStatus(e.message||'Sin conexión. Cambios pendientes conservados en este equipo.',true);}
+ }catch(e){if(!e.status||e.status>=500)cloudOffline=true;if(e.status===401){cloudReady=false;sessionStorage.removeItem(SESSION);render();}if([409,413,400,403].includes(e.status))cloudBlocked=true;cloudStatus(cloudBlocked?e.message||'Conflicto de sincronización. Descarga tu copia y revisa los cambios.':'Sin conexión. Cambios pendientes conservados en este equipo.',cloudBlocked||e.status===401);}
  finally{cloudBusy=false;}
 }
 function cloudDownload(){const raw=cloudQueue?.latest||JSON.stringify(db);download('LOTIGEST_respaldo_pendiente_'+dateKey(new Date())+'.json',raw,'application/json');}
@@ -81,7 +85,7 @@ async function cloudLoad({discardPending=false,preservePage=false}={}){
  cloudPersist();await prepareOfficialBackgrounds();cloudReady=true;sessionStorage.setItem(SESSION,'yes');page=preservePage?previousPage:'dashboard';cloudOffline=false;render();
  // render may initialize the built-in inventory; persist the resulting state.
  cloudWrite(JSON.stringify(db));await cloudFlush();
- if(localStorage.getItem(STORAGE)&&!sessionStorage.getItem('lotigest_migration_offer_seen'))setTimeout(cloudImportOffer,50);
+ /* Las copias antiguas se revisan solo desde Respaldo. */
 }
 function cloudImportOffer(){
  sessionStorage.setItem('lotigest_migration_offer_seen','yes');
@@ -103,7 +107,7 @@ async function cloudLogin(form){
  try{
   const credential=await lotigestAccess.credential(username,password);const login=await cloudApi('session',{method:'POST',body:JSON.stringify({credential})});cloudUser=login.user;cloudCredential=credential;cloudBlocked=false;sessionStorage.removeItem('lotigest_signed_out');
   try{const r=await fetch('/api/d1/users?'+new URLSearchParams({username}),{cache:'no-store'});if(r.ok){const {salt}=await r.json();await cloudRememberLogin(username,salt,credential);}}catch{}
-  form.reset();await cloudLoad();toast('Sesión conectada a Cloudflare D1');
+  form.reset();await cloudLoad();
  }catch(e){
   if(!e.status||e.status>=500){try{await cloudOfflineUnlock(username,password);return;}catch(offline){e=offline;}}
   cloudStatus(e.message,true);toast(e.message,'error');
@@ -193,8 +197,8 @@ async function cloudRefresh(){
   if(cloudBlocked||!cloudReady||cloudQueue.pending||cloudQueue.latest!==cloudQueue.confirmed)return;
   let check;try{check=await cloudApi('state?revision=1');}catch(e){if(e.status!==401||!cloudCredential)throw e;await cloudApi('session',{method:'POST',body:JSON.stringify({credential:cloudCredential})});check=await cloudApi('state?revision=1');}
   if(check.revision!==cloudQueue.revision&&!activeModal)await cloudLoad({preservePage:true});
-  cloudOffline=false;cloudStatus('Guardado en Cloudflare D1 · revisión '+cloudQueue.revision);
- }catch(e){cloudOffline=true;cloudStatus('No se pudo actualizar. Se conservaron los datos de este equipo; se reintentará automáticamente.',true);}
+  cloudOffline=false;cloudStatus('Datos sincronizados automáticamente.');
+ }catch(e){cloudOffline=true;cloudStatus('No se pudo actualizar. Se conservaron los datos de este equipo; se reintentará automáticamente.');}
  finally{cloudRefreshBusy=false;}
 }
 function cloudActivateUpdate(){if(cloudAuthBusy||document.querySelector('#login-form [name=password]')?.value)return;const dirty=cloudQueue&&(cloudQueue.pending||cloudQueue.latest!==cloudQueue.confirmed);if(cloudRegistration?.waiting&&!dirty&&!activeModal)cloudRegistration.waiting.postMessage({type:'ACTIVATE_UPDATE'});}
