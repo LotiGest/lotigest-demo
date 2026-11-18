@@ -83,7 +83,7 @@ receiptApplyOcr=function(button){
  if(!fields){receiptOcrStatus(form,'No se cargó el extractor de recibos.');return;}
  const raw=form.querySelector('[data-paper-ocr-text]')?.value||'',rid=residence().id;
  const match=lotigestOcrAbonos.matchOcrReceipt(db,fields,raw,rid);
- ocrAbonosDraft={rid,fields,clientId:match.clientId,selectedLotIds:match.selectedLotIds,matchWarnings:match.warnings,reference:fields.reference||'',date:fields.date||'',amount:fields.amount};
+ ocrAbonosDraft={rid,fields,rawText:raw,clientId:match.clientId,selectedLotIds:match.selectedLotIds,matchWarnings:match.warnings,reference:fields.reference||'',date:fields.date||'',amount:fields.amount};
  const details=$('#ocr-abonos-detail'),months=$('#ocr-abonos-months');
  if(details)details.innerHTML=ocrDetailsMarkup();
  if(months)months.innerHTML=match.clientId?ocrMonthsMarkup(match.clientId):'<p>Elige al cliente para consultar sus meses.</p>';
@@ -99,8 +99,7 @@ function ocrRefreshDuplicate(){
 function ocrOwnerChanged(id){
  if(!ocrAbonosDraft)return;
  ocrAbonosDraft.clientId=id||null;const lots=id?lotigestOcrAbonos.ownerLotsForOcr(db,id,residence().id):[];
- const match=lotigestOcrAbonos.matchOcrReceipt(db,ocrAbonosDraft.fields,ocrAbonosDraft.rawText||'',residence().id);
- ocrAbonosDraft.selectedLotIds=lots.length===1?[lots[0].id]:match.clientId===id?match.selectedLotIds:[];
+  const ref=lotigestOcrAbonos.ocrReference(ocrAbonosDraft.rawText||'');const candidates=lots.filter(l=>ref.block&&ref.solar&&String(l.block).toUpperCase()===ref.block&&String(Number(l.sourceNumber||l.number))===String(Number(ref.solar))&&(ref.stage==null||Number(l.stage)===ref.stage));ocrAbonosDraft.selectedLotIds=candidates.length===1?[candidates[0].id]:lots.length===1?[lots[0].id]:[];
  const details=$('#ocr-abonos-detail');if(details)details.innerHTML=ocrDetailsMarkup();
  const months=$('#ocr-abonos-months');if(months)months.innerHTML=id?ocrMonthsMarkup(id):'Elige un propietario.';
 }
