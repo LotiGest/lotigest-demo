@@ -1,4 +1,4 @@
 {
-  "version": "0.22.12",
-  "notes": "Asignación manual y protegida del propietario desde la ficha del solar del mapa y de Terrenos, con búsqueda por nombre o identidad, sin crear ventas, primas ni abonos. Búsqueda de clientes en Terrenos y Abonos por nombre, identidad, teléfono, etapa, bloque o solar; mismo cliente para varios solares."
+  "version": "0.22.13",
+  "notes": "Vista móvil corregida: menú lateral oculto por defecto, cajón temporal con botón de cerrar, contenido completo a lo ancho y sin barra de iconos superpuesta. Conserva búsqueda de propietarios en Abonos, Terrenos y asignación desde el mapa de solares."
 }
