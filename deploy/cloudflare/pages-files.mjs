@@ -27,7 +27,7 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace("document.head.append(adaptiveStyle);","if(adaptiveStyle) document.head.append(adaptiveStyle);")
     .replace('</head>', '<style>.lotigest-demo-banner{padding:.55rem 1rem;background:#164532;color:white;text-align:center;font:600 .875rem system-ui}[data-action="client-map-publish"],[data-action="client-pending-open"],[data-page="pending"]{display:none!important}@media print{.lotigest-demo-banner{display:none!important}}</style></head>')
     .replace(/localStorage\.setItem\(STORAGE,/g, 'cloudWrite(')
-    .replace('let db,storedLotigest;', bridge + '\nlet db,storedLotigest;')
+    .replace('let db,storedLotigest;', 'const CLOUD_BUILD_VERSION='+JSON.stringify(release)+';\n'+bridge + '\nlet db,storedLotigest;')
     .replace('db=readStoredLotigest(storedLotigest);', 'db=cloudEmpty();')
     .replace("case 'logout':sessionStorage.removeItem(SESSION);page='dashboard';render();break;", "case 'logout':cloudLogout();break;")
     .replace(/if\(e.target.id==='login-form'\)\{.*?return\}if\(e.target.matches\('form#modal-form'\)\)/, "if(e.target.id==='login-form'){e.preventDefault();cloudLogin(e.target);return}if(e.target.matches('form#modal-form'))")
@@ -89,6 +89,9 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace('function basePageContent(){', "function basePageContent(){if(cloudUser?.role==='sales'&&page==='dashboard')return sellerDashboard();")
     .replace('function editLot(id){', 'function baseEditLot(id){')
     .replace('let obj={id,dimensions,residenceId:', "let obj={id,dimensions,...(data.areaVerified==='on'?{areaVerified:true,areaOrigin:'confirmed-by-admin'}:{}),residenceId:")
+    .replace('data-page="settings">⚙ Configuración</button>', 'data-page="settings">⚙ Configuración</button><button class="lg-popup-action" type="button" data-action="cloud-manual-update">↻ Actualizar LOTIGEST</button>')
+    // La ventana de actualización antigua y su revisión periódica se sustituyen por el botón manual.
+    .replace(/<script id="lotigest-update-checker">[\s\S]*?<\/script>/, '')
     .replace('Acceso de prueba', 'Acceso privado')
     .replace('Prueba de interfaz', 'Servidor Cloudflare D1')
     .replace('</head>', '<style id="lg-sidebar-collapse-fix">'+sidebarCollapseCss+'</style></head>')
