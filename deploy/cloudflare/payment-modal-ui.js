@@ -159,6 +159,11 @@ function pmRepaintSales(){
    if(label){label.firstChild.textContent='Monto a abonar (L) *';slot.append(label);}
   }else slot.append(pmNode('p','pm-help',sales.length?'Ingresa el importe por cada solar en la distribución de abajo.':'Selecciona un terreno para ingresar un pago.'));
  }
+ const application=document.getElementById('pm-apply');
+ if(application){
+  const primaFaltante=sales.reduce((total,s)=>total+Math.max(0,Number(s.downPayment||0)-paidAmount(s.id)),0);
+  application.options[0].textContent=primaFaltante>.009?'Prima pendiente y después mensual (automático)':'Abono mensual (automático)';
+ }
  const distribution=document.getElementById('pm-distribution');
  if(distribution)distribution.hidden=sales.length<2;
  const calendar=document.getElementById('pm-calendar-body');if(calendar)pmCalendar(calendar,sales);
