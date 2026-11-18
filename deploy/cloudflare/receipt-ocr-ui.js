@@ -87,7 +87,7 @@ function receiptApplyOcr(button){
  }
  if(form.elements.receiptRef&&fields.reference)form.elements.receiptRef.value=fields.reference;
  if(fields.amount!=null){
-  if(form.id==='manual-history-form')form.elements.amount.value=String(fields.amount);
+  if(form.id==='manual-history-form'){form.elements.amount.value=String(fields.amount);form.elements.amount.dispatchEvent(new Event('input',{bubbles:true}));}
   else if(form.id==='owner-abono-form'){
    const inputs=[...form.querySelectorAll('[data-owner-statement]')];
    if(inputs.length===1){inputs[0].value=String(fields.amount);inputs[0].dispatchEvent(new Event('input',{bubbles:true}));}
