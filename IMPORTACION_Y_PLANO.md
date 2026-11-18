@@ -33,3 +33,11 @@ Los abonos nuevos quedan en Recibos y se incorporan una sola vez como ingresos d
 El saldo documentado de la ficha es una referencia del Excel menos los abonos nuevos vinculados a ella. No representa un cálculo de intereses, cuotas o mora. Cuando faltan condiciones contractuales verificadas, el recibo lo indica. La referencia de un solar puede usarse desde el Excel aunque su código exacto en el mapa siga pendiente, sin asignar por suposición a un terreno físico.
 
 La fuente para nombres, bloques y solares son las celdas del Excel. El nombre del archivo se utiliza únicamente como referencia de origen. Si la celda no identifica el bloque, no se lo completa usando el nombre del archivo. Conciliar una ficha existente mantiene sus códigos y movimientos, y deja constancia de la corrección; no la importa por segunda vez.
+
+## Tarjetas y ficha de cada solar
+
+Residenciales, solares y cobros presenta las referencias de los Excel como tarjetas con el propietario y botones **Ficha** y **Abonar**. El historial de primas y abonos se consulta dentro de la ficha de la persona, junto con sus demás solares y los recibos posteriores. El panel principal ya no muestra una tabla independiente de historial de Excel.
+
+Una referencia que coincide con varios códigos del mapa se muestra una sola vez como ficha de referencia, con la indicación de código pendiente. Dentro de Ficha se pueden consultar sus candidatos y confirmar la asignación. Esto agrupa la presentación para evitar atribuir dos terrenos físicos al mismo dueño por una coincidencia de bloque/número; no elimina ni fusiona registros del inventario. Los solares con venta y cuotas verificadas conservan sus tarjetas y cálculos anteriores.
+
+Las cuotas y la mora solo muestran valores calculados cuando existen condiciones contractuales verificadas. Para las fichas documentales se muestra el saldo de la ficha como referencia, sin repartir un importe conjunto entre varios terrenos ni presentarlo como una deuda individual calculada.

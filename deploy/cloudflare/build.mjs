@@ -6,7 +6,7 @@ const out = new URL('cloudflare-pages/', root);
 const [html, version, parser] = await Promise.all(
   ['prueba-diseno-v08.html', 'version.json', 'payment-fields.mjs'].map(path => readFile(new URL(path, root), 'utf8'))
 );
-const bridge = (await readFile(new URL('./app-bridge.js', import.meta.url), 'utf8'))+'\n'+(await readFile(new URL('./ledger-ui.js', import.meta.url), 'utf8'))+'\n'+(await readFile(new URL('./owner-payments-ui.js', import.meta.url), 'utf8'));
+const bridge = (await readFile(new URL('./app-bridge.js', import.meta.url), 'utf8'))+'\n'+(await readFile(new URL('./ledger-ui.js', import.meta.url), 'utf8'))+'\n'+(await readFile(new URL('./owner-payments-ui.js', import.meta.url), 'utf8'))+'\n'+(await readFile(new URL('./collection-fichas.js', import.meta.url), 'utf8'));
 const files = buildPagesFiles(html, version, parser, bridge);
 files['acceso-nube.js'] = await readFile(new URL('./acceso-nube.js', import.meta.url), 'utf8');
 files['offline-files.js'] = await readFile(new URL('./offline-files.js', import.meta.url), 'utf8');
