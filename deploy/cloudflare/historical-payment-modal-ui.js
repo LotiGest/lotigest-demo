@@ -130,6 +130,55 @@
   const legend=make('p','pm-calendar-note','Selecciona un mes para asignarlo al nuevo abono. Verde: abono asociado a ese mes; amarillo: recibo fechado sin mes indicado; morado: historial por revisar; gris: sin registro. Un abono no prueba que la cuota completa esté pagada.');
   const hint=make('p','pm-calendar-note pm-historical-selection',validMonth(period)?'Mes elegido para este nuevo pago: '+period:'Elige un mes en el calendario o déjalo sin asignar si el recibo no lo indica.');
   host.append(metrics,nav,grid,legend,hint);
+  // No inventar mensualidades: la fecha del recibo ubica el movimiento en el
+  // calendario, mientras la cuota real requiere verificación del contrato.
+  const list=make('section','pm-historical-reconciled');
+  const title=make('h4','','Abonos relacionados con los solares seleccionados');
+  const count=make('p','pm-help',pays.length+' movimiento(s) vinculados por cliente, etapa, bloque y solar. El mes de ingreso no confirma por sí solo la mensualidad.');
+  const table=document.createElement('table');
+  table.className='pm-reconcile-table';
+  const head=document.createElement('thead');
+  head.innerHTML='<tr><th>Fecha</th><th>Etapa / Bloque / Solar</th><th>Mes del pago</th><th>Cuota correspondiente</th><th>Monto</th><th>Acción</th></tr>';
+  const body=document.createElement('tbody');
+  const visible=pays.filter(p=>{
+   const month=monthOf(p),date=validPaymentDate(p);
+   return month?.slice(0,4)===String(historyYear)||date?.slice(0,4)===String(historyYear);
+  }).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
+  const printed=new Set();
+  for(const p of visible){
+   const unique=p.origin+':'+p.id;
+   if(printed.has(unique))continue;
+   printed.add(unique);
+   const row=document.createElement('tr');
+   const date=validPaymentDate(p),assigned=monthOf(p);
+   const ids=[...new Set([p.lotId,...(p.references||[]).map(r=>r.lotId)].filter(Boolean))];
+   const lotDescriptions=ids.map(id=>getLot(id)).filter(Boolean).map(l=>
+    'Etapa '+(l.stage||'—')+' · '+l.block+' / '+(l.sourceNumber||l.number||l.id));
+   const fallback=(p.references||[]).map(ref=>'Etapa '+(ref.stage||p.stage||'—')+
+    ' · '+(ref.block||p.block||'—')+' / '+(ref.lot||p.lot||'—'));
+   const cells=[
+    date||'Por verificar',
+    (lotDescriptions.length?lotDescriptions:fallback).join(' · ')||'Referencia por verificar',
+    date?date.slice(0,7):'Sin fecha',
+    assigned?assigned+' · según recibo':'Sin confirmar · mes del pago '+(date?.slice(0,7)||'por verificar'),
+    Number.isInteger(p.amountCents)?formatted(p.amountCents):'Por verificar'
+   ];
+   for(const value of cells)row.append(make('td','',value));
+   const action=make('td');
+   if(p.origin==='imported'&&!p.postedPaymentId){
+    const edit=make('button','btn btn-outline btn-sm','Confirmar mensualidad');
+    edit.type='button';edit.dataset.action='ledger-row-edit';edit.dataset.id=p.id;
+    action.append(edit);
+   }else action.append(make('small','',p.origin==='owner'?'Consultar el recibo':'Ya contabilizado'));
+   row.append(action);body.append(row);
+  }
+  if(!body.childElementCount){
+   const cell=make('td','pm-help','No hay movimientos en este año para los solares seleccionados.');
+   cell.colSpan=6;const row=make('tr');row.append(cell);body.append(row);
+  }
+  table.append(head,body);
+  const scroll=make('div','pm-reconcile-scroll');scroll.append(table);
+  list.append(title,count,scroll);host.append(list);
  }
  function historicalPicker(){
   const input=document.getElementById('manual-history-search'),results=document.getElementById('manual-history-owners');
