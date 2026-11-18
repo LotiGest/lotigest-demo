@@ -1,4 +1,4 @@
 {
-  "version": "0.21.4",
-  "notes": "Permite registrar manualmente desde Contratos primas y abonos de meses anteriores para propietarios con terrenos ya asignados, sin requerir una venta y sin inventar saldos. Vincula fichas al primer registro y conserva el pago conjunto para varios solares."
+  "version": "0.21.5",
+  "notes": "OCR de recibos rosados Grupo H para primas y abonos: escanea «Por Lps», fecha, propietario y folio sin confundir saldos; selección de efectivo, transferencia o tarjeta y confirmación antes del cobro."
 }
