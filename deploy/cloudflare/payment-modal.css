@@ -137,3 +137,55 @@
  #modal-root .lg-payment-modern .pm-historical-lots>div{max-height:150px!important}
  #modal-root .lg-payment-modern .pm-historical-lots label{width:100%}
 }
+
+
+/* Campo prioritario de abonos: lempiras con contraste elegante y agrupación de miles. */
+#modal-root .lg-payment-modern .pm-currency-control{
+ display:flex;align-items:center;gap:12px;position:relative;box-sizing:border-box;
+ width:100%;min-height:68px;padding:6px 15px 6px 9px;
+ background:linear-gradient(135deg,#e5faeb 0%,#cff0da 100%);
+ border:2px solid #47b975;border-radius:14px;
+ box-shadow:0 5px 16px rgba(13,115,53,.12),inset 0 1px rgba(255,255,255,.65);
+ transition:border-color .18s,box-shadow .18s,background .18s
+}
+#modal-root .lg-payment-modern .pm-currency-control:focus-within{
+ border-color:#078f43;box-shadow:0 0 0 4px rgba(22,160,83,.18),0 8px 20px rgba(8,110,52,.16);
+ background:#e7faeb
+}
+#modal-root .lg-payment-modern .pm-currency-symbol{
+ display:grid;place-items:center;flex:none;width:43px;height:45px;
+ color:#fff!important;background:linear-gradient(145deg,#169e4f,#047a34);
+ border-radius:10px;font-size:25px;font-weight:850;line-height:1;
+ box-shadow:0 4px 10px #0c813d28
+}
+#modal-root .lg-payment-modern .pm-currency-control input.pm-currency-visible{
+ flex:1;display:block;min-width:0!important;width:100%!important;
+ height:50px!important;min-height:50px!important;padding:5px 2px!important;
+ border:0!important;border-radius:0!important;outline:none!important;
+ box-shadow:none!important;background:transparent!important;
+ color:#104a2d!important;font-size:clamp(23px,2.7vw,31px)!important;
+ font-weight:850!important;letter-spacing:.015em;text-align:right;
+ font-variant-numeric:tabular-nums;line-height:1.3
+}
+#modal-root .lg-payment-modern .pm-currency-control input.pm-currency-visible::placeholder{
+ color:#68a681!important;opacity:.9;font-weight:650
+}
+#modal-root .lg-payment-modern .pm-currency-control input.pm-currency-raw{display:none!important}
+#modal-root .lg-payment-modern #manual-history-form .pm-fields>div:has([name="amount"]){
+ grid-column:1/-1
+}
+#modal-root .lg-payment-modern .pm-slot{min-width:0}
+#modal-root .lg-payment-modern .pm-slot label{display:block;width:100%}
+#modal-root .lg-payment-modern .pm-owner-allocations .pm-currency-control{
+ min-height:59px
+}
+#modal-root .lg-payment-modern .pm-owner-allocations .pm-currency-control input.pm-currency-visible{
+ height:43px!important;min-height:43px!important;font-size:24px!important
+}
+@media(max-width:560px){
+ #modal-root .lg-payment-modern .pm-currency-control{min-height:61px;padding:5px 11px 5px 6px;gap:8px}
+ #modal-root .lg-payment-modern .pm-currency-symbol{width:37px;height:40px;font-size:22px}
+ #modal-root .lg-payment-modern .pm-currency-control input.pm-currency-visible{
+  min-height:43px!important;height:43px!important;font-size:clamp(22px,6vw,28px)!important
+ }
+}
