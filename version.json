@@ -1,1 +1,4 @@
-{"version": "0.21.1", "notes": "Paneles adaptados a teléfonos: menú desplegable, ancho completo, formularios y ventanas accesibles; diseño de escritorio conservado."}
+{
+  "version": "0.21.2",
+  "notes": "Importación de terrenos desde Excel de varias hojas: omite anexos, conserva compradores sin identidad confirmada y muestra el estado de guardado en Cloudflare D1."
+}
