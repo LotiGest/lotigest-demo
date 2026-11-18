@@ -171,6 +171,7 @@
  });
  document.addEventListener('change',event=>{
   const form=event.target.closest?.('#manual-history-form');if(!form)return;
+  if(event.target.matches('[name="period"]')&&event.target.value)historyYear=Number(event.target.value.slice(0,4));
   if(event.target.matches('[data-manual-lot],[name="period"]'))historySummary(form);
  });
 })();
