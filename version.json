@@ -1,4 +1,4 @@
 {
-  "version": "0.22.12",
-  "notes": "Corrección visual para teléfonos: menú lateral completamente oculto por defecto; al pulsar el botón abre un cajón temporal con cierre y fondo, dejando Terrenos, Abonos, paneles y encabezados a todo el ancho. La interfaz de escritorio y los datos de usuarios, terrenos y cobros se conservan."
+  "version": "0.22.13",
+  "notes": "Búsqueda manual por nombre o número de cédula en Terrenos/Predios, Cuotas y pagos, Recibos de abonos y Residenciales y cobros; muestra los solares del cliente y permite acceder a su ficha y registrar abono cuando corresponde, sin duplicar clientes ni modificar pagos. Conserva la corrección móvil 0.22.12."
 }
