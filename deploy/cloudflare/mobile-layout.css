@@ -62,3 +62,24 @@
  html body #excel-download-ready{left:8px!important;right:8px!important;bottom:max(8px,env(safe-area-inset-bottom))!important;max-width:none!important;box-sizing:border-box;max-height:50dvh;overflow:auto}
 }
 @media screen and (max-width:380px){html body #app .lotigest-shell .cards-four{grid-template-columns:minmax(0,1fr)!important}}
+
+
+/* En teléfonos, si el menú está abierto, permitir alternar nombres e íconos. */
+@media screen and (max-width:900px){
+ html body #app .lotigest-shell .lotigest-sidebar.open:not(.pinned){
+  width:72px!important;max-width:72px!important
+ }
+ html body #app .lotigest-shell .lotigest-sidebar .lg-pin{
+  display:grid!important;place-items:center!important;opacity:1!important;pointer-events:auto!important
+ }
+ html body #app .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-side-label,
+ html body #app .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-nav .nav-btn em,
+ html body #app .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-product small{
+  display:none!important;opacity:0!important
+ }
+ html body #app .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-nav .nav-btn{
+  justify-content:center!important;padding:0!important
+ }
+ body:has(#lgSidebar.open:not(.pinned)) .mobile-backdrop{display:none!important}
+ body:has(#lgSidebar.open:not(.pinned)){overflow:auto!important}
+}
