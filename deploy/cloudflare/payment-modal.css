@@ -24,6 +24,7 @@
 #modal-root .lg-payment-modern .pm-clientbox strong{font-size:17px;font-weight:850;color:#19291f;display:block;overflow-wrap:anywhere}
 #modal-root .lg-payment-modern .pm-clientbox p{font-size:12px;color:#526b59;margin:3px 0 0}
 #modal-root .lg-payment-modern .pm-tag{display:inline-flex;align-items:center;white-space:normal;background:#ddf2e3;border-radius:8px;padding:5px 8px;margin:2px 4px 2px 0;color:#185a30;font-size:12px;font-weight:750}
+#modal-root .lg-payment-modern .pm-remove-lot{margin-left:6px;border:0;background:#badbc5;color:#185a30;border-radius:50%;min-width:22px;height:22px;cursor:pointer;font-size:17px;font-weight:850;line-height:1}
 #modal-root .lg-payment-modern .pm-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:12px;align-items:stretch}
 #modal-root .lg-payment-modern .pm-card{background:#fff;border:1px solid #dce5df;border-radius:15px;overflow:hidden;box-shadow:0 2px 12px #17442b08;min-width:0}
 #modal-root .lg-payment-modern .pm-card h3{background:linear-gradient(90deg,#f8fafb,#eef3f7);margin:0;padding:14px 16px;font-size:17px;font-weight:850;color:#26362c;border-bottom:1px solid #e1e8e3;display:flex;gap:10px;align-items:center}
