@@ -1,3 +1,4 @@
+import {correctConfirmedBlocks} from './block-corrections.js';
 import {sellerCatalog} from './catalog.js';
 import {json,hash,sameOrigin,actor,body,failure} from './shared.js';
 const limit=4*1024*1024;
@@ -17,7 +18,7 @@ export function validate(state){
   if(!Array.isArray(state[key])||state[key].length>100000)invalid('Colección incompatible: '+key);
   const ids=new Set();for(const row of state[key]){if(!row||typeof row.id!=='string'||!row.id||row.id.length>150||ids.has(row.id))invalid('Código duplicado o inválido en '+key);ids.add(row.id);}
  }
- for(const key of ['cashEntries','contractTexts','residences','historicalPayments','historicalContracts','ledgerImportBatches'])if(state[key]!==undefined&&!Array.isArray(state[key]))invalid('Colección incompatible: '+key);
+ for(const key of ['cashEntries','contractTexts','residences','historicalPayments','historicalContracts','ledgerImportBatches','ownershipStatements'])if(state[key]!==undefined&&!Array.isArray(state[key]))invalid('Colección incompatible: '+key);
  const lots=new Map(state.lots.map(r=>[r.id,r])),clients=new Set(state.clients.map(r=>r.id)),sales=new Map(state.sales.map(r=>[r.id,r])),sold=new Set(),identities=new Set(),totals=new Map(),prices=new Map();
  for(const c of state.clients){
   if(typeof c.name!=='string'||!c.name.trim()||c.name.length>200)invalid('Nombre de cliente inválido.');
@@ -50,6 +51,8 @@ export function validate(state){
   if(p.postedPaymentId){const core=paymentIndex.get(p.postedPaymentId),contract=historyContracts.get(p.contractId);if(!core||core.historicalImportId!==p.id||core.saleId!==contract.saleId||Math.round(Number(core.amount)*100)!==p.amountCents||core.date!==p.date)invalid('El historial no coincide con el abono contabilizado.');}
  }
  for(const c of historyContracts.values())if(c.paymentIds.some(id=>!historyIds.has(id)))invalid('Contrato histórico con movimientos inexistentes.');
+ const ownershipIds=new Set();for(const s of state.ownershipStatements||[]){if(!s||typeof s.id!=='string'||ownershipIds.has(s.id)||s.clientId!=null&&!clients.has(s.clientId)||!Array.isArray(s.references)||!Array.isArray(s.paymentIds))invalid('Ficha de propietario incompatible.');ownershipIds.add(s.id);for(const ref of s.references)if(ref.lotId&&!lots.has(ref.lotId))invalid('Propietario sin solar válido.');for(const id of s.paymentIds)if(!historyIds.has(id))invalid('Ficha con abono inexistente.');}
+ for(const l of state.lots){if(l.ownerClientId&&!clients.has(l.ownerClientId))invalid('Solar con propietario inexistente.');if(l.ownerClientId){const sale=state.sales.find(s=>s.lotId===l.id);if(sale&&sale.clientId!==l.ownerClientId)invalid('El propietario no coincide con la venta existente.');}}
  for(const e of state.cashEntries||[]){if(!['income','expense'].includes(e.kind))invalid('Tipo de movimiento financiero inválido.');cents(e.amount,'Movimiento financiero',1);date(e.date,'Fecha del movimiento');}
 }
 export function encode(state){
@@ -72,11 +75,11 @@ export async function onRequest({request,env}){
   const user=await actor(request,db);if(!user)return json({error:'La sesión terminó. Vuelve a iniciar sesión; tus cambios se conservan.'},401);
   if(user.role!=='admin'&&(user.role!=='sales'||request.method!=='GET'))return json({error:'Se requiere una cuenta administradora para modificar datos.'},403);
   if(request.method==='GET'&&new URL(request.url).searchParams.get('revision')==='1'){const meta=await db.prepare('SELECT revision FROM app_meta WHERE id=1').first();return json({revision:meta.revision,user});}
-  if(request.method==='GET'){const s=await snapshot(db);return json({revision:s.revision,state:user.role==='sales'?sellerCatalog(decode(s.rows)):decode(s.rows),user});}
+  if(request.method==='GET'){const s=await snapshot(db);return json({revision:s.revision,state:user.role==='sales'?sellerCatalog(correctConfirmedBlocks(decode(s.rows))):correctConfirmedBlocks(decode(s.rows)),user});}
   if(request.method!=='PUT')return json({error:'Método no permitido.'},405);
   const {state,revision,mutation}=await body(request,limit);
   if(!Number.isSafeInteger(revision)||revision<0||typeof mutation!=='string'||!(/^[a-f0-9-]{36}$/).test(mutation))invalid('Revisión o solicitud inválida.');
-  validate(state);const digest=await hash(JSON.stringify(state));
+  correctConfirmedBlocks(state);validate(state);const digest=await hash(JSON.stringify(state));
   const prior=await db.prepare('SELECT revision,digest FROM app_mutations WHERE id=?').bind(mutation).first();
   if(prior)return prior.digest===digest?json({revision:prior.revision,mutation}):json({error:'La solicitud ya existe con otros datos.'},409);
   const old=await snapshot(db);if(old.revision!==revision)return json({error:'Otra sesión guardó cambios. Descarga tu respaldo pendiente y vuelve a cargar los datos del servidor antes de continuar.'},409);

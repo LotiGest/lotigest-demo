@@ -13,3 +13,13 @@ El punto GPS identifica la ubicación de la residencial; no equivale a un levant
 Administradores pueden crear usuarios de ventas en Configuración. Estos usuarios ven el catálogo y fichas comerciales con medidas y precios; el servidor excluye clientes, saldos, cobros e historial privado. La ficha para mostrar al cliente omite datos del propietario.
 
 El primer uso sin conexión requiere abrir e iniciar sesión antes con internet. Los documentos consultados se conservan en la caché local del dispositivo; los cambios pendientes se sincronizan al reconectar. No borres los datos del navegador mientras haya pendientes. Un conflicto de edición conserva la copia pendiente para revisión.
+
+## Fichas de propietarios
+
+En Residenciales, solares y cobros, **Propietarios de los Excel** presenta las fichas individuales importadas. El propietario se vincula al solar existente por su código único, y aparece al abrirlo desde el mapa. No se crea otro terreno ni se sustituye una venta existente.
+
+Cuando bloque y número coinciden con varios terrenos, la ficha conserva los candidatos. **Ver ficha y abonos → Confirmar solar exacto** permite al administrador seleccionar el código después de revisar el plano. Las contradicciones entre el nombre del archivo y las celdas quedan indicadas. Un importe que cubre varios solares se conserva una sola vez en la ficha y requiere distribución confirmada antes de contabilizarlo.
+
+Las primas, abonos y saldos documentados se conservan con su archivo y fila de origen. El historial no es un ingreso nuevo ni una cuota calculada. Las fechas o montos inválidos permanecen señalados para revisión; los originales no se corrigen por suposición. Importar otra vez una ficha idéntica no duplica datos.
+
+La corrección confirmada de las referencias del plano para los grupos I (20 solares) y L (12 solares) se aplica al leer y guardar, manteniendo intactos sus códigos.
