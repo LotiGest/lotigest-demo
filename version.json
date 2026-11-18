@@ -1,4 +1,4 @@
 {
-  "version": "0.22.11",
-  "notes": "Conciliación segura de los 542 abonos históricos: vinculaciones reales de cliente, etapa, bloque y solar; visualización del mes de ingreso por año en Abonos y Fichas; opción de confirmar mensualidad individual con auditoría, sin crear cuotas ni pagos duplicados. Excel incluye mes de pago, mensualidad y estado. Corrección visual de inicio de sesión móvil: formulario en una columna, logos centrados, sin superposición y desplazamiento vertical."
+  "version": "0.22.12",
+  "notes": "Corrección visual para teléfonos: menú lateral completamente oculto por defecto; al pulsar el botón abre un cajón temporal con cierre y fondo, dejando Terrenos, Abonos, paneles y encabezados a todo el ancho. La interfaz de escritorio y los datos de usuarios, terrenos y cobros se conservan."
 }
