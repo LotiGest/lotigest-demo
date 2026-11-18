@@ -72,11 +72,54 @@ test('calendario histórico permite ver y seleccionar meses de 2024 aunque no ex
   assert.equal(app.d.querySelectorAll('#pm-history-calendar-body [data-pm-historical-month]').length,12);
   const feb=app.d.querySelector('[data-pm-historical-month="2024-02"]');
   assert.ok(feb.classList.contains('paid'),'Febrero registra abono asociado');
+  const historyTable=app.d.querySelector('.pm-reconcile-table');
+  assert.ok(historyTable,'se muestra el detalle de cliente, solar, fecha y monto');
+  assert.match(historyTable.textContent,/2024-02-18/);
+  assert.match(historyTable.textContent,/Etapa 1/);
+  assert.match(historyTable.textContent,/2,500/);
+  assert.match(historyTable.textContent,/2024-02/);
   const jan=app.d.querySelector('[data-pm-historical-month="2024-01"]');
   assert.ok(jan.classList.contains('none'),'Enero sin contrato no debe figurar como pagado ni en mora');
   feb.click();
   assert.equal(app.d.querySelector('#manual-history-form [name=period]').value,'2024-02');
   assert.equal(app.d.querySelector('[data-pm-historical-month="2024-02"]').getAttribute('aria-pressed'),'true');
+  assert.deepEqual(server.errors,[]);
+ }finally{app.close();}
+});
+
+
+test('abonos históricos importados se consultan por cliente y solar aunque no se seleccionen casillas',async()=>{
+ const server=await setup();let app=boot(server);
+ try{
+  await login(app,server);
+  const record=await server.read(),rid=record.state.currentResidence||record.state.residences[0].id;
+  const clientId='HIST-ALL-CLIENT',ids=['HIST-ALL-L1','HIST-ALL-L2'];
+  record.state.clients.push({id:clientId,name:'CLIENTE CON DOS SOLARES',identity:'0801199999998'});
+  for(let n=0;n<2;n++)record.state.lots.push({
+    id:ids[n],residenceId:rid,stage:1,block:'Z',sourceNumber:String(n+1),
+    status:'sold',ownerClientId:clientId,area:170,price:50000
+  });
+  record.state.historicalPayments??=[];record.state.historicalContracts??=[];
+  record.state.historicalPayments.push({
+    id:'HP-AUTOMATIC-1',contractId:'HC-AUTOMATIC-1',residenceId:rid,clientId,
+    clientName:'CLIENTE CON DOS SOLARES',stage:1,block:'Z',lot:'1',lotId:ids[0],
+    date:'2024-06-20',amountCents:150000,type:'ABONO',issues:[],
+    references:[{stage:1,block:'Z',lot:'1',lotId:ids[0],candidateLotIds:[ids[0]]}]
+  });
+  const response=await server.write({state:record.state,revision:record.revision,mutation:crypto.randomUUID()});
+  assert.equal(response.status,200);
+  app.close();app=boot(server);
+  await until(()=>app.d.querySelector('[data-page=contracts]'),'recuperar clientes');
+  app.click('[data-page=contracts]');app.click('[data-action=manual-history-picker]');
+  app.input('#manual-history-search','CLIENTE CON DOS SOLARES');
+  app.click('[data-action=manual-history-person]');
+  assert.ok(app.d.querySelector('#manual-history-form'));
+  assert.equal(app.d.querySelectorAll('#manual-history-form [data-manual-lot]:checked').length,0,'no seleccionar automáticamente solares para cobrar');
+  app.change('#pm-history-year-select','2024');
+  const details=app.d.querySelector('.pm-reconcile-table').textContent;
+  assert.match(details,/2024-06-20/);assert.match(details,/1,500/);
+  assert.match(details,/Sin confirmar/);
+  assert.ok(app.d.querySelector('[data-action="ledger-row-edit"][data-id="HP-AUTOMATIC-1"]'),'permite verificar la cuota real');
   assert.deepEqual(server.errors,[]);
  }finally{app.close();}
 });
