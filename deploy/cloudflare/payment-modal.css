@@ -1,0 +1,103 @@
+/* LOTIGEST · Registrar pago / abono. Diseño responsivo inspirado en el formulario aprobado. */
+#modal-root .modal-cover:has(.lg-payment-modern){z-index:2500;padding:18px;align-items:center;justify-content:center;background:rgba(4,21,14,.75)}
+#modal-root .lg-payment-modern{display:flex;flex-direction:column;width:min(1120px,calc(100vw - 36px))!important;max-width:1120px!important;max-height:min(94dvh,1050px);overflow:hidden;box-sizing:border-box;color:#162c23!important;background:linear-gradient(145deg,#f7fafc,#eef3f0)!important;border-radius:25px;border:1px solid #cad9d0;box-shadow:0 24px 85px #051b1670}
+#modal-root .lg-payment-modern .modal-header{background:transparent!important;border-bottom:1px solid #d7e3dc;padding:20px 23px;flex:none;display:flex;align-items:center}
+#modal-root .lg-payment-modern .modal-header>div{padding-left:64px;position:relative}
+#modal-root .lg-payment-modern .modal-header>div:before{content:"▣";position:absolute;left:0;top:-2px;width:50px;height:50px;border-radius:15px;background:linear-gradient(140deg,#33cc45,#007c36);display:grid;place-items:center;color:#fff;font-size:27px;box-shadow:0 8px 18px #198a4c33}
+#modal-root .lg-payment-modern .modal-header h2{color:#14271d;font-size:clamp(19px,2.2vw,26px);font-weight:850;margin:0}
+#modal-root .lg-payment-modern .modal-header p{font-size:13px;color:#687a70;margin:5px 0 0}
+#modal-root .lg-payment-modern .modal-close{background:#f9fbfc;color:#26392f;border:1px solid #cedbd4;border-radius:12px;width:43px;height:43px;flex:none}
+#modal-root .lg-payment-modern .modal-content{padding:14px 18px 10px;overflow:auto;flex:1;min-height:0;background:transparent;color:#162d23!important}
+#modal-root .lg-payment-modern .modal-footer{display:flex;justify-content:stretch;gap:12px;border-top:1px solid #dce7de;padding:15px 18px;background:#f8faf9;flex:none}
+#modal-root .lg-payment-modern .modal-footer>.btn{flex:1;min-height:49px;font-weight:750;border-radius:11px;white-space:normal}
+#modal-root .lg-payment-modern .modal-footer .pm-save{background:linear-gradient(90deg,#057f39,#00a746);border-color:#07823b;color:white}
+#modal-root .lg-payment-modern .modal-footer .pm-receipt{background:#f6fcf8;border:2px solid #1e8145;color:#176c34}
+#modal-root .lg-payment-modern :is(input,select,textarea){color:#233d2d;background:#fff;border:1px solid #c8d5ce;min-height:41px;border-radius:9px;max-width:100%;box-sizing:border-box}
+#modal-root .lg-payment-modern :is(input,select,textarea):focus-visible{outline:2px solid #48a968;outline-offset:1px}
+#modal-root .lg-payment-modern :is(label,p,small,strong,h3,span){color:inherit}
+#modal-root .lg-payment-modern label{font-size:13px;font-weight:650}
+#modal-root .lg-payment-modern .pm-shell{display:grid;gap:12px}
+#modal-root .lg-payment-modern .pm-clientbar{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+#modal-root .lg-payment-modern .pm-clientbox{display:flex;gap:13px;align-items:center;min-height:77px;padding:13px 17px;border:1px solid #e0e8e3;background:#fff;border-radius:14px;box-shadow:0 2px 9px #17442b0b;min-width:0}
+#modal-root .lg-payment-modern .pm-clientbox svg{color:#229344;width:25px;height:25px;flex:none}
+#modal-root .lg-payment-modern .pm-clientbox small{display:block;font-size:12px;font-weight:650;color:#56695c}
+#modal-root .lg-payment-modern .pm-clientbox strong{font-size:17px;font-weight:850;color:#19291f;display:block;overflow-wrap:anywhere}
+#modal-root .lg-payment-modern .pm-clientbox p{font-size:12px;color:#526b59;margin:3px 0 0}
+#modal-root .lg-payment-modern .pm-tag{display:inline-flex;align-items:center;white-space:normal;background:#ddf2e3;border-radius:8px;padding:5px 8px;margin:2px 4px 2px 0;color:#185a30;font-size:12px;font-weight:750}
+#modal-root .lg-payment-modern .pm-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:12px;align-items:stretch}
+#modal-root .lg-payment-modern .pm-card{background:#fff;border:1px solid #dce5df;border-radius:15px;overflow:hidden;box-shadow:0 2px 12px #17442b08;min-width:0}
+#modal-root .lg-payment-modern .pm-card h3{background:linear-gradient(90deg,#f8fafb,#eef3f7);margin:0;padding:14px 16px;font-size:17px;font-weight:850;color:#26362c;border-bottom:1px solid #e1e8e3;display:flex;gap:10px;align-items:center}
+#modal-root .lg-payment-modern .pm-card h3 svg{color:#16803f}
+#modal-root .lg-payment-modern .pm-card-body{padding:13px 15px}
+#modal-root .lg-payment-modern .pm-summary-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 8px;border-bottom:1px solid #e9eeeb;font-size:13px}
+#modal-root .lg-payment-modern .pm-summary-row:last-child{border-bottom:0}
+#modal-root .lg-payment-modern .pm-summary-row strong{font-size:15px;text-align:right;white-space:nowrap}
+#modal-root .lg-payment-modern .pm-summary-row.pm-warning{background:#fff0ef;border-radius:9px;color:#b31d22}
+#modal-root .lg-payment-modern .pm-summary-row.pm-good{background:#e0f8e7;border-radius:9px;color:#145c30}
+#modal-root .lg-payment-modern .pm-fields{display:grid;grid-template-columns:1fr 1fr;gap:11px 12px}
+#modal-root .lg-payment-modern .pm-fields>label,#modal-root .lg-payment-modern .pm-fields>.pm-field{display:block;min-width:0}
+#modal-root .lg-payment-modern .pm-fields input,#modal-root .lg-payment-modern .pm-fields select{width:100%}
+#modal-root .lg-payment-modern .pm-span-2{grid-column:1/-1}
+#modal-root .lg-payment-modern .pm-method-buttons{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+#modal-root .lg-payment-modern .pm-method-buttons button{min-width:0;min-height:57px;display:flex;align-items:center;justify-content:center;gap:7px;flex-direction:column;background:#f5f7f8;color:#27382e;border:1px solid #cbd7d0;border-radius:10px;font-size:12px;font-weight:750;cursor:pointer}
+#modal-root .lg-payment-modern .pm-method-buttons button[aria-pressed=true]{background:linear-gradient(135deg,#077b3b,#03a642);color:#fff;border-color:#047c38;box-shadow:0 4px 10px #09934433}
+#modal-root .lg-payment-modern .pm-searchbox{border:1px solid #dce6df;background:#fff;border-radius:14px;padding:11px 16px}
+#modal-root .lg-payment-modern .pm-searchbox:has(#multi-payment-results:empty){display:none}
+#modal-root .lg-payment-modern .pm-searchbox input{width:100%;margin-top:6px}
+#modal-root .lg-payment-modern .pm-searchbox .btn{color:#23452f}
+#modal-root .lg-payment-modern .pm-selected{background:#f6faf7;border:1px solid #dfe9e2;border-radius:12px;padding:10px}
+#modal-root .lg-payment-modern .pm-selected.hidden-single{display:none}
+#modal-root .lg-payment-modern .pm-selected :is(.card,.btn){color:#213a2a}
+#modal-root .lg-payment-modern .pm-selected input{width:100%}
+#modal-root .lg-payment-modern .pm-slot label{display:block}
+#modal-root .lg-payment-modern .pm-slot input{width:100%;font-size:17px;font-weight:800}
+#modal-root .lg-payment-modern .pm-calendar{margin-top:1px}
+#modal-root .lg-payment-modern .pm-calendar-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:10px 13px}
+#modal-root .lg-payment-modern .pm-calendar-top h3{margin:0;border:0;padding:0;background:transparent;font-size:17px}
+#modal-root .lg-payment-modern .pm-legend{display:flex;align-items:center;gap:12px;font-size:11px;flex-wrap:wrap}
+#modal-root .lg-payment-modern .pm-dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:4px}
+#modal-root .lg-payment-modern .pm-dot.paid{background:#13a254}.pm-dot.late{background:#e34f56}.pm-dot.pending{background:#ebb339}
+#modal-root .lg-payment-modern .pm-calendar-body{padding:12px 14px}
+#modal-root .lg-payment-modern .pm-progress{display:flex;justify-content:space-around;flex-wrap:wrap;gap:10px;background:#f2f7f4;border-radius:12px;padding:14px 10px;margin-bottom:10px}
+#modal-root .lg-payment-modern .pm-progress span{font-size:12px;color:#5c6d60}
+#modal-root .lg-payment-modern .pm-progress strong{display:block;font-size:16px;color:#173e28}
+#modal-root .lg-payment-modern .pm-yearbar{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px}
+#modal-root .lg-payment-modern .pm-yearbar button{border:1px solid #d6e4dc;border-radius:9px;min-height:32px;min-width:36px;background:#f4f7f5;color:#183d2c;font-weight:800}
+#modal-root .lg-payment-modern .pm-yearbar .pm-year{background:#198344;color:#fff;padding:5px 20px}
+#modal-root .lg-payment-modern .pm-months{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:5px}
+#modal-root .lg-payment-modern .pm-month{display:grid;place-items:center;gap:5px;min-height:62px;border-radius:9px;border:1px solid #e0e9e1;color:#53665a;background:#f8faf8;text-align:center;padding:4px}
+#modal-root .lg-payment-modern .pm-month strong{font-size:12px}
+#modal-root .lg-payment-modern .pm-month small{font-size:15px;font-weight:850}
+#modal-root .lg-payment-modern .pm-month.paid{background:#e4f7e9;color:#16733a}.lg-payment-modern .pm-month.late{background:#fff0ef!important;color:#ae353f!important}.lg-payment-modern .pm-month.pending{background:#fff8e4;color:#a37012}.lg-payment-modern .pm-month.mixed{background:#eef0ff;color:#6564b8}
+#modal-root .lg-payment-modern .pm-month.current{border:2px solid #249e50}
+#modal-root .lg-payment-modern .pm-calendar-note{font-size:12px;color:#65786b}
+#modal-root .lg-payment-modern .pm-ocr details{border:1px dashed #cbd9d1;background:#f8fbf9;padding:10px 12px;border-radius:10px}
+#modal-root .lg-payment-modern .pm-ocr summary{cursor:pointer;font-size:12px;font-weight:750}
+#modal-root .lg-payment-modern .pm-ocr fieldset{margin-top:8px!important}
+#modal-root .lg-payment-modern .pm-owner-allocations{max-height:280px;overflow-y:auto;border-radius:10px}
+#modal-root .lg-payment-modern .pm-owner-allocations .card{background:#f8faf9;color:#25402c;border:1px solid #e2eee5}
+#modal-root .lg-payment-modern .pm-help{font-size:12px;color:#697b70;line-height:1.5}
+#modal-root .lg-payment-modern .pm-error{color:#b62931;font-size:13px;font-weight:600}
+@media(max-width:900px){
+ #modal-root .lg-payment-modern .pm-clientbar,#modal-root .lg-payment-modern .pm-grid{grid-template-columns:1fr}
+ #modal-root .lg-payment-modern .pm-months{grid-template-columns:repeat(6,minmax(0,1fr))}
+ #modal-root .lg-payment-modern .pm-fields{grid-template-columns:1fr 1fr}
+}
+@media(max-width:560px){
+ #modal-root .modal-cover:has(.lg-payment-modern){padding:5px;align-items:center}
+ #modal-root .lg-payment-modern{width:100%!important;max-height:calc(100dvh - 10px)!important;border-radius:17px}
+ #modal-root .lg-payment-modern .modal-header{padding:12px 13px}
+ #modal-root .lg-payment-modern .modal-header>div{padding-left:48px}
+ #modal-root .lg-payment-modern .modal-header>div:before{width:37px;height:37px;font-size:19px;border-radius:11px;top:2px}
+ #modal-root .lg-payment-modern .modal-header h2{font-size:18px}
+ #modal-root .lg-payment-modern .modal-content{padding:9px}
+ #modal-root .lg-payment-modern .pm-fields{grid-template-columns:1fr}
+ #modal-root .lg-payment-modern .pm-span-2{grid-column:1}
+ #modal-root .lg-payment-modern .pm-clientbox{padding:10px;min-height:60px}
+ #modal-root .lg-payment-modern .pm-calendar-body{padding:10px 7px}
+ #modal-root .lg-payment-modern .pm-months{grid-template-columns:repeat(4,minmax(0,1fr))}
+ #modal-root .lg-payment-modern .pm-month{min-height:52px}
+ #modal-root .lg-payment-modern .modal-footer{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:10px}
+ #modal-root .lg-payment-modern .modal-footer .pm-cancel{grid-column:1/-1;order:3}
+ #modal-root .lg-payment-modern .modal-footer>.btn{min-height:45px;font-size:12px}
+}
