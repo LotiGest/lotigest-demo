@@ -110,6 +110,8 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace('data-page="settings">⚙ Configuración</button>', 'data-page="settings">⚙ Configuración</button><button class="lg-popup-action" type="button" data-action="cloud-manual-update">↻ Actualizar LOTIGEST</button>')
     // La ventana de actualización antigua y su revisión periódica se sustituyen por el botón manual.
     .replace(/<script id="lotigest-update-checker">[\s\S]*?<\/script>/, '')
+    // Versión visible para distinguir una instalación anterior de la publicación nueva.
+    .replace('<span>GRUPO H / LOTIGEST</span>', '<span>GRUPO H / LOTIGEST <small class="lg-version">v${CLOUD_BUILD_VERSION}</small></span>')
     .replace('Acceso de prueba', 'Acceso privado')
     .replace('Prueba de interfaz', 'Servidor Cloudflare D1')
     .replace('</head>', '<style id="lg-sidebar-collapse-fix">'+sidebarCollapseCss+'</style></head>')
