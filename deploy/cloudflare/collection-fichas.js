@@ -27,15 +27,35 @@ function collectionPaymentRows(){
  for(const p of db.ownerPayments||[]){if(p.voidedAt)continue;for(const a of p.allocations||[])add(p,a.references||[],p.residenceId,p.clientId,'Abono',a.amountCents/100,p.concept||'');}
  return out.sort((a,b)=>String(a[0]).localeCompare(String(b[0]))||a[1].localeCompare(b[1]));
 }
-function paymentExcelBytes(rows,headers=null){
- const xml=s=>String(s).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
- const grid=[headers||['Fecha','Cliente','Identidad','Residencial','Etapa','Bloque','Solar(es)','Tipo de pago','Monto (L)','Método','Recibo / Referencia','Observaciones'],...rows];
+function paymentExcelBytes(rows,headers=null,additionalSheets=[]){
+ const xml=s=>String(s??'').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+ const paymentHeaders=['Fecha','Cliente','Identidad','Residencial','Etapa','Bloque','Solar(es)','Tipo de pago','Monto (L)','Método','Recibo / Referencia','Observaciones'];
+ const sheets=[{name:'Primas y abonos',rows:[headers||paymentHeaders,...rows]},...additionalSheets];
  const column=n=>{let out='';for(n++;n;n=Math.floor((n-1)/26))out=String.fromCharCode(65+(n-1)%26)+out;return out;};
- const sheet='<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="'+grid[0].length+'" width="24" customWidth="1"/></cols><sheetData>'+grid.map((r,i)=>'<row r="'+(i+1)+'">'+r.map((v,j)=>'<c r="'+column(j)+(i+1)+'" '+(typeof v==='number'&&Number.isFinite(v)?'t="n"><v>'+v+'</v>':'t="inlineStr"><is><t xml:space="preserve">'+xml(v??'')+'</t></is>')+'</c>').join('')+'</row>').join('')+'</sheetData><autoFilter ref="A1:'+column(grid[0].length-1)+grid.length+'"/></worksheet>';
- const files={'[Content_Types].xml':'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>','_rels/.rels':'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>','xl/workbook.xml':'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Primas y abonos" sheetId="1" r:id="rId1"/></sheets></workbook>','xl/_rels/workbook.xml.rels':'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>','xl/worksheets/sheet1.xml':sheet};
- const enc=new TextEncoder(),parts=[],central=[];let offset=0;const header=(size,values)=>{const a=new Uint8Array(size),v=new DataView(a.buffer);for(const [at,n,bytes] of values)bytes===2?v.setUint16(at,n,true):v.setUint32(at,n,true);return a;};
- for(const [path,content] of Object.entries(files)){const name=enc.encode(path),data=enc.encode(content);let crc=0xffffffff;for(const b of data){crc^=b;for(let k=0;k<8;k++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}crc=(crc^0xffffffff)>>>0;const local=header(30,[[0,0x04034b50,4],[4,20,2],[14,crc,4],[18,data.length,4],[22,data.length,4],[26,name.length,2]]);parts.push(local,name,data);central.push(header(46,[[0,0x02014b50,4],[4,20,2],[6,20,2],[16,crc,4],[20,data.length,4],[24,data.length,4],[28,name.length,2],[42,offset,4]]),name);offset+=30+name.length+data.length;}
- const size=central.reduce((n,a)=>n+a.length,0);parts.push(...central,header(22,[[0,0x06054b50,4],[8,5,2],[10,5,2],[12,size,4],[16,offset,4]]));const result=new Uint8Array(parts.reduce((n,a)=>n+a.length,0));let at=0;for(const a of parts){result.set(a,at);at+=a.length;}return result;
+ const buildSheet=grid=>'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="'+grid[0].length+'" width="24" customWidth="1"/></cols><sheetData>'+grid.map((row,i)=>'<row r="'+(i+1)+'">'+row.map((v,j)=>'<c r="'+column(j)+(i+1)+'" '+(typeof v==='number'&&Number.isFinite(v)?'t="n"><v>'+v+'</v>':'t="inlineStr"><is><t xml:space="preserve">'+xml(v)+'</t></is>')+'</c>').join('')+'</row>').join('')+'</sheetData><autoFilter ref="A1:'+column(grid[0].length-1)+grid.length+'"/></worksheet>';
+ const files={
+  '[Content_Types].xml':'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+sheets.map((_,i)=>'<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join('')+'</Types>',
+  '_rels/.rels':'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+  'xl/workbook.xml':'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+sheets.map((sheet,i)=>'<sheet name="'+xml(sheet.name)+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>').join('')+'</sheets></workbook>',
+  'xl/_rels/workbook.xml.rels':'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+sheets.map((_,i)=>'<Relationship Id="rId'+(i+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>').join('')+'</Relationships>'
+ };
+ for(let i=0;i<sheets.length;i++)files['xl/worksheets/sheet'+(i+1)+'.xml']=buildSheet(sheets[i].rows);
+ const enc=new TextEncoder(),parts=[],central=[];let offset=0;
+ const header=(size,values)=>{const a=new Uint8Array(size),v=new DataView(a.buffer);for(const [at,n,bytes] of values)bytes===2?v.setUint16(at,n,true):v.setUint32(at,n,true);return a;};
+ for(const [path,content] of Object.entries(files)){
+  const name=enc.encode(path),data=enc.encode(content);let crc=0xffffffff;
+  for(const b of data){crc^=b;for(let k=0;k<8;k++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}
+  crc=(crc^0xffffffff)>>>0;
+  const local=header(30,[[0,0x04034b50,4],[4,20,2],[14,crc,4],[18,data.length,4],[22,data.length,4],[26,name.length,2]]);
+  parts.push(local,name,data);
+  central.push(header(46,[[0,0x02014b50,4],[4,20,2],[6,20,2],[16,crc,4],[20,data.length,4],[24,data.length,4],[28,name.length,2],[42,offset,4]]),name);
+  offset+=30+name.length+data.length;
+ }
+ const centralSize=central.reduce((n,a)=>n+a.length,0);
+ parts.push(...central,header(22,[[0,0x06054b50,4],[8,files&&Object.keys(files).length,2],[10,Object.keys(files).length,2],[12,centralSize,4],[16,offset,4]]));
+ const result=new Uint8Array(parts.reduce((n,a)=>n+a.length,0));let at=0;
+ for(const a of parts){result.set(a,at);at+=a.length;}
+ return result;
 }
 const paymentExportCollectionPage=collectionPage;
 collectionPage=function(){return paymentExportCollectionPage().replace(/(<button[^>]+data-action="debt-csv"[^>]*>)/,'<button class="btn btn-primary" data-action="payments-excel">Exportar Excel de primas y abonos</button>$1');};
