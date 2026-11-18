@@ -67,6 +67,11 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace('function financeMovements(){', 'function baseFinanceMovements(){')
     .replace('function totals(){', 'function baseTotals(){')
     .replace('function paymentReceiptPreview(id){', 'function basePaymentReceiptPreview(id){')
+    // No salir de Cuotas y pagos al registrar recibos; el comprobante abre sobre el panel actual.
+    .replace("paymentDraft=null;closeModal();filter='';page='receipts';render();paymentReceiptPreview(payments[0].id);",
+      "paymentDraft=null;closeModal();filter='';render();paymentReceiptPreview(payments[0].id);")
+    .replace("db=next;closeModal();filter='';page='receipts';render();toast('Pago registrado y recibo creado');",
+      "db=next;closeModal();filter='';render();toast('Pago registrado y recibo creado');")
     .replace('return db.sales.filter(s=>getLot(s.lotId)?.residenceId===paymentDraft?.residenceId&&balance(s)>.009)', 'return db.sales.filter(s=>getLot(s.lotId)?.residenceId===paymentDraft?.residenceId&&(!paymentDraft.clientId||s.clientId===paymentDraft.clientId)&&balance(s)>.009)')
     .replace('function viewLot(id){', 'function baseViewLot(id){')
     .replace(/\$\{list\.filter\(x=>x\.lot\.residenceId===st\)\.map\(x=>`[\s\S]*?\.join\(''\)\}/, '${collectionSolarCards(list.filter(x=>x.lot.residenceId===st),st)}')
