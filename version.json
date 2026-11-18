@@ -1,4 +1,4 @@
 {
-  "version": "0.21.8",
-  "notes": "Los módulos de la barra lateral muestran ícono y nombre de manera predeterminada en computadora. Se conserva la opción de contraer; el menú móvil permanece igual."
+  "version": "0.21.9",
+  "notes": "Corregido botón para expandir y minimizar el menú lateral en computadora y celular: íconos y nombres al expandir, solo íconos al minimizar; la selección queda guardada."
 }
