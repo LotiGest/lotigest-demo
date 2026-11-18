@@ -1,4 +1,4 @@
 {
-  "version": "0.22.4",
-  "notes": "Corrección de ventana de abonos en todos los accesos (cuotas, propietarios, residenciales y búsqueda), con versión visible; Actualizar LOTIGEST fuerza una recarga de red a petición del usuario sin perder abonos pendientes."
+  "version": "0.22.5",
+  "notes": "Se rediseñó específicamente Contratos → Registrar prima o abono histórico: cliente, solar(es), prima registrada, calendario únicamente de meses identificados, pago en L, efectivo/transferencia/tarjeta, OCR y recibo QR. Sin inventar mora; no redirige al guardar y evita doble envío."
 }
