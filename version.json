@@ -1,1 +1,1 @@
-{"version": "0.20.1", "notes": "Corrección según PDF: etapa 1, bloque I con 8 solares y J con 5; posiciones y referencias de terrenos conservadas."}
+{"version":"0.20.2","notes":"Exportar Excel de primas y abonos desde Residenciales, solares y cobros, por residencial y etapa, sin duplicar pagos contabilizados."}
