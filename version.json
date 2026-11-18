@@ -1,1 +1,1 @@
-{"version": "0.20.0", "notes": "Mapa por etapas según lindero del PDF. Etapa, bloque y solar visibles en fichas e inventario; recuperación de cuatro solares omitidos, sin alterar pagos."}
+{"version": "0.20.1", "notes": "Corrección según PDF: etapa 1, bloque I con 8 solares y J con 5; posiciones y referencias de terrenos conservadas."}
