@@ -93,9 +93,20 @@ function pmFields(grid,form){
  const date=find('date'),method=find('method'),concept=find('concept'),ref=find('receiptRef');
  const fields=pmNode('div','pm-fields');
  if(method){
+  const native=method.querySelector('[name="method"]');
+  let select=native;
+  if(native?.tagName!=='SELECT'){
+   // El formulario histórico usa un campo texto; sustituirlo por valores controlados.
+   select=pmNode('select');select.name='method';select.required=true;
+   for(const value of ['Efectivo','Transferencia','Tarjeta']){
+    const option=pmNode('option','',value);option.value=value;select.append(option);
+   }
+   select.value=['Efectivo','Transferencia','Tarjeta'].includes(native?.value)?native.value:'Efectivo';
+   native?.replaceWith(select);
+  }
   const outer=pmNode('div','pm-span-2');
   const label=pmNode('label','','Tipo de pago *');
-  outer.append(label,pmMethodButtons(method.querySelector('select')));
+  outer.append(label,pmMethodButtons(select));
   method.style.display='none';outer.append(method);fields.append(outer);
  }
  if(date)fields.append(date);
