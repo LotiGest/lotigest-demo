@@ -59,7 +59,7 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace('function receiptsPage(){', 'function baseReceiptsPage(){')
     // Conservar folio del recibo original y proteger contra importación duplicada.
     .replace("const groupId=uid('RC'),next=JSON.parse(JSON.stringify(db)),stamp=new Date().toISOString();",
-      "const originalRef=String(d.receiptRef||'').trim();if(originalRef.length>80)throw Error('Folio demasiado largo.');if(originalRef&&db.payments.some(p=>String(p.receiptReference||'').trim().toUpperCase()===originalRef.toUpperCase()&&getLot(getSale(p.saleId)?.lotId)?.residenceId===residence().id))throw Error('Este folio ya existe en un pago de esta residencial. Revisa el historial.');const groupId=uid('RC'),next=JSON.parse(JSON.stringify(db)),stamp=new Date().toISOString();")
+      "const originalRef=String(d.receiptRef||'').trim();if(originalRef.length>80)throw Error('Folio demasiado largo.');if(originalRef&&db.payments.some(p=>String(p.receiptReference||'').trim().toUpperCase()===originalRef.toUpperCase()&&getLot(getSale(p.saleId)?.lotId)?.residenceId===residence().id))throw Error('Este folio ya existe en un pago de esta residencial. Revisa el historial.');if(originalRef&&(db.ownerPayments||[]).some(p=>p.residenceId===residence().id&&String(p.receiptReference||'').trim().toUpperCase()===originalRef.toUpperCase()))throw Error('Este folio ya existe entre los abonos de propietarios.');if(originalRef&&(db.historicalPayments||[]).some(p=>p.residenceId===residence().id&&String(p.receiptReference||p.sourceRaw?.receiptRef||p.sourceRaw?.folio||'').trim().toUpperCase()===originalRef.toUpperCase()))throw Error('El folio ya existe en el historial importado.');const groupId=uid('RC'),next=JSON.parse(JSON.stringify(db)),stamp=new Date().toISOString();")
     .replace("method:String(d.method||'').trim().slice(0,80),recordedAt:stamp",
       "method:String(d.method||'').trim().slice(0,80),receiptReference:originalRef,recordedAt:stamp")
 
@@ -70,6 +70,7 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace('function viewLot(id){', 'function baseViewLot(id){')
     .replace(/\$\{list\.filter\(x=>x\.lot\.residenceId===st\)\.map\(x=>`[\s\S]*?\.join\(''\)\}/, '${collectionSolarCards(list.filter(x=>x.lot.residenceId===st),st)}')
     .replace('Los cuadros muestran el inventario por residencial; no representan su ubicación geográfica.', 'Cada ficha reúne al propietario, sus solares y sus pagos. Las referencias de Excel con código pendiente se agrupan sin modificar el inventario del mapa.')
+        .replace("payments:['Cuotas y pagos','calendar'],", "payments:['Cuotas y pagos','calendar'],'ocr-abonos':['Pagos de abonos OCR','calendar'],")
     .replace('function render(){', 'function renderBase(){')
     .replace('function openSolarWindow(lotId){', "function openSolarWindow(lotId){if(cloudUser?.role==='sales'){lotClientCard(lotId);return;}")
     .replace('function baseViewLot(id){', "function baseViewLot(id){if(cloudUser?.role==='sales'){lotClientCard(id);return;}")
