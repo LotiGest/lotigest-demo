@@ -1,4 +1,4 @@
 {
-  "version": "0.22.7",
-  "notes": "Calendario de meses históricos visible arriba de Abonos: doce meses por año, selector de años anteriores y selección de mes tocándolo. Distingue abonos asociados, pagos con fecha sin mes y registros importados por revisar, sin inventar cuotas ni mora."
+  "version": "0.22.8",
+  "notes": "En Abonos se identifican clientes sin prima registrada, primas incompletas y registros pendientes de verificación; filtro de propietarios sin prima y alerta roja con faltante exacto solo cuando existe un contrato. No se duplican primas importadas ni se alteran abonos existentes."
 }
