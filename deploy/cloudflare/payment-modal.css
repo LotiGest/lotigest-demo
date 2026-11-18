@@ -219,3 +219,17 @@
  #modal-root .lg-payment-modern .pm-historical-yearbar{gap:7px}
  #modal-root .lg-payment-modern .pm-progress{gap:8px}
 }
+
+
+/* Prima pendiente: diferenciada de una prima aún no documentada. */
+#modal-root .lg-payment-modern .pm-prima-alert{display:grid;gap:5px;margin:0 0 12px;padding:13px 14px;border-radius:11px;font-size:14px;line-height:1.4}
+#modal-root .lg-payment-modern .pm-prima-alert strong{font-weight:850;font-size:clamp(14px,1.7vw,17px)}
+#modal-root .lg-payment-modern .pm-prima-alert small{display:block;font-weight:550;font-size:12px}
+#modal-root .lg-payment-modern .pm-prima-unpaid{background:#ffe7e7;border:2px solid #e89598;color:#a21c2c}
+#modal-root .lg-payment-modern .pm-prima-ok{background:#e0f8e5;border:1px solid #9cd8a7;color:#137438}
+#modal-root .lg-payment-modern .pm-prima-unknown{background:#fff5df;border:1px solid #e2c485;color:#84631e}
+#modal-root .lg-payment-modern .pm-prima-filter{display:flex;gap:9px;align-items:center;padding:9px 12px;margin:6px 0 10px;background:#fff3f3;border:1px solid #f0d0d0;border-radius:10px;font-size:13px;color:#8e2530;font-weight:750;cursor:pointer}
+#modal-root .lg-payment-modern .pm-prima-filter input{width:17px;height:17px;min-height:17px;accent-color:#ba243b;flex:none}
+#modal-root .lg-payment-modern .pm-prima-tag{display:inline-block;margin-top:7px;padding:4px 8px;border-radius:7px;font-weight:750;font-size:12px}
+#modal-root .lg-payment-modern .pm-prima-tag-red{color:#9c2530;background:#ffe9e9;border:1px solid #edafb8}
+#modal-root .lg-payment-modern .pm-prima-tag-neutral{color:#355f44;background:#edf5ee;border:1px solid #cfdfd2}
