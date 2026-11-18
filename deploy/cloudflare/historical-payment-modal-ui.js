@@ -53,14 +53,20 @@
    total.replaceChildren();
    const owner=pays.filter(p=>p.origin==='owner');
    const sum=owner.reduce((n,p)=>n+Number(p.amountCents||0),0);
-   const prima=owner.filter(p=>/^prima\b/i.test(String(p.concept||''))).reduce((n,p)=>n+Number(p.amountCents||0),0);
-   total.append(pmSummaryRow('Precio total del terreno','Por verificar'),
-    pmSummaryRow('Prima acordada','Por verificar','pm-warning'),
-    pmSummaryRow('Prima registrada',formatted(prima)),
-    pmSummaryRow('Prima faltante','No calculable','pm-warning'),
+   const status=lotigestPrimaStatus(form.dataset.ownerClientId,residence().id,selected.map(l=>l.id));
+   const alert=make('div','pm-prima-alert '+(lotigestPrimaHighlight(status)?'pm-prima-unpaid':
+    status.kind==='paid'||status.kind==='recorded'?'pm-prima-ok':'pm-prima-unknown'));
+   alert.append(make('strong','',lotigestPrimaLabel(status)));
+   if(lotigestPrimaHighlight(status))alert.append(make('small','','Puedes registrar la prima aquí: selecciona «Prima», introduce su fecha real y el importe, y conserva el recibo.'));
+   else if(status.kind==='unknown')alert.append(make('small','','No se puede declarar una prima impaga sin comprobante o condiciones del contrato.'));
+   total.append(alert);
+   total.append(pmSummaryRow('Prima acordada',status.agreedCents===null?'Por verificar':formatted(status.agreedCents)),
+    pmSummaryRow('Prima registrada',status.paidCents===null?'Por verificar':formatted(status.paidCents)),
+    pmSummaryRow('Prima faltante',status.remainingCents===null?'Monto por verificar':formatted(status.remainingCents),
+     lotigestPrimaHighlight(status)?'pm-warning':''),
     pmSummaryRow('Abonos manuales registrados',formatted(sum)),
-    pmSummaryRow('Saldo restante','Pendiente de contrato','pm-good'));
-   total.append(make('p','pm-help','El resumen no suma nuevamente los pagos importados de Excel. El calendario los muestra como historial vinculado y evita inventar mora.'));
+    pmSummaryRow('Saldo del contrato','Por verificar','pm-good'));
+   total.append(make('p','pm-help','La prima importada no se suma nuevamente a los recibos históricos. Si falta contrato, el importe pactado permanece por verificar.'));
   }
   historyCalendar(form,pays);
  }
