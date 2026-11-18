@@ -221,41 +221,56 @@ async function cloudPrepareOffline(){
 }
 
 async function cloudManualUpdate(){
- if(navigator.onLine===false){toast('Para actualizar LOTIGEST necesitas conexión a internet.','error');return;}
+ if(navigator.onLine===false){toast('Necesitas internet para actualizar LOTIGEST.','error');return;}
  if(cloudBlocked||cloudBusy||(cloudQueue&&(cloudQueue.pending||cloudQueue.latest!==cloudQueue.confirmed))){
-  cloudStatus('Hay cambios pendientes. Antes de actualizar deben sincronizarse o respaldarse.',true);return;
+  cloudStatus('Hay cambios de pagos pendientes o un conflicto. Sincronízalos o descárgalos antes de instalar una versión.',true);
+  return;
  }
  try{
   const response=await fetch('/version.json?manual='+Date.now(),{cache:'no-store'});
-  if(!response.ok)throw Error('No se pudo comprobar la versión en el servidor.');
+  if(!response.ok)throw Error('No se pudo comprobar la versión publicada.');
   const info=await response.json();
-  if(typeof info.version!=='string'||!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(info.version))throw Error('Versión remota inválida.');
+  if(typeof info.version!=='string'||!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(info.version))throw Error('Versión del servidor inválida.');
   const current=CLOUD_BUILD_VERSION.split('.').map(Number),latest=info.version.split('.').map(Number);
-  const newer=latest.some((n,i)=>n>current[i]&&latest.slice(0,i).every((v,j)=>v===current[j]));
-  if(!newer){toast('LOTIGEST ya está actualizado (versión '+CLOUD_BUILD_VERSION+').');return;}
-  if(!confirm('¿Actualizar LOTIGEST a la versión '+info.version+'? La aplicación se recargará sin borrar tus registros.'))return;
+  const newer=latest.some((v,i)=>v>current[i]&&latest.slice(0,i).every((n,j)=>n===current[j]));
+  if(!confirm(newer?'¿Instalar LOTIGEST '+info.version+'? La pantalla se recargará sin eliminar pagos.':'Tienes la versión '+CLOUD_BUILD_VERSION+'. ¿Volver a cargarla desde internet para reparar la pantalla?'))return;
   cloudUserRequestedUpdate=true;
-  const reg=('serviceWorker' in navigator)?(cloudRegistration||await navigator.serviceWorker.getRegistration()):null;
-  if(reg){
-   await reg.update();
-   if(reg.waiting){cloudActivateUpdate();return;}
-   if(reg.installing){
-    const worker=reg.installing;
-    const changed=()=>{
-     if(worker.state==='installed'){
-      worker.removeEventListener('statechange',changed);
-      if(reg.waiting)cloudActivateUpdate();else location.reload();
-     }else if(worker.state==='redundant'){
-      worker.removeEventListener('statechange',changed);
-      cloudUserRequestedUpdate=false;toast('No se pudo instalar la actualización.','error');
-     }
-    };
-    worker.addEventListener('statechange',changed);changed();return;
+  const registration='serviceWorker' in navigator?(cloudRegistration||await navigator.serviceWorker.getRegistration()):null;
+  if(registration){
+   await registration.update();
+   if(registration.installing){
+    const installing=registration.installing;
+    await Promise.race([
+     new Promise(resolve=>{
+      const check=()=>{
+       if(['installed','redundant','activated'].includes(installing.state)){
+        installing.removeEventListener('statechange',check);resolve();
+       }
+      };
+      installing.addEventListener('statechange',check);check();
+     }),
+     new Promise(resolve=>setTimeout(resolve,4500))
+    ]);
+   }
+   if(registration.waiting){
+    const controllerChanged=new Promise(resolve=>{
+     const done=()=>{navigator.serviceWorker.removeEventListener('controllerchange',done);resolve();};
+     navigator.serviceWorker.addEventListener('controllerchange',done);
+     setTimeout(done,4500);
+    });
+    registration.waiting.postMessage({type:'ACTIVATE_UPDATE'});
+    await controllerChanged;
    }
   }
-  location.reload();
- }catch(error){cloudUserRequestedUpdate=false;toast(error.message||'No se pudo actualizar LOTIGEST.','error');}
+  // La navegación lleva un parámetro nuevo; el Service Worker obtiene la página de la red.
+  // Es una acción exclusivamente manual, nunca desde el guardado ni al entrar.
+  location.replace('/?lotigestVersion='+encodeURIComponent(info.version)+'&manual='+Date.now());
+ }catch(error){
+  cloudUserRequestedUpdate=false;
+  toast(error.message||'No se pudo completar la actualización.','error');
+ }
 }
+
 document.addEventListener('click',event=>{
  const button=event.target.closest?.('[data-action="cloud-manual-update"]');if(!button)return;
  event.preventDefault();event.stopImmediatePropagation();
