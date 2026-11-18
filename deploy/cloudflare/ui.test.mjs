@@ -46,8 +46,18 @@ test('la copia local no triplica los datos y conserva una recuperación si otra 
  const recovery=Object.keys(app.w.localStorage).find(k=>k.startsWith('lotigest_d1_pending_v1_recovery_'));assert.ok(recovery);assert.ok(JSON.parse(app.w.localStorage.getItem(recovery)).latest.includes('MI COPIA PENDIENTE'));app.click('[data-page=backup]');app.click('#cloud-recovery-copies');assert.ok(app.d.querySelector('[data-recovery-index="0"]'));assert.deepEqual(server.errors,[]);
  }finally{app.close();}
 });
-test('la notificación se puede cerrar y el indicador conserva el estado de sincronización',async()=>{
- const server=await setup(),app=boot(server);try{await login(app,server);const notice=app.d.querySelector('#lotigest-cloud-status');app.click('[aria-label="Cerrar notificación"]');assert.equal(notice.hidden,true);assert.ok(app.d.querySelector('#lotigest-sync-indicator').textContent.includes('Guardado'));app.click('#lotigest-sync-indicator');assert.equal(notice.hidden,false);assert.deepEqual(server.errors,[]);}finally{app.close();}
+test('el guardado automático no muestra mensajes de D1 ni indicadores de éxito',async()=>{
+ const server=await setup(),app=boot(server);
+ try{
+  await login(app,server);
+  const notice=app.d.querySelector('#lotigest-cloud-status'),indicator=app.d.querySelector('#lotigest-sync-indicator');
+  assert.equal(notice.hidden,true);
+  assert.equal(indicator.hidden,true);
+  assert.ok(indicator.textContent.includes('Guardado'));
+  assert.ok(app.d.querySelector('[data-action="cloud-manual-update"]'));
+  assert.equal(app.d.querySelector('#lotigest-update-checker'),null);
+  assert.deepEqual(server.errors,[]);
+ }finally{app.close();}
 });
 test('reapertura sin internet exige la contraseña y sincroniza al recibir el evento online',async()=>{
  const server=await setup();let app=boot(server);try{await login(app,server);const cache=app.cache(),profile=app.w.localStorage.getItem('lotigest_offline_profile_v1');assert.ok(profile);app.close();server.offline=true;app=boot(server,cache,{'lotigest_offline_profile_v1':profile});
