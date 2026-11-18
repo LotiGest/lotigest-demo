@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es-HN">
+<head>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+ <meta name="robots" content="noindex,nofollow,noarchive">
+ <meta name="referrer" content="no-referrer"><meta name="theme-color" content="#123b28">
+ <title>Verificar recibo · LOTIGEST</title>
+ <style>
+ :root{color-scheme:light;font-family:system-ui,-apple-system,sans-serif;color:#173d29;background:#f3f7f2}
+ *{box-sizing:border-box}body{margin:0;min-height:100dvh;display:grid;place-items:center;padding:20px}
+ main{background:white;width:min(460px,100%);padding:30px 26px;border:1px solid #d9e6dd;border-radius:20px;box-shadow:0 14px 40px #0b321516}
+ h1{font-size:23px;margin:8px 0 12px}h2{font-size:19px;margin:6px 0 12px}.brand{font-weight:800;letter-spacing:.13em;font-size:14px;color:#21643b}
+ .status{padding:12px 14px;border-radius:12px;background:#eef3ef;border:1px solid #d7e6d9;font-weight:700}
+ .status.ok{background:#e8f9e9;color:#1b6631;border-color:#c0ecc8}.status.bad{background:#fff1ea;color:#852e19;border-color:#facbb8}
+ dl{display:grid;grid-template-columns:1fr auto;gap:12px 14px;margin:22px 0}dt{color:#617567}dd{margin:0;font-weight:700;text-align:right}
+ .note{font-size:13px;line-height:1.55;color:#637467}a{color:#1b6737}footer{border-top:1px solid #e4eee4;padding-top:15px;margin-top:23px;color:#637467;font-size:12px}
+ </style>
+</head>
+<body>
+<main>
+ <div class="brand">LOTIGEST · GRUPO H</div>
+ <h1>Verificación de recibos</h1>
+ <p class="note">Consulta en línea contra el registro de pagos de LOTIGEST. Los datos privados del cliente no se muestran.</p>
+ <div id="status" class="status" role="status" aria-live="polite">Consultando el recibo…</div>
+ <dl id="details" hidden>
+  <dt>Folio</dt><dd id="folio"></dd>
+  <dt>Fecha de pago</dt><dd id="fecha"></dd>
+  <dt>Importe registrado</dt><dd id="monto"></dd>
+  <dt>Tipo</dt><dd id="tipo"></dd>
+ </dl>
+ <p class="note" id="note">Necesitas conexión a internet para verificar la autenticidad del QR.</p>
+ <footer>Un QR impreso no demuestra por sí solo que un pago esté confirmado. Comprueba que esta página indique “Recibo vigente” y que el monto y la fecha coincidan.</footer>
+</main>
+<script>
+(async()=>{
+ const state=document.getElementById('status'),note=document.getElementById('note'),details=document.getElementById('details');
+ const token=new URLSearchParams(location.search).get('token')||'';
+ if(!/^[0-9a-f]{32}$/.test(token)){
+  state.textContent='Código inválido o incompleto';state.classList.add('bad');
+  note.textContent='Este enlace no permite verificar un recibo.';return;
+ }
+ try{
+  const r=await fetch('/api/verificar-recibo?token='+encodeURIComponent(token),{cache:'no-store',credentials:'omit'});
+  const data=await r.json();
+  state.classList.add(data.estado==='vigente'?'ok':'bad');
+  state.textContent=data.estado==='vigente'?'✓ Recibo vigente':data.estado==='anulado'?'✕ Recibo anulado':data.estado==='no_encontrado'?'Recibo no encontrado':data.estado==='inconsistente'?'Recibo pendiente de revisión':'No se pudo verificar';
+  note.textContent=data.mensaje||'Verifica la conexión e inténtalo nuevamente.';
+  if(r.ok&&Number.isSafeInteger(data.montoCentavos)&&data.fecha){
+   document.getElementById('folio').textContent=data.folio||'—';
+   document.getElementById('fecha').textContent=data.fecha;
+   document.getElementById('monto').textContent=new Intl.NumberFormat('es-HN',{style:'currency',currency:'HNL'}).format(data.montoCentavos/100);
+   document.getElementById('tipo').textContent=data.tipo||'Abono';
+   details.hidden=false;
+  }
+ }catch{
+  state.classList.add('bad');state.textContent='Sin conexión al servidor';
+  note.textContent='No es posible confirmar este pago sin internet. Inténtalo después.';
+ }
+})();
+</script>
+</body>
+</html>
