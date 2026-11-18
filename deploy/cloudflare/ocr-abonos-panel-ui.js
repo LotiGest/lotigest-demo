@@ -1,6 +1,5 @@
 // Panel independiente: el OCR ayuda a identificar, nunca confirma un abono sin revisión.
 let ocrAbonosDraft=null;
-pages['ocr-abonos']=['Pagos de abonos OCR','calendar'];
 const beforeOcrPanelContent=pageContent;
 pageContent=function(){
  if(page!=='ocr-abonos')return beforeOcrPanelContent();
