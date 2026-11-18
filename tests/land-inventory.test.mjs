@@ -40,3 +40,24 @@ test('si no hay hoja de terrenos devuelve un error y no modifica los datos',()=>
  assert.equal(p.state,null);assert.match(p.errors[0],/No se encontró una hoja válida/);
  assert.deepEqual(state,fixture());
 });
+
+test('código externo distinto se vincula por etapa bloque solar sin alterar el código original',()=>{
+ const state=fixture();
+ const p=plan(state,[['CODIGO-PLANILLA-ANTERIOR',2,'A',3,'Solar','ANA','0012345678901']]);
+ assert.deepEqual(p.errors,[]);
+ assert.equal(p.changes.length,1);
+ assert.equal(p.changes[0].id,'MAP2');
+ assert.equal(p.state.lots.length,state.lots.length);
+ assert.equal(p.matchedByReference.length,1);
+ assert.equal(p.state.lots[1].id,'MAP2');
+ const again=plan(p.state,[['CODIGO-PLANILLA-ANTERIOR',2,'A',3,'Solar','ANA','0012345678901']]);
+ assert.deepEqual(again.errors,[]);
+ assert.equal(again.state.lots.length,state.lots.length);
+});
+test('Código en conflicto con otra etapa bloque o solar impide asignación equivocada',()=>{
+ const state=fixture();
+ const p=plan(state,[['MAP1',2,'A',3,'Solar','ANA','0012345678901']]);
+ assert.equal(p.state,null);
+ assert.match(p.errors[0],/Código corresponde a otro solar/);
+ assert.deepEqual(state,fixture());
+});

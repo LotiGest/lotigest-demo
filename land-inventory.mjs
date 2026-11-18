@@ -5,7 +5,7 @@ const landHeader=v=>landNorm(v).replace(/[^A-Z0-9]/g,'');
 const landIdentity=v=>landNorm(v).replace(/[\s-]/g,'');
 export function prepareLandInventoryImport(sheets,state,residenceId,features=[]){
  if(!state.residences?.some(r=>r.id===residenceId))throw Error('Selecciona una residencial válida.');
- const next=JSON.parse(JSON.stringify(state)),changes=[],errors=[],warnings=[],pendingIdentities=new Set(),ignoredSheets=[],seen=new Set(),featureKeys=new Set(features.map(f=>f.key));
+ const next=JSON.parse(JSON.stringify(state)),changes=[],errors=[],warnings=[],pendingIdentities=new Set(),ignoredSheets=[],matchedByReference=[],seen=new Set(),featureKeys=new Set(features.map(f=>f.key));
  const aliases={CODIGO:'id',CODIGOTERRENO:'id',ETAPA:'stage',BLOQUE:'block',SOLAR:'number',NUMERO:'number',TIPO:'type',NOMBRE:'name',CLIENTE:'name',NOMBRECLIENTE:'name',NOMBREDELCOMPRADOR:'name',IDENTIDAD:'identity',TELEFONO:'phone',DIRECCION:'address',PRECIO:'price',PRECIOL:'price',PRECIODELTERRENO:'price',AREAM2:'area',AREA:'area',FRENTE:'front',FONDO:'depth',LATERALIZQUIERDO:'left',LATERALDERECHO:'right'};
  // When a workbook includes the official terrain template, ignore supporting sheets
  // (payments, prices, summaries) even if they also contain stage/block/lot columns.
@@ -16,8 +16,16 @@ export function prepareLandInventoryImport(sheets,state,residenceId,features=[])
  if(d.stage&&(!/^\d+$/.test(d.stage)||Number(d.stage)<1||Number(d.stage)>999))throw Error('Etapa debe ser un entero entre 1 y 999.');
  if(d.number&&!/^\d+$/.test(d.number))throw Error('Usa una fila por solar; escribe un solo número en Solar.');
  const kind=['LOCAL','LOCAL COMERCIAL','COMMERCIAL'].includes(landNorm(d.type))?'commercial':'solar';if(d.type&&!['LOCAL','LOCAL COMERCIAL','COMMERCIAL','SOLAR','TERRENO','LOTE'].includes(landNorm(d.type)))throw Error('Tipo debe ser Solar o Local.');
- const matches=next.lots.filter(l=>l.residenceId===residenceId&&(d.id?landNorm(l.id)===landNorm(d.id):landNorm(l.block)===landNorm(d.block)&&String(Number(l.sourceNumber))===String(Number(d.number))&&(!d.stage||Number(l.stage)===Number(d.stage))&&(!d.type||(l.type==='commercial')===(kind==='commercial'))));
- if(matches.length>1)throw Error('Referencia ambigua: indica etapa y código exacto.');let lot=matches[0],created=!lot;
+ // The imported Code may be an old external inventory reference. Prefer a unique
+ // existing stage + block + solar match when the code is not found, preserving LOTIGEST IDs.
+ const byId=d.id?next.lots.filter(l=>landNorm(l.id)===landNorm(d.id)):[];
+ if(byId.some(l=>l.residenceId!==residenceId))throw Error('El Código pertenece a otra residencial.');
+ const hasLocation=Boolean(d.stage&&d.block&&d.number);
+ const byLocation=hasLocation?next.lots.filter(l=>l.residenceId===residenceId&&Number(l.stage)===Number(d.stage)&&landNorm(l.block)===landNorm(d.block)&&Number(l.sourceNumber)===Number(d.number)&&(!d.type||(l.type==='commercial')===(kind==='commercial'))):[];
+ if(byId.length>1||byLocation.length>1)throw Error('Referencia ambigua: hay varios solares en esa etapa y bloque.');
+ if(byId.length&&byLocation.length&&byId[0].id!==byLocation[0].id)throw Error('El Código corresponde a otro solar. Deja Código vacío para vincular por Etapa, Bloque y Solar.');
+ let lot=byId[0]||byLocation[0],created=!lot;
+ if(!byId.length&&byLocation.length&&d.id)matchedByReference.push(label+': '+d.id+' → '+lot.id);
  if(lot&&((d.stage&&Number(lot.stage)!==Number(d.stage))||(d.block&&landNorm(lot.block)!==landNorm(d.block))||(d.number&&Number(lot.sourceNumber)!==Number(d.number))||(d.type&&(lot.type==='commercial')!==(kind==='commercial'))))throw Error('El Código no corresponde a la etapa, bloque, solar o tipo.');
  if(!lot){if(!d.stage||!d.block||!d.number)throw Error('Un terreno nuevo requiere Etapa, Bloque y Solar.');if(d.block.length>50)throw Error('Bloque demasiado largo.');const id=d.id||('EX-'+residenceId+'-E'+d.stage+'-B'+landNorm(d.block)+'-S'+Number(d.number)).replace(/[^A-Z0-9Ñ_-]/gi,'_');if(id.length>150||next.lots.some(l=>landNorm(l.id)===landNorm(id)))throw Error('Código duplicado o demasiado largo.');const same=next.lots.some(l=>l.residenceId===residenceId&&Number(l.stage)===Number(d.stage)&&landNorm(l.block)===landNorm(d.block)&&Number(l.sourceNumber)===Number(d.number)&&(l.type==='commercial')===(kind==='commercial'));if(same)throw Error('Ese solar ya existe con otro código.');lot={id,residenceId,stage:Number(d.stage),block:landNorm(d.block),sourceNumber:String(Number(d.number)),type:kind,status:'available',area:null,price:null};next.lots.push(lot);}
  if(seen.has(lot.id))throw Error('Terreno repetido en el archivo.');seen.add(lot.id);if(lot.type==='private'||lot.status==='private')throw Error('No se asignan compradores a propiedades privadas.');
@@ -29,5 +37,5 @@ export function prepareLandInventoryImport(sheets,state,residenceId,features=[])
  }catch(e){errors.push(label+': '+e.message);}}
  }
  if(!changes.length&&!errors.length)errors.push('No se encontró una hoja válida de terrenos. La plantilla debe incluir Código o Etapa, Bloque y Solar.');
- return {state:errors.length?null:next,changes,errors,warnings,pendingIdentities:pendingIdentities.size,ignoredSheets};
+ return {state:errors.length?null:next,changes,errors,warnings,pendingIdentities:pendingIdentities.size,ignoredSheets,matchedByReference};
 }
