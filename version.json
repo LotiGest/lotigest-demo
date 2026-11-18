@@ -1,4 +1,4 @@
 {
-  "version": "0.21.6",
-  "notes": "Panel Pagos de abonos OCR: busca propietario y solares por recibo, evita folios duplicados entre pagos e historiales, muestra meses pagados en verde y vencidos en rojo solo para contratos verificados."
+  "version": "0.21.7",
+  "notes": "Se retiró Pagos de abonos OCR como panel independiente del menú; se conservan los abonos, recibos, lectura OCR integrada y comprobaciones de duplicados."
 }
