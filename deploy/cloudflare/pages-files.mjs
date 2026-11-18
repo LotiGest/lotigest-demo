@@ -70,6 +70,7 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace('function viewLot(id){', 'function baseViewLot(id){')
     .replace(/\$\{list\.filter\(x=>x\.lot\.residenceId===st\)\.map\(x=>`[\s\S]*?\.join\(''\)\}/, '${collectionSolarCards(list.filter(x=>x.lot.residenceId===st),st)}')
     .replace('Los cuadros muestran el inventario por residencial; no representan su ubicación geográfica.', 'Cada ficha reúne al propietario, sus solares y sus pagos. Las referencias de Excel con código pendiente se agrupan sin modificar el inventario del mapa.')
+        .replace("payments:['Cuotas y pagos','calendar'],", "payments:['Cuotas y pagos','calendar'],'ocr-abonos':['Pagos de abonos OCR','calendar'],")
     .replace('function render(){', 'function renderBase(){')
     .replace('function openSolarWindow(lotId){', "function openSolarWindow(lotId){if(cloudUser?.role==='sales'){lotClientCard(lotId);return;}")
     .replace('function baseViewLot(id){', "function baseViewLot(id){if(cloudUser?.role==='sales'){lotClientCard(id);return;}")
