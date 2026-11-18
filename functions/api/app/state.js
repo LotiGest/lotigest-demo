@@ -47,7 +47,15 @@ export function validate(state){
   if(existing&&existing!==group)invalid('Un código QR no puede identificar dos recibos distintos.');
   qrTokens.set(token,group);
  };
- for(const p of state.payments)addQr(p,'payment:'+(p.groupId||p.id));
+ const groupedQr=new Map();
+ for(const p of state.payments){
+  addQr(p,'payment:'+(p.groupId||p.id));
+  if(p.groupId){
+   const prior=groupedQr.get(p.groupId),token=p.verifyToken||null;
+   if(prior!==undefined&&prior!==token)invalid('Los solares de un mismo recibo deben compartir el mismo código QR.');
+   groupedQr.set(p.groupId,token);
+  }
+ }
  for(const p of state.ownerPayments||[])addQr(p,'owner:'+p.id);
  for(const s of state.sales)if(s.type==='cash'&&(cents(s.downPayment??0,'Prima')!==prices.get(s.id)||totals.get(s.id)!==prices.get(s.id)))invalid('Una venta de contado debe quedar pagada completamente.');
  const active=new Set();for(const r of state.reservations||[]){
