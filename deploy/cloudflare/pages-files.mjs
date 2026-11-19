@@ -41,6 +41,7 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace('Personaliza los datos de la empresa y el comportamiento del prototipo.', 'Configura los datos y la apariencia de tu lotificadora.')
     .replace('Prototipo Fase 2', 'Versión conectada a Cloudflare')
     .replace('La base de datos compartida, los permisos por usuario y el mapa GPS estarán disponibles en fases posteriores. Este prototipo guarda datos en el navegador utilizado.', 'Los registros se guardan en Cloudflare D1. Espera la confirmación de guardado antes de cerrar. El panel integrado requiere una cuenta administradora.')
+    .replace("await clientSalesApi('requests/'+id,'PATCH',{status:'approved'});", "await cloudFlush();if(cloudBlocked||cloudBusy||cloudQueue?.pending||cloudQueue?.latest!==cloudQueue?.confirmed)throw Error('El apartado todavía no se ha confirmado en la nube; conserva tu copia pendiente y reintenta.');await clientSalesApi('requests/'+id,'PATCH',{status:'approved'});")
     .replace('function collectionPage(){', 'function baseCollectionPage(){')
     .replace('function dashboard(){', 'function baseDashboard(){')
     .replace('function viewClient(id){', 'function baseViewClient(id){')
