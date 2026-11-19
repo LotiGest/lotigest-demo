@@ -1,4 +1,4 @@
 {
-  "version": "0.22.21",
-  "notes": "Contratos: el OCR reconoce automáticamente bloque y número de solar, y el administrador elige manualmente Etapa 1 o Etapa 2. Tras elegirla, se localiza y preselecciona el solar correspondiente en el inventario, incluso cuando existe el mismo bloque y número en ambas etapas. Verificación obligatoria antes de guardar; se preservan áreas, precios existentes, propietarios y abonos."
+  "version": "0.22.22",
+  "notes": "Contratos: OCR reforzado para leer la identidad de 13 dígitos del titular sin confundirla con la del representante; validar y guardar DNI en Cliente y ficha completa. Opción Corregir DNI de un contrato existente sin duplicar cliente ni abonos. El mapa administrativo marca solares con contrato registrado en verde limón, conserva mora en rojo y evita modificar el inventario. No cambia ventas, primas ni pagos existentes."
 }
