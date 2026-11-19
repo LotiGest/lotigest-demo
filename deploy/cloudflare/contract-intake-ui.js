@@ -7,7 +7,7 @@ function contractIntakeAdmin(){
 function contractIntakeFormatMoney(n){return Number(n||0).toLocaleString('es-HN',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function contractIntakeFields(){
  const c=contractIntakeWorking?.values||{};
- const input=(label,key,type='text',readonly=false)=>'<label class="field-group"><span>'+esc(label)+'</span><input name="'+key+'" type="'+type+'" '+(readonly?'readonly ':'')+'value="'+esc(c[key]??'')+'" style="width:100%;min-width:0"></label>';
+ const input=(label,key,type='text',readonly=false)=>'<label class="field-group"><span>'+esc(label)+'</span><input name="'+key+'" type="'+type+'" '+(type==='number'?'step="'+(key==='months'?'1':'any')+'" min="0" ':'')+(readonly?'readonly ':'')+'value="'+esc(c[key]??'')+'" style="width:100%;min-width:0"></label>';
  const rows=residenceLots().filter(l=>l.type!=='private'&&l.status!=='private').sort((a,b)=>(Number(a.stage||0)-Number(b.stage||0))||String(a.block||'').localeCompare(String(b.block||''),'es')||String(a.sourceNumber||a.id).localeCompare(String(b.sourceNumber||b.id),'es'));
  const matched=rows.filter(l=>!db.sales.some(s=>s.lotId===l.id)&&String(l.block||'').toUpperCase()===String(c.block||'').toUpperCase()&&String(l.sourceNumber||'').trim()===String(c.number||'').trim()&&(!c.stage||Number(l.stage)===Number(c.stage)));
  const selectedId=matched.length===1?matched[0].id:'';
@@ -23,7 +23,9 @@ function contractIntakeFields(){
   ['Plazo (meses)','months','number'],['Precio por vara² (L)','pricePerVara','number']
  ];
  const fields=labels.map(([label,key,type])=>input(label,key,type)).join('');
- const warning=matched.length>1?'<p style="color:#a35a1b">Hay varios solares con el mismo bloque y número: verifica la etapa.</p>':!matched.length?'<p style="color:#a35a1b">No se encontró una coincidencia única: comprueba etapa, bloque y solar. No se creará ningún terreno automáticamente.</p>':'';
+ const areaWarnings=matched.length===1&&Number(matched[0].area)>0&&Number(c.areaM2)>0&&Math.abs(Number(matched[0].area)-Number(c.areaM2))>.02?
+ '<p style="color:#965a18"><strong>Medidas distintas:</strong> inventario '+esc(matched[0].area)+' m², documento '+esc(c.areaM2)+' m². Se conservará la medida original; revisa la discrepancia.</p>':'';
+ const warning=(matched.length>1?'<p style="color:#a35a1b">Hay varios solares con el mismo bloque y número: verifica la etapa.</p>':!matched.length?'<p style="color:#a35a1b">No se encontró una coincidencia única: comprueba etapa, bloque y solar. No se creará ningún terreno automáticamente.</p>':'')+areaWarnings;
  return '<form id="contract-intake-form"><p class="sm muted">El documento debe revisarse antes de confirmar. No reemplazamos medidas existentes, ventas o abonos. La etapa no se supone si no aparece en la imagen.</p>'+warning+
   '<div class="form-grid">'+pick+fields+'</div>'+
   '<label>Observaciones del documento<textarea name="observations" rows="4" style="width:100%">'+esc(c.observations||'')+'</textarea></label>'+
