@@ -18,8 +18,16 @@ function contractIntakeFields(){
    db.clients.find(cl=>normalizeClientLookup(cl.identity)===normalizeClientLookup(c.identity)).id:'');
  const clientPicker='<label class="field-group full"><span>Cliente ya registrado (opcional, para no duplicar)</span><select name="clientId"><option value="">Crear o buscar por DNI</option>'+
   db.clients.map(cl=>'<option value="'+esc(cl.id)+'" '+(cl.id===clientSelection?'selected':'')+'>'+esc(cl.name)+' · '+esc(cl.identity||'Sin identidad')+'</option>').join('')+'</select></label>';
- const pick='<label class="field-group full"><span>Solar del inventario (obligatorio; comprobar etapa)</span><select name="lotId" required><option value="">Selecciona etapa, bloque y solar</option>'+
- rows.map(l=>'<option value="'+esc(l.id)+'" '+(l.id===selectedId?'selected':'')+' '+(db.sales.some(s=>s.lotId===l.id)?'disabled':'')+'>Etapa '+esc(l.stage||'SIN DEFINIR')+' · Bloque '+esc(l.block||'—')+' · Solar '+esc(l.sourceNumber||l.id)+' · '+esc(l.area||'sin medida')+' m²'+(db.sales.some(s=>s.lotId===l.id)?' · CON VENTA':'')+'</option>').join('')+'</select></label>';
+ const stagePicker='<label class="field-group full"><span>Etapa del contrato (selección manual obligatoria)</span><select id="contract-intake-stage" name="stage" required>'+
+ '<option value="">Selecciona una etapa</option>'+
+ '<option value="1" '+(stageChosen==='1'?'selected':'')+'>Etapa 1</option>'+
+ '<option value="2" '+(stageChosen==='2'?'selected':'')+'>Etapa 2</option></select></label>';
+ const pick='<label class="field-group full"><span>Solar del inventario, reconocido por OCR</span><select name="lotId" id="contract-intake-lot" required>'+
+ '<option value="">'+(stageChosen?'Verifica el bloque y solar':'Primero elige Etapa 1 o Etapa 2')+'</option>'+
+ stageRows.map(l=>'<option value="'+esc(l.id)+'" '+(l.id===selectedId?'selected':'')+' '+(db.sales.some(s=>s.lotId===l.id)?'disabled':'')+'>Bloque '+esc(l.block||'—')+' · Solar '+esc(l.sourceNumber||l.id)+' · '+esc(l.area||'sin medida')+' m²</option>').join('')+
+ '</select><small id="contract-intake-solar-status" role="status">'+
+ (stageChosen?(matched.length===1?'Coincidencia: Bloque '+esc(c.block)+' · Solar '+esc(c.number):matched.length?'Hay varias coincidencias; revisa el solar.':'No se encontró coincidencia única. Puedes corregir el bloque o solar.'):
+ 'Pendiente: selecciona una etapa.')+'</small></label>';
  const labels=[
   ['Nombre completo','name'],['Identidad / DNI','identity'],['RTN (opcional)','rtn'],['Estado civil','maritalStatus'],
   ['Profesión u oficio','occupation'],['Dirección','address'],['Bloque leído','block'],['Solar leído','number'],
@@ -34,7 +42,7 @@ function contractIntakeFields(){
  '<p style="color:#965a18"><strong>Medidas distintas:</strong> inventario '+esc(matched[0].area)+' m², documento '+esc(c.areaM2)+' m². Se conservará la medida original; revisa la discrepancia.</p>':'';
  const warning=(matched.length>1?'<p style="color:#a35a1b">Hay varios solares con el mismo bloque y número: verifica la etapa.</p>':!matched.length?'<p style="color:#a35a1b">No se encontró una coincidencia única: comprueba etapa, bloque y solar. No se creará ningún terreno automáticamente.</p>':'')+areaWarnings;
  return '<form id="contract-intake-form"><p class="sm muted">El documento debe revisarse antes de confirmar. No reemplazamos medidas existentes, ventas o abonos. La etapa no se supone si no aparece en la imagen.</p>'+warning+
-  '<div class="form-grid">'+clientPicker+pick+fields+'</div>'+
+  '<div class="form-grid">'+clientPicker+stagePicker+pick+fields+'</div>'+
   '<label>Observaciones del documento<textarea name="observations" rows="4" style="width:100%">'+esc(c.observations||'')+'</textarea></label>'+
   '<details><summary>Ver/corregir texto reconocido completo</summary><textarea name="rawText" rows="9" style="width:100%">'+esc(c.rawText||'')+'</textarea></details>'+
   '<div id="contract-intake-alert" role="alert">'+(!String(c.name||'').trim()?'<strong>Falta el nombre del cliente.</strong> Corrígelo antes de guardar.':'')+'</div>'+
