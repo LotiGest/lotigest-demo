@@ -17,8 +17,8 @@ function fixture(state='available',hasDoc=true){
 }
 test('contrato guardado pinta el solar verde limón, aunque no se haya activado la venta',()=>{
  const {api,feature}=fixture();
- assert.equal(api.colors.contracted,'#A3E635');
  assert.equal(api.record(feature).status,'contracted');
+ assert.equal(api.colors.contracted,'#A3E635');
  assert.equal(api.record(feature).lot.id,'L16');
  assert.match(api.page(),/Contrato registrado: 1/);
  assert.match(api.details(),/Contrato registrado/);

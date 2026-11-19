@@ -1,4 +1,4 @@
 {
-  "version": "0.22.22",
-  "notes": "Contratos: OCR reforzado para leer la identidad de 13 dígitos del titular sin confundirla con la del representante; validar y guardar DNI en Cliente y ficha completa. Opción Corregir DNI de un contrato existente sin duplicar cliente ni abonos. El mapa administrativo marca solares con contrato registrado en verde limón, conserva mora en rojo y evita modificar el inventario. No cambia ventas, primas ni pagos existentes."
+  "version": "0.22.23",
+  "notes": "Corrige el arranque bloqueado tras la actualización: inicializa el color verde limón cuando la paleta del mapa ya está disponible. Conserva contratos, identidades, clientes y abonos."
 }

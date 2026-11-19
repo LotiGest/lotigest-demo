@@ -1,7 +1,6 @@
 // Mapa administrativo LOTIGEST: contrato registrado = verde limón.
 // Se usa el vínculo documental real; nunca se cambia el estado de cuotas o el inventario.
 const contractMapLime='#A3E635';
-arrayanColors.contracted=contractMapLime;
 function contractMapDocument(lotId){
  return (db.contractTexts||[]).find(d=>d?.lotId===lotId&&d.format==='photo+ocr'&&['pending-sale','active'].includes(d.status))||null;
 }
@@ -19,6 +18,9 @@ function contractMapLinkedLot(feature,record){
 }
 const contractMapBaseRecord=arrayanRecord;
 arrayanRecord=function(feature){
+ // El puente se instala antes de inicializar las constantes del mapa.
+ // Registrar el color al consultar el mapa, cuando la paleta ya existe.
+ arrayanColors.contracted=contractMapLime;
  const record=contractMapBaseRecord(feature);
  if(record.status==='debt'||record.status==='private'||record.status==='reserved')return record;
  const lot=contractMapLinkedLot(feature,record);
