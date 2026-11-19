@@ -186,7 +186,8 @@ contractsPage=function(){
  const pending=(db.contractTexts||[]).filter(d=>d.residenceId===residence().id&&d.format==='photo+ocr');
  const box='<section class="card" style="padding:18px;margin:14px 0"><h2>Ingresar clientes desde sus contratos</h2>'+
   '<p>Sube la fotografía, revisa la ficha completa, vincula etapa/bloque/solar y guarda el contrato original. Después activa el crédito con las fechas y registra los abonos normalmente.</p>'+
-  '<button type="button" class="btn btn-primary" data-contract-intake-open="true">Subir contrato y crear ficha</button>'+
+  '<button type="button" class="btn btn-primary" data-contract-intake-open="true">Subir contrato y crear ficha</button> '+ 
+  '<button type="button" class="btn btn-outline" data-contract-rebuild-open="true">Preparar limpieza de clientes</button>'+
   '<div style="margin-top:12px">'+pending.map(d=>{
    const lot=getLot(d.lotId),client=getClient(d.clientId);
    return '<div class="detail-line" style="flex-wrap:wrap"><span>'+esc(client?.name||'Cliente')+' · Etapa '+esc(lot?.stage||'—')+' · Bloque '+esc(lot?.block||'—')+' · Solar '+esc(lot?.sourceNumber||'—')+'</span>'+
@@ -221,4 +222,68 @@ document.addEventListener('submit',event=>{
   event.preventDefault();event.stopImmediatePropagation();
   contractIntakeConfirmActivation(event.target).catch(e=>toast(e.message,'error'));
  }
+},true);
+
+
+function clientRegisterResetOpen(){
+ if(!contractIntakeAdmin()){toast('La limpieza requiere administrador, conexión y datos sincronizados.','error');return;}
+ const n=intakeResetPreview(db);
+ showModal('Preparar reinicio del padrón',
+  '<p><strong>Atención: operación destructiva para los registros de personas.</strong> Solo debes usarla después de descargar un respaldo completo.</p>'+
+  '<div class="card" style="padding:14px"><p>Clientes: <b>'+n.clients+'</b> · Ventas: <b>'+n.sales+'</b> · Abonos: <b>'+n.payments+'</b> · Apartados: <b>'+n.reservations+'</b></p>'+
+  '<p>Contratos: <b>'+n.contractTexts+'</b> · Historiales: <b>'+(n.historicalPayments+n.historicalContracts+n.ownerPaymentEntries+n.ownershipStatements)+'</b></p>'+
+  '<p><strong>Se conservan '+n.preservedLots+' solares y '+n.preservedResidences+' residenciales, con etapas, bloques, medidas, precios y croquis.</strong></p>'+
+  '<p style="color:#9b4c1f">Los '+n.cashEntriesKept+' movimientos manuales de Caja se conservan: revísalos después porque podrían corresponder a operaciones antiguas.</p></div>'+
+  '<button class="btn btn-outline" type="button" data-client-register-backup>1. Descargar respaldo completo JSON</button>'+
+  '<label style="display:block;margin:12px 0"><input type="checkbox" id="client-register-backed-up"> Confirmo que guardé y verifiqué el respaldo descargado.</label>'+
+  '<label>Escribe <strong>BORRAR PADRON</strong> para desbloquear:<input id="client-register-typed" autocomplete="off" placeholder="BORRAR PADRON"></label>'+
+  '<p class="sm muted">Si aún no estás preparado para borrar el padrón actual, cancela. Ningún dato se elimina por entrar a esta ventana.</p>',
+  '<button type="button" class="btn btn-outline" data-action="close-modal">Cancelar</button><button type="button" class="btn btn-primary" data-client-register-confirm disabled>2. Eliminar padrón y comenzar desde contratos</button>',true,'No elimina las medidas del inventario');
+}
+function clientRegisterResetToggle(){
+ const button=document.querySelector('[data-client-register-confirm]');
+ if(button)button.disabled=!(document.getElementById('client-register-backed-up')?.checked&&document.getElementById('client-register-typed')?.value.trim().toUpperCase()==='BORRAR PADRON');
+}
+async function clientRegisterResetExecute(){
+ if(!contractIntakeAdmin())throw Error('Datos no sincronizados o sesión no autorizada.');
+ const backed=document.getElementById('client-register-backed-up')?.checked;
+ const phrase=document.getElementById('client-register-typed')?.value.trim().toUpperCase();
+ if(!backed||phrase!=='BORRAR PADRON')throw Error('Es obligatorio conservar un respaldo antes de comenzar.');
+ const counts=intakeResetPreview(db),message='¿Confirmas eliminar '+counts.clients+' clientes, '+counts.sales+' ventas y '+counts.payments+' abonos actuales del sistema? Las medidas, el croquis y los solares se conservarán. Únicamente podrás recuperarlos desde el respaldo o historial del servidor.';
+ if(!confirm(message))return;
+ const before=JSON.stringify(db);
+ const next=intakePrepareFreshClientRegister(db);
+ if(next.lots.length!==db.lots.length||next.residences.length!==db.residences.length)throw Error('Se detectó un cambio inesperado del catastro. Operación cancelada.');
+ // Una segunda verificación comprueba que ni áreas ni polígonos se alteraron.
+ for(let i=0;i<db.lots.length;i++){
+  const old=db.lots[i],fresh=next.lots[i];
+  if(old.id!==fresh.id||old.area!==fresh.area||JSON.stringify(old.dimensions||{})!==JSON.stringify(fresh.dimensions||{})||
+     old.stage!==fresh.stage||old.block!==fresh.block||old.price!==fresh.price||old.sourceFeatureKey!==fresh.sourceFeatureKey)
+    throw Error('La limpieza cambió las medidas o referencias de un solar. Operación cancelada.');
+ }
+ if(before!==JSON.stringify(db))throw Error('Los datos cambiaron durante la revisión.');
+ cloudWrite(JSON.stringify(next));db=next;
+ await cloudFlush();
+ closeModal();render();
+ if(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed)
+  toast('Padrón preparado, pero el servidor no confirmó la sincronización. No ingreses contratos hasta resolver la nube.','error');
+ else toast('Padrón limpio. Se conservaron todas las medidas y los solares. Ya puedes subir los contratos.');
+}
+document.addEventListener('click',event=>{
+ const b=event.target.closest?.('[data-contract-rebuild-open],[data-client-register-backup],[data-client-register-confirm]');
+ if(!b)return;
+ event.preventDefault();event.stopImmediatePropagation();
+ if(b.hasAttribute('data-contract-rebuild-open'))return clientRegisterResetOpen();
+ if(b.hasAttribute('data-client-register-backup')){
+  const stamp=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+  download('LOTIGEST_RESPALDO_ANTES_DE_REINICIAR_CLIENTES_'+stamp+'.json',JSON.stringify(db,null,2),'application/json');
+  return;
+ }
+ clientRegisterResetExecute().catch(e=>toast(e.message,'error'));
+},true);
+document.addEventListener('input',event=>{
+ if(event.target.id==='client-register-typed')clientRegisterResetToggle();
+},true);
+document.addEventListener('change',event=>{
+ if(event.target.id==='client-register-backed-up')clientRegisterResetToggle();
 },true);
