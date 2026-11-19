@@ -14,6 +14,10 @@ test('Cloudflare Pages presenta compartir mapa, Pendientes y origen público pro
  assert.match(page,/data-action="client-map-publish"/);
  assert.match(page,/data-action="client-pending-open"/);
  assert.match(page,/const clientMapOrigin = location\.origin;/);
+ assert.ok(page.includes('lg-public-solar-notifications'),'La campana incluye solicitudes de solares');
+ assert.ok(page.includes('data-public-solar-badge'),'La campana muestra un contador de solicitudes');
+ assert.ok(page.includes('function updatePendingBadge(){clientSolarNotificationUpdate();'),'Los avisos se actualizan al recibir solicitudes');
+
  assert.ok(!page.includes('[data-action="client-map-publish"],[data-action="client-pending-open"]{display:none'));
  assert.ok(!page.includes('async function publishClientMap(button) {\n  if (cloudflareDemo) return;'));
  assert.ok(!page.includes('async function refreshClientRequests() {\n  if (cloudflareDemo) return;'));
@@ -26,4 +30,6 @@ test('página pública no imprime precios y ofrece selección de lotes y envío 
  assert.ok(!html.includes('ownerClientId'));
  assert.ok(!html.includes('identity'));
  assert.match(html,/client-sales\/maps/);
+ assert.ok(html.includes('data.lotIds=[...selected]'),'El cliente puede elegir varios solares');
+ assert.ok(!html.includes('sessionStorage'),'El enlace público no requiere iniciar sesión');
 });
