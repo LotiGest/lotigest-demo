@@ -1,0 +1,93 @@
+// Lector de ficha contractual de Altos del Arrayán.
+// Analiza texto OCR; los datos extraídos siempre se muestran para revisión humana.
+export const contractIntakeLabels=Object.freeze({
+ name:'Nombre del cliente',identity:'Identidad / DNI',rtn:'RTN',maritalStatus:'Estado civil',
+ occupation:'Profesión u oficio',address:'Dirección',stage:'Etapa',block:'Bloque',number:'Solar',
+ areaVaras:'Varas²',areaM2:'Metros cuadrados',north:'Norte',south:'Sur',east:'Este',west:'Oeste',
+ price:'Precio del lote',down:'Prima pactada',financed:'Saldo a financiar',monthly:'Cuota mensual',months:'Número de cuotas',
+ pricePerVara:'Precio por vara²',observations:'Observaciones'
+});
+function intakeNormalize(src){
+ return String(src||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\r/g,'').replace(/\u00b2/g,'2').replace(/\u00a0/g,' ').replace(/[ \t]+/g,' ').toUpperCase();
+}
+function intakeSection(text,start,next){
+ const r=new RegExp('(?:^|\\n)\\s*(?:'+start+')\\s*[:\\-]?\\s*(.*?)(?=\\n|$)','im');
+ const lines=text.match(r);
+ if(lines){
+  const value=String(lines[1]||'').trim();
+  if(value)return value.replace(/^[:\-]\s*/,'');
+  const rest=text.slice(lines.index+lines[0].length).split('\n').find(x=>x.trim());
+  if(rest&&!new RegExp('^(?:'+next+')\\s*[:\\-]?','i').test(rest.trim()))return rest.trim();
+ }
+ return '';
+}
+export function intakeMoney(raw){
+ const cleaned=String(raw??'').replace(/[L$]/gi,'').replace(/(?:LEMPIRAS?|LPS?\.?)/gi,'').replace(/,/g,'').replace(/\s+/g,'').trim();
+ if(!cleaned)return null;
+ const hit=cleaned.match(/-?\d+(?:\.\d{1,2})?/);
+ if(!hit)return null;
+ const n=Number(hit[0]);return Number.isFinite(n)&&n>=0&&n<=1e12?n:null;
+}
+export function parseContractIntake(text){
+ const src=intakeNormalize(text).slice(0,50000);
+ const field=(key,next='[A-ZÁÉÍÓÚÑ ]{2,40}')=>intakeSection(src,key,next);
+ const amount=key=>intakeMoney(field(key));
+ const rawYears=field('TIEMPO\\s+DE\\s+CONTRATO|PLAZO\\s+DEL\\s+CONTRATO');
+ const term=rawYears.match(/(\d{1,3})\s*(?:CUOTAS?|MESES?)/)||rawYears.match(/(\d{1,2})\s*A[NÑ]OS?/);
+ const months=term?(/A[NÑ]O/.test(term[0])?Number(term[1])*12:Number(term[1])):null;
+ const number=field('LOTE\\s*\\(?S\\)?|SOLAR(?:ES)?');
+ const block=field('BLOQUE\\s*\\(?S\\)?');
+ const stage=field('ETAPA(?:\\s+DEL\\s+PROYECTO)?');
+ const areaVaras=amount('AREA(?:\\s+EN\\s+VARAS)?');
+ const areaM2=amount('METROS\\s+CUADRADOS|AREA\\s+M2');
+ const results={
+  name:field('NOMBRE\\s+DE\\s+CLIENTE|NOMBRE\\s+DEL\\s+CLIENTE'),
+  identity:field('DNI|IDENTIDAD'),rtn:field('RTN'),maritalStatus:field('ESTADO\\s+CIVIL'),
+  occupation:field('PROFESI[OÓ]N\\s+U\\s+OFICIO|PROFESI[OÓ]N|OFICIO'),
+  address:field('DIRECCI[OÓ]N|DOMICILIO'),
+  stage:stage&&/^\d{1,2}$/.test(stage)?Number(stage):null,
+  block:block.match(/^[A-Z0-9]+/)?.[0]||'',
+  number:number.match(/^\d+[A-Z]?/)?.[0]||'',
+  areaVaras,areaM2,
+  north:field('NORTE'),south:field('SUR'),east:field('ESTE'),west:field('OESTE'),
+  price:amount('PRECIO\\s+DE\\s+LOTE|PRECIO\\s+TOTAL'),
+  down:amount('VALOR\\s+DE\\s+PRIMA|PRIMA'),
+  financed:amount('SALDO\\s+A\\s+FINANCIAR'),
+  monthly:amount('CUOTA(?:\\s+MENSUAL)?'),months,
+  pricePerVara:amount('PRECIO\\s+POR\\s+VARA2?'),
+  observations:field('OBSERVACIONES'),
+  rawText:String(text||'').slice(0,50000)
+ };
+ // Los documentos sin etapa NO se asignan automáticamente a etapa 1 o 2.
+ return results;
+}
+export function intakeCheckValues(input,lot){
+ const errors=[];
+ if(!lot)errors.push('Selecciona el solar exacto, incluida la etapa.');
+ const str=v=>String(v||'').trim();
+ if(str(input.name).length<3)errors.push('Falta el nombre del cliente.');
+ if(!/^[0-9\s-]{10,22}$/.test(str(input.identity)))errors.push('Revisa el DNI.');
+ const price=Number(input.price),down=Number(input.down),months=Number(input.months);
+ if(!Number.isFinite(price)||price<=0||price>1e12)errors.push('El precio total debe ser positivo.');
+ if(!Number.isFinite(down)||down<0||down>=price)errors.push('La prima debe ser menor que el precio.');
+ if(!Number.isInteger(months)||months<1||months>360)errors.push('Revisa el plazo en meses.');
+ if(lot&&String(input.lotId)!==String(lot.id))errors.push('El solar no coincide.');
+ if(lot&&(lot.status==='private'||lot.type==='private'))errors.push('Una propiedad privada no se puede registrar como venta.');
+ const existingArea=Number(lot?.area);
+ if(existingArea>0&&Number(input.areaM2)>0&&Math.abs(existingArea-Number(input.areaM2))>.02){
+  // Es solo una alerta; jamás se pisa la medida actual por OCR.
+  errors.push('El área del documento no coincide con el inventario. Se conservará la medida registrada; revisa la diferencia antes de continuar.');
+ }
+ return errors;
+}
+export function intakeResetPreview(db){
+ const count=k=>Array.isArray(db?.[k])?db[k].length:0;
+ return {
+  clients:count('clients'),sales:count('sales'),payments:count('payments'),
+  reservations:count('reservations'),contractTexts:count('contractTexts'),
+  historicalPayments:count('historicalPayments'),historicalContracts:count('historicalContracts'),
+  ownerPaymentEntries:count('ownerPaymentEntries'),ownershipStatements:count('ownershipStatements'),
+  preservedLots:count('lots'),preservedResidences:count('residences'),
+  cashEntriesKept:count('cashEntries')
+ };
+}
