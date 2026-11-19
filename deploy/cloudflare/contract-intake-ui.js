@@ -78,9 +78,13 @@ async function contractIntakeRead(file){
   canvas=document.createElement('canvas');
   const factor=Math.min(1,2200/Math.max(bmp.width,bmp.height));
   canvas.width=Math.max(1,Math.round(bmp.width*factor));canvas.height=Math.max(1,Math.round(bmp.height*factor));
-  const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bmp,0,0);bmp.close();bmp=null;
+  const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bmp,0,0,canvas.width,canvas.height);bmp.close();bmp=null;
   const T=await loadContractOcr();
-  worker=await T.createWorker('spa',1,{logger:m=>{if(scan===contractIntakeWorking&&status.isConnected&&m.status==='recognizing text')status.textContent='Reconociendo texto: '+Math.round((m.progress||0)*100)+'%';}});
+  worker=await T.createWorker('spa',1,{
+   workerPath:contractOcrCdn+'worker.min.js',
+   corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.0.0',
+   langPath:'https://tessdata.projectnaptha.com/4.0.0',
+   logger:m=>{if(scan===contractIntakeWorking&&status.isConnected&&m.status==='recognizing text')status.textContent='Reconociendo texto: '+Math.round((m.progress||0)*100)+'%';}});
   const {data}=await worker.recognize(canvas,{rotateAuto:true});
   if(scan!==contractIntakeWorking||version!==scan.readVersion)return;
   const read=parseContractIntake(data.text||'');

@@ -1,4 +1,4 @@
 {
-  "version": "0.22.23",
-  "notes": "Corrige el arranque bloqueado tras la actualización: inicializa el color verde limón cuando la paleta del mapa ya está disponible. Conserva contratos, identidades, clientes y abonos."
+  "version": "0.22.24",
+  "notes": "Corrige la lectura de fotografías grandes en Contratos: conserva la imagen completa al reducirla para OCR y fija las rutas compatibles del lector en español. Permite reconocer nombre, DNI, bloque y solar sin recortar el documento; mantiene la selección manual de etapa."
 }

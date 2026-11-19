@@ -109,3 +109,7 @@ Esto NO sustituye ni borra medidas ya registradas, contratos anteriores, persona
 **Mapa interno:** los solares con fotografía/contrato estructurado en estado pendiente de activar o activo aparecen en verde limón (`#A3E635`) y muestran la leyenda **Contrato registrado**. Las cuotas vencidas conservan rojo, y los apartados vigentes no se vuelven verdes por accidente. La página pública de WhatsApp mantiene el solar no disponible sin exponer clientes, DNI ni precios. El color no equivale a prima cobrada ni a cuota pagada.
 
 La actualización no ejecuta limpieza ni altera los clientes y pagos ya existentes. Validar manualmente el OCR de una fotografía real, corregir DNI existente sin crear persona nueva, y confirmar en el mapa el solar de la etapa correcta antes de ingresar abonos.
+
+### 0.22.24 — Fotografía completa para lectura contractual
+
+Se corrige el recorte de fotografías de más de 2200 píxeles: el lienzo y la imagen usan ahora el mismo tamaño de destino, conservando toda la ficha y su proporción antes del OCR. El lector usa rutas explícitas compatibles de Tesseract 5 y español. Pruebas de regresión con fotos verticales de 4000 × 6000, horizontales de 6000 × 4000 y pequeñas de 900 × 1400 comprueban que la entrada completa llega al OCR, y que nombre, DNI, bloque y solar extraídos llegan al formulario. La etapa sigue siendo manual. No hay migraciones ni cambios de clientes, medidas o abonos existentes.
