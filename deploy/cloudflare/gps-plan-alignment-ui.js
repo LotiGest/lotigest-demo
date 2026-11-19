@@ -31,7 +31,10 @@ function gpsPlanControls(){
 const originalGpsPlanPage=gpsPage;
 gpsPage=function(){
  const h=originalGpsPlanPage();
- return h.replace('<div class="geo-layout">',gpsPlanControls()+'<div class="geo-layout">');
+ const saved=gpsPlanSaved(),draft=gpsPlanWorking();
+ const visible=!!(draft?.anchors.length===3||saved&&saved.visible!==false&&!draft);
+ const count=visible?mapFeatures(residence()).filter(f=>Array.isArray(f.points)&&f.points.length>=3).length:0;
+ return h.replace(/(\d+) polígonos visibles/g,(_,n)=>n+' GPS manuales · '+count+' del croquis').replace('<div class="geo-layout">',gpsPlanControls()+'<div class="geo-layout">');
 };
 function gpsPlanShow(){
  if(!geoMap||page!=='gps'||!window.L)return;
@@ -102,7 +105,8 @@ document.addEventListener('click',event=>{
    const d=gpsPlanWorking();if(!d||d.anchors.length!==3)return;
    try{planAffineFeatures(mapFeatures(residence()),d.anchors);}
    catch(error){toast(error.message,'error');return;}
-   geoSetup().planAlignment={anchors:d.anchors,source:gpsPlanSource(residence()),visible:true,approximate:true,confirmedAt:new Date().toISOString()};
+   const cfg=geoSetup();const view=geoMap?.getCenter();if(view){cfg.center=[view.lat,view.lng];cfg.zoom=geoMap.getZoom();cfg.homeSet=true;cfg.layer='satellite';}
+   cfg.planAlignment={anchors:d.anchors,source:gpsPlanSource(residence()),visible:true,approximate:true,confirmedAt:new Date().toISOString()};
    save();gpsPlanDraft=null;render();toast('Croquis alineado sobre satélite. Coordenadas aproximadas, no catastrales.');return;
   }
  }
