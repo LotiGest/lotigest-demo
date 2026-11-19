@@ -73,10 +73,10 @@ test('un pago conjunto de prima sin distribución no colorea todos los solares',
  db.ownerPayments.push({id:'OP-1',clientId:'C1',residenceId:'R',concept:'Prima',amountCents:5000000,allocations:[{amountCents:5000000,references:[{lotId:lot.id},{lotId:'L17'}]}]});
  assert.equal(api.record(feature).status,'contracted');
 });
-test('documentación de prima histórica con solar exacto identificado sí cambia el color',()=>{
+test('historial importado no simula un cobro de prima confirmado',()=>{
  const {db,lot,api,feature}=fixture('sold');
  db.historicalPayments.push({id:'H1',type:'PRIMA',residenceId:'R',lotId:lot.id,clientId:'C1',amountCents:5000000});
- assert.equal(api.record(feature).status,'prima-paid');
+ assert.equal(api.record(feature).status,'contracted');
 });
 test('abono cero o anulado y cuotas normales sin prima pactada no cambian de color',()=>{
  const {db,lot,api,feature}=fixture('sold');
