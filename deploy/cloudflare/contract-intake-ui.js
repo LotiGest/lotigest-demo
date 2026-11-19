@@ -139,7 +139,7 @@ async function contractIntakeSave(form){
  if(original.residenceId!==residence().id||!lot||lot.residenceId!==original.residenceId)throw Error('El solar debe pertenecer a la residencial seleccionada.');
  const issues=intakeCheckValues(data,lot);if(issues.length)throw Error(issues.join(' '));
  if(db.sales.some(s=>s.lotId===lot.id))throw Error('Ese solar ya tiene una venta. No se puede asignar otro comprador.');
- if(lot.pendingContractId||lot.ownerClientId)throw Error('Este solar ya tiene propietario o contrato pendiente. Abre su ficha para corregir la vinculación, sin crear otra.');
+ if(lot.pendingContractId)throw Error('Este solar ya tiene contrato pendiente. Revisa esa ficha antes de registrar otro.');
  if(activeReservation(lot.id))throw Error('El solar tiene un apartado vigente que debes revisar.');
  if((db.contractTexts||[]).some(d=>d.lotId===lot.id&&d.status!=='voided'))throw Error('Ya existe un documento asociado a este solar; revísalo antes de cargar otro.');
  const price=Number(data.price),down=Number(data.down),months=Number(data.months);
@@ -153,6 +153,7 @@ async function contractIntakeSave(form){
   if(!contractIntakeAdmin()||contractIntakeWorking!==original||snapshot!==JSON.stringify(db))throw Error('El inventario cambió. Vuelve a revisar el contrato.');
   const next=JSON.parse(snapshot),target=next.lots.find(l=>l.id===lot.id);
   const client=contractIntakeFindClient(next,data);
+  if(target.ownerClientId&&target.ownerClientId!==client.id)throw Error('El solar ya está asignado a otro cliente; verifica la identidad antes de modificarlo.');
   const now=new Date().toISOString();
   const {rawText:sourceOCR,...structuredFields}=data;
   const record={id:'OCR-'+crypto.randomUUID(),clientId:client.id,lotId:lot.id,saleId:'',residenceId:original.residenceId,
