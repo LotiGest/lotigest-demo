@@ -10,7 +10,7 @@ function contractFichaTitle(doc){
  const client=getClient(doc.clientId),lot=getLot(doc.lotId);
  return '<strong>'+esc(client?.name||doc.structured?.name||'Cliente por completar')+'</strong>'+
  '<p class="sm">Etapa '+esc(lot?.stage||'—')+' · Bloque '+esc(lot?.block||'—')+' · Solar '+esc(lot?.sourceNumber||lot?.id||'—')+
- (doc.status==='pending-sale'?' · Ficha guardada, crédito pendiente de activar':' · Contrato activo')+'</p>';
+ (doc.status==='pending-sale'?' · Pendiente de activar crédito':' · Contrato activo')+'</p>';
 }
 function contractFichaLink(doc){
  return '<button type="button" class="btn btn-outline btn-sm" data-contract-ficha-view="'+esc(doc.id)+'">Ver ficha completa</button>';
