@@ -61,8 +61,8 @@ export function parseContractIntake(text){
  const rawYears=field('TIEMPO\\s+DE\\s+CONTRATO|PLAZO\\s+DEL\\s+CONTRATO');
  const term=rawYears.match(/(\d{1,3})\s*(?:CUOTAS?|MESES?)/)||rawYears.match(/(\d{1,2})\s*A[NÑ]OS?/);
  const months=term?(/A[NÑ]O/.test(term[0])?Number(term[1])*12:Number(term[1])):null;
- const number=field('LOTE(?:\\s*\\(\\s*S\\s*\\)|S)?|SOLAR(?:ES|\\s*\\(\\s*ES\\s*\\))?');
- const block=field('BLOQUE(?:\\s*\\(\\s*S\\s*\\)|S)?');
+ const number=field('LOTE(?:\\s*\\(\\s*[S5]\\s*\\)|S)?|SOLAR(?:ES|\\s*\\(\\s*E?[S5]\\s*\\))?');
+ const block=field('BLOQUE(?:\\s*\\(\\s*[S5]\\s*\\)|S)?');
  const stage=field('ETAPA(?:\\s+DEL\\s+PROYECTO)?');
  const areaVaras=amount('AREA(?:\\s+EN\\s+VARAS)?');
  const areaM2=amount('METROS\\s+CUADRADOS|AREA\\s+M2');

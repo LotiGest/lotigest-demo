@@ -60,30 +60,62 @@ function contractIntakeOpen(clientId=''){
  showModal('Registrar cliente desde contrato','<p>Primer paso: sube una foto legible del documento de compra de esta residencial.</p>'+
  '<label class="field-group"><span>Imagen del contrato</span><input id="contract-intake-file" type="file" accept="image/jpeg,image/png,image/webp"></label>'+
  '<p class="sm muted">El OCR se realiza en tu dispositivo. Luego podrás revisar los datos antes de guardar; la imagen original se almacena de forma privada en LOTIGEST al confirmar.</p>'+
- '<div id="contract-intake-status" role="status"></div><div id="contract-intake-review"></div>',
+ '<div id="contract-intake-status" role="status"></div><button type="button" id="contract-intake-retry" class="btn btn-outline" hidden>Volver a leer la foto</button><div id="contract-intake-review"></div>',
  '<button type="button" class="btn btn-outline" data-action="close-modal">Cancelar</button><button type="submit" id="contract-intake-save" form="contract-intake-form" class="btn btn-primary" disabled>Guardar ficha revisada</button>',true,'Contratos → Cliente → Solar → Abonos');
 }
+// Recursos versionados servidos por el mismo sitio, sin descargas de CDN en el teléfono.
+let contractIntakeOcrLoading=null;
+function loadContractIntakeOcr(){
+ if(window.Tesseract)return Promise.resolve(window.Tesseract);
+ if(!contractIntakeOcrLoading)contractIntakeOcrLoading=new Promise((resolve,reject)=>{
+  const script=document.createElement('script');script.src='/ocr/v5/tesseract.min.js';
+  script.onload=()=>{if(window.Tesseract)resolve(window.Tesseract);else{contractIntakeOcrLoading=null;script.remove();reject(Error('El lector no se pudo iniciar. Vuelve a intentar.'));}};
+  script.onerror=()=>{contractIntakeOcrLoading=null;script.remove();reject(Error('No se pudo descargar el lector. Comprueba la conexión y pulsa Volver a leer la foto.'));};
+  document.head.appendChild(script);
+ });
+ return contractIntakeOcrLoading;
+}
+document.addEventListener('click',event=>{
+ if(event.target.id!=='contract-intake-retry')return;
+ event.preventDefault();
+ if(contractIntakeWorking?.file&&!contractIntakeWorking.busy)contractIntakeRead(contractIntakeWorking.file);
+},true);
+async function decodeContractIntakeImage(file){
+ try{if(typeof createImageBitmap==='function')return await createImageBitmap(file);}catch{}
+ // Algunos teléfonos pueden mostrar un JPG aunque createImageBitmap no lo decodifique.
+ const url=URL.createObjectURL(file);
+ try{return await new Promise((resolve,reject)=>{
+  const image=new Image();image.onload=()=>resolve({width:image.naturalWidth,height:image.naturalHeight,image,close(){}});
+  image.onerror=()=>reject(Error('El teléfono no pudo abrir esta imagen. Prueba con otra foto JPG o PNG.'));image.src=url;
+ });}finally{URL.revokeObjectURL(url);}
+}
 async function contractIntakeRead(file){
- const scan=contractIntakeWorking,status=document.getElementById('contract-intake-status'),box=document.getElementById('contract-intake-review'),saveBtn=document.getElementById('contract-intake-save');
+ const scan=contractIntakeWorking,status=document.getElementById('contract-intake-status'),box=document.getElementById('contract-intake-review'),saveBtn=document.getElementById('contract-intake-save'),retryBtn=document.getElementById('contract-intake-retry');
  if(!scan||!file||!status||!box)return;
+ const reviewForm=document.getElementById('contract-intake-form');
+ if(reviewForm){const edited=contractIntakeData(reviewForm);scan.values={...scan.values,...edited};scan.preferredClientId=edited.clientId||scan.preferredClientId||'';}
  const version=++scan.readVersion;
  if(file.size>12*1024*1024||!['image/jpeg','image/png','image/webp'].includes(file.type)){
   status.textContent='Usa una imagen JPG, PNG o WebP de hasta 12 MB.';return;
  }
- scan.busy=true;saveBtn.disabled=true;scan.file=file;
+ scan.busy=true;saveBtn.disabled=true;scan.file=file;if(retryBtn){retryBtn.hidden=true;retryBtn.disabled=true;}
  let bmp=null,worker=null,canvas=null;
  try{
   status.textContent='Preparando imagen y leyendo el documento…';
-  bmp=await createImageBitmap(file);
+  bmp=await decodeContractIntakeImage(file);
   canvas=document.createElement('canvas');
   const factor=Math.min(1,2200/Math.max(bmp.width,bmp.height));
   canvas.width=Math.max(1,Math.round(bmp.width*factor));canvas.height=Math.max(1,Math.round(bmp.height*factor));
-  const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bmp,0,0,canvas.width,canvas.height);bmp.close();bmp=null;
-  const T=await loadContractOcr();
+  const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bmp.image||bmp,0,0,canvas.width,canvas.height);bmp.close();bmp=null;
+  status.textContent='Cargando lector de español…';
+  const T=await loadContractIntakeOcr();
   worker=await T.createWorker('spa',1,{
-   workerPath:contractOcrCdn+'worker.min.js',
-   corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.0.0',
-   langPath:'https://tessdata.projectnaptha.com/4.0.0',
+   workerPath:location.origin+'/ocr/v5/worker.min.js',
+   workerBlobURL:false,
+   cachePath:'lotigest-spa-best-int-v1',
+   corePath:location.origin+'/ocr/v5/core',
+   langPath:location.origin+'/ocr/v5/lang',
+   errorHandler:()=>{},
    logger:m=>{if(scan===contractIntakeWorking&&status.isConnected&&m.status==='recognizing text')status.textContent='Reconociendo texto: '+Math.round((m.progress||0)*100)+'%';}});
   const {data}=await worker.recognize(canvas,{rotateAuto:true});
   if(scan!==contractIntakeWorking||version!==scan.readVersion)return;
@@ -102,10 +134,11 @@ async function contractIntakeRead(file){
   scan.values={...scan.values}; // Conservar el nombre y DNI del cliente seleccionado si falla el OCR.
   box.innerHTML=contractIntakeFields();
   saveBtn.disabled=false;
-  status.textContent='No fue posible leer automáticamente la foto. Puedes escribir los datos manualmente y revisarlos antes de guardar.';
+  const detail=String(e?.message||e||'Error del lector').slice(0,240);
+  status.textContent='No se pudo completar la lectura: '+detail+'. Pulsa Volver a leer la foto para reintentar. La imagen y los datos escritos se conservan.';
  }finally{
   if(bmp)bmp.close();if(worker)await worker.terminate().catch(()=>{});if(canvas){canvas.width=1;canvas.height=1;}
-  if(scan===contractIntakeWorking)scan.busy=false;
+  if(scan===contractIntakeWorking){scan.busy=false;if(retryBtn){retryBtn.hidden=false;retryBtn.disabled=false;}}
  }
 }
 function contractIntakeData(form){

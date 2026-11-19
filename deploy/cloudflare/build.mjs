@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { buildPagesFiles } from './pages-files.mjs';
+import { installOcrAssets } from './ocr-assets.mjs';
 
 const root = new URL('../../', import.meta.url);
 const out = new URL('cloudflare-pages/', root);
@@ -31,4 +32,5 @@ files['_headers'] += '/service-worker.js\n  Cache-Control: no-cache\n';
 files['_redirects'] += '/clientes-nube / 302\n/clientes-nube.html / 302\n/operaciones-nube / 302\n/operaciones-nube.html / 302\n';
 await mkdir(out, { recursive: true });
 await Promise.all(Object.entries(files).map(([name, content]) => writeFile(new URL(name, out), content)));
+await installOcrAssets(out);
 console.log('Cloudflare Pages: ' + Object.keys(files).join(', '));

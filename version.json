@@ -1,4 +1,4 @@
 {
-  "version": "0.22.24",
-  "notes": "Corrige la lectura de fotografías grandes en Contratos: conserva la imagen completa al reducirla para OCR y fija las rutas compatibles del lector en español. Permite reconocer nombre, DNI, bloque y solar sin recortar el documento; mantiene la selección manual de etapa."
+  "version": "0.22.25",
+  "notes": "Contratos: lector español y motor OCR alojados en LOTIGEST, modelo de idioma optimizado para teléfonos y alternativa de apertura de fotos. Reintento de la misma imagen con detalle del fallo, conservando datos. Reconoce BLOQUE (5) y LOTE (5) cuando el OCR confunde la etiqueta (S); etapa manual."
 }

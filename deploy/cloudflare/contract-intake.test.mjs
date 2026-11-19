@@ -63,3 +63,9 @@ test('OCR identifica el DNI del titular sin tomar el del representante de las ob
  assert.ok(intakeCheckValues({...doc,stage:2,lotId:'g16',block:'G',number:'16',name:'PERSONA DE PRUEBA',price:580564.16,down:58056.42,months:84,identity:'1411 1990 0002'},
   {id:'g16',stage:2,block:'G',sourceNumber:'16',status:'sold'}).some(e=>e.includes('13 dígitos')));
 });
+
+test('lectura real del motor: etiqueta BLOQUE (5) y LOTE (5) conserva G y 16',()=>{
+ const d=parseContractIntake('NOMBRE DE CLIENTE: CLIENTE FICTICIO DE PRUEBA\nDNI: 0801 1990 00021\nLOTE (5): 16\nBLOQUE (5): G');
+ assert.equal(d.name,'CLIENTE FICTICIO DE PRUEBA');assert.equal(d.identity,'0801 1990 00021');
+ assert.equal(d.block,'G');assert.equal(d.number,'16');assert.equal(d.stage,null);
+});
