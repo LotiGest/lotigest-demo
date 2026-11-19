@@ -63,3 +63,11 @@ Al recibir un pedido, la campana del administrador muestra nombre, residencial, 
 El service worker distingue las rutas públicas en su política de navegación y **no utiliza el inicio de sesión como respuesta de reserva** para el mapa. Si no hay conexión ni copia del mapa, muestra un error de conexión específico, nunca el formulario privado.
 
 Para reproducir, abrir la URL pública sin iniciar sesión en un navegador nuevo y desde WhatsApp en Android; comprobar `/api/client-sales/maps/<slug>` sin cookies, disponibilidad y medidas; enviar un pedido de prueba con dos solares; verificar el contador de campana y abrir la solicitud elegida. Ejecutar `npm ci && npm run build && npm test` antes de publicar. No se requieren migraciones nuevas y los datos existentes en D1 no necesitan cambios.
+
+## LOTIGEST 0.22.18 · Zoom del mapa de solares con los dedos
+
+En **Mapa de solares** (croquis interno `#arrayan-scroll`), hacer un gesto de pellizco con dos dedos amplía o reduce el mapa entre 50 % y 600 %. Con un dedo se desplaza horizontal y verticalmente con el scroll táctil nativo; una pulsación corta continúa abriendo la ficha del solar. El mapa conserva el punto entre los dedos al cambiar de escala. La interacción táctil suprime el clic accidental al finalizar un pellizco o deslizamiento.
+
+Siguen funcionando los botones **+ Acercar**, **− Alejar** y **Vista general**. En escritorio puede usarse Ctrl + rueda del ratón o gesto equivalente en el trackpad. Es un cambio exclusivamente de interfaz, sin alterar geometrías, estado de ventas, clientes, contratos ni pagos. El zoom no se guarda en D1.
+
+Archivo: `deploy/cloudflare/solar-touch-zoom.js`. Pruebas: `deploy/cloudflare/solar-touch-zoom.test.mjs`. Validar en un Android real la distancia de dos dedos, arrastre de un dedo y que tocar un solar disponible abre su ficha sin seleccionar accidentalmente otro.

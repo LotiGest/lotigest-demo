@@ -1,4 +1,4 @@
 {
-  "version": "0.22.17",
-  "notes": "Centro de importaciones: una ventana compartida por los paneles con pestañas para medidas y precios, clientes/compras, historial de primas/abonos, croquis PDF y contratos. Permite elegir Excel .xlsx, descargar plantillas, revisar errores y confirmar explícitamente. Conserva comprobaciones de duplicados, cruce con residencial y permisos de administrador; no sustituye ventas, cobros ni contratos por archivos automáticamente."
+  "version": "0.22.18",
+  "notes": "Mapa de solares táctil: pellizcar con dos dedos acerca y aleja entre 50 % y 600 %, mover con un dedo desplaza el croquis y tocar un solar conserva la apertura de su ficha. El zoom se centra en el gesto, evita clics accidentales y también admite Ctrl+rueda en computadora. Mantiene botones +, − y Vista general; no altera medidas, precios, propietarios ni cobros."
 }
