@@ -17,7 +17,8 @@ function intakeSection(text,start,next){
   const value=String(lines[1]||'').trim();
   if(value)return value.replace(/^[:\-]\s*/,'');
   const rest=text.slice(lines.index+lines[0].length).split('\n').find(x=>x.trim());
-  if(rest&&!new RegExp('^(?:'+next+')\\s*[:\\-]?','i').test(rest.trim()))return rest.trim();
+  const heading=/^(?:GENERALES\\s+DE\\s+CLIENTE|SOBRE\\s+LOTE|COLINDANCIAS|DATOS\\s+DE\\s+VENTA|NOMBRE|DNI|IDENTIDAD|RTN|ESTADO\\s+CIVIL|PROFESION|DIRECCION|DOMICILIO|LOTE|SOLAR|BLOQUE|AREA|METROS|NORTE|SUR|ESTE|OESTE|PRECIO|VALOR|SALDO|CUOTA|TIEMPO|OBSERVACIONES|FIRMA)\\b/i;
+  if(rest&&!heading.test(rest.trim())&&!new RegExp('^(?:'+next+')\\s*[:\\-]?','i').test(rest.trim()))return rest.trim();
  }
  return '';
 }
