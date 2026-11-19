@@ -99,3 +99,13 @@ Al subir una imagen en **Contratos → Subir contrato y crear ficha**, el lector
 Al seleccionar la etapa, el sistema busca un solar que coincida con esa triple referencia (etapa + bloque + número). Si la coincidencia es única lo selecciona; si falta, ofrece corregir el OCR o buscarlo manualmente en esa etapa. Antes de guardar valida de nuevo que los tres datos coincidan y evita registros en una etapa equivocada. Por ejemplo, bloque G, solar 16, etapa 1 y bloque G, solar 16, etapa 2 son registros diferentes.
 
 Esto NO sustituye ni borra medidas ya registradas, contratos anteriores, personas, ventas o abonos. La etapa puede cambiarse antes de guardar; al hacerlo se actualiza la referencia seleccionada y se conservan los demás datos revisados del contrato.
+
+## LOTIGEST v0.22.22 — Guardado completo de identidad y verde limón en Mapa
+
+**Contratos:** al leer una fotografía se busca el DNI de la persona titular (13 dígitos), sin tomar el número de identidad del representante que pueda aparecer en Observaciones. Se permite revisar manualmente los trece dígitos antes de confirmar. Una identidad incompleta **bloquea** el guardado de la ficha. El cliente se guarda con identidad en `clients[].identity` y además en `contractTexts[].structured.identity`, junto con nombre, estado civil, dirección, oficio, RTN, etapa (selección manual), bloque, solar, varas², m², cuatro colindancias, precio, prima, saldo, cuota, plazo, precio por vara y observaciones completas. El original sigue privado y las medidas del inventario no se sobrescriben.
+
+**Reparar cliente ya registrado:** al abrir su contrato, pulsar **Corregir DNI del cliente**. Se actualizan la identidad del cliente existente y las fichas estructuradas vinculadas, sin duplicar clientes, ventas ni pagos. Se valida que el DNI no pertenezca a otra persona y que las otras fichas no sean contradictorias. Si se guardó un cliente por el formulario antiguo sin ficha estructurada, primero usar **Clientes → Completar ficha desde contrato**.
+
+**Mapa interno:** los solares con fotografía/contrato estructurado en estado pendiente de activar o activo aparecen en verde limón (`#A3E635`) y muestran la leyenda **Contrato registrado**. Las cuotas vencidas conservan rojo, y los apartados vigentes no se vuelven verdes por accidente. La página pública de WhatsApp mantiene el solar no disponible sin exponer clientes, DNI ni precios. El color no equivale a prima cobrada ni a cuota pagada.
+
+La actualización no ejecuta limpieza ni altera los clientes y pagos ya existentes. Validar manualmente el OCR de una fotografía real, corregir DNI existente sin crear persona nueva, y confirmar en el mapa el solar de la etapa correcta antes de ingresar abonos.
