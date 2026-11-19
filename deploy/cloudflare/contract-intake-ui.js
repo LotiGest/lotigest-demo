@@ -127,9 +127,10 @@ async function contractIntakeSave(form){
   const next=JSON.parse(snapshot),target=next.lots.find(l=>l.id===lot.id);
   const client=contractIntakeFindClient(next,data);
   const now=new Date().toISOString();
+  const {rawText:sourceOCR,...structuredFields}=data;
   const record={id:'OCR-'+crypto.randomUUID(),clientId:client.id,lotId:lot.id,saleId:'',residenceId:original.residenceId,
    title:'FICHA CONTRACTUAL DE '+String(client.name).slice(0,85),pages:[{number:1,text:String(data.rawText||'').slice(0,50000),confidence:original.values._confidence??null}],
-   structured:{...data,lotId:lot.id,stage:lot.stage??null,monthlyCalculated:expected,downPaymentReceived:false},
+   structured:{...structuredFields,lotId:lot.id,stage:lot.stage??null,monthlyCalculated:expected,downPaymentReceived:false},
    documentKey:key,documentMime:original.file.type,format:'photo+ocr',status:'pending-sale',createdAt:now,updatedAt:now};
   next.contractTexts??=[];next.contractTexts.unshift(record);
   // Solo completar vacíos del inventario; jamás sobrescribir medidas existentes.
@@ -231,7 +232,7 @@ function clientRegisterResetOpen(){
  showModal('Preparar reinicio del padrón',
   '<p><strong>Atención: operación destructiva para los registros de personas.</strong> Solo debes usarla después de descargar un respaldo completo.</p>'+
   '<div class="card" style="padding:14px"><p>Clientes: <b>'+n.clients+'</b> · Ventas: <b>'+n.sales+'</b> · Abonos: <b>'+n.payments+'</b> · Apartados: <b>'+n.reservations+'</b></p>'+
-  '<p>Contratos: <b>'+n.contractTexts+'</b> · Historiales: <b>'+(n.historicalPayments+n.historicalContracts+n.ownerPaymentEntries+n.ownershipStatements)+'</b></p>'+
+  '<p>Contratos: <b>'+n.contractTexts+'</b> · Historiales: <b>'+(n.historicalPayments+n.historicalContracts+n.ownerPayments+n.ownershipStatements)+'</b></p>'+
   '<p><strong>Se conservan '+n.preservedLots+' solares y '+n.preservedResidences+' residenciales, con etapas, bloques, medidas, precios y croquis.</strong></p>'+
   '<p style="color:#9b4c1f">Los '+n.cashEntriesKept+' movimientos manuales de Caja se conservan: revísalos después porque podrían corresponder a operaciones antiguas.</p></div>'+
   '<button class="btn btn-outline" type="button" data-client-register-backup>1. Descargar respaldo completo JSON</button>'+
