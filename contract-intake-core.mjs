@@ -103,7 +103,7 @@ export function intakePrepareFreshClientRegister(state){
  // Conservar todos los solares, su área, medidas, varas, etapa, bloque, precio y posición.
  // Solo retirar claves de referencia a un comprador o un apartado que ya no existe.
  for(const lot of next.lots||[]){
-  for(const key of ['ownerClientId','clientId','reservationId','ownerName','buyerName']){
+  for(const key of ['ownerClientId','clientId','reservationId','ownerName','buyerName','pendingContractId']){
    if(Object.prototype.hasOwnProperty.call(lot,key))delete lot[key];
   }
  }
