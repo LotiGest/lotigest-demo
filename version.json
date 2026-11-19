@@ -1,4 +1,4 @@
 {
-  "version": "0.22.29",
-  "notes": "Ficha del cliente descargable en PDF carta desde Contratos, Clientes y Ventas, con identidad, dirección, solares, colindancias y condiciones guardadas. Abonos muestra cuota mensual por solar y total; rechaza montos mensuales inferiores en pantalla y servidor. Permite pagar el saldo final menor a la cuota; mantiene primas diferenciadas y recibos históricos existentes. No supone prima cero cuando ese dato falta en una ficha."
+  "version": "0.22.30",
+  "notes": "La barra de cuenta muestra el usuario y su perfil real: Administrador o Vendedor. Pruebas reales aisladas de clientes, venta, abonos mínimos, PDF, permisos, sesión y recuperación de sincronización. Limpieza solicitada de abonos históricos con respaldo, sin borrar clientes ni inventario."
 }
