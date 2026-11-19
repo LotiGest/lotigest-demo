@@ -12,10 +12,16 @@ function clientSolarNotificationMarkup(){
  requests.slice(0,6).map(r=>{
   const stage=r.lot?.stage||'—',block=r.lot?.block||'—',solar=r.lot?.number||r.lotId||'—';
   const label='Etapa '+stage+' · Bloque '+block+' · Solar '+solar;
+  const measures=[];
+  if(Number(r.lot?.area)>0)measures.push('Área '+Number(r.lot.area).toLocaleString('es-HN',{maximumFractionDigits:2})+' m²');
+  for(const [key,name] of Object.entries({front:'Frente',depth:'Fondo',left:'Lado izquierdo',right:'Lado derecho'})){
+   if(Number(r.lot?.dimensions?.[key])>0)measures.push(name+' '+Number(r.lot.dimensions[key]).toLocaleString('es-HN',{maximumFractionDigits:2})+' m');
+  }
   return '<button type="button" class="lg-popup-action" data-action="client-pending-open" data-id="'+esc(r.id)+'" style="display:block;text-align:left;width:100%;white-space:normal;padding:10px 8px;border-bottom:1px solid rgba(75,110,85,.18)">'+
    '<strong style="display:block">'+esc(r.client?.name||'Cliente')+'</strong>'+
    '<small style="display:block">'+esc(r.title||'Residencial')+' · '+esc(label)+'</small>'+
-   '<small style="display:block">'+(r.status==='quoted'?'Cotización preparada':'Solicitud por revisar')+
+   '<small style="display:block">'+esc(measures.join(' · ')||'Medidas sin confirmar')+'</small>'+ 
+   '<small style="display:block">'+(r.status==='quoted'?'Cotización preparada':r.client?.mode==='inquiry'?'Pedido de solar por revisar':'Solicitud por revisar')+
    (r.client?.mode==='credit'?' · Prima propuesta '+money(r.client.proposedDownPayment||0):' · Contado')+'</small>'+
    '</button>';
  }).join('')+
@@ -39,4 +45,20 @@ document.addEventListener('click',event=>{
  if(event.target.closest?.('[data-lg-action="notifications"]')&&cloudReady&&cloudUser?.role==='admin'){
   refreshClientRequests();
  }
+},true);
+
+document.addEventListener('click',event=>{
+ const button=event.target.closest?.('[data-action="client-pending-open"][data-id]');
+ if(!button)return;
+ const id=button.dataset.id;
+ // El manejador general abre Pendientes; enfocamos el pedido elegido después del render.
+ setTimeout(()=>{
+  const card=Array.from(document.querySelectorAll('[id^="solicitud-"]')).find(el=>el.id==='solicitud-'+id);
+  if(!card)return;
+  card.scrollIntoView({behavior:'smooth',block:'center'});
+  card.style.outline='2px solid #7cb342';
+  card.style.outlineOffset='4px';
+  card.setAttribute('tabindex','-1');
+  card.focus({preventScroll:true});
+ },80);
 },true);
