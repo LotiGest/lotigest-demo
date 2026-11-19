@@ -11,13 +11,13 @@ function intakeNormalize(src){
  return String(src||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\r/g,'').replace(/\u00b2/g,'2').replace(/\u00a0/g,' ').replace(/[ \t]+/g,' ').toUpperCase();
 }
 function intakeSection(text,start,next){
- const r=new RegExp('(?:^|\\n)\\s*(?:'+start+')\\s*[:\\-]?\\s*(.*?)(?=\\n|$)','im');
+ const r=new RegExp('(?:^|\\n)[ \\t]*(?:'+start+')[ \\t]*[:\\-]?[ \\t]*(.*?)(?=\\n|$)','im');
  const lines=text.match(r);
  if(lines){
   const value=String(lines[1]||'').trim();
   if(value)return value.replace(/^[:\-]\s*/,'');
   const rest=text.slice(lines.index+lines[0].length).split('\n').find(x=>x.trim());
-  const heading=/^(?:GENERALES\\s+DE\\s+CLIENTE|SOBRE\\s+LOTE|COLINDANCIAS|DATOS\\s+DE\\s+VENTA|NOMBRE|DNI|IDENTIDAD|RTN|ESTADO\\s+CIVIL|PROFESION|DIRECCION|DOMICILIO|LOTE|SOLAR|BLOQUE|AREA|METROS|NORTE|SUR|ESTE|OESTE|PRECIO|VALOR|SALDO|CUOTA|TIEMPO|OBSERVACIONES|FIRMA)\\b/i;
+  const heading=/^(?:GENERALES|SOBRE|COLINDANCIAS|DATOS|NOMBRE|DNI|IDENTIDAD|RTN|ESTADO|PROFESION|DIRECCION|DOMICILIO|LOTE|SOLAR|BLOQUE|AREA|METROS|NORTE|SUR|ESTE|OESTE|PRECIO|VALOR|SALDO|CUOTA|TIEMPO|OBSERVACIONES|FIRMA)\b/i;
   if(rest&&!heading.test(rest.trim())&&!new RegExp('^(?:'+next+')\\s*[:\\-]?','i').test(rest.trim()))return rest.trim();
  }
  return '';
