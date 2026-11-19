@@ -107,8 +107,13 @@ export async function postPublicRequest({request,env,params}){
   const input=await body(request,8000);
   const state=await currentState(db);
   const publicData=sanitizedMap(state||{},map,JSON.parse(map.geometry_json));
-  const solar=publicData?.lots.find(l=>l.id===input.lotId);
-  if(!solar||solar.status!=='available')err('Este solar ya no está disponible. Elige otro.',409);
+  // Una sola consulta puede incluir varios solares; nunca registra ventas o apartados.
+  // La validación de disponibilidad se repite en el servidor antes de escribir.
+  const ids=Array.isArray(input.lotIds)?input.lotIds:[input.lotId];
+  if(!ids.length||ids.length>5||ids.some(id=>typeof id!=='string'||id.length>150)||new Set(ids).size!==ids.length)
+    err('Elige entre uno y cinco solares diferentes.');
+  const solares=ids.map(id=>publicData?.lots.find(l=>l.id===id));
+  if(solares.some(l=>!l||l.status!=='available'))err('Uno de los solares seleccionados ya no está disponible. Actualiza el mapa.',409);
   const name=clean(input.name,100),phone=clean(input.phone,40),note=clean(input.note,500),mode=input.mode;
   const proposed=input.proposedDownPayment===undefined?0:Number(input.proposedDownPayment);
   if(name.length<3||!/^[0-9+()\s-]{8,25}$/.test(phone)||!['cash','credit'].includes(mode)||!validDate(input.paymentDate)||!isMoney(proposed))err('Completa nombre, WhatsApp, modalidad, fecha y prima correctamente.');
@@ -122,9 +127,10 @@ export async function postPublicRequest({request,env,params}){
   const windowStart=Math.floor(Date.now()/900000)*900000;
   const gate=await db.prepare('INSERT INTO public_lot_request_limits(ip_hash,window_start,attempts) VALUES(?,?,1) ON CONFLICT(ip_hash) DO UPDATE SET attempts=CASE WHEN window_start=excluded.window_start THEN attempts+1 ELSE 1 END,window_start=excluded.window_start RETURNING attempts').bind(ipHash,windowStart).first();
   if(gate.attempts>10)err('Demasiadas solicitudes. Inténtalo más tarde.',429);
-  const id='SOL-'+crypto.randomUUID(),now=new Date().toISOString();
-  await db.prepare('INSERT INTO public_lot_requests(id,slug,residence_id,lot_id,name,phone,mode,proposed_down_payment,payment_date,note,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,slug,map.residence_id,solar.id,name,phone,mode,proposed,input.paymentDate,note,'pending',now,now).run();
-  return json({ok:true,requestId:id,message:'Tu solicitud fue enviada. El terreno aún no está apartado.'},201);
+  const now=new Date().toISOString(),requestIds=solares.map(()=>'SOL-'+crypto.randomUUID());
+  const entries=solares.map((solar,i)=>db.prepare('INSERT INTO public_lot_requests(id,slug,residence_id,lot_id,name,phone,mode,proposed_down_payment,payment_date,note,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(requestIds[i],slug,map.residence_id,solar.id,name,phone,mode,proposed,input.paymentDate,note,'pending',now,now));
+  await db.batch(entries);
+  return json({ok:true,requestId:requestIds[0],requestIds,count:requestIds.length,message:requestIds.length===1?'Solicitud enviada. El solar todavía no está apartado.':'Solicitudes enviadas. Los solares todavía no están apartados.'},201);
  }catch(e){return failure(e);}
 }
 export async function listRequests({request,env}){
