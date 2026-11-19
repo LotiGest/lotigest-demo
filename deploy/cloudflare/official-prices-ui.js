@@ -129,7 +129,7 @@ openSolarWindow=function(lotId){
  }
  const pricePanel='<section class="card" style="padding:14px;margin:12px 0"><h3>Precio y financiamiento</h3>'+
   '<div class="detail-line"><span>Precio total registrado</span><strong id="official-map-stored-price">'+(Number(l.price)>0?money(l.price):'Sin precio')+'</strong></div>'+
-  officialPriceVisible(l)+
+  '<div id="official-map-baseline">'+officialPriceVisible(l)+'</div>'+
   (permitted?officialMapQuoteMarkup(l):'')+
   '</section>';
  content.insertAdjacentHTML('afterbegin',pricePanel);
@@ -161,6 +161,8 @@ function officialMapQuoteSave(id){
  }
  const registered=document.getElementById('official-map-stored-price');
  if(registered)registered.textContent=money(l.price);
+ const baseline=document.getElementById('official-map-baseline');
+ if(baseline)baseline.innerHTML=officialPriceVisible(l);
  updateSolarWindow();
  toast('Propuesta guardada: prima L '+officialPriceFormat(q.prima)+' · '+q.months+' cuotas de L '+officialPriceFormat(q.monthly)+'. No se registró ningún abono.');
 }
