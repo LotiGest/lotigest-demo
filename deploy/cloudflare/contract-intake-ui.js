@@ -316,7 +316,8 @@ function contractIntakeDescription(d){
  return '<section class="card" style="padding:15px;margin-bottom:15px"><h3>Descripción completa del contrato</h3>'+
   '<p class="sm muted">Etapa, bloque y solar identificados en el inventario · documento privado.</p>'+
   list+delta+'<p class="sm muted">La prima del contrato no se registra como pagada al importar. Consulta Abonos para verificar los cobros posteriores.</p>'+
-  (d.documentKey?'<a class="btn btn-outline" target="_blank" rel="noopener noreferrer" href="/api/app/file?key='+encodeURIComponent(d.documentKey)+'">Ver fotografía original</a>':'')+'</section>';
+  (d.documentKey?'<a class="btn btn-outline" target="_blank" rel="noopener noreferrer" href="/api/app/file?key='+encodeURIComponent(d.documentKey)+'">Ver fotografía original</a>':'')+
+  '<button type="button" class="btn btn-outline" data-contract-dni-edit="'+esc(d.id)+'">Corregir DNI del cliente</button></section>';
 }
 const contractIntakeOriginalView=viewContractText;
 viewContractText=function(id){
@@ -397,4 +398,61 @@ document.addEventListener('input',event=>{
 },true);
 document.addEventListener('change',event=>{
  if(event.target.id==='client-register-backed-up')clientRegisterResetToggle();
+},true);
+
+
+// Corregir identidad de una ficha previamente importada, sin recargar ni duplicar el contrato.
+function contractDniEditOpen(documentId){
+ if(!contractIntakeAdmin()){toast('Necesitas acceso de administrador y sincronización confirmada.','error');return;}
+ const doc=(db.contractTexts||[]).find(d=>d.id===documentId&&d.format==='photo+ocr'&&d.status!=='voided');
+ const client=doc&&getClient(doc.clientId);
+ if(!client){toast('No se encontró el cliente de esta ficha.','error');return;}
+ showModal('Corregir DNI de la ficha contractual',
+  '<p><strong>'+esc(client.name)+'</strong></p><p class="sm muted">Esta corrección actualizará el cliente y sus fichas contractuales, sin crear ventas ni abonos. Comprueba el documento original.</p>'+
+  '<form id="contract-dni-edit-form"><input type="hidden" name="documentId" value="'+esc(doc.id)+'">'+
+  '<label>DNI del titular (13 dígitos)<input type="text" name="identity" required inputmode="numeric" maxlength="19" autocomplete="off" value="'+esc(contractIdentityFormat(client.identity||doc.structured?.identity||''))+'" placeholder="0000 0000 00000"></label>'+
+  '</form>',
+  '<button class="btn btn-outline" data-action="close-modal" type="button">Cancelar</button>'+
+  '<button class="btn btn-primary" type="submit" form="contract-dni-edit-form">Guardar DNI corregido</button>',true);
+}
+async function contractDniEditSave(form){
+ if(!contractIntakeAdmin())throw Error('La sesión no está disponible o la nube no está sincronizada.');
+ const data=Object.fromEntries(new FormData(form));
+ const digits=contractIdentityDigits(data.identity);
+ if(digits.length!==13)throw Error('El DNI debe tener 13 dígitos. Revisa la fotografía del contrato.');
+ const doc=(db.contractTexts||[]).find(d=>d.id===data.documentId&&d.format==='photo+ocr'&&d.status!=='voided');
+ if(!doc)throw Error('No existe la ficha contractual.');
+ const client=getClient(doc.clientId);
+ if(!client)throw Error('No se encontró al titular del contrato.');
+ if(db.clients.some(c=>c.id!==client.id&&contractIdentityDigits(c.identity)===digits))throw Error('El DNI ya está asignado a otro cliente. Revisa duplicados.');
+ const oldDigits=contractIdentityDigits(client.identity);
+ if(oldDigits.length===13&&oldDigits!==digits&&!confirm('El cliente ya tenía una identidad registrada. ¿Confirmas la corrección de acuerdo con el contrato original?'))return;
+ // Si el titular tiene otra ficha con una identidad diferente ya validada, bloquear la actualización.
+ const docs=(db.contractTexts||[]).filter(d=>d.clientId===client.id&&d.format==='photo+ocr'&&d.status!=='voided');
+ if(docs.some(d=>{const v=contractIdentityDigits(d.structured?.identity);return v.length===13&&v!==digits&&v!==oldDigits;}))
+  throw Error('Otra ficha del mismo cliente presenta un DNI distinto. Revisa antes de unificar.');
+ const next=JSON.parse(JSON.stringify(db)),found=next.clients.find(c=>c.id===client.id);
+ found.identity=contractIdentityFormat(data.identity);
+ for(const d of next.contractTexts||[]){
+  if(d.clientId===client.id&&d.format==='photo+ocr'&&d.status!=='voided'){
+   d.structured??={};d.structured.identity=found.identity;d.updatedAt=new Date().toISOString();
+  }
+ }
+ cloudWrite(JSON.stringify(next));db=next;
+ await cloudFlush();
+ closeModal();render();
+ if(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed)
+  toast('DNI modificado localmente, pero falta confirmar la nube. No cargues abonos todavía.','error');
+ else toast('Número de identidad corregido y guardado en el cliente y su ficha completa.');
+}
+document.addEventListener('click',event=>{
+ const button=event.target.closest?.('[data-contract-dni-edit]');
+ if(!button)return;
+ event.preventDefault();event.stopImmediatePropagation();
+ contractDniEditOpen(button.dataset.contractDniEdit);
+},true);
+document.addEventListener('submit',event=>{
+ if(event.target.id!=='contract-dni-edit-form')return;
+ event.preventDefault();event.stopImmediatePropagation();
+ contractDniEditSave(event.target).catch(e=>toast(e.message,'error'));
 },true);
