@@ -104,7 +104,7 @@ function contractIntakeFindClient(state,data){
  const selected=data.clientId?state.clients.find(c=>c.id===data.clientId):null;
  if(data.clientId&&!selected)throw Error('No se encontró el cliente existente seleccionado.');
  if(selected&&matches.length&&matches[0].id!==selected.id)throw Error('El DNI pertenece a otro cliente. No se pueden unir dos personas diferentes.');
- const sameName=state.clients.filter(c=>normalizeClientLookup(c.name)===normalizedName);
+ const sameName=state.clients.filter(c=>normalizeClientLookup(c.name)===normalizedName&&(!normalizeClientLookup(c.identity)||normalizeClientLookup(c.identity)===identity));
  const client=selected||matches[0]||(sameName.length===1?sameName[0]:null);
  if(!client){
   const created={id:'C-'+crypto.randomUUID(),name:String(data.name).trim().toUpperCase(),
