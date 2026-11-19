@@ -10,6 +10,7 @@ const bridge = (await readFile(new URL('./app-bridge.js', import.meta.url), 'utf
 const landBridge=(await readFile(new URL('land-inventory.mjs',root),'utf8')).replace(/export /g,'')+'\n'+await readFile(new URL('./land-inventory-ui.js',import.meta.url),'utf8')+'\n'+await readFile(new URL('./client-name-identity-search-ui.js',import.meta.url),'utf8')+'\n'+(await readFile(new URL('official-prices.mjs',root),'utf8')).replace(/export /g,'')+'\n'+await readFile(new URL('./official-prices-ui.js',import.meta.url),'utf8');
 const files = buildPagesFiles(html.replace(/CURRENT_VERSION='[^']+'/, "CURRENT_VERSION='"+JSON.parse(version).version+"'"), version, parser, bridge+'\n'+landBridge);
 files['acceso-nube.js'] = await readFile(new URL('./acceso-nube.js', import.meta.url), 'utf8');
+files['seleccionar-solar.html'] = await readFile(new URL('./seleccionar-solar.html', import.meta.url), 'utf8');
 files['mobile-layout.js'] = await readFile(new URL('./mobile-layout.js', import.meta.url), 'utf8');
 files['mobile-layout.css'] = await readFile(new URL('./mobile-layout.css', import.meta.url), 'utf8');
 files['payment-modal.css'] = await readFile(new URL('./payment-modal.css', import.meta.url), 'utf8');
