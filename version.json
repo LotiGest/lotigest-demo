@@ -1,4 +1,4 @@
 {
-  "version": "0.22.27",
-  "notes": "Contratos con varios solares: botón Agregar otro solar, etapa y bloque/número por terreno, listas de solares reconocidas por OCR y un solo cliente con fotografía compartida. Desglose de precio y prima por solar validado contra el total de la ficha, sin duplicar importes ni alterar medidas o abonos."
+  "version": "0.22.28",
+  "notes": "Ficha del cliente descargable en PDF carta desde Contratos, Clientes y Ventas, con identidad, dirección, solares, colindancias y condiciones guardadas. Abonos muestra cuota mensual por solar y total; rechaza montos mensuales inferiores en pantalla y servidor. Permite pagar el saldo final menor a la cuota; mantiene primas diferenciadas y recibos históricos existentes."
 }

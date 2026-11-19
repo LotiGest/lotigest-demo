@@ -1,3 +1,4 @@
+import {validateNewMonthlyPayments} from '../../../monthly-payment-rules.mjs';
 import {validateOwnerPayments} from '../../../owner-payments.mjs';
 import {correctConfirmedBlocks} from './block-corrections.js';
 import {sellerCatalog} from './catalog.js';
@@ -127,6 +128,7 @@ export async function onRequest({request,env}){
   const prior=await db.prepare('SELECT revision,digest FROM app_mutations WHERE id=?').bind(mutation).first();
   if(prior)return prior.digest===digest?json({revision:prior.revision,mutation}):json({error:'La solicitud ya existe con otros datos.'},409);
   const old=await snapshot(db);if(old.revision!==revision)return json({error:'Otra sesión guardó cambios. Descarga tu respaldo pendiente y vuelve a cargar los datos del servidor antes de continuar.'},409);
+  try{validateNewMonthlyPayments(decode(old.rows),state);}catch(e){invalid(e.message);}
   const priorShape=JSON.parse(old.rows.find(r=>r.key==='$shape')?.payload||'{}');
   for(const collection of ['historicalPayments','historicalContracts','ownershipStatements','ownerPayments'])if(priorShape[collection]>0&&!Array.isArray(state[collection]))return json({error:'Esta copia no contiene el historial guardado. Carga los datos del servidor antes de guardar.'},409);
   const next=encode(state),previous=new Map(old.rows.map(r=>[r.key,r.payload])),keys=new Set(next.map(r=>r.key));

@@ -23,7 +23,7 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace("document.head.append(adaptiveStyle);","if(adaptiveStyle) document.head.append(adaptiveStyle);")
     .replace('</head>', '<style>.lotigest-demo-banner{padding:.55rem 1rem;background:#164532;color:white;text-align:center;font:600 .875rem system-ui}@media print{.lotigest-demo-banner{display:none!important}}</style></head>')
     .replace(/localStorage\.setItem\(STORAGE,/g, 'cloudWrite(')
-    .replace('let db,storedLotigest;', 'const CLOUD_BUILD_VERSION='+JSON.stringify(release)+';\n'+bridge + '\nlet db,storedLotigest;')
+    .replace('let db,storedLotigest;', ()=>'const CLOUD_BUILD_VERSION='+JSON.stringify(release)+';\n'+bridge + '\nlet db,storedLotigest;')
     .replace('db=readStoredLotigest(storedLotigest);', 'db=cloudEmpty();')
     .replace("case 'logout':sessionStorage.removeItem(SESSION);page='dashboard';render();break;", "case 'logout':cloudLogout();break;")
     .replace(/if\(e.target.id==='login-form'\)\{.*?return\}if\(e.target.matches\('form#modal-form'\)\)/, "if(e.target.id==='login-form'){e.preventDefault();cloudLogin(e.target);return}if(e.target.matches('form#modal-form'))")
