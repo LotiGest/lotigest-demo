@@ -12,7 +12,7 @@ function fixture(state='available',hasDoc=true){
   ';return {record:arrayanRecord,page:arrayanPage,details:arrayanDetails,colors:arrayanColors,geoColor:geoStatusColor,hasPrima:contractMapHasRecordedPrima};')(
   db,colors,()=>({lot:null,status:state,data:{},rs:[]}),()=>'<div><p>Filtros</p></div><div class="page-cols">Mapa</div>',
   ()=>'<strong style="color:#A3E635">Disponible</strong><select id="ar-status"><option value="available" selected>Amarillo · Disponible</option></select><button class="btn btn-primary" data-action="arrayan-save">Guardar solar</button>',
-  ()=>({id:'R'}),()=>[svgFeature],id=>db.clients.find(c=>c.id===id),'F1','all',String,()=>colors.sold,()=>state);
+  ()=>({id:'R'}),()=>[svgFeature],id=>db.clients.find(c=>c.id===id),'F1','all',String,()=>colors[state]||colors.sold,()=>state);
  return {api,lot,db,feature:svgFeature};
 }
 test('contrato guardado pinta el solar verde limón, aunque no se haya activado la venta',()=>{
@@ -20,7 +20,7 @@ test('contrato guardado pinta el solar verde limón, aunque no se haya activado 
  assert.equal(api.record(feature).status,'contracted');
  assert.equal(api.colors.contracted,'#A3E635');
  assert.equal(api.record(feature).lot.id,'L16');
- assert.match(api.page(),/Contrato registrado: 1/);
+ assert.match(api.page(),/Contrato registrado \(sin prima\): 1/);
  assert.match(api.details(),/Contrato registrado/);
  assert.match(api.details(),/CLIENTE FICTICIO/);
  assert.match(api.details(),/data-contract-ficha-view="OCR16"/);
@@ -29,7 +29,7 @@ test('contrato guardado pinta el solar verde limón, aunque no se haya activado 
 test('si todavía no se ha cargado contrato, el solar conserva su estado y color',()=>{
  const {api,feature}=fixture('available',false);
  assert.equal(api.record(feature).status,'available');
- assert.match(api.page(),/Contrato registrado: 0/);
+ assert.match(api.page(),/Contrato registrado \(sin prima\): 0/);
 });
 test('mora y apartados tienen prioridad sobre verde limón',()=>{
  for(const kind of ['debt','reserved','private']){
@@ -89,5 +89,5 @@ test('mora prevalece sobre verde de prima para no esconder cuotas vencidas',()=>
  const {db,lot,api,feature}=fixture('debt');
  db.ownerPayments.push({residenceId:'R',clientId:'C1',concept:'Prima',amountCents:20000,allocations:[{amountCents:20000,references:[{lotId:lot.id}]}]});
  assert.equal(api.record(feature).status,'debt');
- assert.equal(api.geoColor(lot),'#5dc39a');
+ assert.equal(api.geoColor(lot),'#e97980');
 });
