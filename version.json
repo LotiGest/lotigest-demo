@@ -1,4 +1,4 @@
 {
-  "version": "0.22.16",
-  "notes": "Mapa público de solares desde WhatsApp sin inicio de sesión: solo muestra disponibilidad, área y medidas; el cliente elige hasta 5 solares y envía un pedido con nombre y WhatsApp, sin precio, prima ni fecha de pago. El administrador recibe la selección en Notificaciones y Pendientes, puede abrir el pedido específico y preparar cotización. Corregido service worker para evitar mostrar el inicio de sesión como respaldo del mapa público; ningún pedido aparta o vende solares."
+  "version": "0.22.17",
+  "notes": "Centro de importaciones: una ventana compartida por los paneles con pestañas para medidas y precios, clientes/compras, historial de primas/abonos, croquis PDF y contratos. Permite elegir Excel .xlsx, descargar plantillas, revisar errores y confirmar explícitamente. Conserva comprobaciones de duplicados, cruce con residencial y permisos de administrador; no sustituye ventas, cobros ni contratos por archivos automáticamente."
 }
