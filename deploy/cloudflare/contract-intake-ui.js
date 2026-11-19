@@ -9,7 +9,9 @@ function contractIntakeFields(){
  const c=contractIntakeWorking?.values||{};
  const input=(label,key,type='text',readonly=false)=>'<label class="field-group"><span>'+esc(label)+'</span><input name="'+key+'" type="'+type+'" '+(type==='number'?'step="'+(key==='months'?'1':'any')+'" min="0" ':'')+(readonly?'readonly ':'')+'value="'+esc(c[key]??'')+'" style="width:100%;min-width:0"></label>';
  const rows=residenceLots().filter(l=>l.type!=='private'&&l.status!=='private').sort((a,b)=>(Number(a.stage||0)-Number(b.stage||0))||String(a.block||'').localeCompare(String(b.block||''),'es')||String(a.sourceNumber||a.id).localeCompare(String(b.sourceNumber||b.id),'es'));
- const matched=rows.filter(l=>!db.sales.some(s=>s.lotId===l.id)&&String(l.block||'').toUpperCase()===String(c.block||'').toUpperCase()&&String(l.sourceNumber||'').trim()===String(c.number||'').trim()&&(!c.stage||Number(l.stage)===Number(c.stage)));
+ const stageChosen=[1,2].includes(Number(c.stage))?String(c.stage):'';
+ const stageRows=stageChosen?rows.filter(l=>Number(l.stage)===Number(stageChosen)):[];
+ const matched=intakeSolarCandidates(stageRows,stageChosen,c.block,c.number).filter(l=>!db.sales.some(s=>s.lotId===l.id));
  const selectedId=matched.length===1?matched[0].id:'';
  const clientSelection=contractIntakeWorking?.preferredClientId||
   (db.clients.filter(cl=>normalizeClientLookup(cl.identity)&&normalizeClientLookup(cl.identity)===normalizeClientLookup(c.identity)).length===1?
