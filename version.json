@@ -1,4 +1,4 @@
 {
   "version": "0.22.14",
-  "notes": "Precios del PDF de Altos del Arrayán: revisión y carga segura de hasta 232 solares disponibles sin sobrescribir contratos, apartados ni pagos; 32 referencias ambiguas excluidas. Edición desde mapa de precio, prima y plazo (7 años/84 cuotas, 0 % interés) con recálculo automático."
+  "notes": "Precios del PDF de Altos del Arrayán: completar hasta 232 solares disponibles, con 32 referencias ambiguas protegidas. Al tocar el solar en el mapa aparece una calculadora editable de precio, prima y años; la cuota se actualiza inmediatamente (0 % interés; 7 años, 84 cuotas por defecto). Guardar propuesta aplica los valores a la venta sin crear un abono."
 }
