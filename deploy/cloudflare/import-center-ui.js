@@ -5,7 +5,7 @@ const importHubModes={
  buyers:{title:'Clientes y compras',tip:'Vincular comprador, identidad, etapa, bloque, solar, prima y contrato por fila. Varias compras del mismo cliente van en filas diferentes.',accept:'.xlsx',max:12,preview:'buyer-import-preview',confirm:'buyer-import-confirm',action:'buyer-import-confirm'},
  payments:{title:'Primas y abonos',tip:'Cargar historial: fecha, cliente, etapa, bloque, solares y monto. Se revisan duplicados; el historial no se convierte automáticamente en un cobro nuevo.',accept:'.xlsx',max:15,preview:'ledger-preview',confirm:'ledger-confirm',action:'ledger-confirm'},
  map:{title:'Croquis PDF',tip:'Adjuntar croquis por residencial. El PDF no asigna automáticamente dueños ni precios: revisa las medidas y conserva los solares existentes.',accept:'.pdf,.json',max:20},
- contracts:{title:'Documentos de contratos',tip:'Selecciona primero el cliente y su solar. Después puedes adjuntar hasta tres fotos para reconocer el texto del contrato.',accept:'.jpg,.jpeg,.png,.webp'}
+ contracts:{title:'Documentos de contratos',tip:'Sube primero la foto del contrato: se lee el cliente, solar, medidas, precio, prima y plazo. Revisa los datos y activa el crédito antes de registrar abonos.',accept:'.jpg,.jpeg,.png,.webp'}
 };
 const importHubPanelModes={
  dashboard:'buyers',residences:'map',arrayan:'map',gps:'map',design:'map',
@@ -41,7 +41,7 @@ function importHubOpen(requested){
  const tips='<p class="sm muted" style="margin:8px 0 14px">'+esc(config.tip)+'</p>';
  const tabs=importHubModesMarkup(mode);
  const file=mode==='contracts'
-  ?'<div class="card" style="padding:16px"><strong>Relacionar el documento antes de leerlo</strong><p class="sm muted">Busca por nombre o identidad al cliente y selecciona el solar. Las fotos se usan para OCR; el sistema conserva el texto revisado, no la fotografía original.</p><button type="button" class="btn btn-primary" data-import-hub-contract>Elegir cliente y escanear contrato</button></div>'
+  ?'<div class="card" style="padding:16px"><strong>Relacionar el documento antes de leerlo</strong><p class="sm muted">Busca por nombre o identidad al cliente y selecciona el solar. Las fotos se usan para OCR; el sistema conserva el texto revisado, no la fotografía original.</p><button type="button" class="btn btn-primary" data-import-hub-contract>Subir contrato y crear ficha de cliente</button></div>'
   :'<div class="card" style="padding:16px"><label for="import-hub-file" style="display:block;font-weight:650;margin-bottom:8px">Archivo de '+esc(config.title.toLowerCase())+'</label>'+
     '<input id="import-hub-file" type="file" accept="'+esc(accept)+'" style="display:block;width:100%;max-width:100%;min-width:0" aria-describedby="import-hub-file-help">'+
     '<p id="import-hub-file-help" class="sm muted">Formatos permitidos: '+esc(accept)+' · '+config.max+' MB máximo.</p></div>';
@@ -88,7 +88,7 @@ document.addEventListener('click',event=>{
  }
  if(target.hasAttribute('data-import-hub-contract')){
   if(!importHubIsAdmin()){toast('Acceso no autorizado.','error');return;}
-  return chooseContractScanClient();
+  return contractIntakeOpen();
  }
  if(target.dataset.importHubMode){
   return importHubOpen(target.dataset.importHubMode);
