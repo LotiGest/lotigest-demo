@@ -9,7 +9,7 @@ function fixture(state='available',hasDoc=true){
  const svgFeature={key:'F1',stage:2,block:'G',number:'16'};
  const colors={reserved:'#e8ab38',sold:'#5dc39a',debt:'#e97980',available:'#f4cd71',private:'#c6d0d4'};
  const api=new Function('db','arrayanColors','arrayanRecord','arrayanPage','arrayanDetails','residence','residenceFeatures','getClient','arrayanSelected','arrayanFilter','esc',source+
-  ';return {record:arrayanRecord,page:arrayanPage,details:arrayanDetails,colors};')(
+  ';return {record:arrayanRecord,page:arrayanPage,details:arrayanDetails,colors:arrayanColors};')(
   db,colors,()=>({lot:null,status:state,data:{},rs:[]}),()=>'<div><p>Filtros</p></div><div class="page-cols">Mapa</div>',
   ()=>'<strong style="color:#A3E635">Disponible</strong><select id="ar-status"><option value="available" selected>Amarillo · Disponible</option></select><button class="btn btn-primary" data-action="arrayan-save">Guardar solar</button>',
   ()=>({id:'R'}),()=>[svgFeature],id=>db.clients.find(c=>c.id===id),'F1','all',String);
