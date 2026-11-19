@@ -73,7 +73,7 @@ const importHubHeaderBase=header;
 header=function(title,subtitle,actions='',kicker){
  const menu=['dashboard','residences','arrayan','gps','design','lots','clients','sales','collections','payments','contracts','receipts','reports','finance','settings'];
  if(menu.includes(page)&&importHubIsAdmin()){
-  actions+='<button type="button" class="btn btn-outline" data-import-hub-open="true">Importar / documentos</button>';
+  actions+='<button type="button" class="btn btn-outline" data-import-hub-open="true" title="Abrir Centro de importaciones y documentos" aria-label="Abrir Centro de importaciones y documentos">Importar</button>';
  }
  return importHubHeaderBase(title,subtitle,actions,kicker);
 };
