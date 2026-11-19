@@ -18,14 +18,10 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace("const STORAGE='lospinos_phase1_demo_v3'; const SESSION='lospinos_demo_session';",
       "const STORAGE='lotigest_cloudflare_demo_v1'; const SESSION='lotigest_cloudflare_session';")
     .replace(mode, "const cloudflareDemo = true;\n" + mode)
+    .replace("const clientMapOrigin = 'https://henriquez-mapa-clientes.julyip97.chatgpt.site';", "const clientMapOrigin = location.origin;")
     .replace(/const pagesContractOcr = [^;\n]+;/, 'const pagesContractOcr = true;')
-    .replace("async function refreshClientRequests() {","async function refreshClientRequests() {\n  if (cloudflareDemo) return;")
-    .replace("async function publishClientMap(button) {","async function publishClientMap(button) {\n  if (cloudflareDemo) return;")
-    .replace("function pendingDashboardCard(){return","function pendingDashboardCard(){if(cloudflareDemo)return '';return")
-    .replace("function clientPendingPage(){","function clientPendingPage(){\n  if(cloudflareDemo)return header('Solicitudes del mapa público','Disponible al conectar el servidor multiusuario.');")
-    .replace(/<button\b[^>]*data-action="(?:client-map-publish|client-pending-open)"[^>]*>[^<]*(?:<span data-pending-count>[^<]*<\/span>)?<\/button>/g,'')
     .replace("document.head.append(adaptiveStyle);","if(adaptiveStyle) document.head.append(adaptiveStyle);")
-    .replace('</head>', '<style>.lotigest-demo-banner{padding:.55rem 1rem;background:#164532;color:white;text-align:center;font:600 .875rem system-ui}[data-action="client-map-publish"],[data-action="client-pending-open"],[data-page="pending"]{display:none!important}@media print{.lotigest-demo-banner{display:none!important}}</style></head>')
+    .replace('</head>', '<style>.lotigest-demo-banner{padding:.55rem 1rem;background:#164532;color:white;text-align:center;font:600 .875rem system-ui}@media print{.lotigest-demo-banner{display:none!important}}</style></head>')
     .replace(/localStorage\.setItem\(STORAGE,/g, 'cloudWrite(')
     .replace('let db,storedLotigest;', 'const CLOUD_BUILD_VERSION='+JSON.stringify(release)+';\n'+bridge + '\nlet db,storedLotigest;')
     .replace('db=readStoredLotigest(storedLotigest);', 'db=cloudEmpty();')
@@ -45,6 +41,9 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace('Personaliza los datos de la empresa y el comportamiento del prototipo.', 'Configura los datos y la apariencia de tu lotificadora.')
     .replace('Prototipo Fase 2', 'Versión conectada a Cloudflare')
     .replace('La base de datos compartida, los permisos por usuario y el mapa GPS estarán disponibles en fases posteriores. Este prototipo guarda datos en el navegador utilizado.', 'Los registros se guardan en Cloudflare D1. Espera la confirmación de guardado antes de cerrar. El panel integrado requiere una cuenta administradora.')
+    .replace("async function confirmClientReservation(id){", "async function confirmClientReservation(id){let reservationSaved=false;")
+    .replace("await clientSalesApi('requests/'+id,'PATCH',{status:'approved'});", "await cloudFlush();if(cloudBlocked||cloudBusy||cloudQueue?.pending||cloudQueue?.latest!==cloudQueue?.confirmed)throw Error('El apartado todavía no se ha confirmado en la nube; conserva tu copia pendiente y reintenta.');reservationSaved=true;await clientSalesApi('requests/'+id,'PATCH',{status:'approved'});")
+    .replace("}catch(error){db=JSON.parse(previous);try{localStorage.setItem(STORAGE,previous);}catch{}toast(error.message,'error');}", "}catch(error){if(!reservationSaved){db=JSON.parse(previous);try{localStorage.setItem(STORAGE,previous);}catch{}}else{toast('El apartado ya fue guardado. Actualiza Pendientes para conciliar su estado.','error');return;}toast(error.message,'error');}")
     .replace('function collectionPage(){', 'function baseCollectionPage(){')
     .replace('function dashboard(){', 'function baseDashboard(){')
     .replace('function viewClient(id){', 'function baseViewClient(id){')
@@ -117,7 +116,7 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace('</head>', '<style id="lg-sidebar-collapse-fix">'+sidebarCollapseCss+'</style></head>')
     .replace('</head>', '<script src="/acceso-nube.js"></script><script src="/offline-files.js"></script><script src="/lotigestLedger.js"></script><script src="/lotigestCadastre.js"></script><script src="/lotigestOwnerPayments.js"></script><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#164532"><style>#lotigest-cloud-status{position:fixed;bottom:54px;right:12px;max-width:390px;width:calc(100% - 24px);z-index:10000;box-sizing:border-box;background:#164532;color:#fff;padding:14px 36px 14px 14px;border-radius:12px;font:13px system-ui;box-shadow:0 3px 18px #0004}#lotigest-cloud-status[hidden]{display:none!important}#lotigest-cloud-status[data-error=true]{background:#6b291c}#lotigest-cloud-status button{margin:6px 4px 0 0;padding:5px 8px;border:1px solid #ffffff60;border-radius:5px;background:transparent;color:inherit;cursor:pointer}#lotigest-cloud-status .cloud-notice-close{position:absolute;right:6px;top:2px;font-size:20px;border:0;margin:0}#lotigest-sync-indicator{position:fixed;bottom:10px;right:12px;z-index:9999;border:0;border-radius:20px;padding:8px 12px;background:#164532;color:#fff;box-shadow:0 2px 8px #0003;font:12px system-ui;cursor:pointer}body:has(.modal-cover) #lotigest-cloud-status,body:has(.modal-cover) #lotigest-sync-indicator{display:none}@media print{#lotigest-cloud-status,#lotigest-sync-indicator{display:none!important}}</style></head>');
   if (demo === html || !demo.includes('lotigest_cloudflare_demo_v1') ||
-      !demo.includes('if (cloudflareDemo) return;') || !demo.includes('const pagesContractOcr = true;')) {
+      !demo.includes('const clientMapOrigin = location.origin;') || !demo.includes('const pagesContractOcr = true;')) {
     throw new Error('No se pudo aislar el modo de demostración.');
   }
   if (demo.includes("d.get('password')==='admin123'") || demo.includes('localStorage.setItem(STORAGE,') || !demo.includes('setTimeout(cloudBoot,0)')) throw new Error('Integración D1 incompleta.');

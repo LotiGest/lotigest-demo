@@ -41,3 +41,13 @@ Consulta `AUDITORIA-2026-11-17.md` para los resultados y límites de la revisió
 La notificación de sincronización se puede cerrar. El indicador pequeño permite consultarla de nuevo. Se reintenta el envío automáticamente y se comprueba la revisión del servidor sin cambiar un formulario que esté abierto. Los conflictos financieros requieren revisión; no se sobrescriben ni se fusionan automáticamente.
 
 Aplicar también `deploy/cloudflare/migrations/0004_login_limits.sql` antes de desplegar. Desarrollo reproducible: `npm ci`, `npm run build`, `npm test`. El service worker se actualiza cuando no hay cambios pendientes ni un modal abierto.
+
+## Mapa público de solares y enlace WhatsApp (candidato 0.22.14)
+
+El botón **Compartir mapa con clientes** está en Mapa de solares. Una cuenta administradora publica el croquis actual; LOTIGEST devuelve un enlace de `/seleccionar-solar.html?map=...` alojado en el mismo dominio de Cloudflare Pages. El modal permite copiarlo o abrir WhatsApp con un mensaje de invitación. Al volver a publicar una residencial conserva el enlace.
+
+El enlace público muestra únicamente ubicación de solares en el dibujo, etapa, bloque, número, medidas registradas y disponibilidad. Los solares disponibles se pintan amarillos, comprados verdes y apartados no disponibles grises. Los datos se consultan del inventario actual cada vez; no se exponen precios, identidad, teléfono ni movimientos de clientes. La página pública recibe una solicitud con nombre, WhatsApp, solar elegido, modalidad, prima propuesta y fecha. No recibe dinero ni aparta ningún lote. La petición aparece en **Pendientes** del administrador, que debe validar precio y contrato y confirmar manualmente el apartado/cotización/venta.
+
+**Requisito antes de publicar**: respaldar D1 y aplicar la migración aditiva `deploy/cloudflare/migrations/0006_public_lot_maps.sql` en el binding `LOTIGEST_DB` de `lotigest-pruebas`. No borra pagos ni altera contratos. En el entorno local de pruebas, la migración se añade a `test-d1.mjs`. Después ejecutar `npm ci && npm run build && npm test`, comprobar tanto el enlace en navegador incógnito como las solicitudes en el panel privado, y probar desde Android y Windows.
+
+Estas funciones se prepararon en `feature/pdf-prices-84-20261118` y no deben confundirse con la versión publicada hasta que se combine la rama, se aplique la migración y se despliegue. Abrir WhatsApp prepara el texto del enlace; no envía mensajes automáticamente ni requiere la API de WhatsApp Business.
