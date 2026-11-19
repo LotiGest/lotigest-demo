@@ -24,7 +24,7 @@ test('contrato guardado pinta el solar verde limón, aunque no se haya activado 
  assert.match(api.details(),/Contrato registrado/);
  assert.match(api.details(),/CLIENTE FICTICIO/);
  assert.match(api.details(),/data-contract-ficha-view="OCR16"/);
- assert.match(api.details(),/data-action="arrayan-save">Guardar solar<\/button>/);
+ assert.match(api.details(),/Gestionar contrato desde Contratos/);
 });
 test('si todavía no se ha cargado contrato, el solar conserva su estado y color',()=>{
  const {api,feature}=fixture('available',false);
