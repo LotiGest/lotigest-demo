@@ -15,8 +15,8 @@ test('Lectura OCR de ficha contractual: no inventar etapa ni campos vacíos',()=
  assert.equal(Math.round((d.price-d.down)/d.months*100)/100,d.monthly);
 });
 test('La etapa y solar exacto son obligatorios; no sobrescribir medidas',()=>{
- const d=parseContractIntake(receipt),lot={id:'G-2-16',area:170,status:'sold',dimensions:{front:10,depth:17}};
- assert.deepEqual(intakeCheckValues({...d,lotId:lot.id},lot),[]);
+ const d=parseContractIntake(receipt),lot={id:'G-2-16',stage:2,block:'G',sourceNumber:'16',area:170,status:'sold',dimensions:{front:10,depth:17}};
+ assert.deepEqual(intakeCheckValues({...d,stage:2,lotId:lot.id},lot),[]);
  assert.ok(intakeCheckValues({...d,lotId:lot.id,down:d.price},lot).some(e=>e.includes('prima')));
  assert.ok(intakeCheckValues({...d,lotId:''},null).some(e=>e.includes('solar exacto')));
 });
