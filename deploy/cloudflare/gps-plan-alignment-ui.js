@@ -50,14 +50,16 @@ function gpsPlanShow(){
  let displayed=0;
  for(const {feature:f,geo} of mapped){
   const rec=r.records?.[f.key]||{};
-  const lot=(rec.lotId&&getLot(rec.lotId))||db.lots.find(l=>l.residenceId===r.id&&l.sourceFeatureKey===f.key);
+  // Compartir reglas con el mapa de solares, incluido verde limón y prima registrada.
+  const planRecord=arrayanRecord(f);
+  const lot=planRecord.lot||(rec.lotId&&getLot(rec.lotId))||db.lots.find(l=>l.residenceId===r.id&&l.sourceFeatureKey===f.key);
   if(lot?.geo?.length>=3)continue; // Un perímetro medido manualmente tiene prioridad.
-  const status=lot?mapVisualStatus(lot):rec.status||f.initial||'available';
-  const color=lot?geoStatusColor(lot):({available:'#f4cd71',reserved:'#e8ab38',sold:'#5dc39a',debt:'#e97980',private:'#c6d0d4'}[status]||'#f4cd71');
+  const status=planRecord.lot?planRecord.status:lot?mapVisualStatus(lot):planRecord.status||f.initial||'available';
+  const color=planRecord.lot?(arrayanColors[status]||geoStatusColor(lot)):lot?geoStatusColor(lot):(arrayanColors[status]||'#f4cd71');
   const p=L.polygon(geo,{color:'#234d44',weight:1,fillColor:color,fillOpacity:.48,opacity:.7});
   const title='Etapa '+esc(f.stage||lot?.stage||'sin definir')+' · Bloque '+esc(rec.block||lot?.block||f.block||'?')+' · '+(f.type==='commercial'?'Local':'Solar')+' '+esc(f.number||lot?.sourceNumber||'?');
   const ownerSale=lot&&db.sales.find(s=>s.lotId===lot.id),owner=ownerSale&&getClient(ownerSale.clientId);
-  p.bindPopup('<div class="geo-popup"><strong>'+title+'</strong><p style="margin:8px 0">Estado: '+esc(status)+'</p><p style="margin:8px 0">Medida: '+(lot?.area>0?esc(String(lot.area))+' m²':'pendiente de verificar')+'</p>'+(owner?'<p style="margin:8px 0">Cliente: '+esc(owner.name)+'</p>':'')+(lot?'<button class="btn btn-primary btn-sm" data-action="view-lot" data-id="'+esc(lot.id)+'">Abrir ficha del solar</button>':'<p class="sm">Ficha pendiente de vinculación</p>')+'<p class="sm muted">Posición GPS aproximada por alineación visual.</p></div>');
+  p.bindPopup('<div class="geo-popup"><strong>'+title+'</strong><p style="margin:8px 0">Estado: '+esc(status==='prima-paid'?'💚 Prima registrada':status==='contracted'?'Contrato registrado (sin prima)':status)+'</p><p style="margin:8px 0">Medida: '+(lot?.area>0?esc(String(lot.area))+' m²':'pendiente de verificar')+'</p>'+(owner?'<p style="margin:8px 0">Cliente: '+esc(owner.name)+'</p>':'')+(lot?'<button class="btn btn-primary btn-sm" data-action="view-lot" data-id="'+esc(lot.id)+'">Abrir ficha del solar</button>':'<p class="sm">Ficha pendiente de vinculación</p>')+'<p class="sm muted">Posición GPS aproximada por alineación visual.</p></div>');
   p.bindTooltip(title,{sticky:true,direction:'top'});p.addTo(gpsPlanLayer);displayed++;
  }
  if(displayed)document.getElementById('geo-empty-overlay')?.remove();
