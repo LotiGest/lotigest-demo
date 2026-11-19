@@ -1,4 +1,4 @@
 {
-  "version": "0.22.19",
-  "notes": "Contratos primero: subir foto, OCR editable, seleccionar solar y etapa, crear ficha de cliente y guardar imagen original privada; activar crédito solo tras indicar fechas, sin dar por pagada la prima del contrato. Limpieza de clientes bajo descarga de respaldo y confirmación expresa, conservando solares, croquis, etapas, medidas y precios. Ningún cliente real se elimina automáticamente."
+  "version": "0.22.20",
+  "notes": "Corrección de Contratos: reutiliza clientes existentes por identidad, permite completar su ficha desde Clientes, vincula al guardar el nombre y contrato al solar sin inventar pagos o ventas, y muestra la descripción completa en Clientes, Terrenos y Mapa. Los nombres ya vinculados aparecen incluso sin ficha OCR. Se protegen medidas, etapas, precios existentes y se impiden duplicaciones de compradores."
 }

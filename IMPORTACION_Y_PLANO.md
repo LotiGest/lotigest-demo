@@ -79,3 +79,15 @@ Para reiniciar el padrón: **Contratos → Preparar limpieza de clientes**. El a
 **Validación matemática del documento ejemplo**: área 176 m² y 252.42 varas²; precio L 580,564.16; prima pactada L 58,056.42; saldo L 522,507.74; 84 cuotas de L 6,220.33. Antes de activar el crédito se requieren etapa y fechas verificadas.
 
 **Límites pendientes**: se deben probar visualmente las cargas en teléfono; la base D1 actual usa un estado JSON general con tope de 4 MB por petición. No se debe confiar en cargas de miles de OCR extensos sin separar documentos por entidad y ejecutar pruebas de concurrencia y recuperación.
+
+## LOTIGEST 0.22.20 — reparar nombre y ficha que no aparecen después de Contratos
+
+La versión previa guardaba el cliente y el OCR, pero solo vinculaba el solar a la venta al pulsar Activar crédito. En Clientes, Terrenos y Mapa se mostraba el comprador exclusivamente al existir venta, por lo que el nombre y la ficha no eran visibles durante la etapa pendiente.
+
+**Corrección:** en Contratos → Subir contrato y crear ficha se permite elegir un cliente existente. La búsqueda por DNI recupera ese cliente, completa datos personales que estuvieran vacíos y no crea una segunda persona. Si falta el nombre leído, se muestra advertencia y debe completarse antes de guardar. Al confirmar, el contrato y el solar almacenan clientId/ownerClientId/pendingContractId, mientras que la fotografía original y todos los detalles permanecen en contractTexts. El solar figura como no disponible en la API pública sin publicar identidad ni precio. No se crea todavía una venta o pago.
+
+En **Clientes → Ver ficha** se presenta toda la descripción contractual: identidad, RTN, estado civil, oficio, dirección, etapa/bloque/solar, varas²/m², colindancias, valor, prima pactada, saldo, cuota, plazo y observaciones. También hay **Completar ficha desde contrato** para un cliente que ya existe y todavía no tiene documento estructurado. En Terrenos y en la ventana del Mapa se muestra el cliente y un acceso a la ficha completa. El inventario reconoce nombres preexistentes vinculados mediante ownerClientId aunque aún no exista el OCR.
+
+**Protecciones:** la prima del contrato no se registra como pago, los meses se cargan después por Abonos, el precio/área existente no se reemplaza, un contrato pendiente bloquea ventas o importaciones duplicadas del solar, y al activar crédito se conserva el cliente previamente vinculado. La limpieza del padrón no es automática ni se ha ejecutado.
+
+Si un cliente se guardó previamente sin ficha documental, no se debe crear un cliente nuevo ni borrar registros: entra a **Clientes → Ver ficha → Completar ficha desde contrato**, sube la foto y selecciona la etapa y solar correctos. Comprueba después el estado de sincronización D1.
