@@ -12,7 +12,7 @@ function contractIntakeFields(){
  const stageChosen=[1,2].includes(Number(c.stage))?String(c.stage):'';
  const stageRows=stageChosen?rows.filter(l=>Number(l.stage)===Number(stageChosen)):[];
  const matched=intakeSolarCandidates(stageRows,stageChosen,c.block,c.number).filter(l=>!db.sales.some(s=>s.lotId===l.id));
- const selectedId=matched.length===1?matched[0].id:'';
+ const selectedId=matched.length===1?matched[0].id:(matched.some(l=>l.id===contractIntakeWorking?.selectedLotId)?contractIntakeWorking.selectedLotId:'');
  const clientSelection=contractIntakeWorking?.preferredClientId||
   (db.clients.filter(cl=>normalizeClientLookup(cl.identity)&&normalizeClientLookup(cl.identity)===normalizeClientLookup(c.identity)).length===1?
    db.clients.find(cl=>normalizeClientLookup(cl.identity)===normalizeClientLookup(c.identity)).id:'');
@@ -85,6 +85,8 @@ async function contractIntakeRead(file){
   // Si el OCR no reconoce el nombre, conservar los datos del cliente previamente elegido.
   const previous=scan.values||{};
   scan.values={...read,...Object.fromEntries(['name','identity','rtn','maritalStatus','occupation','address'].filter(key=>!String(read[key]||'').trim()&&String(previous[key]||'').trim()).map(key=>[key,previous[key]]))};
+  // La etapa nunca se rellena desde el OCR: el administrador debe elegirla.
+  scan.values.stage=[1,2].includes(Number(previous.stage))?Number(previous.stage):null;
   scan.values._confidence=Math.round(data.confidence||0);
   box.innerHTML=contractIntakeFields();
   saveBtn.disabled=false;
@@ -244,6 +246,27 @@ document.addEventListener('click',event=>{
  event.preventDefault();event.stopImmediatePropagation();
  if(button.hasAttribute('data-contract-intake-open'))contractIntakeOpen();
  else contractIntakeActivate(button.dataset.contractIntakeActivate);
+},true);
+// Etapa manual y datos del OCR: encontrar solar sin usar una etapa adivinada.
+document.addEventListener('change',event=>{
+ const target=event.target,form=target.closest?.('#contract-intake-form');
+ if(!form||!contractIntakeWorking)return;
+ if(!['stage','block','number','lotId'].includes(target.name))return;
+ const data=contractIntakeData(form);
+ if(target.name==='lotId'&&data.lotId){
+  const chosen=getLot(data.lotId);
+  if(chosen){
+   data.stage=String(chosen.stage);
+   data.block=String(chosen.block||'');
+   data.number=String(chosen.sourceNumber||chosen.number||'');
+  }
+ }
+ if(target.name==='stage'||target.name==='block'||target.name==='number')contractIntakeWorking.selectedLotId='';
+ else contractIntakeWorking.selectedLotId=data.lotId||'';
+ contractIntakeWorking.preferredClientId=data.clientId||'';
+ contractIntakeWorking.values={...contractIntakeWorking.values,...data};
+ const review=document.getElementById('contract-intake-review');
+ if(review)review.innerHTML=contractIntakeFields();
 },true);
 document.addEventListener('change',event=>{
  if(event.target.id==='contract-intake-file'){
