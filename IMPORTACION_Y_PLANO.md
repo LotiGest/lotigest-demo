@@ -65,3 +65,17 @@ Todas las cargas de Excel requieren vista previa, sin confirmar automáticamente
 **Pendientes de fases siguientes:** un archivo XLSX multipestaña con asistente de asignación de columnas, carga con diagnóstico completo de repetidos, informe descargable de errores, historial inmutable de importación con huella del archivo, y almacenamiento privado del documento original por cliente en un servicio de objetos con permisos y respaldo. Ninguno de estos puntos se declara implementado en esta versión.
 
 El Centro de importaciones es administrativo. Si el usuario está autenticado como vendedor de consulta, no aparecen los botones para modificar datos. Antes de confirmar cualquier carga, descarga un respaldo y comprueba el nombre de la residencial.
+
+## LOTIGEST 0.22.19 — Contratos primero: reconstruir clientes
+
+Flujo recomendado: **Contratos → Subir contrato y crear ficha**. En sesión administrativa se carga JPG/PNG/WebP de hasta 12 MB. OCR en el navegador lee nombre, DNI, RTN, estado civil, oficio, domicilio, solar, etapa, bloque, medidas, colindancias, precio, prima, saldo, mensualidad, plazo y observaciones; el administrador revisa y corrige antes de guardar.
+
+**Nunca se inventan etapa, fecha de contrato ni primer vencimiento.** La imagen de ejemplo contiene G-16, pero no etapa ni fechas. Se elige el solar exacto del inventario. Ninguna medida existente se sobrescribe: solo pueden completarse área, varas² o precio si estaban vacíos. El texto y la descripción estructurada se guardan en la ficha y la foto original se almacena de forma privada en D1, accesible solamente tras autenticación.
+
+**Guardar ficha** crea o vincula el cliente y el contrato, sin registrar venta ni pago. **Activar crédito** exige fecha de contrato y primera cuota. El crédito registra la prima pactada, pero deja el pago inicial recibido en L 0.00; los cobros se ingresan luego desde **Abonos**. No se fabrican recibos ni pagos históricos.
+
+Para reiniciar el padrón: **Contratos → Preparar limpieza de clientes**. El administrador ve las cantidades de clientes, ventas, pagos, apartados e historiales que se eliminarían; debe descargar y verificar respaldo JSON, marcar casilla, escribir BORRAR PADRON y aceptar una última confirmación. **La publicación no ejecuta ninguna limpieza automáticamente**. El reinicio conserva solares, etapas, bloques, áreas, medidas, precios y croquis, borrando referencias de propietario sin cliente. Los ingresos y gastos manuales de Caja permanecen y deben revisarse. El respaldo JSON no contiene archivos binarios originales.
+
+**Validación matemática del documento ejemplo**: área 176 m² y 252.42 varas²; precio L 580,564.16; prima pactada L 58,056.42; saldo L 522,507.74; 84 cuotas de L 6,220.33. Antes de activar el crédito se requieren etapa y fechas verificadas.
+
+**Límites pendientes**: se deben probar visualmente las cargas en teléfono; la base D1 actual usa un estado JSON general con tope de 4 MB por petición. No se debe confiar en cargas de miles de OCR extensos sin separar documentos por entidad y ejecutar pruebas de concurrencia y recuperación.
