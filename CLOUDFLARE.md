@@ -51,3 +51,15 @@ El enlace público muestra únicamente ubicación de solares en el dibujo, etapa
 **Requisito antes de publicar**: respaldar D1 y aplicar la migración aditiva `deploy/cloudflare/migrations/0006_public_lot_maps.sql` en el binding `LOTIGEST_DB` de `lotigest-pruebas`. No borra pagos ni altera contratos. En el entorno local de pruebas, la migración se añade a `test-d1.mjs`. Después ejecutar `npm ci && npm run build && npm test`, comprobar tanto el enlace en navegador incógnito como las solicitudes en el panel privado, y probar desde Android y Windows.
 
 Estas funciones se prepararon en `feature/pdf-prices-84-20261118` y no deben confundirse con la versión publicada hasta que se combine la rama, se aplique la migración y se despliegue. Abrir WhatsApp prepara el texto del enlace; no envía mensajes automáticamente ni requiere la API de WhatsApp Business.
+
+## LOTIGEST 0.22.16 · enlace público de pedidos de solares
+
+El enlace `/seleccionar-solar.html?map=<slug>` es una página **pública y separada del inicio de sesión**. La persona que lo abre desde WhatsApp no necesita cuenta de LOTIGEST. Se muestran solamente el dibujo, los estados de disponibilidad, la etapa, el bloque, el número de solar y las medidas registradas (área, frente, fondo, laterales). Los terrenos vendidos o apartados se ven, pero no se pueden pedir. No se envían precios ni propietarios en la API pública.
+
+El formulario público solicita solo nombre, número de WhatsApp y comentario opcional. Permite escoger hasta cinco solares, generar solicitudes informativas `mode=inquiry` en tablas D1 separadas, y no crea compradores, contratos, apartados, pagos ni ventas. No exige al público prima, años, precio ni fecha de pago; la cotización se prepara después en el panel privado, por defecto a siete años y 0 % de interés.
+
+Al recibir un pedido, la campana del administrador muestra nombre, residencial, etapa, bloque, solar y medidas. Pulsar la notificación abre y enfoca la solicitud correspondiente en Pendientes. Las ofertas y la confirmación de cualquier apartado requieren acción del administrador. Los pedidos informativos no pueden convertirse en apartados automáticos.
+
+El service worker distingue las rutas públicas en su política de navegación y **no utiliza el inicio de sesión como respuesta de reserva** para el mapa. Si no hay conexión ni copia del mapa, muestra un error de conexión específico, nunca el formulario privado.
+
+Para reproducir, abrir la URL pública sin iniciar sesión en un navegador nuevo y desde WhatsApp en Android; comprobar `/api/client-sales/maps/<slug>` sin cookies, disponibilidad y medidas; enviar un pedido de prueba con dos solares; verificar el contador de campana y abrir la solicitud elegida. Ejecutar `npm ci && npm run build && npm test` antes de publicar. No se requieren migraciones nuevas y los datos existentes en D1 no necesitan cambios.

@@ -1,4 +1,4 @@
 {
-  "version": "0.22.15",
-  "notes": "Enlace público de solares desde WhatsApp sin iniciar sesión: permite elegir hasta cinco solares disponibles y enviar una solicitud conjunta sin generar ventas ni apartados. Las solicitudes se guardan en D1 y se muestran con nombre, residencial, etapa, bloque y solar en la campana de notificaciones del administrador y en Pendientes. Mantiene el cálculo de cuotas de la v0.22.14."
+  "version": "0.22.16",
+  "notes": "Mapa público de solares desde WhatsApp sin inicio de sesión: solo muestra disponibilidad, área y medidas; el cliente elige hasta 5 solares y envía un pedido con nombre y WhatsApp, sin precio, prima ni fecha de pago. El administrador recibe la selección en Notificaciones y Pendientes, puede abrir el pedido específico y preparar cotización. Corregido service worker para evitar mostrar el inicio de sesión como respaldo del mapa público; ningún pedido aparta o vende solares."
 }

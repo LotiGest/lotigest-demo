@@ -96,3 +96,28 @@ test('WhatsApp sin sesión: seleccionar dos solares crea dos alertas, sin aparta
  assert.equal(f.state.payments.length,0);
  assert.equal(f.state.reservations?.length||0,0);
 });
+
+test('pedido de solares por WhatsApp no exige sesión, precio, prima ni fecha, y se refleja en notificaciones',async()=>{
+ const f=await seed();
+ const path='https://test/api/client-sales/maps/'+f.slug+'/requests';
+ const data={lotIds:['A1','A5'],name:'CLIENTE DE PRUEBA PEDIDO',phone:'9999-1111',note:'Quiero conocer las medidas',mode:'inquiry'};
+ const response=await createRequest({env:f.env,params:{slug:f.slug},request:new Request(path,{
+  method:'POST',headers:{Origin:'https://test','Content-Type':'application/json'},
+  body:JSON.stringify(data)
+ })});
+ assert.equal(response.status,201);
+ const posted=await response.json();assert.equal(posted.count,2);
+ const stored=f.db.db.prepare('SELECT lot_id,name,phone,mode,proposed_down_payment,payment_date,note FROM public_lot_requests ORDER BY lot_id').all();
+ assert.deepEqual(stored.map(r=>r.lot_id),['A1','A5']);
+ assert.ok(stored.every(r=>r.mode==='inquiry'&&r.proposed_down_payment===0&&r.payment_date&&r.name===data.name));
+ assert.ok(stored.every(r=>r.note===data.note));
+ const privateList=await listRequests({env:f.env,request:new Request('https://test/api/client-sales/requests',{headers:{Cookie:f.cookie}})});
+ assert.equal(privateList.status,200);
+ const items=(await privateList.json()).requests;
+ assert.equal(items.length,2);
+ assert.ok(items.every(r=>r.client.mode==='inquiry'));
+ assert.ok(items.some(r=>r.lot.stage===2&&r.lot.block==='B'&&r.lot.number==='5'));
+ assert.equal(f.state.sales.length,0);
+ assert.equal(f.state.payments.length,0);
+ assert.equal(f.state.reservations?.length||0,0);
+});
