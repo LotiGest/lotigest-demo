@@ -28,14 +28,20 @@ function contractFichaShort(doc){
 const contractFichaBuyerInventoryBase=buyerInventorySummary;
 buyerInventorySummary=function(l){
  const doc=contractFichaByLot(l.id);
- return doc&&!db.sales.some(s=>s.lotId===l.id)?
- '<span><strong>'+esc(getClient(doc.clientId)?.name||doc.structured?.name||'Sin nombre')+'</strong><br><small>Contrato registrado · Pendiente de activar crédito</small></span>':
- contractFichaBuyerInventoryBase(l);
+ if(!db.sales.some(s=>s.lotId===l.id)){
+  if(doc)return '<span><strong>'+esc(getClient(doc.clientId)?.name||doc.structured?.name||'Sin nombre')+'</strong><br><small>Contrato registrado · Pendiente de activar crédito</small></span>';
+  const owner=getClient(l.ownerClientId);
+  if(owner)return '<strong>'+esc(owner.name)+'</strong><br><small>Cliente asociado · Falta completar contrato</small>';
+ }
+ return contractFichaBuyerInventoryBase(l);
 };
 const contractFichaInventoryInfoBase=inventoryInfo;
 inventoryInfo=function(l){
  const info=contractFichaInventoryInfoBase(l),doc=contractFichaByLot(l.id);
- return info+(doc?contractFichaShort(doc):'');
+ const owner=!doc&&l.ownerClientId?getClient(l.ownerClientId):null;
+ return info+(doc?contractFichaShort(doc):owner?
+ '<section class="notice-card"><strong>Cliente del solar: '+esc(owner.name)+'</strong><p class="sm">Identidad: '+esc(owner.identity||'Sin identidad')+'</p><p class="sm muted">Falta asociar la ficha contractual completa.</p>'+
+ '<button class="btn btn-outline btn-sm" type="button" data-contract-ficha-new="'+esc(owner.id)+'">Completar desde contrato</button></section>':'');
 };
 const contractFichaViewClientBase=viewClient;
 viewClient=function(clientId){
@@ -63,8 +69,13 @@ const contractFichaSolarBase=openSolarWindow;
 openSolarWindow=function(lotId){
  contractFichaSolarBase(lotId);
  const doc=contractFichaByLot(lotId),lot=getLot(lotId);
- if(!doc||!lot)return;
+ if(!lot)return;
  const root=document.querySelector('#modal-root .modal-content');
+ if(!doc){
+  const owner=getClient(lot.ownerClientId);
+  if(owner&&root)root.insertAdjacentHTML('afterbegin','<div class="notice-card">Cliente asociado: <strong>'+esc(owner.name)+'</strong> · Sin ficha contractual completa. <button class="btn btn-outline btn-sm" type="button" data-contract-ficha-new="'+esc(owner.id)+'">Completar contrato</button></div>');
+  return;
+ }
  if(root)root.insertAdjacentHTML('afterbegin',
   '<details open style="margin:12px 0"><summary><strong>'+esc(getClient(doc.clientId)?.name||'Cliente registrado')+' — Ver ficha del contrato</strong></summary>'+
   contractIntakeDescription(doc)+'</details>');
@@ -78,12 +89,16 @@ const contractFichaPlanSolarBase=planSolarAction;
 planSolarAction=function(data){
  const doc=contractFichaByLot(data.lotId);
  if(doc?.status==='pending-sale')throw Error('Este solar ya está vinculado a un contrato. Abre Contratos para activar su crédito, no registres otra venta.');
+ const lot=getLot(data.lotId);
+ if(lot?.ownerClientId&&!db.sales.some(s=>s.lotId===lot.id))throw Error('Este solar ya tiene cliente registrado. Completa su contrato antes de vender o apartarlo otra vez.');
  return contractFichaPlanSolarBase(data);
 };
 const contractFichaPlanBuyerHistoryBase=planBuyerHistory;
 planBuyerHistory=function(data,lot){
  if(lot&&contractFichaByLot(lot.id)?.status==='pending-sale')
   throw Error('El solar ya tiene ficha contractual. Debes activar esa ficha en Contratos antes de importar una compra.');
+ if(lot?.ownerClientId&&!db.sales.some(s=>s.lotId===lot.id))
+  throw Error('El solar ya tiene cliente asociado. Completa su contrato en vez de duplicar la compra.');
  return contractFichaPlanBuyerHistoryBase(data,lot);
 };
 document.addEventListener('click',event=>{
