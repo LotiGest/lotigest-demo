@@ -74,11 +74,8 @@ export function intakeCheckValues(input,lot){
  if(!Number.isInteger(months)||months<1||months>360)errors.push('Revisa el plazo en meses.');
  if(lot&&String(input.lotId)!==String(lot.id))errors.push('El solar no coincide.');
  if(lot&&(lot.status==='private'||lot.type==='private'))errors.push('Una propiedad privada no se puede registrar como venta.');
- const existingArea=Number(lot?.area);
- if(existingArea>0&&Number(input.areaM2)>0&&Math.abs(existingArea-Number(input.areaM2))>.02){
-  // Es solo una alerta; jamás se pisa la medida actual por OCR.
-  errors.push('El área del documento no coincide con el inventario. Se conservará la medida registrada; revisa la diferencia antes de continuar.');
- }
+ // Las diferencias de medidas son advertencias, nunca se sobreescriben ni bloquean la ficha.
+ // El usuario puede conservar la cifra del contrato junto al valor original del inventario.
  return errors;
 }
 export function intakeResetPreview(db){
