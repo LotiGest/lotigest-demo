@@ -45,3 +45,23 @@ Las cuotas y la mora solo muestran valores calculados cuando existen condiciones
 Las fichas y el selector de abonos muestran **1 solar** o **N solares según Excel**. El conteo usa referencias distintas de bloque y número; una referencia con dos candidatos físicos en el mapa sigue contando como un solo solar declarado. Las referencias incompletas se señalan para confirmar su cantidad cuando no puede determinarse.
 
 Las etiquetas dibujadas del plano coinciden con los registros: **I** corresponde al grupo superior de 20 y **L** al grupo inferior de 12. Se conservan los códigos únicos, ubicaciones y abonos existentes. La vista registrada del PDF oficial también superpone estas dos etiquetas corregidas sin modificar el archivo original.
+
+## LOTIGEST 0.22.17 — Centro de importaciones unificado
+
+Desde los encabezados de Mapa de solares, Terrenos, Clientes, Ventas, Residenciales y cobros, Cuotas, Recibos, Contratos y los demás módulos administrativos pertinentes aparece **Importar**. La ventana es la misma para todos: identifica la residencial activa y comienza en la categoría relacionada con el panel. Se puede cambiar de categoría sin salir de la ventana. Los botones antiguos «Importar Excel» también abren la misma ventana.
+
+| Categoría | Archivo | Cómo se procesa |
+|---|---|---|
+| Medidas y precios | `.xlsx` | Localiza un solar de la residencial por código o bloque+solar; calcula la vista previa de cambios y rechaza referencias ambiguas. No altera ventas, abonos ni contratos. |
+| Clientes y compras | `.xlsx` | Cada fila describe una compra; la identidad vincula al cliente, y los solares se buscan en la residencial seleccionada. Una persona con varios solares ocupa varias filas. |
+| Primas y abonos | `.xlsx` | Valida movimientos por cliente, fecha y lote, conserva observaciones y evita repetir el historial ya importado. No transforma automáticamente el historial en nuevos cobros. |
+| Croquis PDF | `.pdf` o mapa trazado `.json` | Usa el importador del croquis existente; debe verificarse contra el inventario. |
+| Contratos | Fotos `.jpg/.png/.webp` en lector existente | Selecciona primero el cliente y solar; el OCR permite revisar el texto, pero **las fotos originales no se conservan** en el módulo actual. |
+
+Todas las cargas de Excel requieren vista previa, sin confirmar automáticamente. El mismo selector en la ventana acepta un formato en cada categoría; no sube todo un ZIP indiscriminadamente.
+
+**Secuencia recomendada de carga:** crear/seleccionar residencial → verificar etapas/bloques/solares → importar medidas/precios → importar compradores y ventas → incorporar histórico de primas/abonos → vincular contratos y documentos → revisar excepciones → verificar guardado en la nube. Los pagos de varios solares se documentan una sola vez por movimiento y se asignan después a sus solares correctos; no dupliques el importe por fila.
+
+**Pendientes de fases siguientes:** un archivo XLSX multipestaña con asistente de asignación de columnas, carga con diagnóstico completo de repetidos, informe descargable de errores, historial inmutable de importación con huella del archivo, y almacenamiento privado del documento original por cliente en un servicio de objetos con permisos y respaldo. Ninguno de estos puntos se declara implementado en esta versión.
+
+El Centro de importaciones es administrativo. Si el usuario está autenticado como vendedor de consulta, no aparecen los botones para modificar datos. Antes de confirmar cualquier carga, descarga un respaldo y comprueba el nombre de la residencial.
