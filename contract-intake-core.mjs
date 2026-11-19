@@ -89,3 +89,27 @@ export function intakeResetPreview(db){
   cashEntriesKept:count('cashEntries')
  };
 }
+
+/**
+ * Construye una COPIA que elimina las relaciones históricas del padrón, no el catastro.
+ * Se ejecuta exclusivamente tras respaldo descargado y una confirmación humana expresa.
+ */
+export function intakePrepareFreshClientRegister(state){
+ const next=structuredClone(state);
+ for(const key of [
+  'clients','sales','payments','reservations','contractTexts',
+  'historicalPayments','historicalContracts','ownerPayments','ownershipStatements'
+ ]){if(Array.isArray(next[key]))next[key]=[];}
+ // Conservar todos los solares, su área, medidas, varas, etapa, bloque, precio y posición.
+ // Solo retirar claves de referencia a un comprador o un apartado que ya no existe.
+ for(const lot of next.lots||[]){
+  for(const key of ['ownerClientId','clientId','reservationId','ownerName','buyerName']){
+   if(Object.prototype.hasOwnProperty.call(lot,key))delete lot[key];
+  }
+ }
+ // Las marcas de venta del croquis siguen en el inventario hasta conciliar cada contrato.
+ // Los ingresos y gastos manuales de Caja NO se modifican silenciosamente.
+ next.clientRegisterReset={at:new Date().toISOString(),version:1,
+  note:'Padrón regenerado desde contratos; cifras del catastro y movimientos independientes de Caja preservados'};
+ return next;
+}
