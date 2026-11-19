@@ -84,7 +84,7 @@ export function intakeResetPreview(db){
   clients:count('clients'),sales:count('sales'),payments:count('payments'),
   reservations:count('reservations'),contractTexts:count('contractTexts'),
   historicalPayments:count('historicalPayments'),historicalContracts:count('historicalContracts'),
-  ownerPaymentEntries:count('ownerPaymentEntries'),ownershipStatements:count('ownershipStatements'),
+  ownerPayments:count('ownerPayments'),ownershipStatements:count('ownershipStatements'),
   preservedLots:count('lots'),preservedResidences:count('residences'),
   cashEntriesKept:count('cashEntries')
  };
@@ -98,7 +98,7 @@ export function intakePrepareFreshClientRegister(state){
  const next=structuredClone(state);
  for(const key of [
   'clients','sales','payments','reservations','contractTexts',
-  'historicalPayments','historicalContracts','ownerPayments','ownershipStatements'
+  'historicalPayments','historicalContracts','ownerPayments','ownershipStatements','ledgerImportBatches'
  ]){if(Array.isArray(next[key]))next[key]=[];}
  // Conservar todos los solares, su área, medidas, varas, etapa, bloque, precio y posición.
  // Solo retirar claves de referencia a un comprador o un apartado que ya no existe.
