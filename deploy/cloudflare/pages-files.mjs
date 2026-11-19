@@ -21,7 +21,7 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace("const clientMapOrigin = 'https://henriquez-mapa-clientes.julyip97.chatgpt.site';", "const clientMapOrigin = location.origin;")
     .replace(/const pagesContractOcr = [^;\n]+;/, 'const pagesContractOcr = true;')
     .replace("document.head.append(adaptiveStyle);","if(adaptiveStyle) document.head.append(adaptiveStyle);")
-    .replace('</head>', '<style>.lotigest-demo-banner{padding:.55rem 1rem;background:#164532;color:white;text-align:center;font:600 .875rem system-ui}[data-action="client-map-publish"],[data-action="client-pending-open"],[data-page="pending"]{display:none!important}@media print{.lotigest-demo-banner{display:none!important}}</style></head>')
+    .replace('</head>', '<style>.lotigest-demo-banner{padding:.55rem 1rem;background:#164532;color:white;text-align:center;font:600 .875rem system-ui}@media print{.lotigest-demo-banner{display:none!important}}</style></head>')
     .replace(/localStorage\.setItem\(STORAGE,/g, 'cloudWrite(')
     .replace('let db,storedLotigest;', 'const CLOUD_BUILD_VERSION='+JSON.stringify(release)+';\n'+bridge + '\nlet db,storedLotigest;')
     .replace('db=readStoredLotigest(storedLotigest);', 'db=cloudEmpty();')
