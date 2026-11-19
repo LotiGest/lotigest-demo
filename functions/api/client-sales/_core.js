@@ -140,7 +140,7 @@ export async function listRequests({request,env}){
     return {id:row.id,lotId:row.lot_id,residenceId:row.residence_id,title:row.title,
       lot:l?{block:l.block,number:l.sourceNumber,stage:l.stage,area:l.area,dimensions:l.dimensions}:null,
       client:{name:row.name,phone:row.phone,mode:row.mode,proposedDownPayment:row.proposed_down_payment,paymentDate:row.payment_date,note:row.note},
-      status:row.status,quote,createdAt:row.created_at};
+      status:((state?.reservations||[]).some(r=>r.requestId===row.id&&r.lotId===row.lot_id&&r.status==='active')||(state?.sales||[]).some(r=>r.sourceRequestId===row.id&&r.lotId===row.lot_id))?'approved':row.status,quote,createdAt:row.created_at};
   })});
  }catch(e){return failure(e);}
 }
