@@ -62,6 +62,17 @@ export function parseContractIntake(text){
  // Los documentos sin etapa NO se asignan automáticamente a etapa 1 o 2.
  return results;
 }
+// La etapa SIEMPRE la elige quien ingresa el contrato. El OCR solo propone bloque y solar.
+export function intakeSolarCandidates(lots,stage,block,number){
+ const requestedStage=Number(stage);
+ if(![1,2].includes(requestedStage))return [];
+ const clean=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'').trim();
+ const requestedBlock=clean(block),requestedNumber=clean(number).replace(/^0+(?=\d)/,'');
+ if(!requestedBlock||!requestedNumber)return [];
+ return (lots||[]).filter(l=>
+  l&&l.status!=='private'&&l.type!=='private'&&Number(l.stage)===requestedStage&&
+  clean(l.block)===requestedBlock&&clean(l.sourceNumber||l.number).replace(/^0+(?=\d)/,'')===requestedNumber);
+}
 export function intakeCheckValues(input,lot){
  const errors=[];
  if(!lot)errors.push('Selecciona el solar exacto, incluida la etapa.');
@@ -73,6 +84,10 @@ export function intakeCheckValues(input,lot){
  if(!Number.isFinite(down)||down<0||down>=price)errors.push('La prima debe ser menor que el precio.');
  if(!Number.isInteger(months)||months<1||months>360)errors.push('Revisa el plazo en meses.');
  if(lot&&String(input.lotId)!==String(lot.id))errors.push('El solar no coincide.');
+ if(![1,2].includes(Number(input.stage)))errors.push('Debes elegir manualmente Etapa 1 o Etapa 2.');
+ if(lot&&Number(input.stage)!==Number(lot.stage))errors.push('El solar no pertenece a la etapa indicada.');
+ const selected=intakeSolarCandidates(lot?[lot]:[],input.stage,input.block,input.number);
+ if(lot&&selected.length!==1)errors.push('El bloque y número del OCR no coinciden con el solar seleccionado. Revisa el contrato.');
  if(lot&&(lot.status==='private'||lot.type==='private'))errors.push('Una propiedad privada no se puede registrar como venta.');
  // Las diferencias de medidas son advertencias, nunca se sobreescriben ni bloquean la ficha.
  // El usuario puede conservar la cifra del contrato junto al valor original del inventario.
