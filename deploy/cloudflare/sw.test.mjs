@@ -13,5 +13,12 @@ test('el service worker descarga la aplicación, sirve el inicio sin red y no al
  offline=true;let result;events.fetch({request:{url:'https://lotigest.test/',method:'GET',mode:'navigate'},respondWith(p){result=p;}});assert.ok((await (await result).text()).includes('LOTIGEST shell'));
  result=null;events.fetch({request:{url:'https://lotigest.test/api/app/state',method:'GET'},respondWith(p){result=p;}});assert.equal(result,null);
  offline=false;release='2';events.fetch({request:{url:'https://lotigest.test/version.json?check=1',method:'GET'},respondWith(p){result=p;}});assert.equal((await (await result).json()).version,'2');offline=true;events.fetch({request:{url:'https://lotigest.test/version.json?check=2',method:'GET'},respondWith(p){result=p;}});assert.equal((await (await result).json()).version,'2');
+ // Un enlace recibido por WhatsApp nunca puede mostrar el inicio de sesión como página de respaldo.
+ result=null;events.fetch({request:{url:'https://lotigest.test/seleccionar-solar.html?map=abcdefabcdefabcdefabcdef',method:'GET',mode:'navigate'},respondWith(p){result=p;}});
+ assert.equal(await (await result).text(),'resource');
+ const publicShell=await caches.open('lotigest-shell-__LOTIGEST_VERSION__');
+ await publicShell.delete('/seleccionar-solar.html');
+ result=null;events.fetch({request:{url:'https://lotigest.test/seleccionar-solar.html?map=abcdefabcdefabcdefabcdef',method:'GET',mode:'navigate'},respondWith(p){result=p;}});
+ const noFallback=await result;assert.equal(noFallback.status,503);assert.ok(!(await noFallback.text()).includes('LOTIGEST shell'));
  const shell=await caches.open('lotigest-shell-__LOTIGEST_VERSION__');assert.ok(await shell.match('/offline-files.js'));assert.equal(await shell.match('/api/app/state'),undefined);
 });
