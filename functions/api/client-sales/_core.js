@@ -4,8 +4,8 @@ import {json,actor,sameOrigin,body,failure,hash} from '../app/shared.js';
 
 const err=(message,status=400)=>{throw Object.assign(Error(message),{status});};
 const clean=(v,max)=>String(v??'').trim().slice(0,max);
-const isMoney=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&Math.abs(v*100-Math.round(v*100))<.00001;
-const validDate=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&new Date(v+'T12:00:00Z').toISOString().slice(0,10)===v;
+const isMoney=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&Number.isSafeInteger(Math.round(v*100))&&Math.abs(v*100-Math.round(v*100))<.00001;
+const validDate=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(+new Date(v+'T12:00:00Z'))&&new Date(v+'T12:00:00Z').toISOString().slice(0,10)===v;
 export function publicMapSlug(){return Array.from(crypto.getRandomValues(new Uint8Array(12)),x=>x.toString(16).padStart(2,'0')).join('');}
 export async function currentState(db){
  const rows=await db.prepare('SELECT key,payload FROM app_records ORDER BY key').all();
@@ -112,7 +112,7 @@ export async function postPublicRequest({request,env,params}){
   const name=clean(input.name,100),phone=clean(input.phone,40),note=clean(input.note,500),mode=input.mode;
   const proposed=input.proposedDownPayment===undefined?0:Number(input.proposedDownPayment);
   if(name.length<3||!/^[0-9+()\s-]{8,25}$/.test(phone)||!['cash','credit'].includes(mode)||!validDate(input.paymentDate)||!isMoney(proposed))err('Completa nombre, WhatsApp, modalidad, fecha y prima correctamente.');
-  const today=new Date().toISOString().slice(0,10);
+  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Tegucigalpa',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   if(input.paymentDate<today||input.paymentDate>new Date(Date.now()+366*86400000).toISOString().slice(0,10))err('La fecha propuesta debe estar dentro de los próximos doce meses.');
   if(mode==='credit'&&proposed<50000)err('La prima propuesta mínima para crédito es L 50,000.');
   if(mode==='cash'&&proposed!==0)err('En una solicitud de contado no indiques prima.');
