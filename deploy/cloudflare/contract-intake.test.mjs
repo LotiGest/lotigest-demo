@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parseContractIntake,intakeSolarCandidates,intakeCheckValues,intakeResetPreview,intakePrepareFreshClientRegister} from '../../contract-intake-core.mjs';
+import {parseContractIntake,contractIdentityDigits,contractIdentityFormat,intakeSolarCandidates,intakeCheckValues,intakeResetPreview,intakePrepareFreshClientRegister} from '../../contract-intake-core.mjs';
 const receipt="LOTIFICADORA ALTOS DEL ARRAYAN\nGENERALES DE CLIENTE\nNOMBRE DE CLIENTE: CLIENTE FICTICIO DE PRUEBA\nDNI: 0801 1990 00021\nRTN:\nESTADO CIVIL: SOLTERO\nPROFESION U OFICIO:\nDIRECCION: RESIDE EN EL EXTRANJERO\nSOBRE LOTE\nLOTE (S): 16\nBLOQUE (S): G\nAREA: 252.42 VARAS2\nMETROS CUADRADOS: 176 M2\nCOLINDANCIAS\nNORTE: CALLE DE ACCESO DE 8 METROS DE ANCHO\nSUR: LOTE G-3\nESTE: LOTE G-15\nOESTE: LOTE G-17\nDATOS DE VENTA\nPRECIO DE LOTE: L 580,564.16\nVALOR DE PRIMA: L 58,056.42\nSALDO A FINANCIAR: L 522,507.74\nCUOTA: L 6,220.33 MENSUAL\nTIEMPO DE CONTRATO: 7 ANOS / 84 CUOTAS\nOBSERVACIONES\nPRECIO POR VARA2: L 2,300. REPRESENTANTE EN HONDURAS: PERSONA FICTICIA";
 test('Lectura OCR de ficha contractual: no inventar etapa ni campos vacíos',()=>{
  const d=parseContractIntake(receipt);
@@ -12,6 +12,7 @@ test('Lectura OCR de ficha contractual: no inventar etapa ni campos vacíos',()=
  assert.equal(d.east,'LOTE G-15');assert.equal(d.west,'LOTE G-17');
  assert.equal(d.price,580564.16);assert.equal(d.down,58056.42);assert.equal(d.financed,522507.74);
  assert.equal(d.monthly,6220.33);assert.equal(d.months,84);assert.equal(d.pricePerVara,2300);
+ assert.match(d.observations,/REPRESENTANTE EN HONDURAS/);assert.match(d.observations,/PRECIO POR VARA2/);
  assert.equal(Math.round((d.price-d.down)/d.months*100)/100,d.monthly);
 });
 test('La etapa y solar exacto son obligatorios; no sobrescribir medidas',()=>{
@@ -51,4 +52,14 @@ test('El contrato reconoce bloque G y solar 16, pero exige elegir la etapa manua
  assert.deepEqual(intakeCheckValues({...values,stage:'2'},lots[1]),[]);
  assert.ok(intakeCheckValues({...values,stage:'1'},lots[1]).some(e=>e.includes('no pertenece')));
  assert.ok(intakeCheckValues({...values,stage:'2',number:'17'},lots[1]).some(e=>e.includes('no coinciden')));
+});
+
+test('OCR identifica el DNI del titular sin tomar el del representante de las observaciones',()=>{
+ const ocr='NOMBRE DE CLIENTE: PERSONA DE PRUEBA\\nDNI: 1411 1990 00021\\nRTN:\\nOBSERVACIONES\\nREPRESENTANTE EN HONDURAS: PERSONA DOS, DNI 1804 1987 04620';
+ const doc=parseContractIntake(ocr.replace(/\\n/g,'\n'));
+ assert.equal(doc.identity,'1411 1990 00021');
+ assert.equal(contractIdentityDigits(doc.identity).length,13);
+ assert.equal(contractIdentityFormat('1411199000021'),'1411 1990 00021');
+ assert.ok(intakeCheckValues({...doc,stage:2,lotId:'g16',block:'G',number:'16',name:'PERSONA DE PRUEBA',price:580564.16,down:58056.42,months:84,identity:'1411 1990 0002'},
+  {id:'g16',stage:2,block:'G',sourceNumber:'16',status:'sold'}).some(e=>e.includes('13 dígitos')));
 });

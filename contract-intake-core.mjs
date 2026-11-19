@@ -29,6 +29,31 @@ export function intakeMoney(raw){
  if(!hit)return null;
  const n=Number(hit[0]);return Number.isFinite(n)&&n>=0&&n<=1e12?n:null;
 }
+// Validar identidad hondureña como 13 cifras. Se respeta su formato original al mostrarla.
+export function contractIdentityDigits(value){return String(value||'').replace(/\D/g,'');}
+export function contractIdentityFormat(value){
+ const digits=contractIdentityDigits(value);
+ return digits.length===13?digits.slice(0,4)+' '+digits.slice(4,8)+' '+digits.slice(8):String(value||'').trim();
+}
+function contractIntakeDni(src,field){
+ // Extrae desde la etiqueta DNI/IDENTIDAD (no desde representante o las observaciones).
+ const label=/^(?:NUMERO\s+DE\s+)?(?:DNI|IDENTIDAD)(?:\s+(?:NO|NUMERO))?\s*[:.\-]?\s*(.*)$/im;
+ const match=src.match(label);
+ const candidate=match?.[1]||field('DNI|IDENTIDAD');
+ // El OCR puede poner los grupos en una línea aparte.
+ const following=match?src.slice(match.index+match[0].length).split('\n')[1]||'':'';
+ for(const fragment of [candidate,following]){
+  const found=fragment.match(/(?<!\d)\d{4}[\s.-]*\d{4}[\s.-]*\d{5}(?!\d)/);
+  if(found)return contractIdentityFormat(found[0]);
+ }
+ // No usar otro número del documento (ni DNI de un representante) si el principal está ilegible.
+ return contractIdentityFormat(candidate.replace(/^(?:DNI|IDENTIDAD)\s*[:.\-]?\s*/,''));
+}
+function contractIntakeObservations(src){
+ const match=src.match(/(?:^|\n)\s*OBSERVACIONES\s*:?\s*([\s\S]*?)(?=\n\s*FIRMA\s+DE\s+AUTORIZACION\b|$)/i);
+ if(!match)return '';
+ return match[1].replace(/\s*\n\s*/g,' ').trim().slice(0,5000);
+}
 export function parseContractIntake(text){
  const src=intakeNormalize(text).slice(0,50000);
  const field=(key,next='[A-ZÁÉÍÓÚÑ ]{2,40}')=>intakeSection(src,key,next);
@@ -43,7 +68,7 @@ export function parseContractIntake(text){
  const areaM2=amount('METROS\\s+CUADRADOS|AREA\\s+M2');
  const results={
   name:field('NOMBRE\\s+DE\\s+CLIENTE|NOMBRE\\s+DEL\\s+CLIENTE'),
-  identity:field('DNI|IDENTIDAD'),rtn:field('RTN'),maritalStatus:field('ESTADO\\s+CIVIL'),
+  identity:contractIntakeDni(src,field),rtn:field('RTN'),maritalStatus:field('ESTADO\\s+CIVIL'),
   occupation:field('PROFESI[OÓ]N\\s+U\\s+OFICIO|PROFESI[OÓ]N|OFICIO'),
   address:field('DIRECCI[OÓ]N|DOMICILIO'),
   stage:stage&&/^\d{1,2}$/.test(stage)?Number(stage):null,
@@ -56,7 +81,7 @@ export function parseContractIntake(text){
   financed:amount('SALDO\\s+A\\s+FINANCIAR'),
   monthly:amount('CUOTA(?:\\s+MENSUAL)?'),months,
   pricePerVara:amount('PRECIO\\s+POR\\s+VARA2?'),
-  observations:field('OBSERVACIONES'),
+  observations:contractIntakeObservations(src),
   rawText:String(text||'').slice(0,50000)
  };
  // Los documentos sin etapa NO se asignan automáticamente a etapa 1 o 2.
@@ -78,7 +103,7 @@ export function intakeCheckValues(input,lot){
  if(!lot)errors.push('Selecciona el solar exacto, incluida la etapa.');
  const str=v=>String(v||'').trim();
  if(str(input.name).length<3)errors.push('Falta el nombre del cliente.');
- if(!/^[0-9\s-]{10,22}$/.test(str(input.identity)))errors.push('Revisa el DNI.');
+ if(contractIdentityDigits(input.identity).length!==13)errors.push('El DNI debe contener exactamente 13 dígitos. Revisa la lectura OCR o escríbelo manualmente.');
  const price=Number(input.price),down=Number(input.down),months=Number(input.months);
  if(!Number.isFinite(price)||price<=0||price>1e12)errors.push('El precio total debe ser positivo.');
  if(!Number.isFinite(down)||down<0||down>=price)errors.push('La prima debe ser menor que el precio.');
