@@ -3,6 +3,7 @@
 let officialPricePreview=null;
 function officialPriceFormat(l){return Number(l??0).toLocaleString('es-HN',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function officialPriceVisible(l){
+ if(l.priceVara2==null&&l.pdfPrima==null&&l.quotePrima==null)return '<p class="sm muted">Precio por vara², prima y cuota del PDF pendientes de incorporar.</p>';
  const valid=Number(l.price)>0;
  const down=Number(l.quotePrima??l.pdfPrima??0),months=Number(l.quoteMonths||84);
  let quota='Por definir';try{if(valid)quota='L '+officialPriceFormat(quoteAtZeroInterest(l.price,down,months));}catch{}
@@ -23,6 +24,12 @@ openSolarWindow=function(lotId){
  officialPriceSolarBase(lotId);
  const l=getLot(lotId),content=document.querySelector('#modal-root .modal-content');
  if(!l||!content)return;
+ const saleForm=document.getElementById('solar-form');
+ if(saleForm&&officialPriceEligible(l)){
+  saleForm.elements.downPayment.value=String(l.quotePrima??l.pdfPrima??0);
+  saleForm.elements.months.value=String(l.quoteMonths||84);
+  updateSolarSummary();
+ }
  const pricePanel='<section class="card" style="padding:14px;margin:12px 0"><h3>Precio y financiamiento</h3>'+
   '<div class="detail-line"><span>Precio total</span><strong>'+(Number(l.price)>0?money(l.price):'Sin precio')+'</strong></div>'+
   officialPriceVisible(l)+
@@ -86,6 +93,7 @@ function officialPriceSaveLot(id){
  const price=Number(form.elements.price.value),down=Number(form.elements.prima.value),years=Number(form.elements.years.value),months=years*12;
  const cents=v=>Number.isFinite(v)&&Math.abs(v*100-Math.round(v*100))<.00001;
  if(!Number.isInteger(years)||years<1||years>30||!cents(price)||!cents(down))throw Error('Ingresa años enteros y montos con máximo dos decimales.');
+ if(down>=price)throw Error('Para pagar el precio completo utiliza la venta al contado. La prima al crédito debe ser menor.');
  const monthly=quoteAtZeroInterest(price,down,months),original={...lot};
  lot.price=price;lot.quotePrima=down;lot.quoteMonths=months;lot.quoteMonthly=monthly;
  if(!designPersist()){Object.assign(lot,original);return;}
