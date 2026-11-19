@@ -91,3 +91,11 @@ En **Clientes → Ver ficha** se presenta toda la descripción contractual: iden
 **Protecciones:** la prima del contrato no se registra como pago, los meses se cargan después por Abonos, el precio/área existente no se reemplaza, un contrato pendiente bloquea ventas o importaciones duplicadas del solar, y al activar crédito se conserva el cliente previamente vinculado. La limpieza del padrón no es automática ni se ha ejecutado.
 
 Si un cliente se guardó previamente sin ficha documental, no se debe crear un cliente nuevo ni borrar registros: entra a **Clientes → Ver ficha → Completar ficha desde contrato**, sube la foto y selecciona la etapa y solar correctos. Comprueba después el estado de sincronización D1.
+
+## LOTIGEST v0.22.21 — Bloque y solar detectados por OCR, etapa manual
+
+Al subir una imagen en **Contratos → Subir contrato y crear ficha**, el lector busca las etiquetas `LOTE`, `LOTE(S)`, `LOTES`, `SOLAR`, `BLOQUE`, `BLOQUE(S)` o `BLOQUES`. Rellena automáticamente los campos editables de bloque y número de solar. A continuación exige elegir **Etapa 1** o **Etapa 2** desde un menú; el programa NO asume una etapa basándose en la imagen.
+
+Al seleccionar la etapa, el sistema busca un solar que coincida con esa triple referencia (etapa + bloque + número). Si la coincidencia es única lo selecciona; si falta, ofrece corregir el OCR o buscarlo manualmente en esa etapa. Antes de guardar valida de nuevo que los tres datos coincidan y evita registros en una etapa equivocada. Por ejemplo, bloque G, solar 16, etapa 1 y bloque G, solar 16, etapa 2 son registros diferentes.
+
+Esto NO sustituye ni borra medidas ya registradas, contratos anteriores, personas, ventas o abonos. La etapa puede cambiarse antes de guardar; al hacerlo se actualiza la referencia seleccionada y se conservan los demás datos revisados del contrato.

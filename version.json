@@ -1,4 +1,4 @@
 {
-  "version": "0.22.20",
-  "notes": "Corrección de Contratos: reutiliza clientes existentes por identidad, permite completar su ficha desde Clientes, vincula al guardar el nombre y contrato al solar sin inventar pagos o ventas, y muestra la descripción completa en Clientes, Terrenos y Mapa. Los nombres ya vinculados aparecen incluso sin ficha OCR. Se protegen medidas, etapas, precios existentes y se impiden duplicaciones de compradores."
+  "version": "0.22.21",
+  "notes": "Contratos: el OCR reconoce automáticamente bloque y número de solar, y el administrador elige manualmente Etapa 1 o Etapa 2. Tras elegirla, se localiza y preselecciona el solar correspondiente en el inventario, incluso cuando existe el mismo bloque y número en ambas etapas. Verificación obligatoria antes de guardar; se preservan áreas, precios existentes, propietarios y abonos."
 }
