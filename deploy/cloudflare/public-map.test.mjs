@@ -25,8 +25,8 @@ async function seed(){
   residenceId:'altos',title:'Altos del Arrayán',viewBox:[0,0,200,150],
   prices:{A1:507993.64,A2:600000},lots:state.lots.map(l=>({id:l.id,points:[[0,0],[30,0],[30,30]],name:'DATOS PRIVADOS',available:true}))
  })})});
- assert.equal(post.status,200,await post.text().catch(()=>'')); // not consumed on success
- const {slug,path}=await post.clone().json();
+ assert.equal(post.status,200);
+ const {slug,path}=await post.json();
  return {...f,state,slug,path};
 }
 test('WhatsApp: enlace público dentro de LOTIGEST sin precios ni clientes',async()=>{
