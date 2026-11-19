@@ -12,6 +12,7 @@ test('Lectura OCR de ficha contractual: no inventar etapa ni campos vacíos',()=
  assert.equal(d.east,'LOTE G-15');assert.equal(d.west,'LOTE G-17');
  assert.equal(d.price,580564.16);assert.equal(d.down,58056.42);assert.equal(d.financed,522507.74);
  assert.equal(d.monthly,6220.33);assert.equal(d.months,84);assert.equal(d.pricePerVara,2300);
+ assert.match(d.observations,/REPRESENTANTE EN HONDURAS/);assert.match(d.observations,/PRECIO POR VARA2/);
  assert.equal(Math.round((d.price-d.down)/d.months*100)/100,d.monthly);
 });
 test('La etapa y solar exacto son obligatorios; no sobrescribir medidas',()=>{
