@@ -35,7 +35,7 @@ function contractIntakeFields(){
   '<div class="form-grid">'+clientPicker+pick+fields+'</div>'+
   '<label>Observaciones del documento<textarea name="observations" rows="4" style="width:100%">'+esc(c.observations||'')+'</textarea></label>'+
   '<details><summary>Ver/corregir texto reconocido completo</summary><textarea name="rawText" rows="9" style="width:100%">'+esc(c.rawText||'')+'</textarea></details>'+
-  '<div id="contract-intake-alert" role="alert"></div>'+
+  '<div id="contract-intake-alert" role="alert">'+(!String(c.name||'').trim()?'<strong>Falta el nombre del cliente.</strong> Corrígelo antes de guardar.':'')+'</div>'+
   '<p class="sm muted">Guardar ficha crea el cliente y su documento vinculado, NO registra la prima cobrada ni genera cuotas. Para registrar la venta necesitarás fecha de contrato y primer vencimiento; después podrás ingresar los abonos desde el módulo normal.</p></form>';
 }
 function contractIntakeOpen(clientId=''){
@@ -81,7 +81,7 @@ async function contractIntakeRead(file){
   status.textContent='Lectura lista (calidad aproximada '+scan.values._confidence+'%). Revisa cada campo, especialmente DNI, etapa, colindancias y precio.';
  }catch(e){
   if(scan!==contractIntakeWorking)return;
-  scan.values={};
+  scan.values={...scan.values}; // Conservar el nombre y DNI del cliente seleccionado si falla el OCR.
   box.innerHTML=contractIntakeFields();
   saveBtn.disabled=false;
   status.textContent='No fue posible leer automáticamente la foto. Puedes escribir los datos manualmente y revisarlos antes de guardar.';
