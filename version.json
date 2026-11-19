@@ -1,4 +1,4 @@
 {
-  "version": "0.22.13",
-  "notes": "Búsqueda manual por nombre o número de cédula en Terrenos/Predios, Cuotas y pagos, Recibos de abonos y Residenciales y cobros; muestra los solares del cliente y permite acceder a su ficha y registrar abono cuando corresponde, sin duplicar clientes ni modificar pagos. Conserva la corrección móvil 0.22.12."
+  "version": "0.22.14",
+  "notes": "Precios del PDF de Altos del Arrayán: completar hasta 232 solares disponibles, con 32 referencias ambiguas protegidas. Al tocar el solar en el mapa aparece una calculadora editable de precio, prima y años; la cuota se actualiza inmediatamente (0 % interés; 7 años, 84 cuotas por defecto). Guardar propuesta aplica los valores a la venta sin crear un abono."
 }
