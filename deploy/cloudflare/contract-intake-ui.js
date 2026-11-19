@@ -246,7 +246,7 @@ function contractIntakeDescription(d){
   '<p style="color:#9b581f"><strong>Medida protegida:</strong> el catastro conserva '+esc(String(lot.area))+' m² aunque el contrato indique '+esc(String(info.areaM2))+' m².</p>':'';
  return '<section class="card" style="padding:15px;margin-bottom:15px"><h3>Descripción completa del contrato</h3>'+
   '<p class="sm muted">Etapa, bloque y solar identificados en el inventario · documento privado.</p>'+
-  list+delta+'<p><strong>Prima registrada como pagada:</strong> '+(d.status==='active'?'No, revisa Abonos':'No, pendiente de activar crédito')+'</p>'+
+  list+delta+'<p class="sm muted">La prima del contrato no se registra como pagada al importar. Consulta Abonos para verificar los cobros posteriores.</p>'+
   (d.documentKey?'<a class="btn btn-outline" target="_blank" rel="noopener noreferrer" href="/api/app/file?key='+encodeURIComponent(d.documentKey)+'">Ver fotografía original</a>':'')+'</section>';
 }
 const contractIntakeOriginalView=viewContractText;
