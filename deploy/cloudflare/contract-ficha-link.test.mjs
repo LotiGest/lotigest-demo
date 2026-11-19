@@ -35,3 +35,11 @@ test('No permite vender ni importar nuevamente un solar con contrato pendiente',
  assert.throws(()=>app.planSolarAction({lotId:'G16',operation:'credit'}),/ya está vinculado a un contrato/);
  assert.throws(()=>app.planBuyerHistory({lotId:'G16'},lot),/ficha contractual/);
 });
+test('El nombre del cliente previamente asociado al solar se muestra aunque falte su foto de contrato',()=>{
+ const {app,db,lot}=mock();
+ db.contractTexts=[];
+ assert.match(app.buyerInventorySummary(lot),/CLIENTE FICTICIO/);
+ assert.match(app.buyerInventorySummary(lot),/Falta completar contrato/);
+ assert.match(app.inventoryInfo(lot),/Completar desde contrato/);
+ assert.throws(()=>app.planSolarAction({lotId:'G16',operation:'credit'}),/ya tiene cliente registrado/);
+});
