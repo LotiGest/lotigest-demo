@@ -16,7 +16,8 @@ async function seed(){
    {id:'A1',residenceId:'altos',stage:1,block:'A',sourceNumber:'1',status:'available',type:'solar',area:154,price:507993.64,dimensions:{front:11,depth:14}},
    {id:'A2',residenceId:'altos',stage:1,block:'A',sourceNumber:'2',status:'sold',type:'solar',price:600000,area:165},
    {id:'A3',residenceId:'altos',stage:1,block:'A',sourceNumber:'3',status:'reserved',type:'solar',price:400000,area:143},
-   {id:'A4',residenceId:'altos',stage:1,block:'A',sourceNumber:'4',status:'private',type:'private',price:500000}
+   {id:'A4',residenceId:'altos',stage:1,block:'A',sourceNumber:'4',status:'private',type:'private',price:500000},
+   {id:'A5',residenceId:'altos',stage:2,block:'B',sourceNumber:'5',status:'available',type:'solar',price:400000,area:147}
   ],clients:[],sales:[],payments:[]
  };
  for(const item of encode(state))f.db.db.prepare('INSERT INTO app_records(key,payload) VALUES(?,?)').run(item.key,item.payload);
@@ -35,7 +36,7 @@ test('WhatsApp: enlace público dentro de LOTIGEST sin precios ni clientes',asyn
  const response=await publicMap({env:f.env,params:{slug:f.slug},request:new Request('https://test/api/client-sales/maps/'+f.slug)});
  assert.equal(response.status,200);
  const data=(await response.json()).map,raw=JSON.stringify(data);
- assert.deepEqual(data.lots.map(l=>l.status),['available','sold','reserved']);
+ assert.deepEqual(data.lots.map(l=>l.status),['available','sold','reserved','available']);
  for(const forbidden of ['507993.64','600000','DATOS PRIVADOS','clientId','phone','identity','ownerClientId','price','sales'])assert.ok(!raw.includes(forbidden),'No exponer '+forbidden);
  assert.equal(data.lots.some(l=>l.id==='A4'),false,'Propiedad privada oculta');
 });
@@ -69,4 +70,29 @@ test('solo admin publica y lee datos privados de solicitudes',async()=>{
  assert.equal(unauthorized.status,401);
  const invalid=await publish({env:f.env,request:new Request('https://test/api/client-sales/maps',{method:'POST',headers:{'Content-Type':'application/json',Origin:'https://externo.example',Cookie:f.cookie},body:'{}'})});
  assert.equal(invalid.status,403);
+});
+
+test('WhatsApp sin sesión: seleccionar dos solares crea dos alertas, sin apartados ni pagos',async()=>{
+ const f=await seed();
+ const tomorrow=new Date(Date.now()+2*86400000).toISOString().slice(0,10);
+ const shared={lotIds:['A1','A5'],name:'SOLICITANTE DE DOS SOLARES',phone:'9999-8888',mode:'credit',proposedDownPayment:70000,paymentDate:tomorrow};
+ const url='https://test/api/client-sales/maps/'+f.slug+'/requests';
+ const submit=async data=>createRequest({env:f.env,params:{slug:f.slug},request:new Request(url,{method:'POST',headers:{Origin:'https://test','Content-Type':'application/json'},body:JSON.stringify(data)})});
+ const partial=await submit({...shared,lotIds:['A1','A3']});
+ assert.equal(partial.status,409,'No guardar solicitudes si uno está apartado');
+ assert.equal(f.db.db.prepare('SELECT COUNT(*) AS n FROM public_lot_requests').get().n,0);
+ const good=await submit(shared);assert.equal(good.status,201);
+ const receipt=await good.json();assert.equal(receipt.count,2);assert.equal(receipt.requestIds.length,2);
+ const listed=await listRequests({env:f.env,request:new Request('https://test/api/client-sales/requests',{headers:{Cookie:f.cookie}})});
+ assert.equal(listed.status,200);
+ const items=(await listed.json()).requests;
+ assert.equal(items.length,2);
+ assert.deepEqual(new Set(items.map(r=>r.lotId)),new Set(['A1','A5']));
+ assert.ok(items.every(r=>r.client.name===shared.name&&r.client.proposedDownPayment===70000));
+ assert.ok(items.some(r=>r.lot?.stage===2&&r.lot?.block==='B'&&r.lot?.number==='5'),'La campana tendrá etapa, bloque y número correctos');
+ assert.equal(f.db.db.prepare('SELECT COUNT(*) AS n FROM public_lot_requests').get().n,2);
+ assert.equal(f.db.db.prepare('SELECT COUNT(*) AS n FROM app_records').get().n>0,true);
+ assert.equal(f.state.sales.length,0);
+ assert.equal(f.state.payments.length,0);
+ assert.equal(f.state.reservations?.length||0,0);
 });

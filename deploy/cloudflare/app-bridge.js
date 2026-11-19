@@ -94,6 +94,7 @@ async function cloudLoad({discardPending=false,preservePage=true}={}){
  cloudPersist();await prepareOfficialBackgrounds();cloudReady=true;sessionStorage.setItem(SESSION,'yes');page=preservePage?previousPage:'dashboard';if(page==='dashboard')cloudRestorePage(cloudUser.name);cloudOffline=false;render();
  // render may initialize the built-in inventory; persist the resulting state.
  cloudWrite(JSON.stringify(db));await cloudFlush();
+ if(cloudUser?.role==='admin')setTimeout(refreshClientRequests,250);
  /* Las copias antiguas se revisan solo desde Respaldo. */
 }
 function cloudImportOffer(){

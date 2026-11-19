@@ -44,8 +44,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93cda9}textarea{resiz
    <div id="list" class="list"></div>
   </section>
   <section class="panel">
-   <h2>Solicitar información de un solar</h2>
-   <div id="selection">Toca un solar amarillo en el plano o selecciónalo de la lista.</div>
+   <h2>Solicitar información de los solares</h2>
+   <div id="selection" aria-live="polite">Toca uno o varios solares amarillos en el plano o selecciónalos de la lista. Máximo cinco solares.</div>
    <form id="request-form">
     <label for="name">Nombre completo</label><input id="name" name="name" maxlength="100" autocomplete="name" required>
     <label for="phone">Número de WhatsApp</label><input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="25" required placeholder="Ej. 9999-9999">
@@ -54,8 +54,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93cda9}textarea{resiz
     <div id="down-wrap"><label for="down">Prima propuesta (L)</label><input id="down" name="proposedDownPayment" type="number" min="50000" step="0.01" value="50000"><small>Prima mínima propuesta para crédito: L 50,000. El administrador confirmará el monto.</small></div>
     <label for="date">Fecha aproximada para realizar el pago</label><input id="date" name="paymentDate" type="date" required>
     <label for="note">Comentario (opcional)</label><textarea id="note" name="note" maxlength="500" rows="3" placeholder="Escribe cualquier consulta"></textarea>
-    <p class="muted">El precio se cotiza directamente con la lotificadora. No se registra un pago ni se reserva el solar con este formulario.</p>
-    <button id="send" type="submit" disabled>Enviar solicitud del solar</button>
+    <p class="muted">Puedes solicitar hasta cinco solares disponibles. El precio se cotiza con la lotificadora; no se registra un pago ni se aparta ningún solar al enviar.</p>
+    <button id="send" type="submit" disabled>Enviar solicitudes de solares</button>
    </form>
   </section>
  </div>
@@ -64,17 +64,26 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93cda9}textarea{resiz
 'use strict';
 const $=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search),slug=params.get('map')||'';
-let mapData=null,selected=null,filter='all';
+let mapData=null,selected=new Set(),filter='all';
 const ns='http://www.w3.org/2000/svg';
 const safeText=v=>String(v??'');
 const isSlug=/^[a-f0-9]{24}$/.test(slug);
 function status(message,error=false){$('message').textContent=message;$('message').classList.toggle('error',error);}
 function titleOf(l){return 'Etapa '+(l.stage||'por confirmar')+' · Bloque '+l.block+' · Solar '+l.number;}
 function selection(l){
- selected=l?.status==='available'?l.id:null;
- $('selection').textContent=selected?titleOf(l)+' · '+(Number(l.area)>0?Number(l.area).toLocaleString('es-HN')+' m²':'Medidas por confirmar'):'Toca un solar disponible (amarillo) para continuar.';
- $('send').disabled=!selected;
- for(const p of $('map').querySelectorAll('polygon'))p.classList.toggle('selected',p.dataset.id===selected);
+ if(l?.status==='available'){
+  if(selected.has(l.id))selected.delete(l.id);
+  else if(selected.size>=5)return status('Puedes escoger hasta cinco solares por solicitud.',true);
+  else selected.add(l.id);
+ }else if(!l)selected.clear();
+ const chosen=(mapData?.lots||[]).filter(item=>selected.has(item.id));
+ $('selection').textContent=chosen.length
+  ?chosen.length+' solar'+(chosen.length===1?' seleccionado: ':'es seleccionados: ')+chosen.map(item=>titleOf(item)).join(' | ')+'. Toca uno de nuevo para quitarlo.'
+  :'Toca uno o varios solares disponibles (amarillos). Máximo cinco.';
+ $('send').disabled=!selected.size;
+ $('send').textContent=chosen.length>1?'Enviar solicitud de '+chosen.length+' solares':'Enviar solicitud del solar';
+ for(const p of $('map').querySelectorAll('polygon'))p.classList.toggle('selected',selected.has(p.dataset.id));
+ renderList();
 }
 function renderList(){
  $('list').replaceChildren();
@@ -84,7 +93,7 @@ function renderList(){
   const row=document.createElement('div');row.className='lot';
   const info=document.createElement('span');info.textContent=titleOf(l)+' · '+(l.status==='available'?'Disponible':l.status==='sold'?'Comprado':'Apartado / no disponible');
   row.append(info);
-  if(l.status==='available'){const b=document.createElement('button');b.type='button';b.textContent='Escoger';b.addEventListener('click',()=>{selection(l);$('selection').scrollIntoView({block:'nearest',behavior:'smooth'});});row.append(b);}
+  if(l.status==='available'){const b=document.createElement('button');b.type='button';b.textContent=selected.has(l.id)?'Quitar':'Escoger';b.addEventListener('click',()=>{selection(l);$('selection').scrollIntoView({block:'nearest',behavior:'smooth'});});row.append(b);}
   $('list').append(row);
  }
 }
@@ -115,17 +124,17 @@ async function load(){
 }
 $('request-form').addEventListener('submit',async event=>{
  event.preventDefault();
- if(!selected||!isSlug)return status('Selecciona primero un solar disponible.',true);
+ if(!selected.size||!isSlug)return status('Selecciona primero al menos un solar disponible.',true);
  const send=$('send');send.disabled=true;
  const data=Object.fromEntries(new FormData(event.target).entries());
- data.lotId=selected;data.proposedDownPayment=data.mode==='credit'?Number(data.proposedDownPayment):0;
+ data.lotIds=[...selected];data.proposedDownPayment=data.mode==='credit'?Number(data.proposedDownPayment):0;
  try{
   const response=await fetch('/api/client-sales/maps/'+slug+'/requests',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
   const result=await response.json();
   if(!response.ok)throw Error(result.error||'No se pudo enviar la solicitud.');
-  status('Solicitud enviada. LOTIGEST la mostrará al administrador en Pendientes. Aún no se ha apartado el solar.');
+  status((result.count||selected.size)+' solar(es) enviado(s) correctamente. El administrador recibirá los detalles en la campana de notificaciones y en Pendientes. Todavía no están apartados.');
   event.target.reset();selection(null);
- }catch(e){status(e.message,true);}finally{send.disabled=!selected;}
+ }catch(e){status(e.message,true);if(String(e.message).includes('no está disponible'))await load();}finally{send.disabled=!selected.size;}
 });
 $('mode').addEventListener('change',e=>{$('down-wrap').hidden=e.target.value==='cash';$('down').disabled=e.target.value==='cash';});
 for(const b of document.querySelectorAll('[data-filter]'))b.addEventListener('click',()=>{filter=b.dataset.filter;renderList();});
