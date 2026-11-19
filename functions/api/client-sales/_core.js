@@ -114,13 +114,17 @@ export async function postPublicRequest({request,env,params}){
     err('Elige entre uno y cinco solares diferentes.');
   const solares=ids.map(id=>publicData?.lots.find(l=>l.id===id));
   if(solares.some(l=>!l||l.status!=='available'))err('Uno de los solares seleccionados ya no está disponible. Actualiza el mapa.',409);
-  const name=clean(input.name,100),phone=clean(input.phone,40),note=clean(input.note,500),mode=input.mode;
-  const proposed=input.proposedDownPayment===undefined?0:Number(input.proposedDownPayment);
-  if(name.length<3||!/^[0-9+()\s-]{8,25}$/.test(phone)||!['cash','credit'].includes(mode)||!validDate(input.paymentDate)||!isMoney(proposed))err('Completa nombre, WhatsApp, modalidad, fecha y prima correctamente.');
+  const name=clean(input.name,100),phone=clean(input.phone,40),note=clean(input.note,500),mode=input.mode||'inquiry';
+  const proposed=mode==='inquiry'?0:input.proposedDownPayment===undefined?0:Number(input.proposedDownPayment);
   const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Tegucigalpa',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-  if(input.paymentDate<today||input.paymentDate>new Date(Date.now()+366*86400000).toISOString().slice(0,10))err('La fecha propuesta debe estar dentro de los próximos doce meses.');
-  if(mode==='credit'&&proposed<50000)err('La prima propuesta mínima para crédito es L 50,000.');
-  if(mode==='cash'&&proposed!==0)err('En una solicitud de contado no indiques prima.');
+  const paymentDate=mode==='inquiry'?today:input.paymentDate;
+  if(name.length<3||!/^[0-9+()\s-]{8,25}$/.test(phone)||!['cash','credit','inquiry'].includes(mode)||!validDate(paymentDate)||!isMoney(proposed))
+    err('Escribe tu nombre y un número de WhatsApp válido.');
+  if(mode!=='inquiry'){
+   if(paymentDate<today||paymentDate>new Date(Date.now()+366*86400000).toISOString().slice(0,10))err('La fecha propuesta debe estar dentro de los próximos doce meses.');
+   if(mode==='credit'&&proposed<50000)err('La prima propuesta mínima para crédito es L 50,000.');
+   if(mode==='cash'&&proposed!==0)err('En una solicitud de contado no indiques prima.');
+  }
   // Las consultas públicas se limitan por IP, no se aceptan múltiples solicitudes ilimitadas.
   const ip=clean(request.headers.get('CF-Connecting-IP')||'sin-ip',80);
   const ipHash=await hash('solares-publicos-v1:'+ip);
@@ -128,7 +132,7 @@ export async function postPublicRequest({request,env,params}){
   const gate=await db.prepare('INSERT INTO public_lot_request_limits(ip_hash,window_start,attempts) VALUES(?,?,1) ON CONFLICT(ip_hash) DO UPDATE SET attempts=CASE WHEN window_start=excluded.window_start THEN attempts+1 ELSE 1 END,window_start=excluded.window_start RETURNING attempts').bind(ipHash,windowStart).first();
   if(gate.attempts>10)err('Demasiadas solicitudes. Inténtalo más tarde.',429);
   const now=new Date().toISOString(),requestIds=solares.map(()=>'SOL-'+crypto.randomUUID());
-  const entries=solares.map((solar,i)=>db.prepare('INSERT INTO public_lot_requests(id,slug,residence_id,lot_id,name,phone,mode,proposed_down_payment,payment_date,note,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(requestIds[i],slug,map.residence_id,solar.id,name,phone,mode,proposed,input.paymentDate,note,'pending',now,now));
+  const entries=solares.map((solar,i)=>db.prepare('INSERT INTO public_lot_requests(id,slug,residence_id,lot_id,name,phone,mode,proposed_down_payment,payment_date,note,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(requestIds[i],slug,map.residence_id,solar.id,name,phone,mode,proposed,paymentDate,note,'pending',now,now));
   await db.batch(entries);
   return json({ok:true,requestId:requestIds[0],requestIds,count:requestIds.length,message:requestIds.length===1?'Solicitud enviada. El solar todavía no está apartado.':'Solicitudes enviadas. Los solares todavía no están apartados.'},201);
  }catch(e){return failure(e);}
