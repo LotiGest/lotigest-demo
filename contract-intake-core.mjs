@@ -62,6 +62,7 @@ export function parseContractIntake(text){
  const term=rawYears.match(/(\d{1,3})\s*(?:CUOTAS?|MESES?)/)||rawYears.match(/(\d{1,2})\s*A[NÑ]OS?/);
  const months=term?(/A[NÑ]O/.test(term[0])?Number(term[1])*12:Number(term[1])):null;
  const number=field('LOTE(?:\\s*\\(\\s*[S5]\\s*\\)|S)?|SOLAR(?:ES|\\s*\\(\\s*E?[S5]\\s*\\))?');
+ const numbers=[...new Set(number.replace(/\s+Y\s+/g,',').split(/[,;\/]/).map(x=>x.trim()).filter(x=>/^\d+[A-Z]?$/.test(x)))];
  const block=field('BLOQUE(?:\\s*\\(\\s*[S5]\\s*\\)|S)?');
  const stage=field('ETAPA(?:\\s+DEL\\s+PROYECTO)?');
  const areaVaras=amount('AREA(?:\\s+EN\\s+VARAS)?');
@@ -73,7 +74,7 @@ export function parseContractIntake(text){
   address:field('DIRECCI[OÓ]N|DOMICILIO'),
   stage:stage&&/^\d{1,2}$/.test(stage)?Number(stage):null,
   block:block.match(/^[A-Z0-9]+/)?.[0]||'',
-  number:number.match(/^\d+[A-Z]?/)?.[0]||'',
+  number:number.match(/^\d+[A-Z]?/)?.[0]||'',numbers,
   areaVaras,areaM2,
   north:field('NORTE'),south:field('SUR'),east:field('ESTE'),west:field('OESTE'),
   price:amount('PRECIO\\s+DE\\s+LOTE|PRECIO\\s+TOTAL'),
@@ -152,4 +153,30 @@ export function intakePrepareFreshClientRegister(state){
  next.clientRegisterReset={at:new Date().toISOString(),version:1,
   note:'Padrón regenerado desde contratos; cifras del catastro y movimientos independientes de Caja preservados'};
  return next;
+}
+
+// Una ficha puede repartir sus importes entre varios solares del mismo cliente.
+// No se supone que el total del documento corresponda a CADA solar.
+export function intakePlanLots(data,lots,residenceId){
+ const entries=Array.isArray(data.lots)&&data.lots.length?data.lots:[data];
+ const seen=new Set(),multi=entries.length>1;
+ const cents=v=>Math.round(Number(v)*100);
+ const planned=entries.map(entry=>{
+  const lot=(lots||[]).find(l=>l.id===entry.lotId);
+  if(!lot||lot.residenceId!==residenceId)throw Error('Selecciona cada solar de la residencial actual.');
+  if(seen.has(lot.id))throw Error('No puedes agregar el mismo solar dos veces.');seen.add(lot.id);
+  const price=multi?entry.price:data.price,down=multi?entry.down:data.down;
+  if(multi&&(price===''||price==null||down===''||down==null))throw Error('Indica el precio y la prima pactada de cada solar, sin repetir el total de la ficha.');
+  for(const value of [price,down])if(!Number.isFinite(Number(value))||!Number.isSafeInteger(cents(value))||Math.abs(Number(value)*100-cents(value))>.00001)throw Error('Los importes por solar deben tener hasta dos decimales.');
+  const fields={...data,...entry,lotId:lot.id,stage:Number(entry.stage),block:multi?lot.block:data.block,number:multi?String(lot.sourceNumber||lot.number||''):data.number,price:Number(price),down:Number(down),
+   financed:multi?(cents(price)-cents(down))/100:data.financed,monthly:multi?null:data.monthly};
+  const issues=intakeCheckValues(fields,lot);if(issues.length)throw Error(issues.join(' '));
+  if(multi){fields.documentAreaM2=data.areaM2;fields.documentAreaVaras=data.areaVaras;fields.areaM2=null;fields.areaVaras=null;}
+  delete fields.lots;return {lot,fields};
+ });
+ if(multi){
+  if(planned.reduce((s,r)=>s+cents(r.fields.price),0)!==cents(data.price))throw Error('La suma de precios de los solares debe coincidir con el precio total de la ficha.');
+  if(planned.reduce((s,r)=>s+cents(r.fields.down),0)!==cents(data.down))throw Error('La suma de primas de los solares debe coincidir con la prima total de la ficha.');
+ }
+ return planned;
 }

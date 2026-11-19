@@ -1,4 +1,4 @@
 {
-  "version": "0.22.26",
-  "notes": "Menú móvil: la lista utiliza toda la altura disponible y permite desplazarse hasta la última opción; elimina el espacio vacío de escritorio, muestra la barra de desplazamiento y ajusta textos largos sin recortarlos."
+  "version": "0.22.27",
+  "notes": "Contratos con varios solares: botón Agregar otro solar, etapa y bloque/número por terreno, listas de solares reconocidas por OCR y un solo cliente con fotografía compartida. Desglose de precio y prima por solar validado contra el total de la ficha, sin duplicar importes ni alterar medidas o abonos."
 }

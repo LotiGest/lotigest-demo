@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {intakeCheckValues,contractIdentityDigits,contractIdentityFormat} from '../../contract-intake-core.mjs';
+import {intakeCheckValues,intakePlanLots,contractIdentityDigits,contractIdentityFormat} from '../../contract-intake-core.mjs';
 const ui=readFileSync(new URL('./contract-intake-ui.js',import.meta.url),'utf8');
 const start=ui.indexOf('function contractIntakeData(form){');
 const end=ui.indexOf('function contractIntakeActivate(',start);
@@ -16,7 +16,7 @@ function setup(){
  const env={
   contractIntakeWorking:working,contractIntakeAdmin:()=>true,document:{getElementById:()=>({disabled:false,isConnected:true})},
   FormData:F,getLot:id=>state.lots.find(l=>l.id===id),residence:()=>state.residences[0],
-  intakeCheckValues,contractIdentityFormat,contractIdentityDigits,
+  intakeCheckValues,intakePlanLots,contractIdentityFormat,contractIdentityDigits,
   db:state,activeReservation:()=>null,
   crypto:{randomUUID:()=>String(count++).padStart(8,'0')+'-0000-4000-8000-000000000000'},
   normalizeClientLookup:x=>String(x||'').replace(/[^A-Za-z0-9]/g,'').toLowerCase(),
@@ -54,4 +54,37 @@ test('Nunca guarda un contrato con un DNI incompleto',async()=>{
  const f=setup();f.fields.identity='0801 1990 0021';
  await assert.rejects(f.fn.save({fields:f.fields}),/13 dígitos/);
  assert.equal(f.writes(),0);assert.equal(f.state().clients.length,0);
+});
+
+function threeLots(){
+ const f=setup();
+ f.state().lots.push({id:'A2',residenceId:'R',stage:1,block:'A',sourceNumber:'2',status:'available',area:150},
+  {id:'B3',residenceId:'R',stage:2,block:'B',sourceNumber:'3',status:'available',area:null});
+ Object.assign(f.fields,{price:'600000',down:'60000',financed:'540000',monthly:'6428.57',
+  solarPrice_0:'100000',solarDown_0:'10000',extraLotId_0:'A2',extraStage_0:'1',solarPrice_1:'200000',solarDown_1:'20000',
+  extraLotId_1:'B3',extraStage_1:'2',solarPrice_2:'300000',solarDown_2:'30000'});
+ return f;
+}
+test('una ficha con tres solares guarda un cliente, una foto compartida y tres vínculos con importes separados',async()=>{
+ const f=threeLots();await f.fn.save({fields:f.fields});const db=f.fn.getDb();
+ assert.equal(db.clients.length,1);assert.equal(db.contractTexts.length,3);assert.equal(f.writes(),1);
+ assert.equal(new Set(db.contractTexts.map(d=>d.contractGroupId)).size,1);
+ assert.equal(new Set(db.contractTexts.map(d=>d.documentKey)).size,1);
+ assert.equal(db.contractTexts.reduce((s,d)=>s+d.structured.price,0),600000);
+ assert.equal(db.contractTexts.reduce((s,d)=>s+d.structured.down,0),60000);
+ for(const lot of db.lots){assert.equal(lot.ownerClientId,db.clients[0].id);const doc=db.contractTexts.find(d=>d.lotId===lot.id);assert.equal(lot.pendingContractId,doc.id);assert.equal(doc.structured.stage,lot.stage);assert.equal(doc.structured.block,lot.block);}
+ assert.equal(db.lots.find(l=>l.id==='B3').area,null,'el área conjunta no se copia al tercer solar');
+ assert.equal(db.lots[0].area,176);assert.equal(db.lots[1].area,150);
+ assert.equal(db.sales.length,0);assert.equal(db.payments.length,0);
+});
+test('si un solar está vendido, no guarda parcialmente los otros dos',async()=>{
+ const f=threeLots();f.state().sales.push({id:'PREV',lotId:'B3',clientId:'OTRO'});
+ await assert.rejects(f.fn.save({fields:f.fields}),/ya tiene una venta/);
+ assert.equal(f.writes(),0);assert.equal(f.state().clients.length,0);assert.equal(f.state().contractTexts.length,0);
+});
+test('bloquea el mismo solar repetido y repartir importes que no suman el contrato',async()=>{
+ const duplicate=threeLots();duplicate.fields.extraLotId_1='A2';duplicate.fields.extraStage_1='1';
+ await assert.rejects(duplicate.fn.save({fields:duplicate.fields}),/mismo solar dos veces/);assert.equal(duplicate.writes(),0);
+ const amounts=threeLots();amounts.fields.solarPrice_2='600000';
+ await assert.rejects(amounts.fn.save({fields:amounts.fields}),/suma de precios/);assert.equal(amounts.writes(),0);
 });

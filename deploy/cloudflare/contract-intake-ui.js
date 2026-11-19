@@ -5,6 +5,43 @@ function contractIntakeAdmin(){
  return cloudReady&&cloudUser?.role==='admin'&&sessionStorage.getItem(SESSION)==='yes'&&navigator.onLine!==false&&!cloudBusy&&!cloudBlocked&&!cloudQueue?.pending&&cloudQueue?.latest===cloudQueue?.confirmed;
 }
 function contractIntakeFormatMoney(n){return Number(n||0).toLocaleString('es-HN',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function contractIntakeRememberExtras(form){
+ if(!form||!contractIntakeWorking)return;
+ const data=contractIntakeData(form);
+ contractIntakeWorking.values={...contractIntakeWorking.values,...data};
+ contractIntakeWorking.extraLots=(contractIntakeWorking.extraLots||[]).map((old,i)=>{
+  const lot=getLot(data['extraLotId_'+i]);
+  return {...old,stage:data['extraStage_'+i]||'',lotId:data['extraLotId_'+i]||'',
+   ...(lot?{block:lot.block,number:String(lot.sourceNumber||lot.number||'')}:{}),
+   price:data['solarPrice_'+(i+1)]??'',down:data['solarDown_'+(i+1)]??''};
+ });
+}
+function contractIntakeExtraFields(rows,c){
+ const extras=contractIntakeWorking?.extraLots||[];
+ const amount=(label,key,value)=>'<label class="field-group"><span>'+label+'</span><input type="number" name="'+key+'" min="0" step="0.01" required value="'+esc(value??'')+'"></label>';
+ let html=extras.length?'<div class="full notice-card"><strong>Distribución de la ficha entre '+(extras.length+1)+' solares</strong><p>Los precios y primas por solar deben sumar el total del documento. No repitas el total en cada solar. Las medidas conjuntas se conservan en la ficha sin copiarlas a cada terreno.</p></div>'+amount('Precio del primer solar (L)','solarPrice_0',c.solarPrice_0)+amount('Prima del primer solar (L)','solarDown_0',c.solarDown_0):'';
+ extras.forEach((row,i)=>{
+  const stage=String(row.stage||c.stage||''),available=rows.filter(l=>String(l.stage)===stage);
+  const matches=intakeSolarCandidates(available,stage,row.block,row.number);
+  const selected=available.some(l=>l.id===row.lotId)?row.lotId:matches.length===1?matches[0].id:'';
+  html+='<fieldset class="full" style="min-width:0;border:1px solid #c9dcd0;padding:12px;border-radius:10px"><legend>Solar '+(i+2)+'</legend><div class="form-grid">'+
+   '<label class="field-group"><span>Etapa</span><select name="extraStage_'+i+'" required><option value="">Selecciona etapa</option>'+[1,2].map(n=>'<option value="'+n+'" '+(stage===String(n)?'selected':'')+'>Etapa '+n+'</option>').join('')+'</select></label>'+
+   '<label class="field-group"><span>Solar del inventario</span><select name="extraLotId_'+i+'" required><option value="">Selecciona bloque y solar</option>'+available.map(l=>'<option value="'+esc(l.id)+'" '+(selected===l.id?'selected':'')+' '+(db.sales.some(s=>s.lotId===l.id)||l.pendingContractId?'disabled':'')+'>Bloque '+esc(l.block)+' · Solar '+esc(l.sourceNumber||l.number||l.id)+'</option>').join('')+'</select></label>'+
+   amount('Precio de este solar (L)','solarPrice_'+(i+1),row.price)+amount('Prima de este solar (L)','solarDown_'+(i+1),row.down)+
+   '</div><button type="button" class="btn btn-outline" data-contract-intake-remove="'+i+'">Quitar este solar</button></fieldset>';
+ });
+ return html+'<div class="full"><button type="button" class="btn btn-outline" data-contract-intake-add="true">+ Agregar otro solar a esta ficha</button></div>';
+}
+document.addEventListener('click',event=>{
+ const add=event.target.closest?.('[data-contract-intake-add]'),remove=event.target.closest?.('[data-contract-intake-remove]');
+ if((!add&&!remove)||!contractIntakeWorking||contractIntakeWorking.busy)return;
+ event.preventDefault();event.stopImmediatePropagation();
+ contractIntakeRememberExtras(document.getElementById('contract-intake-form'));
+ contractIntakeWorking.extraLots??=[];
+ if(add)contractIntakeWorking.extraLots.push({stage:String(contractIntakeWorking.values.stage||''),lotId:'',price:'',down:''});
+ else contractIntakeWorking.extraLots.splice(Number(remove.dataset.contractIntakeRemove),1);
+ document.getElementById('contract-intake-review').innerHTML=contractIntakeFields();
+},true);
 function contractIntakeFields(){
  const c=contractIntakeWorking?.values||{};
  const input=(label,key,type='text',readonly=false)=>'<label class="field-group"><span>'+esc(label)+'</span><input name="'+key+'" type="'+type+'" '+(type==='number'?'step="'+(key==='months'?'1':'any')+'" min="0" ':'')+(key==='identity'?'inputmode="numeric" autocomplete="off" maxlength="19" placeholder="0000 0000 00000" required ':'')+(readonly?'readonly ':'')+'value="'+esc(c[key]??'')+'" style="width:100%;min-width:0"></label>';
@@ -22,7 +59,7 @@ function contractIntakeFields(){
  '<option value="">Selecciona una etapa</option>'+
  '<option value="1" '+(stageChosen==='1'?'selected':'')+'>Etapa 1</option>'+
  '<option value="2" '+(stageChosen==='2'?'selected':'')+'>Etapa 2</option></select></label>';
- const pick='<label class="field-group full"><span>Solar del inventario, reconocido por OCR</span><select name="lotId" id="contract-intake-lot" required>'+
+ const pick='<label class="field-group full"><span>Primer solar del inventario, reconocido por OCR</span><select name="lotId" id="contract-intake-lot" required>'+
  '<option value="">'+(stageChosen?'Verifica el bloque y solar':'Primero elige Etapa 1 o Etapa 2')+'</option>'+
  stageRows.map(l=>'<option value="'+esc(l.id)+'" '+(l.id===selectedId?'selected':'')+' '+(db.sales.some(s=>s.lotId===l.id)?'disabled':'')+'>Bloque '+esc(l.block||'—')+' · Solar '+esc(l.sourceNumber||l.id)+' · '+esc(l.area||'sin medida')+' m²</option>').join('')+
  '</select><small id="contract-intake-solar-status" role="status">'+
@@ -33,10 +70,11 @@ function contractIntakeFields(){
   ['Profesión u oficio','occupation'],['Dirección','address'],['Bloque leído','block'],['Solar leído','number'],
   ['Área del documento (varas²)','areaVaras','number'],['Área del documento (m²)','areaM2','number'],
   ['Norte','north'],['Sur','south'],['Este','east'],['Oeste','west'],
-  ['Precio total del lote (L)','price','number'],['Prima pactada (L)','down','number'],
+  ['Precio total de la ficha, todos los solares (L)','price','number'],['Prima total pactada de la ficha (L)','down','number'],
   ['Saldo a financiar (L)','financed','number'],['Cuota del documento (L)','monthly','number'],
   ['Plazo (meses)','months','number'],['Precio por vara² (L)','pricePerVara','number']
  ];
+ const extraPicker=contractIntakeExtraFields(rows,c);
  const fields=labels.map(([label,key,type])=>input(label,key,type)).join('');
  const areaWarnings=matched.length===1&&Number(matched[0].area)>0&&Number(c.areaM2)>0&&Math.abs(Number(matched[0].area)-Number(c.areaM2))>.02?
  '<p style="color:#965a18"><strong>Medidas distintas:</strong> inventario '+esc(matched[0].area)+' m², documento '+esc(c.areaM2)+' m². Se conservará la medida original; revisa la discrepancia.</p>':'';
@@ -44,7 +82,7 @@ function contractIntakeFields(){
  '<p style="color:#a35a1b">Hay varios solares con el mismo bloque y número en esta etapa: selecciona el correcto.</p>':
  !matched.length?'<p style="color:#a35a1b">No hay una coincidencia única en la etapa elegida. Corrige bloque o solar del OCR.</p>':'')+areaWarnings;
  return '<form id="contract-intake-form"><p class="sm muted">El documento debe revisarse antes de confirmar. No reemplazamos medidas existentes, ventas o abonos. La etapa no se supone si no aparece en la imagen.</p>'+warning+
-  '<div class="form-grid">'+clientPicker+stagePicker+pick+fields+'</div>'+
+  '<div class="form-grid">'+clientPicker+stagePicker+pick+extraPicker+fields+'</div>'+
   '<label>Observaciones del documento<textarea name="observations" rows="4" style="width:100%">'+esc(c.observations||'')+'</textarea></label>'+
   '<details><summary>Ver/corregir texto reconocido completo</summary><textarea name="rawText" rows="9" style="width:100%">'+esc(c.rawText||'')+'</textarea></details>'+
   '<div id="contract-intake-alert" role="alert">'+(!String(c.name||'').trim()?'<strong>Falta el nombre del cliente.</strong> Corrígelo antes de guardar.':'')+'</div>'+
@@ -61,7 +99,7 @@ function contractIntakeOpen(clientId=''){
  '<label class="field-group"><span>Imagen del contrato</span><input id="contract-intake-file" type="file" accept="image/jpeg,image/png,image/webp"></label>'+
  '<p class="sm muted">El OCR se realiza en tu dispositivo. Luego podrás revisar los datos antes de guardar; la imagen original se almacena de forma privada en LOTIGEST al confirmar.</p>'+
  '<div id="contract-intake-status" role="status"></div><button type="button" id="contract-intake-retry" class="btn btn-outline" hidden>Volver a leer la foto</button><div id="contract-intake-review"></div>',
- '<button type="button" class="btn btn-outline" data-action="close-modal">Cancelar</button><button type="submit" id="contract-intake-save" form="contract-intake-form" class="btn btn-primary" disabled>Guardar ficha revisada</button>',true,'Contratos → Cliente → Solar → Abonos');
+ '<button type="button" class="btn btn-outline" data-action="close-modal">Cancelar</button><button type="submit" id="contract-intake-save" form="contract-intake-form" class="btn btn-primary" disabled>Guardar ficha revisada</button>',true,'Contratos → Cliente → Solares → Abonos');
 }
 // Recursos versionados servidos por el mismo sitio, sin descargas de CDN en el teléfono.
 let contractIntakeOcrLoading=null;
@@ -126,6 +164,7 @@ async function contractIntakeRead(file){
   // La etapa nunca se rellena desde el OCR: el administrador debe elegirla.
   scan.values.stage=[1,2].includes(Number(previous.stage))?Number(previous.stage):null;
   scan.values._confidence=Math.round(data.confidence||0);
+  if((read.numbers||[]).length>1&&!scan.extraLots?.length)scan.extraLots=read.numbers.slice(1).map(number=>({stage:'',block:read.block,number,lotId:'',price:'',down:''}));
   box.innerHTML=contractIntakeFields();
   saveBtn.disabled=false;
   status.textContent='Lectura lista ('+scan.values._confidence+'%). '+(contractIdentityDigits(scan.values.identity).length===13?'DNI del titular encontrado: '+contractIdentityFormat(scan.values.identity)+'. ':'DNI del titular no leído con seguridad: complétalo manualmente. ')+'Verifica etapa, colindancias y precio antes de guardar.';
@@ -146,6 +185,9 @@ function contractIntakeData(form){
  values.identity=contractIdentityFormat(values.identity);
  for(const key of ['areaVaras','areaM2','price','down','financed','monthly','months','pricePerVara']){
   values[key]=values[key]===''?null:Number(values[key]);
+ }
+ if(Object.keys(values).some(key=>/^extraLotId_/.test(key))){
+  values.lots=[{lotId:values.lotId,stage:values.stage,price:values.solarPrice_0,down:values.solarDown_0},...Object.keys(values).filter(key=>/^extraLotId_/.test(key)).map(key=>{const i=key.split('_')[1];return {lotId:values[key],stage:values['extraStage_'+i],price:values['solarPrice_'+(Number(i)+1)],down:values['solarDown_'+(Number(i)+1)]};})];
  }
  return values;
 }
@@ -186,14 +228,16 @@ async function contractIntakeStorePhoto(file){
 async function contractIntakeSave(form){
  const original=contractIntakeWorking,alert=document.getElementById('contract-intake-alert'),button=document.getElementById('contract-intake-save');
  if(!original||!form||original.busy||!contractIntakeAdmin())throw Error('La sesión está ocupada o sin autorización.');
- const data=contractIntakeData(form),lot=getLot(data.lotId);
+ const data=contractIntakeData(form);
  if(!original.file)throw Error('Debes subir primero la foto del documento original.');
- if(original.residenceId!==residence().id||!lot||lot.residenceId!==original.residenceId)throw Error('El solar debe pertenecer a la residencial seleccionada.');
- const issues=intakeCheckValues(data,lot);if(issues.length)throw Error(issues.join(' '));
- if(db.sales.some(s=>s.lotId===lot.id))throw Error('Ese solar ya tiene una venta. No se puede asignar otro comprador.');
- if(lot.pendingContractId)throw Error('Este solar ya tiene contrato pendiente. Revisa esa ficha antes de registrar otro.');
- if(activeReservation(lot.id))throw Error('El solar tiene un apartado vigente que debes revisar.');
- if((db.contractTexts||[]).some(d=>d.lotId===lot.id&&d.status!=='voided'))throw Error('Ya existe un documento asociado a este solar; revísalo antes de cargar otro.');
+ if(original.residenceId!==residence().id)throw Error('La residencial cambió; revisa la ficha.');
+ const planned=intakePlanLots(data,db.lots,original.residenceId);
+ for(const {lot} of planned){
+  if(db.sales.some(s=>s.lotId===lot.id))throw Error('Uno de los solares ya tiene una venta.');
+  if(lot.pendingContractId)throw Error('Uno de los solares ya tiene contrato pendiente.');
+  if(activeReservation(lot.id))throw Error('Uno de los solares tiene un apartado vigente.');
+  if((db.contractTexts||[]).some(d=>d.lotId===lot.id&&d.status!=='voided'))throw Error('Ya existe un documento asociado a uno de los solares.');
+ }
  const price=Number(data.price),down=Number(data.down),months=Number(data.months);
  if(Number(data.financed)!=null&&data.financed!==null&&Math.abs(Number(data.financed)-(price-down))>.06)throw Error('El saldo del documento no coincide con precio menos prima.');
  const expected=Math.round((price-down)/months*100)/100;
@@ -203,29 +247,35 @@ async function contractIntakeSave(form){
   const snapshot=JSON.stringify(db);
   const key=await contractIntakeStorePhoto(original.file);
   if(!contractIntakeAdmin()||contractIntakeWorking!==original||snapshot!==JSON.stringify(db))throw Error('El inventario cambió. Vuelve a revisar el contrato.');
-  const next=JSON.parse(snapshot),target=next.lots.find(l=>l.id===lot.id);
+  const next=JSON.parse(snapshot);
   const client=contractIntakeFindClient(next,data);
   if(contractIdentityDigits(client.identity)!==contractIdentityDigits(data.identity))throw Error('El número de identidad no coincide con el contrato. Revisa y vuelve a guardar.');
-  if(target.ownerClientId&&target.ownerClientId!==client.id)throw Error('El solar ya está asignado a otro cliente; verifica la identidad antes de modificarlo.');
+  const groupId=planned.length>1?'CG-'+crypto.randomUUID():null;
   const now=new Date().toISOString();
-  const {rawText:sourceOCR,...structuredFields}=data;
-  const record={id:'OCR-'+crypto.randomUUID(),clientId:client.id,lotId:lot.id,saleId:'',residenceId:original.residenceId,
-   title:'FICHA CONTRACTUAL DE '+String(client.name).slice(0,85),pages:[{number:1,text:String(data.rawText||'').slice(0,50000),confidence:original.values._confidence??null}],
-   structured:{...structuredFields,identity:contractIdentityFormat(client.identity),lotId:lot.id,stage:lot.stage??null,monthlyCalculated:expected,downPaymentReceived:false},
-   documentKey:key,documentMime:original.file.type,format:'photo+ocr',status:'pending-sale',createdAt:now,updatedAt:now};
-  next.contractTexts??=[];next.contractTexts.unshift(record);
-  target.ownerClientId=client.id;target.pendingContractId=record.id; // Nombre visible y solar reservado a esta ficha, sin crear todavía una venta.
-  // Solo completar vacíos del inventario; jamás sobrescribir medidas existentes.
-  if(!(Number(target.area)>0)&&Number(data.areaM2)>0){target.area=Number(data.areaM2);target.areaMode='manual';target.areaOrigin='contract-reviewed';}
-  if(!(Number(target.areaVaras2)>0)&&Number(data.areaVaras)>0)target.areaVaras2=Number(data.areaVaras);
-  if(!(Number(target.price)>0))target.price=price;
+  for(const {lot,fields} of planned){
+   const target=next.lots.find(l=>l.id===lot.id);
+   if(target.ownerClientId&&target.ownerClientId!==client.id)throw Error('Un solar ya está asignado a otro cliente; verifica la identidad.');
+   const {rawText:sourceOCR,...structuredFields}=fields;
+   // Las claves auxiliares del formulario no forman parte de la descripción.
+   for(const k of Object.keys(structuredFields))if(/^(?:extra|solarPrice_|solarDown_)/.test(k))delete structuredFields[k];
+   const record={id:'OCR-'+crypto.randomUUID(),clientId:client.id,lotId:lot.id,saleId:'',residenceId:original.residenceId,
+    title:'FICHA CONTRACTUAL DE '+String(client.name).slice(0,85),pages:[{number:1,text:String(data.rawText||'').slice(0,50000),confidence:original.values._confidence??null}],
+    structured:{...structuredFields,identity:contractIdentityFormat(client.identity),lotId:lot.id,stage:lot.stage??null,monthlyCalculated:Math.round((fields.price-fields.down)/months*100)/100,downPaymentReceived:false},
+    ...(groupId?{contractGroupId:groupId,contractLotIds:planned.map(r=>r.lot.id)}:{}),
+    documentKey:key,documentMime:original.file.type,format:'photo+ocr',status:'pending-sale',createdAt:now,updatedAt:now};
+   next.contractTexts??=[];next.contractTexts.unshift(record);
+   target.ownerClientId=client.id;target.pendingContractId=record.id;
+   if(!(Number(target.area)>0)&&Number(fields.areaM2)>0){target.area=Number(fields.areaM2);target.areaMode='manual';target.areaOrigin='contract-reviewed';}
+   if(!(Number(target.areaVaras2)>0)&&Number(fields.areaVaras)>0)target.areaVaras2=Number(fields.areaVaras);
+   if(!(Number(target.price)>0))target.price=fields.price;
+  }
   // El estado de venta sólo se actualizará al activar el crédito.
   cloudWrite(JSON.stringify(next));db=next;
   await cloudFlush();
   if(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed){
    toast('La ficha se conserva pendiente de sincronizar. Comprueba el indicador de nube antes de ingresar otro contrato.','error');
   }else if(contractIdentityDigits(getClient(client.id)?.identity)!==contractIdentityDigits(data.identity))toast('El servidor confirmó el guardado, pero no aparece el DNI correcto. No registres abonos y revisa Clientes.','error');
-  else toast('Ficha y DNI guardados. El solar se identifica en verde limón; ahora puedes activar el crédito y registrar los abonos.');
+  else toast('Ficha y DNI guardados para '+planned.length+' solar(es). Puedes activar cada crédito y registrar los abonos.');
   contractIntakeWorking=null;closeModal();render();
  }finally{original.busy=false;if(button?.isConnected)button.disabled=false;}
 }
@@ -293,8 +343,10 @@ document.addEventListener('click',event=>{
 document.addEventListener('change',event=>{
  const target=event.target,form=target.closest?.('#contract-intake-form');
  if(!form||!contractIntakeWorking)return;
- if(!['stage','block','number','lotId'].includes(target.name))return;
+ if(!['stage','block','number','lotId'].includes(target.name)&&!/^extra(?:LotId|Stage)_/.test(target.name))return;
+ contractIntakeRememberExtras(form);
  const data=contractIntakeData(form);
+ if(/^extraStage_/.test(target.name))contractIntakeWorking.extraLots[Number(target.name.split('_')[1])].lotId='';
  if(target.name==='lotId'&&data.lotId){
   const chosen=getLot(data.lotId);
   if(chosen){
@@ -338,6 +390,7 @@ function contractIntakeDescription(d){
   ['Cliente','name'],['Identidad / DNI','identity'],['RTN','rtn'],
   ['Estado civil','maritalStatus'],['Profesión u oficio','occupation'],['Dirección','address'],
   ['Bloque del contrato','block'],['Solar del contrato','number'],['Etapa verificada','stage'],
+  ['Área conjunta del documento, varas²','documentAreaVaras'],['Área conjunta del documento, m²','documentAreaM2'],
   ['Área según contrato, varas²','areaVaras'],['Área según contrato, m²','areaM2'],
   ['Norte','north'],['Sur','south'],['Este','east'],['Oeste','west'],
   ['Precio del lote (L)','price'],['Prima pactada (L)','down'],['Saldo financiado (L)','financed'],
@@ -352,7 +405,7 @@ function contractIntakeDescription(d){
   '<p style="color:#9b581f"><strong>Medida protegida:</strong> el catastro conserva '+esc(String(lot.area))+' m² aunque el contrato indique '+esc(String(info.areaM2))+' m².</p>':'';
  return '<section class="card" style="padding:15px;margin-bottom:15px"><h3>Descripción completa del contrato</h3>'+
   '<p class="sm muted">Etapa, bloque y solar identificados en el inventario · documento privado.</p>'+
-  list+delta+'<p class="sm muted">La prima del contrato no se registra como pagada al importar. Consulta Abonos para verificar los cobros posteriores.</p>'+
+  (d.contractLotIds?.length>1?'<p><b>Ficha compartida:</b> '+esc(d.contractLotIds.map(id=>{const l=getLot(id);return 'Etapa '+l?.stage+' · Bloque '+l?.block+' · Solar '+(l?.sourceNumber||l?.number||id);}).join('; '))+'. Los importes de abajo corresponden solo a este solar.</p>':'')+list+delta+'<p class="sm muted">La prima del contrato no se registra como pagada al importar. Consulta Abonos para verificar los cobros posteriores.</p>'+
   (d.documentKey?'<a class="btn btn-outline" target="_blank" rel="noopener noreferrer" href="/api/app/file?key='+encodeURIComponent(d.documentKey)+'">Ver fotografía original</a>':'')+
   '<button type="button" class="btn btn-outline" data-contract-dni-edit="'+esc(d.id)+'">Corregir DNI del cliente</button></section>';
 }

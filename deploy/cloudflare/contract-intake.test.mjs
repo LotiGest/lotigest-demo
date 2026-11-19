@@ -69,3 +69,10 @@ test('lectura real del motor: etiqueta BLOQUE (5) y LOTE (5) conserva G y 16',()
  assert.equal(d.name,'CLIENTE FICTICIO DE PRUEBA');assert.equal(d.identity,'0801 1990 00021');
  assert.equal(d.block,'G');assert.equal(d.number,'16');assert.equal(d.stage,null);
 });
+
+test('OCR propone todos los solares de una lista explícita sin inventar su etapa',()=>{
+ for(const raw of ['16, 17 Y 18','16;17;18','16 / 17 / 18']){
+  const d=parseContractIntake('LOTE (S): '+raw+'\nBLOQUE (S): G');
+  assert.deepEqual(d.numbers,['16','17','18']);assert.equal(d.number,'16');assert.equal(d.block,'G');assert.equal(d.stage,null);
+ }
+});
