@@ -40,7 +40,9 @@ function contractIntakeFields(){
  const fields=labels.map(([label,key,type])=>input(label,key,type)).join('');
  const areaWarnings=matched.length===1&&Number(matched[0].area)>0&&Number(c.areaM2)>0&&Math.abs(Number(matched[0].area)-Number(c.areaM2))>.02?
  '<p style="color:#965a18"><strong>Medidas distintas:</strong> inventario '+esc(matched[0].area)+' m², documento '+esc(c.areaM2)+' m². Se conservará la medida original; revisa la discrepancia.</p>':'';
- const warning=(matched.length>1?'<p style="color:#a35a1b">Hay varios solares con el mismo bloque y número: verifica la etapa.</p>':!matched.length?'<p style="color:#a35a1b">No se encontró una coincidencia única: comprueba etapa, bloque y solar. No se creará ningún terreno automáticamente.</p>':'')+areaWarnings;
+ const warning=(!stageChosen?'':matched.length>1?
+ '<p style="color:#a35a1b">Hay varios solares con el mismo bloque y número en esta etapa: selecciona el correcto.</p>':
+ !matched.length?'<p style="color:#a35a1b">No hay una coincidencia única en la etapa elegida. Corrige bloque o solar del OCR.</p>':'')+areaWarnings;
  return '<form id="contract-intake-form"><p class="sm muted">El documento debe revisarse antes de confirmar. No reemplazamos medidas existentes, ventas o abonos. La etapa no se supone si no aparece en la imagen.</p>'+warning+
   '<div class="form-grid">'+clientPicker+stagePicker+pick+fields+'</div>'+
   '<label>Observaciones del documento<textarea name="observations" rows="4" style="width:100%">'+esc(c.observations||'')+'</textarea></label>'+
