@@ -1,4 +1,4 @@
 {
-  "version": "0.22.14",
-  "notes": "Mapa público para compartir solares por WhatsApp: enlace desde Mapa de solares, selección de solares disponibles sin precios ni propietarios, solicitudes recibidas en Pendientes; necesita migración 0006 antes de publicar. Conserva calculadora de prima y cuota inmediata (7 años/84 cuotas, 0 % interés) y precios del PDF con referencias ambiguas protegidas."
+  "version": "0.22.15",
+  "notes": "Enlace público de solares desde WhatsApp sin iniciar sesión: permite elegir hasta cinco solares disponibles y enviar una solicitud conjunta sin generar ventas ni apartados. Las solicitudes se guardan en D1 y se muestran con nombre, residencial, etapa, bloque y solar en la campana de notificaciones del administrador y en Pendientes. Mantiene el cálculo de cuotas de la v0.22.14."
 }
