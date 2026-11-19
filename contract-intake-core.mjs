@@ -49,6 +49,11 @@ function contractIntakeDni(src,field){
  // No usar otro número del documento (ni DNI de un representante) si el principal está ilegible.
  return contractIdentityFormat(candidate.replace(/^(?:DNI|IDENTIDAD)\s*[:.\-]?\s*/,''));
 }
+function contractIntakeObservations(src){
+ const match=src.match(/(?:^|\n)\s*OBSERVACIONES\s*:?\s*([\s\S]*?)(?=\n\s*FIRMA\s+DE\s+AUTORIZACION\b|$)/i);
+ if(!match)return '';
+ return match[1].replace(/\s*\n\s*/g,' ').trim().slice(0,5000);
+}
 export function parseContractIntake(text){
  const src=intakeNormalize(text).slice(0,50000);
  const field=(key,next='[A-ZÁÉÍÓÚÑ ]{2,40}')=>intakeSection(src,key,next);
@@ -76,7 +81,7 @@ export function parseContractIntake(text){
   financed:amount('SALDO\\s+A\\s+FINANCIAR'),
   monthly:amount('CUOTA(?:\\s+MENSUAL)?'),months,
   pricePerVara:amount('PRECIO\\s+POR\\s+VARA2?'),
-  observations:field('OBSERVACIONES'),
+  observations:contractIntakeObservations(src),
   rawText:String(text||'').slice(0,50000)
  };
  // Los documentos sin etapa NO se asignan automáticamente a etapa 1 o 2.
