@@ -29,11 +29,9 @@ function contractMapHasRecordedPrima(lot){
   (p.allocations||[]).some(a=>Number(a.amountCents)>0&&
    a.references?.length===1&&a.references[0].lotId===lot.id&&!a.references[0].mapAssignmentPending)
  ))return true;
- // Solo fichas históricas con solar identificado expresamente y prima positiva.
- return (db.historicalPayments||[]).some(p=>
-  p.residenceId===lot.residenceId&&!p.voidedAt&&!p.deletedAt&&
-  String(p.type||'').toUpperCase()==='PRIMA'&&p.lotId===lot.id&&
-  (!expectedClient||!p.clientId||p.clientId===expectedClient)&&Number(p.amountCents)>0);
+ // El historial Excel se conserva como referencia; no equivale a una prima confirmada.
+ // Solo abonos guardados en registros de cobro reales cambian el color.
+ return false;
 }
 function contractMapDisplayState(lot,baseStatus){
  if(['private','reserved','debt'].includes(baseStatus))return baseStatus;
