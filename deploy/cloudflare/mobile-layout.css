@@ -255,3 +255,31 @@
  html body #app .login-page[data-login-theme=dark] .login-card{padding:19px!important}
  html body #app .login-page .login-card .welcome{font-size:13px!important}
 }
+
+/* El menú móvil ocupa el espacio disponible: el separador de escritorio no
+   debe compartir la altura con la lista ni dejar opciones cortadas a mitad. */
+@media screen and (max-width:900px){
+ html body #app .lotigest-shell .lotigest-sidebar{
+  display:flex!important;flex-direction:column!important;box-sizing:border-box!important;
+  height:calc(var(--lg-visible-height,100dvh) - 16px)!important;
+  max-height:calc(var(--lg-visible-height,100dvh) - 16px)!important;
+  min-height:0!important;
+ }
+ html body #app .lotigest-shell .lotigest-sidebar .sidebar-spacer{display:none!important}
+ html body #app .lotigest-shell .lotigest-sidebar :is(.lg-side-head,.lg-side-divider,.lg-side-bottom){flex-shrink:0!important}
+ html body #app .lotigest-shell .lotigest-sidebar .lg-nav{
+  flex:1 1 0!important;min-height:0!important;max-height:none!important;
+  overflow-y:auto!important;overflow-x:hidden!important;
+  overscroll-behavior-y:contain;touch-action:pan-y;
+  -webkit-overflow-scrolling:touch;scrollbar-width:thin;
+  scrollbar-color:rgba(206,255,162,.65) transparent;
+  padding-bottom:12px!important;
+ }
+ html body #app .lotigest-shell .lotigest-sidebar .lg-nav::-webkit-scrollbar{display:block;width:5px}
+ html body #app .lotigest-shell .lotigest-sidebar .lg-nav::-webkit-scrollbar-thumb{background:rgba(206,255,162,.65);border-radius:8px}
+ html body #app .lotigest-shell .lotigest-sidebar .lg-nav .nav-btn{flex:0 0 auto!important;min-height:46px!important;height:auto!important;white-space:normal!important}
+ html body #app .lotigest-shell .lotigest-sidebar .lg-nav .nav-btn em{white-space:normal;overflow-wrap:break-word;line-height:1.3;padding:8px 0}
+ html body #app .lotigest-shell .lotigest-sidebar .lg-side-bottom{padding:8px 0 0!important}
+ html body #app .lotigest-shell .lotigest-sidebar .lg-product{flex-direction:row!important;justify-content:center;gap:8px}
+ html body #app .lotigest-shell .lotigest-sidebar .lg-product img{width:32px!important;height:32px!important}
+}

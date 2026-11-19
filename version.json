@@ -1,4 +1,4 @@
 {
-  "version": "0.22.25",
-  "notes": "Contratos: lector español y motor OCR alojados en LOTIGEST, modelo de idioma optimizado para teléfonos y alternativa de apertura de fotos. Reintento de la misma imagen con detalle del fallo, conservando datos. Reconoce BLOQUE (5) y LOTE (5) cuando el OCR confunde la etiqueta (S); etapa manual."
+  "version": "0.22.26",
+  "notes": "Menú móvil: la lista utiliza toda la altura disponible y permite desplazarse hasta la última opción; elimina el espacio vacío de escritorio, muestra la barra de desplazamiento y ajusta textos largos sin recortarlos."
 }
