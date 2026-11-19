@@ -1,4 +1,4 @@
 {
-  "version": "0.22.18",
-  "notes": "Mapa de solares táctil: pellizcar con dos dedos acerca y aleja entre 50 % y 600 %, mover con un dedo desplaza el croquis y tocar un solar conserva la apertura de su ficha. El zoom se centra en el gesto, evita clics accidentales y también admite Ctrl+rueda en computadora. Mantiene botones +, − y Vista general; no altera medidas, precios, propietarios ni cobros."
+  "version": "0.22.19",
+  "notes": "Contratos primero: subir foto, OCR editable, seleccionar solar y etapa, crear ficha de cliente y guardar imagen original privada; activar crédito solo tras indicar fechas, sin dar por pagada la prima del contrato. Limpieza de clientes bajo descarga de respaldo y confirmación expresa, conservando solares, croquis, etapas, medidas y precios. Ningún cliente real se elimina automáticamente."
 }
