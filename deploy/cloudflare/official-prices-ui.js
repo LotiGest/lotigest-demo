@@ -19,11 +19,108 @@ const officialPriceInventoryBase=inventoryInfo;
 inventoryInfo=function(l){return officialPriceInventoryBase(l)+(l.priceVara2!=null||l.pdfPrima!=null||l.quotePrima!=null?officialPriceVisible(l):'');};
 function officialPriceAuthorized(){return Boolean(cloudUser?.role==='admin'&&cloudReady);}
 function officialPriceEligible(l){return l&&l.residenceId===residence().id&&isAvailableForPricing(db,l);}
+// Calculadora visible inmediatamente al tocar el solar en el mapa.
+// No necesita seleccionar cliente ni abrir una segunda ventana.
+function officialMapQuoteMarkup(l){
+ const price=Number(l.price)>0?String(l.price):'';
+ const prima=String(l.quotePrima??l.pdfPrima??0);
+ const years=String(Number(l.quoteMonths||84)/12);
+ return '<div id="official-map-quote" data-lot-id="'+esc(l.id)+'" style="margin-top:14px;padding:14px;border:1px solid rgba(80,120,95,.28);border-radius:14px">'+
+  '<h3 style="margin:0 0 8px">Calculadora de cuota</h3>'+
+  '<p class="sm muted" style="margin:0 0 12px">Escribe cuánto dará de prima el cliente. La cuota se recalcula al instante, sin intereses (0 %).</p>'+
+  '<div class="form-grid">'+
+  '<div class="field-group"><label for="official-map-price">Precio total del solar (L)</label><input id="official-map-price" type="number" inputmode="decimal" min="0.01" step="0.01" value="'+esc(price)+'" placeholder="Precio del solar"></div>'+
+  '<div class="field-group"><label for="official-map-prima">Prima que dará el cliente (L)</label><input id="official-map-prima" type="number" inputmode="decimal" min="0" step="0.01" value="'+esc(prima)+'"></div>'+
+  '<div class="field-group"><label for="official-map-years">Años de financiamiento</label><input id="official-map-years" type="number" inputmode="numeric" min="1" max="30" step="1" value="'+esc(years)+'"></div>'+
+  '<div class="field-group"><label>Cuotas mensuales</label><strong id="official-map-months" style="display:block;padding-top:10px">84 cuotas</strong></div>'+
+  '</div>'+
+  '<div class="sale-summary" style="margin-top:12px"><div class="detail-line"><span>Saldo a financiar</span><strong id="official-map-financed">—</strong></div>'+
+  '<div class="detail-line"><span>Nueva cuota mensual</span><strong id="official-map-monthly" aria-live="polite" style="font-size:1.25rem">—</strong></div></div>'+
+  '<p class="sm" id="official-map-error" role="status" aria-live="polite"></p>'+
+  '<p class="sm muted" id="official-map-save-status">Los cambios son una simulación hasta que guardes la propuesta.</p>'+
+  '<button type="button" class="btn btn-primary" data-action="official-map-save" data-id="'+esc(l.id)+'" id="official-map-save">Guardar precio, prima y plazo</button>'+
+  '</div>';
+}
+function officialMapMoney(raw,label){
+ if(!/^\d+(?:\.\d{1,2})?$/.test(String(raw).trim()))throw Error(label+': usa un importe válido con máximo dos decimales.');
+ const n=Number(raw);
+ if(!Number.isFinite(n)||!Number.isSafeInteger(Math.round(n*100))||n>1e12)throw Error(label+': revisa el monto.');
+ return n;
+}
+function officialMapQuoteRead(panel){
+ if(!panel)throw Error('No se encontró la calculadora del solar.');
+ const price=officialMapMoney(panel.querySelector('#official-map-price')?.value,'Precio');
+ const prima=officialMapMoney(panel.querySelector('#official-map-prima')?.value,'Prima');
+ const rawYears=String(panel.querySelector('#official-map-years')?.value??'').trim();
+ if(!/^\d+$/.test(rawYears))throw Error('Indica el plazo en años completos.');
+ const years=Number(rawYears);
+ if(years<1||years>30)throw Error('El plazo debe estar entre 1 y 30 años.');
+ if(price<=0)throw Error('El precio del solar debe ser mayor que cero.');
+ if(prima>=price)throw Error('La prima debe ser menor que el precio. Para el total utiliza venta al contado.');
+ const months=years*12;
+ return {price,prima,months,monthly:quoteAtZeroInterest(price,prima,months)};
+}
+function officialMapQuoteChanged(l,q){
+ return Number(l.price||0)!==q.price ||
+        Number(l.quotePrima??l.pdfPrima??0)!==q.prima ||
+        Number(l.quoteMonths||84)!==q.months;
+}
+function officialMapQuoteRefresh(){
+ const panel=document.getElementById('official-map-quote');
+ if(!panel)return;
+ const l=getLot(panel.dataset.lotId),form=document.getElementById('solar-form'),
+       monthly=panel.querySelector('#official-map-monthly'),
+       financed=panel.querySelector('#official-map-financed'),
+       months=panel.querySelector('#official-map-months'),
+       error=panel.querySelector('#official-map-error'),
+       status=panel.querySelector('#official-map-save-status'),
+       save=panel.querySelector('#official-map-save'),
+       submit=document.getElementById('solar-submit');
+ let q=null;
+ try {
+  if(!officialPriceAuthorized()||!officialPriceEligible(l))throw Error('No se puede modificar este solar porque ya no está disponible.');
+  q=officialMapQuoteRead(panel);
+  monthly.textContent='L '+officialPriceFormat(q.monthly);
+  financed.textContent='L '+officialPriceFormat(q.price-q.prima);
+  months.textContent=q.months+' cuotas';
+  error.textContent='';
+  const pending=officialMapQuoteChanged(l,q);
+  status.textContent=pending?'Prima y cuota calculadas. Guarda la propuesta para utilizar estos valores en una venta.':'Propuesta guardada; puedes seleccionar el cliente y registrar la venta a crédito.';
+  save.disabled=!pending;
+  if(form){
+   form.elements.downPayment.value=String(q.prima);
+   form.elements.months.value=String(q.months);
+   // El resumen utiliza la simulación sin reescribir datos de ventas previas.
+   const mode=form.elements.operation.value,summary=document.getElementById('solar-sale-summary');
+   if(summary&&mode==='credit'){
+    summary.innerHTML='<div class="detail-line"><span>Precio propuesto</span><strong>L '+officialPriceFormat(q.price)+'</strong></div>'+
+     '<div class="detail-line"><span>Prima propuesta</span><strong>L '+officialPriceFormat(q.prima)+'</strong></div>'+
+     '<div class="detail-line"><span>Saldo a financiar</span><strong>L '+officialPriceFormat(q.price-q.prima)+'</strong></div>'+
+     '<div class="detail-line"><span>Cuota mensual · '+q.months+' meses</span><strong>L '+officialPriceFormat(q.monthly)+'</strong></div>'+
+     (pending?'<p class="sm" style="color:#ad6515">Guarda la propuesta antes de confirmar la venta.</p>':'');
+   }
+   if(summary&&mode==='cash'&&pending)summary.insertAdjacentHTML('beforeend','<p class="sm" style="color:#ad6515">Guarda el precio propuesto antes de confirmar la venta.</p>');
+   if(submit&&pending&&['credit','cash'].includes(mode)){submit.disabled=true;submit.title='Primero guarda el precio, prima y plazo';}
+  }
+ } catch(e){
+  monthly.textContent='—';
+  financed.textContent='—';
+  months.textContent='—';
+  error.textContent=e.message;
+  status.textContent='Corrige los valores para calcular una cuota válida.';
+  save.disabled=true;
+  if(submit&&form&&['credit','cash'].includes(form.elements.operation.value)){
+    submit.disabled=true;submit.title='Primero corrige la prima o el precio';
+  }
+ }
+ return q;
+}
 const officialPriceSolarBase=openSolarWindow;
 openSolarWindow=function(lotId){
  officialPriceSolarBase(lotId);
  const l=getLot(lotId),content=document.querySelector('#modal-root .modal-content');
  if(!l||!content)return;
+ const permitted=officialPriceAuthorized()&&officialPriceEligible(l);
  const saleForm=document.getElementById('solar-form');
  if(saleForm&&officialPriceEligible(l)){
   saleForm.elements.downPayment.value=String(l.quotePrima??l.pdfPrima??0);
@@ -31,12 +128,58 @@ openSolarWindow=function(lotId){
   updateSolarSummary();
  }
  const pricePanel='<section class="card" style="padding:14px;margin:12px 0"><h3>Precio y financiamiento</h3>'+
-  '<div class="detail-line"><span>Precio total</span><strong>'+(Number(l.price)>0?money(l.price):'Sin precio')+'</strong></div>'+
+  '<div class="detail-line"><span>Precio total registrado</span><strong id="official-map-stored-price">'+(Number(l.price)>0?money(l.price):'Sin precio')+'</strong></div>'+
   officialPriceVisible(l)+
-  (officialPriceAuthorized()&&officialPriceEligible(l)?'<button class="btn btn-primary" type="button" data-action="official-lot-edit" data-id="'+esc(l.id)+'">Editar precio, prima y plazo</button>':'')+
+  (permitted?officialMapQuoteMarkup(l):'')+
   '</section>';
  content.insertAdjacentHTML('afterbegin',pricePanel);
+ if(permitted){
+  // Los campos de venta siguen vinculados pero no aparecen duplicados debajo.
+  const creditFields=saleForm?.querySelector('#solar-credit-fields');
+  if(creditFields)creditFields.style.display='none';
+  officialMapQuoteRefresh();
+ }
 };
+const officialMapUpdateSolarWindowBase=updateSolarWindow;
+updateSolarWindow=function(...args){
+ const output=officialMapUpdateSolarWindowBase(...args);
+ officialMapQuoteRefresh();
+ return output;
+};
+function officialMapQuoteSave(id){
+ if(!officialPriceAuthorized())throw Error('Solo un administrador puede modificar el precio y la prima.');
+ const l=getLot(id),panel=document.getElementById('official-map-quote');
+ if(!l||!officialPriceEligible(l)||!panel||panel.dataset.lotId!==id)
+  throw Error('El solar cambió de estado. Reabre el mapa para verificarlo.');
+ const q=officialMapQuoteRead(panel);
+ const values=['price','quotePrima','quoteMonths','quoteMonthly'];
+ const previous=Object.fromEntries(values.map(k=>[k,{present:Object.prototype.hasOwnProperty.call(l,k),value:l[k]}]));
+ l.price=q.price;l.quotePrima=q.prima;l.quoteMonths=q.months;l.quoteMonthly=q.monthly;
+ if(!designPersist()){
+  for(const [k,v] of Object.entries(previous)){if(v.present)l[k]=v.value;else delete l[k];}
+  return;
+ }
+ const registered=document.getElementById('official-map-stored-price');
+ if(registered)registered.textContent=money(l.price);
+ updateSolarWindow();
+ toast('Propuesta guardada: prima L '+officialPriceFormat(q.prima)+' · '+q.months+' cuotas de L '+officialPriceFormat(q.monthly)+'. No se registró ningún abono.');
+}
+document.addEventListener('input',e=>{
+ if(e.target?.closest?.('#official-map-quote'))updateSolarWindow();
+});
+document.addEventListener('submit',e=>{
+ if(e.target?.id!=='solar-form'||!document.getElementById('official-map-quote'))return;
+ const panel=document.getElementById('official-map-quote'),l=getLot(panel.dataset.lotId);
+ try{
+  const quote=officialMapQuoteRead(panel);
+  if(officialMapQuoteChanged(l,quote))throw Error('Primero guarda el precio y la prima para registrar esta venta.');
+ }catch(err){
+  const output=document.getElementById('solar-form-error');
+  if(output)output.textContent=err.message;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+ }
+},true);
 const officialPriceLotsBase=lotsPage;
 lotsPage=function(){
  const result=officialPriceLotsBase();
