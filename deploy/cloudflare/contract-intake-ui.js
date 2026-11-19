@@ -211,7 +211,9 @@ async function contractIntakeConfirmActivation(form){
 }
 const contractIntakeOldContractsPage=contractsPage;
 contractsPage=function(){
- const original=contractIntakeOldContractsPage();
+ const original=contractIntakeOldContractsPage()
+  .replace(/<button\b[^>]*data-action="contract-scan-choose"[^>]*>[\s\S]*?<\/button>/,'')
+  .replace('Escanea hasta tres páginas por contrato y guarda solo su texto.','Carga la fotografía, verifica nombre y ficha completa, vincula el solar y activa el crédito después.');
  const pending=(db.contractTexts||[]).filter(d=>d.residenceId===residence().id&&d.format==='photo+ocr');
  const box='<section class="card" style="padding:18px;margin:14px 0"><h2>Ingresar clientes desde sus contratos</h2>'+
   '<p>Sube la fotografía, revisa la ficha completa, vincula etapa/bloque/solar y guarda el contrato original. Después activa el crédito con las fechas y registra los abonos normalmente.</p>'+
