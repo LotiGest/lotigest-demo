@@ -226,6 +226,47 @@ document.addEventListener('submit',event=>{
 },true);
 
 
+function contractIntakeDescription(d){
+ const info=d?.structured;if(!info)return '';
+ const keys=[
+  ['Cliente','name'],['Identidad / DNI','identity'],['RTN','rtn'],
+  ['Estado civil','maritalStatus'],['Profesión u oficio','occupation'],['Dirección','address'],
+  ['Bloque del contrato','block'],['Solar del contrato','number'],['Etapa verificada','stage'],
+  ['Área según contrato, varas²','areaVaras'],['Área según contrato, m²','areaM2'],
+  ['Norte','north'],['Sur','south'],['Este','east'],['Oeste','west'],
+  ['Precio del lote (L)','price'],['Prima pactada (L)','down'],['Saldo financiado (L)','financed'],
+  ['Cuota pactada (L)','monthly'],['Plazo, cuotas','months'],['Precio por vara² (L)','pricePerVara'],
+  ['Observaciones','observations']
+ ];
+ const list=keys.map(([label,key])=>{
+  const value=info[key];if(value===null||value===undefined||value==='')return '';
+  return '<div class="detail-line"><span>'+esc(label)+'</span><strong style="white-space:pre-wrap;overflow-wrap:anywhere;text-align:right">'+esc(String(value))+'</strong></div>';
+ }).join('');
+ const lot=getLot(d.lotId),delta=Number(lot?.area)>0&&Number(info.areaM2)>0&&Math.abs(Number(lot.area)-Number(info.areaM2))>.02?
+  '<p style="color:#9b581f"><strong>Medida protegida:</strong> el catastro conserva '+esc(String(lot.area))+' m² aunque el contrato indique '+esc(String(info.areaM2))+' m².</p>':'';
+ return '<section class="card" style="padding:15px;margin-bottom:15px"><h3>Descripción completa del contrato</h3>'+
+  '<p class="sm muted">Etapa, bloque y solar identificados en el inventario · documento privado.</p>'+
+  list+delta+'<p><strong>Prima registrada como pagada:</strong> '+(d.status==='active'?'No, revisa Abonos':'No, pendiente de activar crédito')+'</p>'+
+  (d.documentKey?'<a class="btn btn-outline" target="_blank" rel="noopener noreferrer" href="/api/app/file?key='+encodeURIComponent(d.documentKey)+'">Ver fotografía original</a>':'')+'</section>';
+}
+const contractIntakeOriginalView=viewContractText;
+viewContractText=function(id){
+ contractIntakeOriginalView(id);
+ const d=(db.contractTexts||[]).find(x=>x.id===id&&x.format==='photo+ocr');
+ if(d){
+  const root=document.querySelector('#modal-root .modal-content');
+  if(root)root.insertAdjacentHTML('afterbegin',contractIntakeDescription(d));
+  const edit=document.querySelector('#modal-root [data-action="contract-text-edit"]');
+  if(edit){edit.disabled=true;edit.title='La ficha revisada no se sobreescribe desde el OCR clásico; conserva sus datos y documento original.';}
+ }
+};
+document.addEventListener('click',event=>{
+ const action=event.target.closest?.('[data-action="contract-text-edit"]');
+ if(!action)return;
+ const doc=(db.contractTexts||[]).find(x=>x.id===action.dataset.id&&x.format==='photo+ocr');
+ if(doc){event.preventDefault();event.stopImmediatePropagation();toast('Ficha importada protegida. No se debe reemplazar mediante OCR antiguo.','error');}
+},true);
+
 function clientRegisterResetOpen(){
  if(!contractIntakeAdmin()){toast('La limpieza requiere administrador, conexión y datos sincronizados.','error');return;}
  const n=intakeResetPreview(db);
@@ -235,8 +276,8 @@ function clientRegisterResetOpen(){
   '<p>Contratos: <b>'+n.contractTexts+'</b> · Historiales: <b>'+(n.historicalPayments+n.historicalContracts+n.ownerPayments+n.ownershipStatements)+'</b></p>'+
   '<p><strong>Se conservan '+n.preservedLots+' solares y '+n.preservedResidences+' residenciales, con etapas, bloques, medidas, precios y croquis.</strong></p>'+
   '<p style="color:#9b4c1f">Los '+n.cashEntriesKept+' movimientos manuales de Caja se conservan: revísalos después porque podrían corresponder a operaciones antiguas.</p></div>'+
-  '<button class="btn btn-outline" type="button" data-client-register-backup>1. Descargar respaldo completo JSON</button>'+
-  '<label style="display:block;margin:12px 0"><input type="checkbox" id="client-register-backed-up"> Confirmo que guardé y verifiqué el respaldo descargado.</label>'+
+  '<button class="btn btn-outline" type="button" data-client-register-backup>1. Descargar respaldo JSON (no incluye imágenes originales)</button>'+
+  '<label style="display:block;margin:12px 0"><input type="checkbox" id="client-register-backed-up"> Confirmo que guardé y verifiqué el respaldo JSON; sé que las fotografías originales no van dentro del JSON.</label>'+
   '<label>Escribe <strong>BORRAR PADRON</strong> para desbloquear:<input id="client-register-typed" autocomplete="off" placeholder="BORRAR PADRON"></label>'+
   '<p class="sm muted">Si aún no estás preparado para borrar el padrón actual, cancela. Ningún dato se elimina por entrar a esta ventana.</p>',
   '<button type="button" class="btn btn-outline" data-action="close-modal">Cancelar</button><button type="button" class="btn btn-primary" data-client-register-confirm disabled>2. Eliminar padrón y comenzar desde contratos</button>',true,'No elimina las medidas del inventario');
