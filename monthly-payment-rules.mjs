@@ -2,11 +2,11 @@ const monthlyCents=v=>v!=null&&v!==''&&Number.isFinite(Number(v))?Math.round(Num
 export function monthlyLotTerms(state,lotId){
  const sale=(state.sales||[]).find(s=>s.lotId===lotId&&s.type==='credit');
  const doc=(state.contractTexts||[]).find(d=>d.lotId===lotId&&d.format==='photo+ocr'&&d.status!=='voided');
- const p=sale?{price:sale.price,down:sale.downPayment,months:sale.months}:doc?.structured;
+ const p=sale?{price:sale.price,down:sale.downPayment??0,months:sale.months}:doc?.structured;
  if(!p)return null;
  const price=monthlyCents(p.price),down=monthlyCents(p.down),months=Number(p.months);
  const stated=monthlyCents(p.monthly||p.monthlyCalculated);
- const monthly=price>down&&down>=0&&Number.isInteger(months)&&months>0?Math.round((price-down)/months):stated;
+ const monthly=Number.isSafeInteger(price)&&Number.isSafeInteger(down)&&price>down&&down>=0&&Number.isInteger(months)&&months>0?Math.round((price-down)/months):stated;
  if(!(monthly>0))return null;
  return {lotId,saleId:sale?.id||null,priceCents:price,downCents:down,monthlyCents:monthly,openingCents:monthlyCents(sale?.openingPaid||0)};
 }
@@ -23,7 +23,7 @@ export function monthlyPaymentInfo(state,lotIds){
   else paid+=Number(a.amountCents)||0;
  }
  const price=terms.reduce((n,t)=>n+(t.priceCents||0),0),down=terms.reduce((n,t)=>n+(t.downCents||0),0);
- const complete=terms.every(t=>t.priceCents>0&&t.downCents>=0)&&!ambiguous;
+ const complete=terms.every(t=>Number.isSafeInteger(t.priceCents)&&t.priceCents>0&&Number.isSafeInteger(t.downCents)&&t.downCents>=0)&&!ambiguous;
  return {known:true,monthlyCents:terms.reduce((n,t)=>n+t.monthlyCents,0),remainingCents:complete?Math.max(0,price-paid):null,primaRemainingCents:complete?Math.max(0,down-paid):null};
 }
 export function assertMonthlyPayment(state,lotIds,amountCents,{prima=false}={}){

@@ -130,4 +130,8 @@ El formulario permite añadir o quitar solares y escoger la etapa manual de cada
 - No se recalculan ni borran recibos anteriores. La conciliación de pagos históricos previamente guardados conserva el comprobante verificado; una etiqueta de importación inventada no elude el mínimo.
 - Verificación específica: cálculo de L 6,220.33, rechazo de importe menor sin escritura ni cambio de revisión, cuota exacta, importe superior, varios solares, prima, saldo final, historial, PDF con texto largo y descarga desde datos existentes. PDF de prueba sintético revisado visualmente en carta (una página para una ficha normal).
 
-Verificación ampliada: la suite general mantiene los mismos 18 fallos de 0.22.27; comparación contra checkout aislado de esa versión sin fallos nuevos. Las 12 pruebas específicas de esta entrega (PDF, reglas, servidor, interfaz, varios solares y menú móvil) pasan. Los fallos previos no se declaran resueltos por esta entrega.
+Verificación ampliada: la suite general mantiene los mismos 18 fallos de 0.22.27; comparación contra checkout aislado de esa versión sin fallos nuevos. Las 13 pruebas específicas de esta entrega (PDF, reglas, servidor, interfaz, varios solares y menú móvil) pasan. Los fallos previos no se declaran resueltos por esta entrega.
+
+### 0.22.29 — Prima desconocida y cuota contractual
+
+No se interpreta una prima vacía o no registrada como cero al calcular la mensualidad de una ficha. Debe existir prima pactada y plazo o una cuota mensual explícita. Se mantiene toda la entrega de PDF y mínimo mensual de 0.22.28, con prueba de regresión adicional.

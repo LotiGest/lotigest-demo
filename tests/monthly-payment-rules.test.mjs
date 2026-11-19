@@ -25,3 +25,8 @@ test('historial previo verificado conserva importes originales al conciliar; no 
  assert.doesNotThrow(()=>validateNewMonthlyPayments(before,after));
  delete after.historicalPayments[0].postedPaymentId;assert.throws(()=>validateNewMonthlyPayments(before,after),/mínimo/);
 });
+
+test('prima no registrada en una ficha no se supone igual a cero para inventar la cuota',()=>{
+ const state={contractTexts:[{lotId:'G16',format:'photo+ocr',status:'pending-sale',structured:{price:100000,down:null,months:12}}]};
+ assert.equal(monthlyPaymentInfo(state,['G16']).known,false);
+});
