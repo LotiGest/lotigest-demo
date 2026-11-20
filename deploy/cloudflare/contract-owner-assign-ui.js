@@ -137,10 +137,19 @@ contractsPage=function(){
  const marker='<section class="card" style="padding:18px;margin:14px 0">';
  return html.includes(marker)?html.replace(marker,panel+marker):panel+html;
 };
+const contractOwnerPreviousView=viewContractText;
+viewContractText=function(id){
+ contractOwnerPreviousView(id);
+ const doc=(db.contractTexts||[]).find(d=>d.id===id);
+ const footer=document.querySelector('#modal-root .modal-footer');
+ if(doc?.clientId&&footer)footer.insertAdjacentHTML('beforeend',
+  '<button type="button" class="btn btn-outline" data-contract-owner-open-client="'+esc(doc.clientId)+'">Asignar bloques y solares a este cliente</button>');
+};
 document.addEventListener('click',event=>{
- const el=event.target.closest?.('[data-contract-owner-open],[data-contract-owner-manual],[data-contract-owner-client],[data-contract-owner-add],[data-contract-owner-remove],[data-contract-owner-save]');
+ const el=event.target.closest?.('[data-contract-owner-open],[data-contract-owner-open-client],[data-contract-owner-manual],[data-contract-owner-client],[data-contract-owner-add],[data-contract-owner-remove],[data-contract-owner-save]');
  if(!el)return;
  event.preventDefault();event.stopImmediatePropagation();
+ if(el.hasAttribute('data-contract-owner-open-client'))return contractOwnerOpen(el.dataset.contractOwnerOpenClient);
  if(el.hasAttribute('data-contract-owner-open'))return contractOwnerOpen();
  if(el.hasAttribute('data-contract-owner-manual'))return contractIntakeOpen('','manual');
  const draft=contractOwnerDraft;if(!draft||draft.busy)return;
@@ -148,8 +157,9 @@ document.addEventListener('click',event=>{
  if(el.hasAttribute('data-contract-owner-add')){if(draft.lotIds.length<10){draft.lotIds.push('');contractOwnerRender();}return;}
  if(el.hasAttribute('data-contract-owner-remove')){draft.lotIds.splice(Number(el.dataset.contractOwnerRemove),1);contractOwnerRender();return;}
  if(el.hasAttribute('data-contract-owner-save'))contractOwnerSave().catch(e=>{
+  contractOwnerRender();
   const msg=document.getElementById('contract-owner-error');if(msg)msg.textContent=e.message;
-  toast(e.message,'error');contractOwnerRender();
+  toast(e.message,'error');
  });
 },true);
 document.addEventListener('input',event=>{
