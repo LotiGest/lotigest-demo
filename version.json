@@ -1,4 +1,4 @@
 {
-  "version": "0.22.38",
-  "notes": "Terrenos / Predios: compradores y compra se registran desde Contratos. Solo aparecen titulares con ficha contractual, se retiran accesos de compra e importación desde Terrenos, manteniendo apartados y edición de medidas/precios. Revisión administrativa con respaldo para retirar compras sin contrato ni abonos; se protegen ventas, fichas, recibos, reservas y datos históricos. No elimina registros automáticamente."
+  "version": "0.22.39",
+  "notes": "Residenciales, solares y cobros: vista limpia alimentada exclusivamente desde Contratos. Los clientes, solares y abonos importados sin nueva ficha contractual ya no se muestran en el módulo ni sus exportaciones. Los contratos pendientes se ven sin generar abonos; los activos muestran sus pagos reales. Terrenos y Predios conserva el inventario, croquis, medidas y precios. Los antiguos registros financieros NO se borran automáticamente: respaldo y revisión administrativa para limpieza definitiva."
 }
