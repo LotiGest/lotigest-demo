@@ -1,4 +1,4 @@
 {
-  "version": "0.22.33",
-  "notes": "Cuotas futuras cubiertas por adelanto permanecen acreditadas al vencimiento sin generar mora ni cobros duplicados; adelantos parciales muestran saldo real. Ventana Historial de pagos por fecha con filtros, solares, prima, cuotas y acceso a recibos. Sin borrar ni modificar pagos existentes."
+  "version": "0.22.34",
+  "notes": "Contratos distingue solares respaldados y asignaciones provisionales. Nueva herramienta administrativa con vista previa, búsqueda por cliente/solar, respaldo obligatorio y selección manual para desvincular únicamente asociaciones sin contrato ni venta, apartado, pagos o ficha histórica. No borra clientes, solares, contratos ni cobros."
 }
