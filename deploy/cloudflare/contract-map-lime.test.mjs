@@ -91,3 +91,11 @@ test('mora prevalece sobre verde de prima para no esconder cuotas vencidas',()=>
  assert.equal(api.record(feature).status,'debt');
  assert.equal(api.geoColor(lot),'#e97980');
 });
+
+test('ficha de contrato manual sin OCR también pinta verde limón, sin simular prima cobrada',()=>{
+ const {api,db,feature}=fixture('available',true);
+ db.contractTexts[0].format='manual';
+ assert.equal(api.record(feature).status,'contracted');
+ assert.equal(api.hasPrima(db.lots[0]),false);
+ assert.match(api.details(),/Contrato registrado/);
+});
