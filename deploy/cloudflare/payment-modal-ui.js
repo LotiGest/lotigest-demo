@@ -1,6 +1,6 @@
 // Ventana Pago / Abono: adapta controles reales; no inventa cuotas, clientes ni pagos.
 // Los formularios originales siguen siendo la fuente de validación, guardado y recibos.
-let pmActive=null,pmYear=null,pmSaveOnly=false;
+let pmActive=null,pmYear=null,pmSaveOnly=false,pmDetailMonth=null;
 const pmNode=(tag,className='',textValue)=>{const el=document.createElement(tag);if(className)el.className=className;if(textValue!==undefined)el.textContent=textValue;return el;};
 function pmModal(title,subtitle){
  const modal=document.querySelector('#modal-root .modal');
@@ -31,6 +31,65 @@ function pmActualSchedule(sales){
  const wanted=new Set(sales.filter(s=>s.type==='credit'&&Number.isInteger(Number(s.months))&&s.months>0).map(s=>s.id));
  return schedule().filter(row=>wanted.has(row.saleId));
 }
+
+/* Trazabilidad de cuotas: separar el mes de vencimiento de la fecha real de pago.
+   Los recibos originales (y sus distribuciones) no se alteran. La prima no es mensualidad. */
+function pmHistoryEntries(sales){
+ const allowed=new Set(sales.map(s=>s.id));
+ return (db.payments||[]).filter(p=>allowed.has(p.saleId)&&!p.voidedAt&&!p.deletedAt).flatMap(p=>{
+  const info=receiptInfo(p);
+  return (info?.allocations||[]).filter(a=>a.number&&/^\d{4}-(?:0[1-9]|1[0-2])$/.test(String(a.month||''))&&Number(a.amount)>0)
+   .map(a=>({saleId:p.saleId,number:Number(a.number),month:a.month,amount:Number(a.amount),payment:p,complete:!!a.complete}));
+ });
+}
+function pmHistoryLotLabel(saleId){
+ const l=getLot(getSale(saleId)?.lotId);
+ return l?'Etapa '+(l.stage||'—')+' · Bloque '+(l.block||'—')+' · Solar '+(l.sourceNumber||l.number||l.id):'Solar por verificar';
+}
+function pmMonthName(month){
+ const date=new Date(month+'-15T12:00:00Z');
+ return new Intl.DateTimeFormat('es-HN',{month:'long',year:'numeric',timeZone:'UTC'}).format(date);
+}
+function pmHistoryRowLabel(row,multiple=false){
+ return 'Cuota '+row.number+' de '+row.total+' · '+pmMonthName(row.dueDate.slice(0,7))+
+  (multiple?' · '+pmHistoryLotLabel(row.saleId):'');
+}
+function pmMonthHistory(host,key,rows,entries,sales){
+ host.replaceChildren();
+ const header=pmNode('div','pm-history-heading');
+ const h=pmNode('strong','', 'Historial de '+pmMonthName(key));
+ const help=pmNode('small','', 'Mes de vencimiento de la cuota; no necesariamente es el mes en que se recibió el dinero.');
+ header.append(h,help);host.append(header);
+ const applicable=rows.filter(row=>row.dueDate.slice(0,7)===key);
+ if(!applicable.length){host.append(pmNode('p','pm-help','No hay cuotas programadas para este mes en los solares seleccionados.'));return;}
+ for(const row of applicable){
+  const section=pmNode('section','pm-history-installment'),heading=pmNode('div','pm-history-installment-heading');
+  heading.append(pmNode('strong','',pmHistoryRowLabel(row,sales.length>1)));
+  const state=row.status==='paid'?'Pagada':row.remaining<row.due-.009?'Abonada parcialmente':row.status==='late'?'Vencida':'Pendiente';
+  heading.append(pmNode('span','pm-history-state '+(row.status==='paid'?'paid':row.status==='late'?'late':'pending'),state));
+  section.append(heading);
+  section.append(pmNode('p','pm-help','Cuota: '+money(row.due)+' · Saldo pendiente de esta cuota: '+money(row.remaining)+' · Vence: '+fmtDate(row.dueDate)));
+  const matched=entries.filter(a=>a.saleId===row.saleId&&a.number===row.number&&a.month===key)
+   .sort((a,b)=>String(a.payment.date||'').localeCompare(String(b.payment.date||''))||String(a.payment.id).localeCompare(String(b.payment.id)));
+  if(!matched.length){
+   section.append(pmNode('p','pm-help',row.status==='paid'?'Esta cuota figura cubierta en el saldo histórico, pero no hay un recibo individual vinculado para volver a imprimir.':'Todavía no hay un abono con recibo vinculado a esta cuota.'));
+  }else{
+   for(const movement of matched){
+    const line=pmNode('div','pm-history-payment'),details=pmNode('div');
+    details.append(pmNode('strong','',fmtDate(movement.payment.date)+' · '+money(movement.amount)));
+    details.append(pmNode('small','', 'Aplicado a esta cuota · Recibo '+(movement.payment.groupId||movement.payment.id)+
+     (movement.payment.method?' · '+movement.payment.method:'')));
+    const buttons=pmNode('div','pm-history-actions');
+    const view=pmNode('button','btn btn-outline btn-sm','Ver recibo');
+    view.type='button';view.dataset.action='receipt-preview';view.dataset.id=movement.payment.id;
+    const pdf=pmNode('button','btn btn-outline btn-sm','Descargar PDF');
+    pdf.type='button';pdf.dataset.action='payment-receipt-pdf';pdf.dataset.id=movement.payment.id;
+    buttons.append(view,pdf);line.append(details,buttons);section.append(line);
+   }
+  }
+  host.append(section);
+ }
+}
 function pmCalendar(root,sales){
  root.replaceChildren();
  const validSales=sales.filter(s=>s?.type==='credit'&&Number(s.months)>0);
@@ -38,15 +97,33 @@ function pmCalendar(root,sales){
  const yearAll=[...new Set(rows.map(r=>Number(r.dueDate.slice(0,4))))].sort((a,b)=>a-b);
  const now=businessToday(),current=Number(now.slice(0,4));
  if(!yearAll.length){
-  const empty=pmNode('p','pm-help',validSales.length?'No hay cuotas calculables. Revisa fecha y plazo del contrato.':'El cronograma aparecerá al seleccionar un terreno con contrato de crédito y plazo registrado.');
-  root.append(empty);return;
+  root.append(pmNode('p','pm-help',validSales.length?'No hay cuotas calculables. Revisa fecha y plazo del contrato.':'El cronograma aparecerá al seleccionar un terreno con contrato de crédito y plazo registrado.'));
+  pmDetailMonth=null;return;
  }
- if(!yearAll.includes(pmYear))pmYear=yearAll.includes(current)?current:yearAll[0];
- const paid=rows.filter(r=>r.status==='paid').length,pending=rows.length-paid;
+ const entries=pmHistoryEntries(validSales),multiple=validSales.length>1;
+ const covered=rows.filter(r=>r.status==='paid').sort((a,b)=>a.dueDate.localeCompare(b.dueDate)||a.number-b.number);
+ const lastCovered=covered.at(-1)||null;
  const dueRows=rows.filter(r=>r.remaining>.009).sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
- const next=dueRows[0];
+ const upcoming=dueRows[0]||null;
+ if(!yearAll.includes(pmYear)){
+  const focus=lastCovered||upcoming;
+  const focusYear=focus?Number(focus.dueDate.slice(0,4)):current;
+  pmYear=yearAll.includes(focusYear)?focusYear:yearAll.includes(current)?current:yearAll[0];
+  pmDetailMonth=null;
+ }
+ if(!pmDetailMonth||!rows.some(r=>r.dueDate.slice(0,7)===pmDetailMonth))
+  pmDetailMonth=(lastCovered||upcoming)?.dueDate.slice(0,7)||null;
+ const recent=entries.slice().sort((a,b)=>String(b.payment.recordedAt||b.payment.date).localeCompare(String(a.payment.recordedAt||a.payment.date))||b.month.localeCompare(a.month))[0];
+ const paid=covered.length,pending=rows.length-paid;
  const progress=pmNode('div','pm-progress');
- for(const [label,val] of [['Plan de pago',rows.length+' cuotas'],['Meses/cuotas pagados',String(paid)],['Cuotas pendientes',String(pending)],['Próximo vencimiento',next?(next.dueDate<now?'Vencido: ':'')+next.dueDate:'Sin pagos pendientes']]){
+ for(const [label,val] of [
+  ['Plan de pago',rows.length+' cuotas'],
+  ['Cuotas pagadas',String(paid)],
+  ['Cuotas pendientes',String(pending)],
+  ['Última cuota cubierta',lastCovered?pmHistoryRowLabel(lastCovered,multiple):'Todavía ninguna'],
+  ['Siguiente cuota por pagar',upcoming?pmHistoryRowLabel(upcoming,multiple):'Crédito cancelado'],
+  ['Último abono registrado',recent?fmtDate(recent.payment.date)+' · aplicado a '+pmMonthName(recent.month):'Sin recibos de mensualidad']
+ ]){
   const item=pmNode('div'),small=pmNode('span','',label),strong=pmNode('strong','',val);item.append(small,strong);progress.append(item);
  }
  const bar=pmNode('div','pm-yearbar'),prev=pmNode('button','', '‹'),year=pmNode('strong','pm-year',String(pmYear)),nextBtn=pmNode('button','','›');
@@ -63,11 +140,17 @@ function pmCalendar(root,sales){
    status=paidCount===inMonth.length?'paid':paidCount>0?'mixed':inMonth.some(r=>r.status==='late')?'late':'pending';
    glyph=status==='paid'?'✓':status==='late'?'!':status==='mixed'?'◐':'◷';
   }
-  const cell=pmNode('div','pm-month '+status+(key===now.slice(0,7)?' current':''));
+  const cell=pmNode('button','pm-month '+status+(key===now.slice(0,7)?' current':'')+(key===pmDetailMonth?' pm-history-selected':''));
+  cell.type='button';cell.dataset.pmMonth=key;cell.setAttribute('aria-pressed',String(key===pmDetailMonth));
+  cell.setAttribute('aria-label',names[m-1]+' '+pmYear+(inMonth.length?' · '+status+' · consultar pagos y recibos':' · sin cuota programada'));
   cell.title=inMonth.length?inMonth.map(x=>'Cuota '+x.number+' / '+x.total+' · '+x.dueDate+' · '+x.status).join('\n'):'Sin cuota programada';
   cell.append(pmNode('strong','',names[m-1]),pmNode('small','',glyph));months.append(cell);
  }
- root.append(progress,bar,months,pmNode('p','pm-calendar-note','El calendario usa las fechas y pagos registrados; los abonos se aplican primero a los saldos más antiguos. No se asignan meses manualmente.'));
+ root.append(progress,bar,months,pmNode('p','pm-calendar-note','Selecciona un mes para ver qué día abonaste, cuánto se aplicó a esa cuota y descargar el recibo. La prima se registra por separado; los abonos cubren primero las cuotas más antiguas.'));
+ const history=pmNode('div','pm-calendar-history');history.id='pm-calendar-history';
+ if(pmDetailMonth?.slice(0,4)===String(pmYear))pmMonthHistory(history,pmDetailMonth,rows,entries,validSales);
+ else history.append(pmNode('p','pm-help','Selecciona un mes de '+pmYear+' para consultar los recibos.'));
+ root.append(history);
 }
 function pmCalendarCard(sales){
  const card=pmCard('Calendario de pagos (Cronograma)','calendar');
@@ -171,7 +254,7 @@ function pmRepaintSales(){
 function pmSalesDecorate(){
  const form=document.getElementById('multi-payment-form');
  if(!form)return;
- pmActive='sale';pmYear=null;
+ pmActive='sale';pmYear=null;pmDetailMonth=null;
  const modal=pmModal('Registrar Pago / Abono','Registra un nuevo pago, abono o prima del cliente.');
  const grid=form.querySelector('.form-grid'),searchInput=form.querySelector('#multi-payment-search'),searchLabel=form.querySelector('label[for="multi-payment-search"]'),results=form.querySelector('#multi-payment-results'),selected=form.querySelector('#multi-payment-selected'),total=form.querySelector('#multi-payment-total'),error=form.querySelector('#multi-payment-error');
  if(!modal||!grid||!searchInput||!selected||!results)return;
@@ -197,7 +280,7 @@ function pmSalesDecorate(){
 function pmOwnerDecorate(){
  const form=document.getElementById('owner-abono-form');
  if(!form)return;
- pmActive='owner';pmYear=null;
+ pmActive='owner';pmYear=null;pmDetailMonth=null;
  const modal=pmModal('Registrar Pago / Abono','Registra un abono a una o varias fichas del propietario.');
  const grid=form.querySelector('.form-grid'),refs=form.querySelector('[data-owner-statement]')?.closest('div[style*="max-height"]')||form.querySelector('div[style*="max-height"]'),total=form.querySelector('#owner-abono-total'),error=form.querySelector('#owner-abono-error'),confirm=form.querySelector('input[name="reviewed"]')?.closest('label');
  if(!modal||!grid||!refs)return;
@@ -285,6 +368,12 @@ paymentReceiptPreview=function(id){if(pmSaveOnly){pmSaveOnly=false;return;}retur
 const pmOriginalOwnerPreview=ownerPaymentPreview;
 ownerPaymentPreview=function(id){if(pmSaveOnly){pmSaveOnly=false;return;}return pmOriginalOwnerPreview(id);};
 document.addEventListener('click',e=>{
+ const monthBtn=e.target.closest('[data-pm-month]');
+ if(monthBtn&&document.getElementById('multi-payment-form')&&document.querySelector('.lg-payment-modern')){
+  pmDetailMonth=monthBtn.dataset.pmMonth;
+  const calendar=document.getElementById('pm-calendar-body');if(calendar)pmCalendar(calendar,pmSales());
+  return;
+ }
  const yearBtn=e.target.closest('[data-pm-year]');
  if(yearBtn&&document.querySelector('.lg-payment-modern')){
   const years=[...new Set(pmActualSchedule(pmSales()).map(r=>Number(r.dueDate.slice(0,4))))].sort((a,b)=>a-b);
