@@ -280,7 +280,7 @@ async function contractIntakeSave(form){
    if(target.ownerClientId&&target.ownerClientId!==client.id)throw Error('Un solar ya está asignado a otro cliente; verifica la identidad.');
    const {rawText:sourceOCR,...structuredFields}=fields;
    // Las claves auxiliares del formulario no forman parte de la descripción.
-   for(const k of Object.keys(structuredFields))if(/^(?:extra|solarPrice_|solarDown_)/.test(k))delete structuredFields[k];
+   for(const k of Object.keys(structuredFields))if(/^(?:extra|solarPrice_|solarDown_|clientMode$)/.test(k))delete structuredFields[k];
    const record={id:(original.mode==='manual'?'CM-':'OCR-')+crypto.randomUUID(),clientId:client.id,lotId:lot.id,saleId:'',residenceId:original.residenceId,
     title:'FICHA CONTRACTUAL DE '+String(client.name).slice(0,85),pages:original.mode==='manual'?[]:[{number:1,text:String(data.rawText||'').slice(0,50000),confidence:original.values._confidence??null}],
     structured:{...structuredFields,identity:contractIdentityFormat(client.identity),lotId:lot.id,stage:lot.stage??null,monthlyCalculated:Math.round((fields.price-fields.down)/months*100)/100,downPaymentReceived:false},
@@ -337,6 +337,24 @@ async function contractIntakeConfirmActivation(form){
  if(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed)toast('Crédito pendiente de sincronización. No registres pagos hasta confirmar la nube.','error');
  else toast('Crédito activado sin cobros. Ahora puedes registrar primas y cuotas desde Abonos.');
 }
+function contractIntakeChooseMethod(){
+ if(!contractIntakeAdmin()){
+  toast('Para crear un contrato necesitas iniciar sesión como administrador y confirmar la sincronización.','error');
+  return;
+ }
+ showModal('Nuevo contrato',
+  '<p>Elige cómo ingresar la ficha de esta residencial. En ambos casos podrás vincular etapa, bloque y uno o varios solares.</p>'+
+  '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;margin:14px 0">'+
+  '<button type="button" class="card" data-contract-intake-method="manual" style="padding:19px;text-align:left;cursor:pointer;color:inherit;border:1px solid var(--line);background:var(--green-soft)">'+
+  '<strong style="display:block;font-size:17px;margin-bottom:8px">✍ Llenar datos manualmente</strong>'+
+  '<span style="display:block;font-size:13px;line-height:1.6">Crear cliente nuevo o elegir uno existente. Ingresar nombre, DNI, teléfono, dirección, etapa, bloque, solar y datos del contrato.</span></button>'+
+  '<button type="button" class="card" data-contract-intake-method="ocr" style="padding:19px;text-align:left;cursor:pointer;color:inherit;border:1px solid var(--line)">'+
+  '<strong style="display:block;font-size:17px;margin-bottom:8px">▧ Subir foto y usar OCR</strong>'+
+  '<span style="display:block;font-size:13px;line-height:1.6">Cargar una imagen y revisar los datos reconocidos antes de guardar.</span></button></div>'+
+  '<p class="sm muted">Guardar una ficha no registra una prima como recibida ni genera abonos. Esos pagos se ingresan después, por separado.</p>',
+  '<button type="button" class="btn btn-outline" data-action="close-modal">Cancelar</button>',
+  true,'Contratos → Nuevo contrato');
+}
 const contractIntakeOldContractsPage=contractsPage;
 contractsPage=function(){
  const original=contractIntakeOldContractsPage()
@@ -356,20 +374,38 @@ contractsPage=function(){
  return original.replace('<section class="card" style="padding:20px;margin-bottom:20px">',box+'<section class="card" style="padding:20px;margin-bottom:20px">');
 };
 document.addEventListener('click',event=>{
- const button=event.target.closest?.('[data-contract-intake-open],[data-contract-intake-activate]');
+ const button=event.target.closest?.('[data-contract-intake-open],[data-contract-intake-activate],[data-contract-intake-method]');
  if(!button)return;
  event.preventDefault();event.stopImmediatePropagation();
- if(button.hasAttribute('data-contract-intake-open'))contractIntakeOpen();
+ if(button.hasAttribute('data-contract-intake-method')){
+  const mode=button.dataset.contractIntakeMethod;
+  if(mode==='manual'||mode==='ocr')contractIntakeOpen('',mode);
+ }else if(button.hasAttribute('data-contract-intake-open'))contractIntakeChooseMethod();
  else contractIntakeActivate(button.dataset.contractIntakeActivate);
 },true);
 // Etapa manual y datos del OCR: encontrar solar sin usar una etapa adivinada.
 document.addEventListener('change',event=>{
  const target=event.target,form=target.closest?.('#contract-intake-form');
  if(!form||!contractIntakeWorking)return;
+ if(target.name==='clientId'&&contractIntakeWorking.mode==='manual'&&contractIntakeWorking.clientMode==='existing'){
+  const chosen=getClient(target.value);
+  contractIntakeWorking.preferredClientId=chosen?.id||'';
+  if(chosen){
+   for(const key of ['name','identity','phone','address','rtn','maritalStatus','occupation']){
+    const field=form.elements.namedItem(key);
+    if(field)field.value=String(chosen[key]||'');
+   }
+  }
+  return;
+ }
  if(target.name==='clientMode'){
   contractIntakeRememberExtras(form);
   contractIntakeWorking.clientMode=target.value==='existing'?'existing':'new';
   if(contractIntakeWorking.clientMode==='new'){
+   if(contractIntakeWorking.preferredClientId){
+    for(const key of ['name','identity','phone','address','rtn','maritalStatus','occupation'])
+     contractIntakeWorking.values[key]='';
+   }
    contractIntakeWorking.preferredClientId='';
    contractIntakeWorking.values.clientId='';
   }
