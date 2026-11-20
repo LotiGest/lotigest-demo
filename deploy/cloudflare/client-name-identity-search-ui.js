@@ -66,6 +66,7 @@
           (c.phone?' · Tel.: '+esc(c.phone):'')+'</div>'+
           '<div class="sm" style="margin:7px 0">'+(titles||'Sin solares asociados en la residencial activa')+
           (refs.all.length>12?' · y '+(refs.all.length-12)+' más':'')+'</div>'+
+          ((type==='collections'||type==='payments')?'<p class="sm"><strong>'+esc(lotigestPrimaLabel(lotigestPrimaStatus(c.id,rid)))+'</strong></p>':'')+
           '<div style="display:flex;flex-wrap:wrap;gap:7px">'+
           '<button type="button" class="btn btn-outline btn-sm" data-action="view-client" data-id="'+esc(c.id)+'">Ver ficha del cliente</button>'+
           (type==='lots'?lots:
