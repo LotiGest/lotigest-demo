@@ -226,6 +226,7 @@ function pmRepaintSales(){
     summary.append(pmNode('p','pm-help','Hay movimientos históricos o saldos iniciales sin mes comprobado: se conservan en el saldo financiero, pero NO suman cuotas pagadas.'));
   }
  }
+ const historyBtn=document.querySelector('#multi-payment-form .pm-history-launch');if(historyBtn)historyBtn.disabled=!sales.length;
  const selected=document.getElementById('multi-payment-selected'),slot=document.getElementById('pm-amount-slot'),search=document.getElementById('pm-searchbox');
  if(selected)selected.classList.toggle('hidden-single',single||!sales.length);
  if(search)search.classList.toggle('has-selection',!!sales.length);
@@ -259,6 +260,10 @@ function pmSalesDecorate(){
  const a=pmNode('div','pm-clientbox');a.innerHTML=pmIcon('users')+'<div><small>Cliente</small><strong id="pm-client-name"></strong><p id="pm-client-id"></p></div>';
  const b=pmNode('div','pm-clientbox');b.innerHTML=pmIcon('pin')+'<div><small>Solar(es) asignado(s)</small><div id="pm-lot-tags"></div></div>';
  person.append(a,b);shell.append(person);
+ const historyBar=pmNode('div','pm-history-toolbar');
+ const historyBtn=pmNode('button','btn btn-outline pm-history-launch','Historial de pagos por fecha');
+ historyBtn.type='button';historyBtn.dataset.pmHistoryOpen='true';
+ historyBar.append(historyBtn);shell.append(historyBar);
  const main=pmNode('div','pm-grid');
  const summary=pmCard('Resumen del contrato','layers');summary.body.id='pm-summary';
  const entry=pmCard('Registrar nuevo pago','wallet');entry.body.append(fields);
@@ -288,6 +293,10 @@ function pmOwnerDecorate(){
  a.innerHTML=pmIcon('users')+'<div><small>Cliente</small><strong>'+esc(client?.name||'—')+'</strong><p>'+(client?.identity?'Identidad: '+esc(client.identity):'Residencial: '+esc(residence().name))+'</p></div>';
  b.innerHTML=pmIcon('pin')+'<div><small>Solar(es) de la ficha</small><div>'+docs.flatMap(s=>(s.references||[]).map(r=>'<span class="pm-tag">Etapa '+esc(r.stage||'por confirmar')+' · Bloque '+esc(r.block)+' · Solar '+esc(r.lot||r.solar||'—')+'</span>')).join('')+'</div></div>';
  person.append(a,b);shell.append(person);
+ const historyBar=pmNode('div','pm-history-toolbar');
+ const historyBtn=pmNode('button','btn btn-outline pm-history-launch','Historial de pagos por fecha');
+ historyBtn.type='button';historyBtn.dataset.pmHistoryOpen='true';
+ historyBar.append(historyBtn);shell.append(historyBar);
  const main=pmNode('div','pm-grid'),left=pmCard('Resumen de fichas','layers'),right=pmCard('Registrar nuevo pago','wallet');
  let count=0,totalDocumented=0,allKnown=true;
  for(const doc of docs){
@@ -362,6 +371,7 @@ paymentReceiptPreview=function(id){if(pmSaveOnly){pmSaveOnly=false;return;}retur
 const pmOriginalOwnerPreview=ownerPaymentPreview;
 ownerPaymentPreview=function(id){if(pmSaveOnly){pmSaveOnly=false;return;}return pmOriginalOwnerPreview(id);};
 document.addEventListener('click',e=>{
+ if(e.target.closest('[data-pm-history-open]')){pmOpenPaymentHistory();return;}
  const todayButton=e.target.closest('[data-pm-use-today]');
  if(todayButton&&document.querySelector('.lg-payment-modern')){
   const dateInput=todayButton.closest('form')?.querySelector('[name="date"]');
