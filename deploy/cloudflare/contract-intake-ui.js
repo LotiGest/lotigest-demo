@@ -566,7 +566,8 @@ async function contractIntakeSave(form){
    }else target.pendingContractId=record.id;
    if(!(Number(target.area)>0)&&Number(fields.areaM2)>0){target.area=Number(fields.areaM2);target.areaMode='manual';target.areaOrigin='contract-reviewed';}
    if(!(Number(target.areaVaras2)>0)&&Number(fields.areaVaras)>0)target.areaVaras2=Number(fields.areaVaras);
-   if(!(Number(target.price)>0))target.price=fields.price;
+   // El precio negociado es exclusivo del contrato. Nunca escribirlo en Predios.
+   if(original.mode!=='manual'&&!(Number(target.price)>0))target.price=fields.price;
   }
   // El estado de venta sólo se actualizará al activar el crédito.
   cloudWrite(JSON.stringify(next));db=next;
