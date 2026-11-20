@@ -96,3 +96,151 @@ body.lotigest-dark #modal-root .lg-contract-modern .lg-contract-payment-row>stro
  html body #modal-root .lg-contract-modern .modal-footer .btn{font-size:13px;padding:10px 7px}
 }
 @media(prefers-reduced-motion:reduce){#modal-root .lg-contract-modern{scroll-behavior:auto}}
+
+
+/* Panel Nuevo Contrato · referencia aprobada, azul institucional y verde LOTIGEST.
+   Estos ajustes SOLO se aplican al contrato manual, sin cambiar otros módulos. */
+#modal-root .lg-contract-modern{
+ --lgc-surface:#eef2f8;--lgc-card:#fff;--lgc-ink:#1d3554;
+ --lgc-muted:#637389;--lgc-line:#d5deeb;--lgc-field:#fcfdff;
+ --lgc-blue:#eaf1fd;--lgc-green:#e5f7e9;
+ border-color:#c6d3e5;border-radius:15px;
+}
+#modal-root .lg-contract-modern .modal-header{
+ min-height:66px;box-sizing:border-box;gap:17px;padding:12px 20px;
+ background:linear-gradient(110deg,#193b67,#244e7b)!important;
+ border-bottom:1px solid #547397;
+}
+#modal-root .lg-contract-modern .lg-contract-brand{
+ display:flex;align-items:center;gap:10px;flex:none;min-width:0;
+ padding-right:20px;border-right:1px solid #b3c9e65e;color:#fff;
+}
+#modal-root .lg-contract-modern .lg-contract-brand-icon{
+ display:grid;place-items:center;font-size:27px;line-height:1;width:36px;height:36px;
+ border:1px solid #bdd1ed65;border-radius:10px;background:#ffffff12;
+}
+#modal-root .lg-contract-modern .lg-contract-brand strong{
+ display:block;font-size:16px;line-height:1.18;letter-spacing:.15px;color:#fff;
+}
+#modal-root .lg-contract-modern .lg-contract-brand small{
+ display:block;margin-top:3px;font-size:10px;font-weight:500;color:#d1dfef;white-space:nowrap;
+}
+#modal-root .lg-contract-modern .modal-header h2{font-size:clamp(19px,2vw,25px);letter-spacing:0;color:#fff!important}
+#modal-root .lg-contract-modern .modal-header p{display:none}
+#modal-root .lg-contract-modern .modal-close{
+ margin-left:auto;display:inline-flex;align-items:center;justify-content:center;
+ width:auto;min-width:82px;padding:7px 11px;min-height:37px;
+ border-radius:8px;border:1px solid #c4d5ed99;background:#ffffff14;
+ color:#fff;font-size:13px;font-weight:700;white-space:nowrap;
+}
+#modal-root .lg-contract-modern .modal-content{
+ background:var(--lgc-surface);padding:12px 17px;
+}
+#modal-root .lg-contract-modern .lg-contract-form{gap:10px}
+#modal-root .lg-contract-modern .lg-contract-lead{font-size:12px}
+#modal-root .lg-contract-modern .lg-contract-step{
+ padding:12px 15px;border-radius:12px;box-shadow:0 1px 3px #1d3b5c09;
+}
+#modal-root .lg-contract-modern .lg-contract-step-heading{
+ color:#203f6c;font-size:clamp(15px,1.4vw,18px);gap:9px;margin-bottom:10px;
+}
+#modal-root .lg-contract-modern .lg-contract-step-heading>span{
+ width:29px;height:29px;flex-basis:29px;font-size:15px;
+ background:#294e80;
+}
+#modal-root .lg-contract-modern :is(.field-group span,.field-group>label,.lg-contract-client-search>label){
+ font-size:12px;color:var(--lgc-ink);
+}
+#modal-root .lg-contract-modern :is(input:not([type=hidden]):not([type=checkbox]),select,textarea){
+ min-height:40px;padding:8px 11px;border-radius:8px;border-color:#c3d0e1;font-size:14px;
+}
+#modal-root .lg-contract-modern .lg-contract-searchbar>.btn,
+#modal-root .lg-contract-modern .lg-contract-consult{
+ min-height:40px;padding:8px 16px;border-radius:8px;background:#285c99;
+ border-color:#285c99;color:#fff;font-weight:750;
+}
+#modal-root .lg-contract-modern .lg-contract-client-layout{
+ grid-template-columns:minmax(0,1.02fr) minmax(0,1fr);gap:12px;align-items:center;
+}
+#modal-root .lg-contract-modern .lg-contract-client-card>.notice-card{
+ background:#e5f5e9;border-color:#c5ebd1;padding:10px 13px;
+}
+#modal-root .lg-contract-modern .lg-contract-client-card>.notice-card p{margin:4px 0}
+#modal-root .lg-contract-modern .lg-contract-client-card>.notice-card small{font-size:11px}
+#modal-root .lg-contract-modern .lg-contract-change-client{float:right;margin:0 0 5px 8px}
+#modal-root .lg-contract-modern .lg-contract-lot-fields{
+ grid-template-columns:repeat(3,minmax(0,1fr)) minmax(110px,auto);
+ gap:12px;align-items:end;
+}
+#modal-root .lg-contract-modern .lg-contract-solar-info{
+ grid-template-columns:minmax(0,1fr) minmax(190px,.28fr);
+ margin-top:11px;padding:11px 13px;border-radius:10px;
+}
+#modal-root .lg-contract-modern .lg-contract-solar-metrics{font-size:12px;line-height:1.35}
+#modal-root .lg-contract-modern .lg-contract-solar-metrics>strong{font-size:13px;margin-bottom:4px}
+#modal-root .lg-contract-modern .lg-contract-base-price{padding:11px 12px;border-radius:9px}
+#modal-root .lg-contract-modern .lg-contract-base-price strong{font-size:19px;margin-top:4px}
+#modal-root .lg-contract-modern .lg-contract-lot-actions{margin-top:7px}
+#modal-root .lg-contract-modern .lg-contract-lot-actions .btn{padding:5px 9px;font-size:12px;min-height:32px}
+#modal-root .lg-contract-modern .lg-contract-terms-grid{
+ grid-template-columns:minmax(0,1.65fr) minmax(260px,.95fr);gap:15px;
+}
+#modal-root .lg-contract-modern .lg-contract-term-fields{gap:10px}
+#modal-root .lg-contract-modern .lg-contract-calc{
+ padding:11px 14px;border-radius:10px;background:#f0f0ff;
+}
+#modal-root .lg-contract-modern .lg-contract-calc h4{font-size:14px;margin:0 0 7px;color:#233f6e}
+#modal-root .lg-contract-modern .lg-contract-calc-row{margin:6px 0;color:#405a7b;font-size:12px}
+#modal-root .lg-contract-modern .lg-contract-calc-row>strong{font-size:16px}
+#modal-root .lg-contract-modern .lg-contract-payment-row>strong{color:#08713b;background:#d9f6df;padding:4px 10px;border-radius:7px}
+#modal-root .lg-contract-modern .lg-contract-calc small{font-size:11px}
+#modal-root .lg-contract-modern .lg-contract-date-fields{max-width:680px}
+#modal-root .lg-contract-modern .lg-contract-step>details{padding:9px;margin-top:10px}
+#modal-root .lg-contract-modern .modal-footer{
+ padding:9px 17px;gap:10px;background:var(--lgc-card);
+}
+#modal-root .lg-contract-modern .modal-footer .btn{min-height:42px;min-width:140px;border-radius:9px}
+#modal-root .lg-contract-modern #contract-intake-save{
+ background:linear-gradient(130deg,#158d50,#096e3d);border-color:#096e3d;
+}
+body.lotigest-dark #modal-root .lg-contract-modern{
+ --lgc-surface:#111f31;--lgc-card:#1a2e45;--lgc-ink:#e7f1fc;
+ --lgc-muted:#a8bfd6;--lgc-line:#37536c;--lgc-field:#203a56;
+ --lgc-blue:#1d3854;--lgc-green:#1f493e;
+}
+body.lotigest-dark #modal-root .lg-contract-modern .lg-contract-step-heading,
+body.lotigest-dark #modal-root .lg-contract-modern .lg-contract-calc h4{color:#e7f1fc}
+body.lotigest-dark #modal-root .lg-contract-modern .lg-contract-client-card>.notice-card{background:#1f4739;border-color:#386b53}
+body.lotigest-dark #modal-root .lg-contract-modern .lg-contract-calc{background:#24344f;border-color:#37536c}
+body.lotigest-dark #modal-root .lg-contract-modern .lg-contract-calc-row{color:#c8d9ed}
+body.lotigest-dark #modal-root .lg-contract-modern .lg-contract-payment-row>strong{background:#1d5735;color:#a2f0b9}
+@media(max-width:1100px) and (min-width:901px){
+ #modal-root .lg-contract-modern .lg-contract-terms-grid{grid-template-columns:minmax(0,1fr) minmax(240px,.9fr)}
+ #modal-root .lg-contract-modern .lg-contract-lot-fields{grid-template-columns:repeat(3,minmax(0,1fr)) minmax(90px,auto)}
+}
+@media(max-width:900px){
+ html body #modal-root .lg-contract-modern .modal-header{padding:11px 12px;gap:10px;min-height:56px}
+ html body #modal-root .lg-contract-modern .modal-content{padding:10px}
+ html body #modal-root .lg-contract-modern .lg-contract-step{padding:13px}
+ html body #modal-root .lg-contract-modern .lg-contract-lot-fields{grid-template-columns:minmax(0,1fr)}
+ html body #modal-root .lg-contract-modern .lg-contract-solar-info{grid-template-columns:minmax(0,1fr)}
+ html body #modal-root .lg-contract-modern .lg-contract-terms-grid{grid-template-columns:minmax(0,1fr)}
+ html body #modal-root .lg-contract-modern .lg-contract-term-fields{grid-template-columns:minmax(0,1fr)}
+ html body #modal-root .lg-contract-modern .lg-contract-date-fields{grid-template-columns:minmax(0,1fr)}
+ html body #modal-root .lg-contract-modern .modal-footer{padding:10px 12px}
+ html body #modal-root .lg-contract-modern .lg-contract-consult{width:100%}
+ html body #modal-root .lg-contract-modern .lg-contract-form{gap:10px}
+}
+@media(max-width:540px){
+ html body #modal-root .lg-contract-modern .lg-contract-brand{gap:5px;padding-right:9px}
+ html body #modal-root .lg-contract-modern .lg-contract-brand small{display:none}
+ html body #modal-root .lg-contract-modern .lg-contract-brand strong{font-size:13px}
+ html body #modal-root .lg-contract-modern .lg-contract-brand-icon{width:26px;height:26px;font-size:20px}
+ html body #modal-root .lg-contract-modern .modal-header h2{font-size:16px}
+ html body #modal-root .lg-contract-modern .modal-close{min-width:66px;min-height:35px;font-size:11px;padding:6px}
+}
+@media(max-width:370px){
+ html body #modal-root .lg-contract-modern .lg-contract-brand-icon{display:none}
+ html body #modal-root .lg-contract-modern .lg-contract-brand{padding-right:7px}
+ html body #modal-root .lg-contract-modern .modal-header{gap:7px}
+}
