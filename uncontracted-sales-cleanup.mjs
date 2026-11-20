@@ -16,10 +16,16 @@ export function auditUncontractedSales(state,residenceId=null){
    d.saleId===sale.id||d.lotId===lot.id||
    (Array.isArray(d.contractLotIds)&&d.contractLotIds.includes(lot.id)));
   if(docs.length)reasons.push('documento contractual guardado');
-  if((state.historicalContracts||[]).some(h=>h.saleId===sale.id||h.lotId===lot.id))
+  if((state.historicalContracts||[]).some(h=>h.saleId===sale.id||h.lotId===lot.id||
+      h.clientId===sale.clientId&&h.residenceId===lot.residenceId))
    reasons.push('contrato histórico');
   if((state.payments||[]).some(p=>p.saleId===sale.id))
    reasons.push('abonos o recibos vinculados');
+  if((state.cashEntries||[]).some(p=>p.saleId===sale.id||p.lotId===lot.id||
+      p.clientId===sale.clientId&&p.residenceId===lot.residenceId))
+   reasons.push('movimientos de caja');
+  if((state.receipts||[]).some(p=>p.saleId===sale.id||p.lotId===lot.id))
+   reasons.push('otros recibos emitidos');
   if(Number(sale.openingPaid||0)>0||Number(sale.paid||0)>0||
      Number(sale.paidAmount||0)>0||Number(sale.downPaid||0)>0)
    reasons.push('saldo o pago anterior registrado');
@@ -39,7 +45,7 @@ export function auditUncontractedSales(state,residenceId=null){
    reasons.push('solicitud pública de compra');
   if((state.sales||[]).some(s=>s!==sale&&s.lotId===lot.id))
    reasons.push('otra venta asociada al solar');
-  if(lot.pendingContractId)reasons.push('contrato pendiente del solar');
+  if(lot.pendingContractId||lot.contractId)reasons.push('contrato pendiente o vinculado al solar');
   if(lot.mapDebtFlag)reasons.push('mora o deuda señalada en el mapa');
   if(lot.status==='reserved'||lot.status==='private'||lot.type==='private')
    reasons.push('estado protegido del solar');
