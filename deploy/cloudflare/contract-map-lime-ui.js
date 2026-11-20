@@ -4,7 +4,7 @@
 const contractMapLime='#A3E635';
 const contractMapPrimaGreen='#16A34A'; // 💚 distintivo, no es el verde limón de contrato.
 function contractMapDocument(lotId){
- return (db.contractTexts||[]).find(d=>d?.lotId===lotId&&d.format==='photo+ocr'&&['pending-sale','active'].includes(d.status))||null;
+ return (db.contractTexts||[]).find(d=>d?.lotId===lotId&&['photo+ocr','manual'].includes(d.format)&&['pending-sale','active'].includes(d.status))||null;
 }
 
 function contractMapHasRecordedPrima(lot){
