@@ -122,6 +122,7 @@
     const valid=['default','az','za',...(type==='lots'?['block-az','block-za']:[])];
     if(!valid.includes(select.value))return;
     order[type]=select.value;
+    if(select.value==='default'){render();return;}
     sortVisible();
   });
 })();
