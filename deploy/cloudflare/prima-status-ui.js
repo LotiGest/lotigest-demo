@@ -14,7 +14,7 @@ function lotigestPrimaStatus(clientId,rid,selectedLotIds=null){
   const remainingCents=Math.max(0,agreedCents-paidCents);
   return {
    kind:remainingCents===0?'paid':paidCents===0?'missing':'partial',
-   label:remainingCents===0?'Prima cubierta':paidCents===0?'Sin prima registrada':'Prima incompleta',
+   label:remainingCents===0?'Prima pagada':paidCents===0?'Sin prima registrada':'Prima incompleta',
    agreedCents,paidCents,remainingCents,contractVerified:true
   };
  }
@@ -52,7 +52,7 @@ function lotigestPrimaLabel(status){
  if(status.kind==='missing'||status.kind==='partial')
   return status.label+' · falta '+money(status.remainingCents/100);
  if(status.kind==='recorded')return 'Prima registrada · al menos '+money(status.paidCents/100);
- if(status.kind==='paid')return 'Prima cubierta · '+money(status.paidCents/100);
+ if(status.kind==='paid')return 'Prima pagada · '+money(status.paidCents/100);
  if(status.kind==='missing-record')return 'Sin prima registrada · monto pactado por verificar';
  return 'Prima por verificar · faltan datos del contrato';
 }
