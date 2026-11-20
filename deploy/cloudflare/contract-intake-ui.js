@@ -468,9 +468,15 @@ function contractIntakeDescription(d){
  }).join('');
  const lot=getLot(d.lotId),delta=Number(lot?.area)>0&&Number(info.areaM2)>0&&Math.abs(Number(lot.area)-Number(info.areaM2))>.02?
   '<p style="color:#9b581f"><strong>Medida protegida:</strong> el catastro conserva '+esc(String(lot.area))+' m² aunque el contrato indique '+esc(String(info.areaM2))+' m².</p>':'';
+ const measure=lot?'<div class="notice-card"><strong>Medidas automáticas del terreno</strong><p>Área: '+esc(lot.area||'Sin medida')+' m² · Varas²: '+esc(lot.areaVaras2||'—')+
+  ' · Frente: '+esc(lot.dimensions?.front||'—')+' · Fondo: '+esc(lot.dimensions?.depth||'—')+
+  ' · Izquierdo: '+esc(lot.dimensions?.left||'—')+' · Derecho: '+esc(lot.dimensions?.right||'—')+'</p></div>':'';
+ const sale=d.saleId?getSale(d.saleId):null;
+ const confirmed=!!sale&&Number(sale.downPayment)>0&&Math.round(paidAmount(sale.id)*100)>=Math.round(Number(sale.downPayment)*100);
+ const paidLabel=sale?'<p><strong>'+(confirmed?'💚 Prima pagada':'Prima pendiente / incompleta')+'</strong> · '+esc(String(sale.downPayment))+' L pactados. Verifica los recibos en Abonos.</p>':'';
  return '<section class="card" style="padding:15px;margin-bottom:15px"><h3>Descripción completa del contrato</h3>'+
   '<p class="sm muted">'+(d.format==='manual'?'Ficha ingresada manualmente':'Documento leído y revisado por OCR')+' · Etapa, bloque y solar vinculados al inventario.</p>'+
-  (d.contractLotIds?.length>1?'<p><b>Ficha compartida:</b> '+esc(d.contractLotIds.map(id=>{const l=getLot(id);return 'Etapa '+l?.stage+' · Bloque '+l?.block+' · Solar '+(l?.sourceNumber||l?.number||id);}).join('; '))+'. Los importes de abajo corresponden solo a este solar.</p>':'')+list+delta+'<p class="sm muted">La prima del contrato no se registra como pagada al importar. Consulta Abonos para verificar los cobros posteriores.</p>'+
+  (d.contractLotIds?.length>1?'<p><b>Ficha compartida:</b> '+esc(d.contractLotIds.map(id=>{const l=getLot(id);return 'Etapa '+l?.stage+' · Bloque '+l?.block+' · Solar '+(l?.sourceNumber||l?.number||id);}).join('; '))+'. Los importes de abajo corresponden solo a este solar.</p>':'')+list+measure+paidLabel+delta+'<p class="sm muted">La prima del contrato no se registra como pagada al importar. Consulta Abonos para verificar los cobros posteriores.</p>'+
   (d.documentKey?'<a class="btn btn-outline" target="_blank" rel="noopener noreferrer" href="/api/app/file?key='+encodeURIComponent(d.documentKey)+'">Ver fotografía original</a>':'')+
   (d.status!=='voided'?'<button type="button" class="btn btn-outline" data-contract-edit="'+esc(d.id)+'">Editar contrato</button> <button type="button" class="btn btn-outline" data-contract-delete="'+esc(d.id)+'">Eliminar contrato</button>':'')+
   '<button type="button" class="btn btn-outline" data-contract-dni-edit="'+esc(d.id)+'">Corregir DNI del cliente</button></section>';
@@ -611,4 +617,117 @@ document.addEventListener('submit',event=>{
  if(event.target.id!=='contract-dni-edit-form')return;
  event.preventDefault();event.stopImmediatePropagation();
  contractDniEditSave(event.target).catch(e=>toast(e.message,'error'));
+},true);
+
+
+// Gestión contractual: edición segura, anulación lógica y conservación obligatoria de cobros.
+function contractManageRecord(id){
+ return (db.contractTexts||[]).find(d=>d.id===id&&['manual','photo+ocr'].includes(d.format)&&d.status!=='voided');
+}
+function contractManageEditOpen(id){
+ if(!contractIntakeAdmin()){toast('Solo un administrador con sincronización confirmada puede editar contratos.','error');return;}
+ const d=contractManageRecord(id);
+ if(!d){toast('El contrato no existe o está anulado.','error');return;}
+ const lot=getLot(d.lotId),client=getClient(d.clientId),v=d.structured||{},financial=!d.saleId&&!db.sales.some(s=>s.lotId===d.lotId);
+ const field=(label,key,type='text')=>'<label class="field-group"><span>'+label+'</span><input name="'+key+'" type="'+type+'" '+(type==='number'?'min="0" step="0.01" ':'')+
+  'value="'+esc(v[key]??'')+'" style="width:100%;min-width:0"></label>';
+ const basic=[['RTN','rtn'],['Estado civil','maritalStatus'],['Profesión u oficio','occupation'],['Dirección','address'],
+  ['Norte','north'],['Sur','south'],['Este','east'],['Oeste','west']].map(([label,key])=>field(label,key)).join('');
+ const credit=financial?field('Precio pactado (L)','price','number')+field('Prima pactada (L)','down','number')+
+  '<label class="field-group"><span>Plazo (meses)</span><input name="months" type="number" min="1" max="360" step="1" required value="'+esc(v.months??'')+'"></label>'+
+  field('Fecha del contrato','date','date')+field('Primera cuota','firstDueDate','date'):'';
+ showModal('Editar contrato',
+  '<p><strong>'+esc(client?.name||v.name||'Cliente')+'</strong> · DNI '+esc(client?.identity||v.identity||'')+'</p>'+
+  '<p>Etapa '+esc(lot?.stage||'—')+' · Bloque '+esc(lot?.block||'—')+' · Solar '+esc(lot?.sourceNumber||'—')+'</p>'+
+  '<p class="sm muted">Las medidas y el solar se conservan del inventario. '+(financial?'Puedes corregir precio, prima pactada, fechas y plazo porque todavía no existe venta.':
+  'Este contrato tiene una venta: los importes y fechas de crédito se protegen para no alterar abonos ni mora.')+'</p>'+
+  '<form id="contract-manage-edit"><input name="documentId" type="hidden" value="'+esc(id)+'"><div class="form-grid">'+basic+credit+'</div>'+
+  '<label>Observaciones<textarea name="observations" maxlength="5000" rows="3">'+esc(v.observations||'')+'</textarea></label></form>',
+  '<button class="btn btn-outline" data-action="close-modal" type="button">Cancelar</button>'+
+  '<button class="btn btn-primary" type="submit" form="contract-manage-edit">Guardar cambios</button>',true);
+}
+async function contractManageEditSave(form){
+ if(!contractIntakeAdmin())throw Error('La nube debe estar sincronizada y tu usuario debe ser administrador.');
+ const data=Object.fromEntries(new FormData(form)),d=contractManageRecord(data.documentId);
+ if(!d)throw Error('No existe el contrato o ya fue anulado.');
+ const lot=getLot(d.lotId),financial=!d.saleId&&!db.sales.some(s=>s.lotId===d.lotId);
+ if(!lot)throw Error('El solar vinculado ya no existe.');
+ const next=JSON.parse(JSON.stringify(db)),record=next.contractTexts.find(x=>x.id===d.id),p=record.structured||{};
+ for(const key of ['rtn','maritalStatus','occupation','address','north','south','east','west','observations']){
+  const value=String(data[key]||'').trim();
+  if(value.length>(key==='observations'?5000:500))throw Error('Campo demasiado largo: '+key);
+  p[key]=value;
+ }
+ if(financial){
+  const price=Number(data.price),down=Number(data.down),months=Number(data.months);
+  if(!Number.isFinite(price)||price<=0||!Number.isFinite(down)||down<0||down>=price||!Number.isInteger(months)||months<1||months>360)
+   throw Error('Precio, prima pactada o plazo inválidos.');
+  if([price,down].some(n=>Math.abs(n*100-Math.round(n*100))>.00001))throw Error('Los importes solo admiten dos decimales.');
+  if(data.date)buyerDate(data.date,'fecha de contrato');
+  if(data.firstDueDate&&(!data.date||buyerDate(data.firstDueDate,'primera cuota')<data.date))
+   throw Error('La primera cuota debe ser posterior al contrato.');
+  if(data.date&&data.date>businessToday())throw Error('No puedes ingresar una fecha de contrato futura.');
+  Object.assign(p,{price,down,months,financed:Math.round((price-down)*100)/100,
+   monthly:Math.round((price-down)/months*100)/100,monthlyCalculated:Math.round((price-down)/months*100)/100,
+   date:String(data.date||''),firstDueDate:String(data.firstDueDate||'')});
+ }
+ record.structured=p;record.updatedAt=new Date().toISOString();
+ cloudWrite(JSON.stringify(next));db=next;await cloudFlush();
+ closeModal();render();
+ if(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed)
+  toast('Contrato modificado localmente; falta confirmar su sincronización.','error');
+ else toast('Contrato editado. Se conservaron las medidas, ventas y pagos.');
+}
+function contractManageDeleteOpen(id){
+ if(!contractIntakeAdmin()){toast('Solo un administrador puede eliminar contratos.','error');return;}
+ const d=contractManageRecord(id);if(!d){toast('El contrato no existe o ya fue anulado.','error');return;}
+ const sale=d.saleId?getSale(d.saleId):null;
+ const count=sale?(db.payments||[]).filter(p=>p.saleId===sale.id).length:0;
+ showModal('Eliminar contrato',
+  '<p>Contrato <strong>'+esc(d.id)+'</strong> de '+esc(getClient(d.clientId)?.name||'cliente')+'.</p>'+
+  '<p><strong>La eliminación será una anulación recuperable en el historial.</strong> No borra clientes, medidas, mapas, recibos, primas ni abonos.</p>'+
+  (sale?'<p class="sm">Ya existe venta vinculada'+(count?' con '+count+' pago(s).':'')+'; seguirá en Residenciales y Cobros para preservar el dinero y la deuda.</p>':
+  '<p class="sm">La ficha no tiene venta. Se liberará la reserva contractual del solar, si no existen otras asignaciones.</p>')+
+  '<form id="contract-manage-delete"><input type="hidden" name="documentId" value="'+esc(id)+'"><label>Escribe ELIMINAR para confirmar<input name="confirmation" required autocomplete="off"></label>'+
+  '<label>Motivo de la anulación<textarea name="reason" maxlength="300" rows="2"></textarea></label></form>',
+  '<button class="btn btn-outline" type="button" data-action="close-modal">Cancelar</button>'+
+  '<button class="btn btn-primary" type="submit" form="contract-manage-delete">Confirmar eliminación</button>',true);
+}
+async function contractManageDeleteSave(form){
+ if(!contractIntakeAdmin())throw Error('Solo un administrador con nube sincronizada puede anular.');
+ const data=Object.fromEntries(new FormData(form));
+ if(String(data.confirmation||'').trim().toUpperCase()!=='ELIMINAR')throw Error('Escribe ELIMINAR para confirmar.');
+ const d=contractManageRecord(data.documentId);if(!d)throw Error('Contrato inexistente o ya anulado.');
+ const next=JSON.parse(JSON.stringify(db)),record=next.contractTexts.find(x=>x.id===d.id),lot=next.lots.find(l=>l.id===d.lotId);
+ const hasSale=next.sales.some(s=>s.id===record.saleId||s.lotId===record.lotId);
+ record.status='voided';record.voidedAt=new Date().toISOString();record.voidedBy=String(cloudUser?.name||'Administrador');
+ record.voidReason=String(data.reason||'Anulación solicitada por administrador').trim().slice(0,300);
+ record.updatedAt=record.voidedAt;
+ if(lot&&!hasSale){
+  if(lot.pendingContractId===record.id)delete lot.pendingContractId;
+  const other=next.contractTexts.some(x=>x.id!==record.id&&x.lotId===lot.id&&x.status!=='voided');
+  const ownership=(next.ownershipStatements||[]).some(x=>x.clientId===record.clientId&&(x.references||[]).some(r=>r.lotId===lot.id));
+  if(!other&&!ownership&&lot.ownerClientId===record.clientId)delete lot.ownerClientId;
+ }
+ cloudWrite(JSON.stringify(next));db=next;await cloudFlush();closeModal();render();
+ if(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed)
+  toast('Anulación pendiente de sincronizar. Comprueba el estado de la nube.','error');
+ else toast('Contrato anulado. Los datos financieros y las medidas permanecen intactos.');
+}
+document.addEventListener('click',event=>{
+ const edit=event.target.closest?.('[data-contract-edit]'),del=event.target.closest?.('[data-contract-delete]');
+ if(!edit&&!del)return;
+ event.preventDefault();event.stopImmediatePropagation();
+ if(edit)contractManageEditOpen(edit.dataset.contractEdit);
+ else contractManageDeleteOpen(del.dataset.contractDelete);
+},true);
+document.addEventListener('submit',event=>{
+ if(event.target.id==='contract-manage-edit'){
+  event.preventDefault();event.stopImmediatePropagation();
+  contractManageEditSave(event.target).catch(e=>toast(e.message,'error'));
+ }
+ if(event.target.id==='contract-manage-delete'){
+  event.preventDefault();event.stopImmediatePropagation();
+  contractManageDeleteSave(event.target).catch(e=>toast(e.message,'error'));
+ }
 },true);
