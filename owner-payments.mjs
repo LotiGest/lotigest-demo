@@ -20,8 +20,10 @@ export function createOwnerPayment(input,draft){
  // Bloqueo también en la función de guardado: la validación de interfaz no es suficiente.
  for(const a of allocations){
    const ids=(a.references||[]).map(r=>r.lotId).filter(Boolean);
-   if(ids.length!==(a.references||[]).length)throw Error('Abono bloqueado: confirma el solar exacto en el mapa antes de pagar mensualidades.');
-   if(/^PRIMA\b/i.test(concept))assertPrimaAmount(state,ids,a.amountCents);
+   const isPrima=/^PRIMA\b/i.test(concept);
+   if(!isPrima&&ids.length!==(a.references||[]).length)throw Error('Abono bloqueado: confirma el solar exacto en el mapa antes de pagar mensualidades.');
+   // La prima histórica puede documentarse aunque falte asignar el código GPS.
+   if(isPrima){if(ids.length===(a.references||[]).length)assertPrimaAmount(state,ids,a.amountCents);}
    else assertPrimaCovered(state,ids);
  }
  for(const g of groups.values()){const left=ownerStatementBalance(state,g.statement);if(left!=null&&g.total>left)throw Error('El abono supera el saldo documentado disponible de la ficha. Revisa sus condiciones antes de continuar.');}
