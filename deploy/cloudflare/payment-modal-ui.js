@@ -226,6 +226,7 @@ function pmRepaintSales(){
     summary.append(pmNode('p','pm-help','Hay movimientos históricos o saldos iniciales sin mes comprobado: se conservan en el saldo financiero, pero NO suman cuotas pagadas.'));
   }
  }
+ pmUpdateLastPayment(client?.id||'',residence().id);
  const historyBtn=document.querySelector('#multi-payment-form .pm-history-launch');if(historyBtn)historyBtn.disabled=!sales.length;
  const selected=document.getElementById('multi-payment-selected'),slot=document.getElementById('pm-amount-slot'),search=document.getElementById('pm-searchbox');
  if(selected)selected.classList.toggle('hidden-single',single||!sales.length);
@@ -260,6 +261,7 @@ function pmSalesDecorate(){
  const a=pmNode('div','pm-clientbox');a.innerHTML=pmIcon('users')+'<div><small>Cliente</small><strong id="pm-client-name"></strong><p id="pm-client-id"></p></div>';
  const b=pmNode('div','pm-clientbox');b.innerHTML=pmIcon('pin')+'<div><small>Solar(es) asignado(s)</small><div id="pm-lot-tags"></div></div>';
  person.append(a,b);shell.append(person);
+ const last=pmNode('section','pm-last-payment');last.id='pm-last-payment';last.setAttribute('role','status');last.setAttribute('aria-live','polite');shell.append(last);
  const historyBar=pmNode('div','pm-history-toolbar');
  const historyBtn=pmNode('button','btn btn-outline pm-history-launch','Historial de pagos por fecha');
  historyBtn.type='button';historyBtn.dataset.pmHistoryOpen='true';
@@ -293,6 +295,7 @@ function pmOwnerDecorate(){
  a.innerHTML=pmIcon('users')+'<div><small>Cliente</small><strong>'+esc(client?.name||'—')+'</strong><p>'+(client?.identity?'Identidad: '+esc(client.identity):'Residencial: '+esc(residence().name))+'</p></div>';
  b.innerHTML=pmIcon('pin')+'<div><small>Solar(es) de la ficha</small><div>'+docs.flatMap(s=>(s.references||[]).map(r=>'<span class="pm-tag">Etapa '+esc(r.stage||'por confirmar')+' · Bloque '+esc(r.block)+' · Solar '+esc(r.lot||r.solar||'—')+'</span>')).join('')+'</div></div>';
  person.append(a,b);shell.append(person);
+ const last=pmNode('section','pm-last-payment');last.id='pm-last-payment';last.setAttribute('role','status');last.setAttribute('aria-live','polite');shell.append(last);
  const historyBar=pmNode('div','pm-history-toolbar');
  const historyBtn=pmNode('button','btn btn-outline pm-history-launch','Historial de pagos por fecha');
  historyBtn.type='button';historyBtn.dataset.pmHistoryOpen='true';
@@ -326,6 +329,7 @@ function pmOwnerDecorate(){
  main.append(left.card,right.card);shell.append(main);
  const cal=pmCard('Calendario de pagos (Cronograma)','calendar');cal.body.append(pmNode('p','pm-help','Las fichas de propietario no tienen un calendario de cuotas verificable hasta que se registren el contrato, las fechas y el plazo. Puedes registrar el abono sin inventar meses pagados.'));
  shell.append(cal.card);form.replaceChildren(shell);pmFooter(modal,'owner-abono-form');
+ pmUpdateLastPayment(client?.id||'',ownerPaymentDraft?.residenceId);
 }
 // Interceptor único: cualquiera que sea el acceso (Cuotas, Clientes, Fichas, Cobros),
 // el formulario se estiliza al crearse. No dependemos del botón que lo abrió.
