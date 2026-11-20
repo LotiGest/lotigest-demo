@@ -8,7 +8,8 @@ test('no hay limpieza automática al abrir el panel',()=>{
  assert.match(ui,/data-owner-cleanup-open/);
  assert.match(ui,/data-owner-cleanup-save/);
  assert.match(ui,/new Set\(\)/);
- assert.doesNotMatch(ui,/removeOrphanOwnerLinks\(db,[^)]*\)\s*;/);
+ assert.ok(ui.indexOf('removeOrphanOwnerLinks(db,')>ui.indexOf('async function save()'));
+ assert.ok(ui.indexOf('removeOrphanOwnerLinks(db,')<ui.indexOf('const original=contractsPage'));
 });
 test('solo admin sincronizado puede eliminar con respaldo y confirmación',()=>{
  assert.match(ui,/contractIntakeAdmin\(\)/);
