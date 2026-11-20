@@ -172,7 +172,7 @@ function pmSalesDecorate(){
  const form=document.getElementById('multi-payment-form');
  if(!form)return;
  pmActive='sale';pmYear=null;
- const modal=pmModal('Registrar Pago / Abono','Registra un nuevo pago, abono o prima del cliente.');
+ const modal=pmModal('Registrar Pago / Abono','La prima se cobra una sola vez por solar. Una vez cubierta, solo se registran abonos mensuales.');
  const grid=form.querySelector('.form-grid'),searchInput=form.querySelector('#multi-payment-search'),searchLabel=form.querySelector('label[for="multi-payment-search"]'),results=form.querySelector('#multi-payment-results'),selected=form.querySelector('#multi-payment-selected'),total=form.querySelector('#multi-payment-total'),error=form.querySelector('#multi-payment-error');
  if(!modal||!grid||!searchInput||!selected||!results)return;
  const ocr=pmQrOcr(form),fields=pmFields(grid,form);
