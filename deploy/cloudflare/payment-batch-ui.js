@@ -17,8 +17,7 @@ function pmBatchRender(){
   button.type='submit';button.className='btn pm-batch-continue';
   button.dataset.pmBatchContinue='true';button.setAttribute('form',form.id);
   button.textContent='Guardar y registrar otro abono';
-  const target=footer.querySelector('.pm-receipt,.pm-save');
-  if(target)target.before(button);else footer.append(button);
+  footer.append(button);
  }
  const shell=form.querySelector('.pm-shell');
  if(!shell)return;
