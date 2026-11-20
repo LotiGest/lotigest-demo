@@ -109,3 +109,39 @@ test('calendario en verde para adelantos completos y rojo para vencidas, no futu
  assert.match(addon,/dataset\.pmBatchPdf=record\.id/);
  assert.match(addon,/factura fiscal/i);
 });
+
+
+test('abonos de fichas: guarda un recibo independiente y conserva el cliente en la ventana',async()=>{
+ const initial={sales:[],payments:[],ownerPayments:[]};
+ let number=0;
+ const registered=[],opened=[];
+ const form={id:'owner-abono-form',isConnected:true,
+  elements:{period:{dataset:{pmPeriodEdited:'false'},value:'2026-11'},date:{value:'2026-11-20'}},
+  fakeData:{date:'2026-11-18',method:'Efectivo',concept:'Abono a solar',reviewed:'on',period:'2026-11'},
+  querySelectorAll:()=>[{value:'19500',dataset:{ownerStatement:'O1',ownerReference:'group'}}]};
+ const draft={id:'OP0',clientId:'C1',residenceId:'R1',snapshot:JSON.stringify(initial)};
+ const environment={
+  db:initial,paymentDraft:null,ownerPaymentDraft:draft,
+  document:{addEventListener(){},querySelector(){return null},getElementById(){return null}},
+  showModal:()=>null,submitMultiPayment:()=>{},submitOwnerAbono:async()=>{},
+  FormData:class{constructor(f){this.form=f;}*[Symbol.iterator](){yield* Object.entries(this.form.fakeData);}},
+  lotigestOwnerPayments:{createOwnerPayment:(db,data)=>{
+   const receipt={id:'OP-'+(++number),date:data.date,amountCents:1950000};
+   return {receipt,state:{...db,ownerPayments:[receipt,...db.ownerPayments]}};
+  }},
+  cloudWrite:raw=>registered.push(JSON.parse(raw)),cloudFlush:async()=>{},
+  cloudBlocked:false,
+  openOwnerAbono:(id,residenceId)=>opened.push([id,residenceId]),
+  money:n=>'L '+n,toast:()=>{}
+ };
+ const api=new Function(...Object.keys(environment),addon+
+  ';return {submitOwnerAbono,setContinue:value=>pmBatchContinue=value,receipts:()=>pmBatchReceipts,getDb:()=>db};')
+  (...Object.values(environment));
+ api.setContinue(true);await api.submitOwnerAbono(form);
+ assert.deepEqual(opened,[['C1','R1']]);
+ assert.equal(registered.length,1);
+ assert.equal(api.getDb().ownerPayments.length,1);
+ assert.equal(api.receipts()[0].kind,'owner');
+ assert.equal(api.receipts()[0].date,'2026-11-18');
+ assert.equal(api.receipts()[0].id,'OP-1');
+});
