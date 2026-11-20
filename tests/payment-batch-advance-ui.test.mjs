@@ -106,6 +106,6 @@ test('calendario en verde para adelantos completos y rojo para vencidas, no futu
  assert.match(modern,/hasOverdue\?'late'/);
  assert.match(modern,/verde con ✓: cuota cubierta con adelanto/i);
  assert.match(build,/payment-batch-ui\.js/);
- assert.match(addon,/data\.pmBatchPdf=record\.id/);
- assert.match(addon,/Factura fiscal/);
+ assert.match(addon,/dataset\.pmBatchPdf=record\.id/);
+ assert.match(addon,/factura fiscal/i);
 });
