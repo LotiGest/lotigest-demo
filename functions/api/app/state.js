@@ -1,5 +1,5 @@
 import {validateNewMonthlyPayments} from '../../../monthly-payment-rules.mjs';
-import {validateOwnerPayments} from '../../../owner-payments.mjs';
+import {validateOwnerPayments,ownerPrimaRecordedLots} from '../../../owner-payments.mjs';
 import {correctConfirmedBlocks} from './block-corrections.js';
 import {sellerCatalog} from './catalog.js';
 import {json,hash,sameOrigin,actor,body,failure} from './shared.js';
@@ -100,6 +100,22 @@ export function validate(state){
  try{validateOwnerPayments(state);}catch(e){invalid(e.message);}
  for(const e of state.cashEntries||[]){if(!['income','expense'].includes(e.kind))invalid('Tipo de movimiento financiero inválido.');cents(e.amount,'Movimiento financiero',1);date(e.date,'Fecha del movimiento');}
 }
+// Validación independiente de la interfaz: impedir primas repetidas por solar,
+ // incluso si se intenta enviar el estado directamente al servidor.
+function validateNewPrimaPayments(previous,next){
+ const earlier=new Map((previous?.ownerPayments||[]).map(p=>[p.id,JSON.stringify(p)]));
+ const staged={...next,ownerPayments:[...(previous?.ownerPayments||[])]};
+ for(const p of next.ownerPayments||[]){
+  if(earlier.get(p.id)===JSON.stringify(p))continue; // Los recibos anteriores se conservan intactos.
+  if(/^(?:prima|pago de prima)(?:$|[\\s·:–-])/i.test(String(p.concept||'').trim())){
+   const refs=(p.allocations||[]).flatMap(a=>a.references||[]);
+   if(!refs.length||refs.some(r=>!r.lotId))throw Error('Para registrar una prima, confirma primero los solares exactos de la ficha.');
+   const ids=[...new Set(refs.map(r=>r.lotId))];
+   if(ownerPrimaRecordedLots(staged,p.clientId,p.residenceId,ids).length)throw Error('La prima ya se registró para uno de estos solares. Solo se permiten abonos posteriores.');
+  }
+  staged.ownerPayments.push(p);
+ }
+}
 export function encode(state){
  const entries=[],shape={};
  const add=(key,index,value)=>{const raw=JSON.stringify(value);for(let n=0;n<raw.length;n+=32768)entries.push({key:JSON.stringify([key,index,n/32768]),payload:raw.slice(n,n+32768)});};
@@ -128,7 +144,7 @@ export async function onRequest({request,env}){
   const prior=await db.prepare('SELECT revision,digest FROM app_mutations WHERE id=?').bind(mutation).first();
   if(prior)return prior.digest===digest?json({revision:prior.revision,mutation}):json({error:'La solicitud ya existe con otros datos.'},409);
   const old=await snapshot(db);if(old.revision!==revision)return json({error:'Otra sesión guardó cambios. Descarga tu respaldo pendiente y vuelve a cargar los datos del servidor antes de continuar.'},409);
-  try{validateNewMonthlyPayments(decode(old.rows),state);}catch(e){invalid(e.message);}
+  try{const previous=decode(old.rows);validateNewMonthlyPayments(previous,state);validateNewPrimaPayments(previous,state);}catch(e){invalid(e.message);}
   const priorShape=JSON.parse(old.rows.find(r=>r.key==='$shape')?.payload||'{}');
   for(const collection of ['historicalPayments','historicalContracts','ownershipStatements','ownerPayments'])if(priorShape[collection]>0&&!Array.isArray(state[collection]))return json({error:'Esta copia no contiene el historial guardado. Carga los datos del servidor antes de guardar.'},409);
   const next=encode(state),previous=new Map(old.rows.map(r=>[r.key,r.payload])),keys=new Set(next.map(r=>r.key));
