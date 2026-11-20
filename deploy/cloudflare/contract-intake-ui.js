@@ -53,7 +53,7 @@ function contractIntakeManualFields(){
  const stage=[1,2].includes(Number(v.stage))?String(v.stage):'';
  const eligible=(residenceLots()||[]).filter(l=>l.type!=='private'&&l.status!=='private'&&!db.sales.some(s=>s.lotId===l.id)&&
   !l.pendingContractId&&!(db.contractTexts||[]).some(d=>d.lotId===l.id&&d.status!=='voided')&&
-  !activeReservation(l.id)&&(!l.ownerClientId||!customer||l.ownerClientId===customer.id));
+  !activeReservation(l.id)&&(!l.ownerClientId||(customer&&l.ownerClientId===customer.id)));
  const selected=eligible.find(l=>l.id===v.lotId&&String(l.stage)===stage)||null;
  const extra=draft?.extraLots||[];
  const all=[selected,...extra.map(r=>eligible.find(l=>l.id===r.lotId)||null)];
@@ -282,7 +282,7 @@ function contractIntakeOpen(clientId='',mode='ocr'){
  occupation:existing.occupation||'',address:existing.address||'',phone:existing.phone||''
  }:{},readVersion:0,busy:false};
  const content=manual?
-  '<p>Completa la ficha de contrato escribiendo los datos directamente. Se utilizará el cliente seleccionado; revisa etapa, bloque, solar, precio, prima pactada y plazo antes de guardar.</p>'+
+  '<p>Busca un cliente por nombre o identidad. Al elegir su solar, LOTIGEST recupera automáticamente las medidas y el precio. Solo indica prima, plazo en meses y fechas.</p>'+
   '<div id="contract-intake-review">'+contractIntakeFields()+'</div>':
   '<p>Primer paso: toma una foto del contrato con la cámara o elige una foto ya guardada en tu teléfono.</p>'+
   '<div class="field-group"><span>Imagen del contrato</span>'+
@@ -389,7 +389,7 @@ function contractIntakeData(form){
  const values=Object.fromEntries(new FormData(form));
  values.identity=contractIdentityFormat(values.identity);
  for(const key of ['areaVaras','areaM2','price','down','financed','monthly','months','pricePerVara']){
-  values[key]=values[key]===''?null:Number(values[key]);
+  values[key]=values[key]===undefined||values[key]===''?null:Number(values[key]);
  }
  if(Object.keys(values).some(key=>/^extraLotId_/.test(key))){
   values.lots=[{lotId:values.lotId,stage:values.stage,price:values.solarPrice_0,down:values.solarDown_0},...Object.keys(values).filter(key=>/^extraLotId_/.test(key)).map(key=>{const i=key.split('_')[1];return {lotId:values[key],stage:values['extraStage_'+i],price:values['solarPrice_'+(Number(i)+1)],down:values['solarDown_'+(Number(i)+1)]};})];
@@ -434,6 +434,32 @@ async function contractIntakeSave(form){
  const original=contractIntakeWorking,alert=document.getElementById('contract-intake-alert'),button=document.getElementById('contract-intake-save');
  if(!original||!form||original.busy||!contractIntakeAdmin())throw Error('La sesión está ocupada o sin autorización.');
  const data=contractIntakeData(form);
+ if(original.mode==='manual'){
+  // El inventario es la única fuente autorizada del precio. Nunca confiar en
+  // el precio enviado por campos HTML (incluso los campos ocultos).
+  const entries=Array.isArray(data.lots)&&data.lots.length?data.lots:[{lotId:data.lotId,stage:data.stage,down:data.down}];
+  const chosen=entries.map(entry=>{
+   const lot=db.lots.find(l=>l.id===entry.lotId&&l.residenceId===original.residenceId);
+   if(!lot)throw Error('Selecciona un solar válido de Terrenos y Predios.');
+   const price=Number(lot.price);
+   if(!(price>0&&Number.isFinite(price)))throw Error('El solar de etapa '+lot.stage+', bloque '+lot.block+' no tiene precio. Completa su precio en Terrenos y Predios.');
+   return {lot,price,down:entry.down};
+  });
+  const cents=v=>Math.round(Number(v)*100);
+  if(chosen.some(({down,price})=>down==null||down===''||!Number.isFinite(Number(down))||Number(down)<0||Number(down)>=price))
+   throw Error('Revisa la prima pactada de cada solar: debe ser menor que el precio del inventario.');
+  const fullPrice=chosen.reduce((total,x)=>total+cents(x.price),0);
+  const fullDown=chosen.reduce((total,x)=>total+cents(x.down),0);
+  if(!Number.isSafeInteger(fullPrice)||!Number.isSafeInteger(fullDown))throw Error('Importes demasiado grandes.');
+  const months=Number(data.months);
+  if(!Number.isInteger(months)||months<1||months>360)throw Error('Ingresa el plazo en meses (1 a 360).');
+  data.price=fullPrice/100;data.down=fullDown/100;
+  data.financed=(fullPrice-fullDown)/100;
+  data.monthly=Math.round((fullPrice-fullDown)/months)/100;
+  const first=chosen[0].lot;
+  Object.assign(data,{lotId:first.id,stage:first.stage,block:first.block,number:String(first.sourceNumber||first.number||'')});
+  if(chosen.length>1)data.lots=chosen.map(x=>({lotId:x.lot.id,stage:x.lot.stage,price:x.price,down:Number(x.down)}));
+ }
  const received=original.mode==='manual'&&data.primaPaid==='on';
  if(data.date)buyerDate(data.date,'fecha del contrato');
  if(data.firstDueDate&&(!data.date||buyerDate(data.firstDueDate,'primera cuota')<data.date))throw Error('La fecha de la primera cuota no puede ser anterior a la fecha del contrato.');
