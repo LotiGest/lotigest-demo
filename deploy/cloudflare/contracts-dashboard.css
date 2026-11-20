@@ -82,3 +82,21 @@ body.lotigest-dark .lotigest-shell .ct-topbar .ct-top-actions .btn-primary{backg
  html body #app .lotigest-shell .ct-topbar .ct-top-residence select{width:140px;font-size:12px}
  html body #app .lotigest-shell .ct-topbar .ct-top-actions>.btn{min-height:36px}
 }
+
+
+/* Revisión de asociaciones de propietarios sin contrato */
+.owner-cleanup-card{padding:15px;margin:10px 0;border:1px solid #d5e5d9;border-radius:12px}
+.owner-cleanup-card h3{margin:0 0 6px}
+#owner-cleanup-content{display:grid;gap:12px;max-width:100%}
+#owner-cleanup-content .owner-cleanup-list{display:grid;gap:6px;max-height:280px;overflow:auto;overscroll-behavior:contain;border:1px solid #d5e4d9;border-radius:9px;padding:8px}
+#owner-cleanup-content .owner-cleanup-item{display:flex;align-items:flex-start;gap:10px;padding:8px;border:1px solid #e0eae3;border-radius:8px;background:#f8fbf9;color:#1f4530}
+#owner-cleanup-content .owner-cleanup-item input{flex:none;margin-top:6px;width:17px;height:17px}
+#owner-cleanup-content .owner-cleanup-item span{display:grid;gap:3px}
+#owner-cleanup-content .owner-cleanup-item small{display:block;font-size:12px;overflow-wrap:anywhere}
+#owner-cleanup-content .owner-cleanup-actions{display:flex;flex-wrap:wrap;gap:6px}
+#owner-cleanup-content .owner-cleanup-confirm{display:grid;gap:10px;padding:12px;border:1px solid #d9e2dc;border-radius:10px;background:#f8fbfa}
+#owner-cleanup-content .owner-cleanup-confirm label{display:grid;gap:4px;font-size:13px}
+#owner-cleanup-content .owner-cleanup-confirm label:has(input[type=checkbox]){display:flex;align-items:center;gap:8px}
+#owner-cleanup-content input[type=search],#owner-cleanup-content input#owner-cleanup-code{width:100%;max-width:100%;box-sizing:border-box;padding:9px;border:1px solid #bdd2c2;border-radius:8px;color:#183c28;background:#fff}
+#owner-cleanup-error{color:#b63640;font-size:13px;font-weight:650}
+@media(max-width:560px){.owner-cleanup-card{padding:12px}#owner-cleanup-content .owner-cleanup-confirm{padding:10px}}
