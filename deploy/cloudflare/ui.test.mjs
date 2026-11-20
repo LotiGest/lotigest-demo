@@ -68,6 +68,9 @@ test('calendario histórico permite ver y seleccionar meses de 2024 aunque no ex
   app.click('[data-action=manual-history-person]');
   assert.ok(app.d.querySelector('#manual-history-form'),'Abrir registro histórico');
   assert.equal(app.d.querySelectorAll('#pm-history-calendar-body [data-pm-historical-month]').length,12);
+  app.change('#manual-history-form [name=date]','2024-03-17');
+  assert.equal(app.d.querySelector('#manual-history-form [name=period]').value,'2024-03','La fecha de un abono atrasado propone su mes');
+  assert.equal(app.d.querySelector('[data-pm-historical-month="2024-03"]').getAttribute('aria-pressed'),'true');
   app.change('#pm-history-year-select','2024');
   assert.equal(app.d.querySelectorAll('#pm-history-calendar-body [data-pm-historical-month]').length,12);
   const feb=app.d.querySelector('[data-pm-historical-month="2024-02"]');
@@ -83,6 +86,12 @@ test('calendario histórico permite ver y seleccionar meses de 2024 aunque no ex
   feb.click();
   assert.equal(app.d.querySelector('#manual-history-form [name=period]').value,'2024-02');
   assert.equal(app.d.querySelector('[data-pm-historical-month="2024-02"]').getAttribute('aria-pressed'),'true');
+  app.change('#manual-history-form [name=date]','2024-04-10');
+  assert.equal(app.d.querySelector('#manual-history-form [name=period]').value,'2024-02','La corrección manual prevalece sobre la fecha');
+  app.click('[data-pm-history-type="PRIMA"]');
+  assert.equal(app.d.querySelector('#manual-history-form [name=period]').value,'','La prima no se declara cuota');
+  app.click('[data-pm-history-type="ABONO"]');
+  assert.equal(app.d.querySelector('#manual-history-form [name=period]').value,'2024-04','Al volver a Abono propone el mes de la fecha');
   assert.deepEqual(server.errors,[]);
  }finally{app.close();}
 });
