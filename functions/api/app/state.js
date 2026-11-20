@@ -107,7 +107,7 @@ function validateNewPrimaPayments(previous,next){
  const staged={...next,ownerPayments:[...(previous?.ownerPayments||[])]};
  for(const p of next.ownerPayments||[]){
   if(earlier.get(p.id)===JSON.stringify(p))continue; // Los recibos anteriores se conservan intactos.
-  if(/^(?:prima|pago de prima)(?:$|[\\s·:–-])/i.test(String(p.concept||'').trim())){
+  if(/^(?:prima|pago de prima)(?:$|[\s·:–-])/i.test(String(p.concept||'').trim())){
    const refs=(p.allocations||[]).flatMap(a=>a.references||[]);
    if(!refs.length||refs.some(r=>!r.lotId))throw Error('Para registrar una prima, confirma primero los solares exactos de la ficha.');
    const ids=[...new Set(refs.map(r=>r.lotId))];
