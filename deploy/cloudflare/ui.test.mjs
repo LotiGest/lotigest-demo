@@ -151,6 +151,55 @@ test('recorrido cliente, terreno, venta crédito, abono, recibo histórico y fin
  const cache=app.cache();app.close();app=boot(server,cache);await until(()=>app.d.querySelector('[data-page=clients]'),'sesión restaurada');app.click('[data-page=clients]');assert.ok(app.d.body.textContent.includes('CLIENTE AUDITORIA'));data=(await server.read()).state;assert.equal(data.sales[0].id,sale.id);assert.deepEqual(data.payments.find(p=>p.amount===5000).receiptInfo,receipt);assert.deepEqual(server.errors,[]);
  }finally{app.close();}
 });
+test('cronograma muestra último mes cubierto, siguiente cuota y recibos por tres mensualidades atrasadas, sin contar la prima',async()=>{
+ const server=await setup();let app=boot(server);
+ try{
+  await login(app,server);
+  app.click('[data-page=clients]');app.click('[data-action=new-client]');
+  app.submit('#modal-form',{name:'CLIENTE CRONOGRAMA HISTORICO',identity:'0801199900931',phone:'99999931'});await saved(app);
+  const client=(await server.read()).state.clients.find(c=>c.name==='CLIENTE CRONOGRAMA HISTORICO');
+  app.click('[data-page=lots]');app.click('[data-action=new-lot]');
+  app.submit('#modal-form',{id:'HISTORY-LOT-93',block:'HIST',areaMode:'manual',area:'220',price:'90000',status:'available'});await saved(app);
+  app.click('[data-page=sales]');app.click('[data-action=new-sale]');
+  app.submit('#modal-form',{clientId:client.id,lotId:'HISTORY-LOT-93',type:'credit',downPayment:'30000',months:'12',date:'2026-01-15'});
+  await saved(app);
+  let state=(await server.read()).state,sale=state.sales.find(x=>x.lotId==='HISTORY-LOT-93');
+  assert.ok(sale);
+  assert.equal(state.payments.filter(p=>p.saleId===sale.id&&p.amount===30000).length,1,'prima guardada una sola vez');
+  app.click('[data-page=payments]');app.click('[data-action=payment-options]');
+  app.click('[data-action=multi-payment-add][data-id="'+sale.id+'"]');
+  app.input('#pm-amount-slot input','15000');
+  app.submit('#multi-payment-form',{date:'2026-11-17',concept:'Tres meses atrasados'});
+  await saved(app);
+  state=(await server.read()).state;
+  const installmentPayment=state.payments.find(p=>p.saleId===sale.id&&p.amount===15000);
+  assert.ok(installmentPayment);
+  assert.deepEqual(installmentPayment.receiptInfo.allocations.filter(a=>a.number).map(a=>a.number),[1,2,3]);
+  app.click('[data-action=close-modal]');
+  app.click('[data-page=payments]');app.click('[data-action=payment-options]');
+  app.click('[data-action=multi-payment-add][data-id="'+sale.id+'"]');
+  const calendar=app.d.querySelector('#pm-calendar-body');
+  assert.match(calendar.textContent,/Última cuota cubierta/);
+  assert.match(calendar.textContent,/Cuota 3 de 12/);
+  assert.match(calendar.textContent,/Siguiente cuota por pagar/);
+  assert.match(calendar.textContent,/Cuota 4 de 12/);
+  assert.match(app.d.querySelector('#pm-summary').textContent,/30,000/,'la prima sigue contabilizada aparte');
+  for(const month of ['02','03','04']){
+   app.click('[data-pm-month="2026-'+month+'"]');
+   const panel=app.d.querySelector('#pm-calendar-history');
+   assert.match(panel.textContent,/17\/11\/2026|2026-11-17/,'fecha real del abono atrasado');
+   const pdf=panel.querySelector('[data-action="payment-receipt-pdf"]');
+   const preview=panel.querySelector('[data-action="receipt-preview"]');
+   assert.equal(pdf?.dataset.id,installmentPayment.id);
+   assert.equal(preview?.dataset.id,installmentPayment.id);
+   assert.ok(!panel.textContent.includes('Prima inicial'),'la prima no se asigna como mensualidad');
+  }
+  app.click('[data-pm-month="2026-05"]');
+  assert.match(app.d.querySelector('#pm-calendar-history').textContent,/Todavía no hay un abono/);
+  assert.deepEqual(server.errors,[]);
+ }finally{app.close();}
+});
+
 test('un cambio sin red se conserva y el conflicto puede resolverse cargando la versión del servidor',async()=>{
  const server=await setup();let app=boot(server);try{await login(app,server);server.offline=true;app.click('[data-page=clients]');app.click('[data-action=new-client]');app.submit('#modal-form',{name:'PENDIENTE SIN RED',identity:'0801199900002',phone:'99999998'});await until(()=>app.d.querySelector('#lotigest-cloud-status')?.textContent.includes('SIN RED'),'pendiente');const cache=app.cache();app.close();server.offline=false;app=boot(server,cache);await saved(app);assert.ok((await server.read()).state.clients.some(c=>c.name==='PENDIENTE SIN RED'));
  const before=await server.read(),next=structuredClone(before.state);next.company.name='CAMBIO DE OTRA SESION';assert.equal((await server.write({state:next,revision:before.revision,mutation:crypto.randomUUID()})).status,200);
