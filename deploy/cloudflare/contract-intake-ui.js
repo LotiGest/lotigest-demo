@@ -345,7 +345,7 @@ function contractIntakeChooseMethod(){
  showModal('Nuevo contrato',
   '<p>Elige cómo ingresar la ficha de esta residencial. En ambos casos podrás vincular etapa, bloque y uno o varios solares.</p>'+
   '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;margin:14px 0">'+
-  '<button type="button" class="card" data-contract-intake-method="manual" style="padding:19px;text-align:left;cursor:pointer;color:inherit;border:1px solid var(--line);background:var(--green-soft)">'+
+  '<button type="button" class="card" data-contract-intake-method="manual" style="padding:19px;text-align:left;cursor:pointer;color:inherit;border:1px solid var(--line);border-left:4px solid var(--green);background:transparent">'+
   '<strong style="display:block;font-size:17px;margin-bottom:8px">✍ Llenar datos manualmente</strong>'+
   '<span style="display:block;font-size:13px;line-height:1.6">Crear cliente nuevo o elegir uno existente. Ingresar nombre, DNI, teléfono, dirección, etapa, bloque, solar y datos del contrato.</span></button>'+
   '<button type="button" class="card" data-contract-intake-method="ocr" style="padding:19px;text-align:left;cursor:pointer;color:inherit;border:1px solid var(--line)">'+
