@@ -76,15 +76,18 @@ function contractIntakeManualFields(){
   (type==='number'?'min="0" step="'+(key==='months'?'1':'0.01')+'" ':'')+
   (required?'required ':'')+(readOnly?'readonly ':'')+'style="width:100%;min-width:0"></label>';
  const info=['name','identity','phone','address','rtn','maritalStatus','occupation'];
- const person=customer?'<section class="full notice-card"><strong>'+val(customer.name)+'</strong><p>DNI: '+val(customer.identity||'Pendiente')+
-  ' · Tel.: '+val(customer.phone||'Sin teléfono')+' · Dirección: '+val(customer.address||'Sin dirección')+'</p>'+
-  '<small>Datos recuperados de Clientes; no se creará una persona duplicada.</small></section>'+
-  info.map(k=>{
-   const saved=customer[k]||v[k]||'';
-   return (k==='identity'&&!saved)?field('Completar identidad del cliente','identity','text',true,false,''):
-    (['phone','address'].includes(k)&&!saved?field(k==='phone'?'Teléfono':'Dirección',k,'text',false,false,''):
-    hidden(k,saved));
-  }).join(''):'<div class="full"><strong>Cliente nuevo</strong><p class="sm muted">Solo llena estos datos si todavía no está registrado.</p></div>'+
+ const person=customer?'<section class="full notice-card lg-contract-customer-loaded">'+
+  '<strong>'+val(customer.name)+'</strong>'+
+  '<p><b>Identidad:</b> '+val(customer.identity||'No registrada')+
+  ' · <b>Teléfono:</b> '+val(customer.phone||'No registrado')+
+  ' · <b>Dirección:</b> '+val(customer.address||'No registrada')+'</p>'+
+  '<p><b>RTN:</b> '+val(customer.rtn||'No registrado')+
+  ' · <b>Estado civil:</b> '+val(customer.maritalStatus||'No registrado')+
+  ' · <b>Ocupación:</b> '+val(customer.occupation||'No registrada')+'</p>'+
+  '<small>Datos copiados directamente de Clientes. No debes adjuntar documentos ni volver a ingresar esta información; si faltan datos puedes completarlos posteriormente en Clientes.</small></section>'+
+  // Un dato faltante se conserva vacío; nunca se toma de la persona anterior.
+  info.map(k=>hidden(k,customer[k]??'')).join(''):
+  '<div class="full"><strong>Cliente nuevo</strong><p class="sm muted">Solo llena estos datos si todavía no está registrado.</p></div>'+
   field('Nombre completo','name','text',true)+field('Identidad / DNI (13 dígitos)','identity','text',true)+
   field('Teléfono (+504 / +1)','phone')+field('Dirección','address')+
   ['rtn','maritalStatus','occupation'].map(k=>hidden(k,v[k]||'')).join('');
@@ -271,7 +274,7 @@ document.addEventListener('click',event=>{
  const draft=contractIntakeWorking;
  draft.preferredClientId=selected?.id||'';
  draft.clientQuery='';
- for(const key of ['name','identity','phone','address','rtn','maritalStatus','occupation'])draft.values[key]=selected?.[key]||'';
+ for(const key of ['name','identity','phone','address','rtn','maritalStatus','occupation'])draft.values[key]=selected?.[key]??'';
  // Al cambiar de cliente no arrastrar accidentalmente el terreno ni el precio del anterior.
  Object.assign(draft.values,{lotId:'',block:'',number:'',solarPrice_0:'',down:'',solarDown_0:''});
  draft.extraLots=[];
@@ -518,6 +521,16 @@ async function contractIntakeSave(form){
  const original=contractIntakeWorking,alert=document.getElementById('contract-intake-alert'),button=document.getElementById('contract-intake-save');
  if(!original||!form||original.busy||!contractIntakeAdmin())throw Error('La sesión está ocupada o sin autorización.');
  const data=contractIntakeData(form);
+ // Para un cliente seleccionado, usar exclusivamente los datos de su ficha.
+ // El formulario no exige volver a capturar DNI, dirección ni fotos.
+ if(original.mode==='manual'&&data.clientId){
+  const existing=db.clients.find(cl=>cl.id===data.clientId);
+  if(!existing||existing.id!==original.preferredClientId)
+   throw Error('El cliente seleccionado cambió. Vuelve a buscarlo en Clientes.');
+  for(const key of ['name','identity','phone','address','rtn','maritalStatus','occupation'])
+   data[key]=existing[key]??'';
+  data.existingClientVerified=true;
+ }
  if(original.mode==='manual'){
   // El precio del inventario sirve como propuesta, pero cada contrato puede
   // negociar su propio precio. Nunca modificar lot.price ni aceptar NaN.
@@ -589,7 +602,7 @@ async function contractIntakeSave(form){
    if(target.ownerClientId&&target.ownerClientId!==client.id)throw Error('Un solar ya está asignado a otro cliente; verifica la identidad.');
    const {rawText:sourceOCR,...structuredFields}=fields;
    // Las claves auxiliares del formulario no forman parte de la descripción.
-   for(const k of Object.keys(structuredFields))if(/^(?:extra|solarPrice_|solarDown_|primaPaid$|primaDate$|primaMethod$|primaRef$)/.test(k))delete structuredFields[k];
+   for(const k of Object.keys(structuredFields))if(/^(?:extra|solarPrice_|solarDown_|primaPaid$|primaDate$|primaMethod$|primaRef$|existingClientVerified$)/.test(k))delete structuredFields[k];
    const record={id:(original.mode==='manual'?'CM-':'OCR-')+crypto.randomUUID(),clientId:client.id,lotId:lot.id,saleId:'',residenceId:original.residenceId,
     title:'FICHA CONTRACTUAL DE '+String(client.name).slice(0,85),pages:original.mode==='manual'?[]:[{number:1,text:String(data.rawText||'').slice(0,50000),confidence:original.values._confidence??null}],
     structured:{...structuredFields,identity:contractIdentityFormat(client.identity),lotId:lot.id,stage:lot.stage??null,

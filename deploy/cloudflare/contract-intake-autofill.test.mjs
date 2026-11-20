@@ -137,3 +137,85 @@ test('cambiar de solar no arrastra el precio ni la prima del solar anterior',()=
  assert.equal(draft.values.down,'');
  assert.equal(draft.values.primaPaid,'off');
 });
+
+
+test('cliente seleccionado muestra su ficha completa sin pedir documentos ni campos por rellenar',()=>{
+ const db=base();
+ Object.assign(db.clients[0],{identity:'',phone:'',address:'',rtn:'',maritalStatus:'',occupation:''});
+ const draft={mode:'manual',preferredClientId:'C',values:{stage:'1',lotId:'L1',identity:'DNI ANTIGUO DE OTRA PERSONA',phone:'OTRO TELÉFONO'},extraLots:[]};
+ const env={contractIntakeWorking:draft,db,residence:()=>db.residences[0],residenceLots:()=>db.lots,
+  getClient:id=>db.clients.find(c=>c.id===id),getLot:id=>db.lots.find(l=>l.id===id),
+  activeReservation:()=>null,document:{addEventListener(){}},esc:v=>String(v??'')};
+ const render=new Function(...Object.keys(env),fieldsCode+';return contractIntakeManualFields;')(...Object.values(env));
+ const html=render();
+ assert.match(html,/CLIENTE FICTICIO/);
+ assert.match(html,/Identidad:<\/b> No registrada/);
+ assert.match(html,/RTN:<\/b> No registrado/);
+ assert.match(html,/Teléfono:<\/b> No registrado/);
+ assert.match(html,/Dirección:<\/b> No registrada/);
+ assert.match(html,/name="clientId" value="C"/);
+ assert.match(html,/name="identity" value=""/);
+ assert.doesNotMatch(html,/Completar identidad del cliente/);
+ assert.doesNotMatch(html,/DNI ANTIGUO DE OTRA PERSONA|OTRO TELÉFONO/);
+ assert.doesNotMatch(html,/type="file"|capture="environment"|Elegir de galería/);
+});
+
+test('al pulsar el resultado de búsqueda copia los datos del cliente seleccionado a los cuatro pasos',()=>{
+ const db=base();
+ const draft={mode:'manual',residenceId:'R',preferredClientId:'',
+  values:{date:'2026-11-20',stage:'1',name:'CLIENTE EQUIVOCADO',identity:'1111111111111'},extraLots:[]};
+ const listeners={};const review={innerHTML:''};
+ const document={addEventListener:(type,fn)=>(listeners[type]??=[]).push(fn),
+  getElementById:id=>id==='contract-intake-review'?review:null};
+ const env={contractIntakeWorking:draft,db,document,residence:()=>db.residences[0],
+  residenceLots:()=>db.lots,getClient:id=>db.clients.find(c=>c.id===id),
+  getLot:id=>db.lots.find(l=>l.id===id),activeReservation:()=>null,
+  esc:v=>String(v??''),contractIntakeFields:()=>String(draft.values.name)};
+ new Function(...Object.keys(env),fieldsCode)(...Object.values(env));
+ const handler=listeners.click.find(fn=>fn.toString().includes('[data-contract-client-pick],[data-contract-client-clear]'));
+ assert.ok(handler);
+ const choice={dataset:{contractClientPick:'C'}};
+ handler({target:{closest:selector=>selector==='[data-contract-client-pick],[data-contract-client-clear]'?choice:null},
+  preventDefault(){},stopImmediatePropagation(){}});
+ assert.equal(draft.preferredClientId,'C');
+ assert.equal(draft.values.name,db.clients[0].name);
+ assert.equal(draft.values.identity,db.clients[0].identity);
+ assert.equal(draft.values.phone,db.clients[0].phone);
+ assert.equal(draft.values.address,db.clients[0].address);
+ assert.equal(draft.values.date,'2026-11-20');
+ assert.equal(review.innerHTML,db.clients[0].name);
+ assert.equal(draft.extraLots.length,0);
+});
+
+test('cliente ya registrado sin DNI se puede vincular sin documentos y sin duplicar su ficha',async()=>{
+ const x=setup();
+ x.db().clients[0].identity='';
+ x.db().clients[0].phone='';
+ x.db().clients[0].address='';
+ x.fields.identity='0801199000021'; // Una entrada anterior nunca debe suplantar la ficha.
+ x.fields.phone='99999999';
+ x.fields.address='DIRECCIÓN ANTERIOR';
+ await x.save({fields:x.fields});
+ const db=x.db();
+ assert.equal(db.clients.length,1);
+ assert.equal(db.contractTexts.length,1);
+ assert.equal(db.contractTexts[0].clientId,'C');
+ assert.equal(db.contractTexts[0].structured.identity,'');
+ assert.equal(db.contractTexts[0].structured.phone,'');
+ assert.equal(db.contractTexts[0].structured.address,'');
+ assert.equal(db.contractTexts[0].structured.existingClientVerified,undefined);
+ assert.equal(db.lots[0].ownerClientId,'C');
+ assert.equal(db.payments.length,0);
+});
+
+test('un cliente nuevo sigue exigiendo identidad válida y no se puede suplantar otro cliente',async()=>{
+ const x=setup();
+ x.fields.clientId='';
+ x.fields.identity='';
+ await assert.rejects(x.save({fields:x.fields}),/DNI debe contener exactamente 13 dígitos/);
+ assert.equal(x.writes(),0);
+ const y=setup();
+ y.fields.clientId='C-inventado';
+ await assert.rejects(y.save({fields:y.fields}),/cliente seleccionado cambió/);
+ assert.equal(y.writes(),0);
+});
