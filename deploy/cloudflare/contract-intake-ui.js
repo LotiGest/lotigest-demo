@@ -79,7 +79,7 @@ function contractIntakeManualFields(){
   ['rtn','maritalStatus','occupation'].map(k=>hidden(k,v[k]||'')).join('');
  const term=Number(v.months)||0;
  const prices=all.map(l=>Number(l?.price)||0);
- const downs=multi?[v.solarDown_0,...extra.map((r,i)=>v['solarDown_'+(i+1)]??r.down)]:
+ const downs=multi?[v.solarDown_0??v.down,...extra.map((r,i)=>v['solarDown_'+(i+1)]??r.down)]:
   [v.down];
  const total=all.every(Boolean)&&prices.every(n=>n>0)?prices.reduce((a,b)=>a+b,0):null;
  const prima=downs.length&&downs.every(x=>x!==null&&x!==undefined&&x!==''&&Number.isFinite(Number(x)))?downs.reduce((a,b)=>a+Number(b),0):null;
@@ -199,7 +199,7 @@ document.addEventListener('click',event=>{
  const selected=choice.dataset.contractClientPick?getClient(choice.dataset.contractClientPick):null;
  const draft=contractIntakeWorking;
  draft.preferredClientId=selected?.id||'';
- draft.clientQuery=selected?.name||'';
+ draft.clientQuery='';
  for(const key of ['name','identity','phone','address','rtn','maritalStatus','occupation'])draft.values[key]=selected?.[key]||'';
  if(selected){
   const assigned=residenceLots().filter(l=>l.ownerClientId===selected.id&&!db.sales.some(s=>s.lotId===l.id)&&!l.pendingContractId);
@@ -208,7 +208,6 @@ document.addEventListener('click',event=>{
   }
  }else draft.values.lotId='';
  document.getElementById('contract-intake-review').innerHTML=contractIntakeFields();
- contractIntakeClientSearch(draft.clientQuery);
 },true);
 
 function contractIntakeFields(){
