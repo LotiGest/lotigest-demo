@@ -64,12 +64,12 @@ test('Presionar Enter busca al cliente sin enviar accidentalmente el contrato',(
  const env={contractIntakeWorking:{mode:'manual',values:{},extraLots:[]},
   db:{clients:[{id:'C',name:'CLIENTE DE PRUEBA',identity:'0801 1990 00021'}]},
   document:{addEventListener:(event,fn)=>{(handlers[event]??=[]).push(fn);},
-   getElementById:id=>id==='contract-client-results'?results:null,
+   getElementById:id=>id==='contract-intake-client-results'?results:null,
    querySelectorAll:()=>[button]},esc:x=>String(x??'')};
  new Function(...Object.keys(env),source+';return true')(...Object.values(env));
- const key=handlers.keydown.find(fn=>fn.toString().includes("contract-client-search"));
+ const key=handlers.keydown.find(fn=>fn.toString().includes("contract-intake-client-search"));
  let prevented=false;
- key({key:'Enter',target:{id:'contract-client-search',value:'0801'},preventDefault(){prevented=true;},stopImmediatePropagation(){}});
+ key({key:'Enter',target:{id:'contract-intake-client-search',value:'0801'},preventDefault(){prevented=true;},stopImmediatePropagation(){}});
  assert.equal(prevented,true);
  assert.equal(button.clicked,true);
  assert.match(results.innerHTML,/CLIENTE DE PRUEBA/);
