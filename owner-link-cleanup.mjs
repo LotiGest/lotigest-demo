@@ -57,7 +57,7 @@ export function removeOrphanOwnerLinks(state,selectedIds,residenceId=null){
  const review=auditOrphanOwnerLinks(state,residenceId);
  const allowed=new Set(review.candidates.map(x=>x.lotId));
  for(const id of unique)if(!allowed.has(id))throw Error('El solar '+id+' ya no es seguro para desvincular.');
- const next=structuredClone(state);let changed=0;
+ const next=JSON.parse(JSON.stringify(state));let changed=0;
  for(const lot of next.lots){
   if(!unique.has(lot.id))continue;
   delete lot.ownerClientId;
