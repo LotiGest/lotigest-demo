@@ -54,3 +54,18 @@ export function assertPrimaCovered(state, lotIds) {
   }
   return true;
 }
+
+export function assertPrimaAmount(state, lotIds, amountCents) {
+  const ids=[...new Set(lotIds || [])];
+  if(!ids.length) throw Error('Selecciona el solar para registrar la prima.');
+  const states=ids.map(id=>lotPrimaStatus(state,id));
+  // Se puede recuperar una prima histórica sin contrato confirmado; eso NO habilita cuotas.
+  if(states.every(s=>s.known)){
+    const remaining=states.reduce((n,s)=>n+s.remainingCents,0);
+    if(!remaining) throw Error('La prima ya está cubierta. Registra los pagos posteriores como abonos mensuales.');
+    if(amountCents>remaining) throw Error('El pago de prima supera lo pendiente (L '
+      +(remaining/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})
+      +'). Registra primero la prima y luego la mensualidad en recibos separados.');
+  }
+  return true;
+}
