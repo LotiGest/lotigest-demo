@@ -8,6 +8,7 @@ function contractIntakeFormatMoney(n){return Number(n||0).toLocaleString('es-HN'
 function contractIntakeRememberExtras(form){
  if(!form||!contractIntakeWorking)return;
  const data=contractIntakeData(form);
+ if(contractIntakeWorking.mode==='manual')data.primaPaid=form.querySelector('[name="primaPaid"]')?.checked?'on':'off';
  if(contractIntakeWorking.mode==='manual'&&data.lotId!==contractIntakeWorking.values.lotId){
   const lot=getLot(data.lotId);
   data.solarPrice_0=lot?.price??'';
@@ -468,7 +469,7 @@ async function contractIntakeSave(form){
   // El precio del inventario sirve como propuesta, pero cada contrato puede
   // negociar su propio precio. Nunca modificar lot.price ni aceptar NaN.
   const entries=Array.isArray(data.lots)&&data.lots.length?data.lots:
-   [{lotId:data.lotId,stage:data.stage,price:form.elements?.namedItem('solarPrice_0')?.value,down:data.down}];
+   [{lotId:data.lotId,stage:data.stage,price:data.solarPrice_0,down:data.down}];
   const chosen=entries.map(entry=>{
    const lot=db.lots.find(l=>l.id===entry.lotId&&l.residenceId===original.residenceId);
    if(!lot)throw Error('Selecciona un solar válido de Terrenos y Predios.');
@@ -642,7 +643,24 @@ document.addEventListener('change',event=>{
  if(!['stage','block','number','lotId'].includes(target.name)&&!/^extra(?:LotId|Stage)_/.test(target.name))return;
  contractIntakeRememberExtras(form);
  const data=contractIntakeData(form);
- if(/^extraStage_/.test(target.name))contractIntakeWorking.extraLots[Number(target.name.split('_')[1])].lotId='';
+ if(contractIntakeWorking.mode==='manual'&&target.name==='lotId'){
+  for(const key of ['solarPrice_0','down','solarDown_0'])data[key]=contractIntakeWorking.values[key];
+ }
+ if(contractIntakeWorking.mode==='manual'&&/^extra(?:LotId|Stage)_/.test(target.name)){
+  for(let i=0;i<(contractIntakeWorking.extraLots||[]).length;i++){
+   data['solarPrice_'+(i+1)]=contractIntakeWorking.values['solarPrice_'+(i+1)];
+   data['solarDown_'+(i+1)]=contractIntakeWorking.values['solarDown_'+(i+1)];
+  }
+ }
+ if(/^extraStage_/.test(target.name)){
+  const idx=Number(target.name.split('_')[1]);
+  contractIntakeWorking.extraLots[idx].lotId='';
+  if(contractIntakeWorking.mode==='manual'){
+   data['extraLotId_'+idx]='';
+   data['solarPrice_'+(idx+1)]='';
+   data['solarDown_'+(idx+1)]='';
+  }
+ }
  if(target.name==='lotId'&&data.lotId){
   const chosen=getLot(data.lotId);
   if(chosen){
