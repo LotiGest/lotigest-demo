@@ -6,7 +6,7 @@ function ownerDate(value){if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.tes
 export function ownerStatementBalance(state,statement){const rows=statement.documentedBalances||[],last=rows.length?rows[rows.length-1]:null;const initial=last?last.amountCents:statement.documentedOpeningBalanceCents;if(!Number.isSafeInteger(initial)||initial<0)return null;const paid=(state.ownerPayments||[]).reduce((n,p)=>n+p.allocations.filter(a=>a.statementId===statement.id).reduce((x,a)=>x+a.amountCents,0),0);return initial-paid;}
 export function ownerAllocationReferences(state,statement,index){const refs=index==null?statement.references:[statement.references[index]];if(!refs?.length||refs.some(r=>!r))throw Error('Confirma primero el bloque y solar de esta ficha.');return refs.map(r=>{const l=r.lotId?state.lots.find(l=>l.id===r.lotId):null,block=String(r.block||l?.block||''),solar=String(r.lot||l?.sourceNumber||'');if(!block||!solar)throw Error('Confirma primero el bloque y solar de esta ficha.');return {stage:r.stage||l?.stage||null,block,solar,lotId:r.lotId||null,mapAssignmentPending:!r.lotId};});}
 // Una prima es un pago inicial por solar, no un concepto que pueda cobrarse otra vez.
-const ownerPrimaConcept = concept => /^(?:prima|pago de prima)(?:$|[\\s·:–-])/i.test(String(concept||'').trim());
+const ownerPrimaConcept = concept => /^(?:prima|pago de prima)(?:$|[\s·:–-])/i.test(String(concept||'').trim());
 const ownerRefMatchesLot = (ref, lot) => {
  if(!ref||!lot)return false;
  if(ref.lotId)return ref.lotId===lot.id;
