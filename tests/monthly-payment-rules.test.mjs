@@ -36,7 +36,7 @@ test('sin prima o con prima parcial, el abono mensual queda bloqueado aunque alc
  assert.throws(()=>assertMonthlyPayment(state,['G16'],622033),/prima está pendiente/);
  state.payments.push({id:'P-PRIMA',saleId:'V',amount:58056.41,concept:'Prima inicial'});
  assert.throws(()=>assertMonthlyPayment(state,['G16'],622033),/Faltan L 0.01/);
- assert.doesNotThrow(()=>assertMonthlyPayment(state,['G16'],0.01,{prima:true}));
+ assert.doesNotThrow(()=>assertMonthlyPayment(state,['G16'],1,{prima:true}));
  state.payments[0].amount=58056.42;
  assert.doesNotThrow(()=>assertMonthlyPayment(state,['G16'],622033));
  assert.throws(()=>assertMonthlyPayment(state,['G16'],100,{prima:true}),/prima ya está cubierta/);
