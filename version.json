@@ -1,4 +1,4 @@
 {
-  "version": "0.22.34",
-  "notes": "Contratos distingue solares respaldados y asignaciones provisionales. Nueva herramienta administrativa con vista previa, búsqueda por cliente/solar, respaldo obligatorio y selección manual para desvincular únicamente asociaciones sin contrato ni venta, apartado, pagos o ficha histórica. No borra clientes, solares, contratos ni cobros."
+  "version": "0.22.35",
+  "notes": "Nuevo Contrato actualizado según el panel de referencia: encabezado LOTIGEST, cuatro pasos compactos, consulta del solar, limpieza segura del borrador y diseño adaptable en PC, móvil y modo oscuro. Conserva búsqueda por identidad, prima, cotización y múltiples solares."
 }
