@@ -114,3 +114,20 @@ test('búsqueda recupera clientes existentes por nombre o identidad',()=>{
  search('0801');assert.match(box.innerHTML,/CLIENTE FICTICIO/);
  search('nadie');assert.match(box.innerHTML,/No aparece el cliente/);
 });
+
+test('cambiar de solar no arrastra el precio ni la prima del solar anterior',()=>{
+ const db=base(),draft={mode:'manual',values:{lotId:'L1',stage:'1',solarPrice_0:'220000',down:'40000',primaPaid:'on'},extraLots:[]};
+ const section=source.slice(source.indexOf('function contractIntakeRememberExtras(form){'),source.indexOf('function contractIntakeExtraFields('));
+ const env={contractIntakeWorking:draft,db,FormData:formData,
+  getLot:id=>db.lots.find(l=>l.id===id),contractIdentityFormat,
+  document:{addEventListener(){}},crypto:{randomUUID:()=>''}};
+ const remember=new Function(...Object.keys(env),saveCode.slice(0,saveCode.indexOf('function contractIntakeFindClient('))+
+  section+';return contractIntakeRememberExtras;')(...Object.values(env));
+ const form={fields:{lotId:'L2',stage:'2',solarPrice_0:'220000',down:'40000',identity:'0801199000021'},
+  querySelector:()=>({checked:false})};
+ remember(form);
+ assert.equal(draft.values.lotId,'L2');
+ assert.equal(draft.values.solarPrice_0,250000);
+ assert.equal(draft.values.down,'');
+ assert.equal(draft.values.primaPaid,'off');
+});
