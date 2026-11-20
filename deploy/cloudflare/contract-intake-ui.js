@@ -42,7 +42,176 @@ document.addEventListener('click',event=>{
  else contractIntakeWorking.extraLots.splice(Number(remove.dataset.contractIntakeRemove),1);
  document.getElementById('contract-intake-review').innerHTML=contractIntakeFields();
 },true);
+
+function contractIntakeManualCash(number){
+ const n=Number(number);
+ return Number.isFinite(n)?n.toLocaleString('es-HN',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+}
+function contractIntakeManualFields(){
+ const draft=contractIntakeWorking, v=draft?.values||{},rid=residence().id;
+ const customer=draft?.preferredClientId?getClient(draft.preferredClientId):null;
+ const stage=[1,2].includes(Number(v.stage))?String(v.stage):'';
+ const eligible=(residenceLots()||[]).filter(l=>l.type!=='private'&&l.status!=='private'&&!db.sales.some(s=>s.lotId===l.id)&&
+  !l.pendingContractId&&!(db.contractTexts||[]).some(d=>d.lotId===l.id&&d.status!=='voided')&&
+  !activeReservation(l.id)&&(!l.ownerClientId||(customer&&l.ownerClientId===customer.id)));
+ const selected=eligible.find(l=>l.id===v.lotId&&String(l.stage)===stage)||null;
+ const extra=draft?.extraLots||[];
+ const all=[selected,...extra.map(r=>eligible.find(l=>l.id===r.lotId)||null)];
+ const multi=extra.length>0;
+ const val=(value)=>esc(value??'');
+ const hidden=(key,value)=>'<input type="hidden" name="'+key+'" value="'+val(value)+'">';
+ const field=(label,key,type='text',required=false,readOnly=false,value=v[key])=>
+  '<label class="field-group"><span>'+label+'</span><input type="'+type+'" name="'+key+'" value="'+val(value)+'" '+
+  (type==='number'?'min="0" step="'+(key==='months'?'1':'0.01')+'" ':'')+
+  (required?'required ':'')+(readOnly?'readonly ':'')+'style="width:100%;min-width:0"></label>';
+ const info=['name','identity','phone','address','rtn','maritalStatus','occupation'];
+ const person=customer?'<section class="full notice-card"><strong>'+val(customer.name)+'</strong><p>DNI: '+val(customer.identity||'Pendiente')+
+  ' · Tel.: '+val(customer.phone||'Sin teléfono')+' · Dirección: '+val(customer.address||'Sin dirección')+'</p>'+
+  '<small>Datos recuperados de Clientes; no se creará una persona duplicada.</small></section>'+
+  info.map(k=>{
+   const saved=customer[k]||v[k]||'';
+   return (k==='identity'&&!saved)?field('Completar identidad del cliente','identity','text',true,false,''):
+    (['phone','address'].includes(k)&&!saved?field(k==='phone'?'Teléfono':'Dirección',k,'text',false,false,''):
+    hidden(k,saved));
+  }).join(''):'<div class="full"><strong>Cliente nuevo</strong><p class="sm muted">Solo llena estos datos si todavía no está registrado.</p></div>'+
+  field('Nombre completo','name','text',true)+field('Identidad / DNI (13 dígitos)','identity','text',true)+
+  field('Teléfono (+504 / +1)','phone')+field('Dirección','address')+
+  ['rtn','maritalStatus','occupation'].map(k=>hidden(k,v[k]||'')).join('');
+ const term=Number(v.months)||0;
+ const prices=all.map(l=>Number(l?.price)||0);
+ const downs=multi?[v.solarDown_0??v.down,...extra.map((r,i)=>v['solarDown_'+(i+1)]??r.down)]:
+  [v.down];
+ const total=all.every(Boolean)&&prices.every(n=>n>0)?prices.reduce((a,b)=>a+b,0):null;
+ const prima=downs.length&&downs.every(x=>x!==null&&x!==undefined&&x!==''&&Number.isFinite(Number(x)))?downs.reduce((a,b)=>a+Number(b),0):null;
+ const financed=total!==null&&prima!==null?Math.round((total-prima)*100)/100:null;
+ const monthly=financed!==null&&term>0?Math.round(financed/term*100)/100:null;
+ const owned=customer?eligible.filter(l=>l.ownerClientId===customer.id):[];
+ const stages=[...new Set(eligible.map(l=>Number(l.stage)).filter(n=>n>0))].sort((a,b)=>a-b);
+ const options=eligible.filter(l=>String(l.stage)===stage).sort((a,b)=>{
+  const ownedA=customer&&a.ownerClientId===customer.id?0:1,ownedB=customer&&b.ownerClientId===customer.id?0:1;
+  return ownedA-ownedB||String(a.block).localeCompare(String(b.block),'es',{numeric:true})||
+   String(a.sourceNumber||a.number).localeCompare(String(b.sourceNumber||b.number),'es',{numeric:true});
+ }).map(l=>'<option value="'+val(l.id)+'" '+(selected?.id===l.id?'selected':'')+'>'+
+  'Bloque '+val(l.block)+' · Solar '+val(l.sourceNumber||l.number||l.id)+
+  (customer&&l.ownerClientId===customer.id?' · Asignado a este cliente':'')+'</option>').join('');
+ const lots='<label class="field-group"><span>Etapa</span><select name="stage" id="contract-intake-stage" required>'+
+  '<option value="">Selecciona etapa</option>'+stages.map(n=>'<option value="'+n+'" '+(stage===String(n)?'selected':'')+'>Etapa '+n+'</option>').join('')+
+  '</select></label><label class="field-group"><span>Solar de Terrenos y Predios</span><select name="lotId" id="contract-intake-lot" required>'+
+  '<option value="">'+(stage?'Selecciona bloque y solar':'Primero selecciona etapa')+'</option>'+options+'</select></label>'+
+  hidden('block',selected?.block||'')+hidden('number',selected?.sourceNumber||selected?.number||'');
+ const measures=selected?'<div class="full notice-card"><strong>Terreno y medidas automáticas</strong><p class="sm">Etapa '+val(selected.stage)+' · Bloque '+
+  val(selected.block)+' · Solar '+val(selected.sourceNumber||selected.number)+' · Área '+val(selected.area||'Sin medida')+
+  ' m² · Varas² '+val(selected.areaVaras2||'—')+' · Frente '+val(selected.dimensions?.front||'—')+
+  ' · Fondo '+val(selected.dimensions?.depth||'—')+
+  ' · Izquierdo '+val(selected.dimensions?.left||'—')+' · Derecho '+val(selected.dimensions?.right||'—')+'</p><small>Se obtienen de Terrenos y Predios. No puedes cambiarlas aquí.</small></div>':
+  '<div class="full notice-card">Elige el solar para cargar precio y medidas del inventario.</div>';
+ const more=extra.map((row,i)=>{
+  const idx=i+1,l=all[idx],s=String(row.stage||''),stageOptions=stages.map(n=>'<option value="'+n+'" '+(s===String(n)?'selected':'')+'>Etapa '+n+'</option>').join('');
+  const lotOptions=eligible.filter(item=>String(item.stage)===s&&item.id!==selected?.id).map(item=>
+   '<option value="'+val(item.id)+'" '+(l?.id===item.id?'selected':'')+'>Bloque '+val(item.block)+' · Solar '+val(item.sourceNumber||item.number||item.id)+'</option>').join('');
+  return '<fieldset class="full" style="border:1px solid var(--line,#cbd5d1);border-radius:12px;padding:12px"><legend>Solar '+(idx+1)+'</legend>'+
+   '<div class="form-grid"><label class="field-group"><span>Etapa</span><select name="extraStage_'+i+'" required><option value="">Etapa</option>'+stageOptions+'</select></label>'+
+   '<label class="field-group"><span>Bloque y solar</span><select name="extraLotId_'+i+'" required><option value="">Selecciona solar</option>'+lotOptions+'</select></label>'+
+   hidden('solarPrice_'+idx,l?.price??'')+field('Prima pactada de este solar (L)','solarDown_'+idx,'number',true,false,v['solarDown_'+idx]??row.down??'')+
+   '<div class="field-group"><span>Precio en predios</span><strong>'+ (l&&Number(l.price)>0?'L '+contractIntakeManualCash(l.price):'Precio no registrado')+'</strong></div></div>'+
+   '<button type="button" class="btn btn-outline btn-sm" data-contract-intake-remove="'+i+'">Quitar solar</button></fieldset>';
+ }).join('');
+ const priceLabel=total===null?'Sin precio: revisa Terrenos y Predios':'L '+contractIntakeManualCash(total);
+ const finText=financed===null?'—':'L '+contractIntakeManualCash(financed),monthlyText=monthly===null?'—':'L '+contractIntakeManualCash(monthly);
+ const finances=hidden('solarPrice_0',multi?(selected?.price??''):'')+
+  (multi?field('Prima del primer solar (L)','solarDown_0','number',true,false,v.solarDown_0??v.down??'')+
+    hidden('down',prima??''):field('Prima pactada (L)','down','number',true))+
+  '<label class="field-group"><span>Plazo del crédito en meses</span><input type="number" name="months" min="1" max="360" step="1" required value="'+val(v.months??'')+'"></label>'+
+  '<div class="full notice-card"><div><strong>Precio de Terrenos y Predios:</strong> <span id="contract-auto-price">'+priceLabel+'</span></div>'+
+  '<div><strong>Saldo a financiar:</strong> <span id="contract-auto-financed">'+finText+'</span></div>'+
+  '<div><strong>Cuota mensual (0 % interés):</strong> <span id="contract-auto-monthly">'+monthlyText+'</span></div></div>'+
+  '<input type="hidden" name="price" value="'+val(total??'')+'">'+
+  '<input type="hidden" name="financed" value="'+val(financed??'')+'">'+
+  '<input type="hidden" name="monthly" value="'+val(monthly??'')+'">';
+ const payment='<details class="full"><summary>¿Ya recibió la prima? (opcional)</summary>'+
+  '<p class="sm muted">Solo marca la casilla si ya recibiste el dinero; el monto pactado por sí solo no es un cobro.</p>'+
+  '<label><input type="checkbox" name="primaPaid" value="on" '+(v.primaPaid==='on'?'checked':'')+'> Registrar prima realmente pagada</label>'+
+  '<div class="form-grid">'+field('Fecha real del pago','primaDate','date')+
+  '<label class="field-group"><span>Método</span><select name="primaMethod">'+
+  ['Efectivo','Transferencia','Tarjeta'].map(m=>'<option '+((v.primaMethod||'Efectivo')===m?'selected':'')+'>'+m+'</option>').join('')+
+  '</select></label>'+field('Referencia (opcional)','primaRef')+'</div></details>';
+ return '<form id="contract-intake-form"><p class="sm muted">Busca al cliente, selecciona su solar y escribe solamente la prima, el plazo y las fechas. Los demás datos se cargan automáticamente.</p>'+
+  '<div class="form-grid"><label class="field-group full"><span>Buscar cliente registrado (nombre o identidad)</span>'+
+  '<input id="contract-client-search" type="search" autocomplete="off" placeholder="Buscar por nombre o DNI" value="'+val(draft?.clientQuery||'')+'">'+
+  '<div id="contract-client-results" style="max-height:200px;overflow:auto"></div></label>'+
+  (customer?'<div class="full"><button class="btn btn-outline btn-sm" type="button" data-contract-client-clear>Elegir otro cliente / Crear cliente nuevo</button></div>':'')+
+  hidden('clientId',customer?.id||'')+person+lots+measures+more+
+  '<div class="full"><button type="button" class="btn btn-outline btn-sm" data-contract-intake-add>+ Agregar otro solar</button></div>'+
+  '<div class="full"><strong>Condiciones de la compra</strong></div>'+finances+
+  field('Fecha del contrato','date','date',true)+field('Fecha de primera cuota','firstDueDate','date')+payment+
+  '<details class="full"><summary>Observaciones (opcional)</summary><textarea name="observations" rows="2" style="width:100%">'+val(v.observations||'')+'</textarea></details></div>'+
+  '<div id="contract-intake-alert" role="alert"></div></form>';
+}
+function contractIntakeManualRecalculate(form){
+ if(!form||contractIntakeWorking?.mode!=='manual')return;
+ const get=k=>form.elements.namedItem(k)?.value??'';
+ const primary=getLot(get('lotId'));
+ const n=Number(get('months')),count=contractIntakeWorking.extraLots?.length||0;
+ const entries=[primary,...Array.from({length:count},(_,i)=>getLot(get('extraLotId_'+i)))];
+ const price=entries.every(l=>l&&Number(l.price)>0)?Math.round(entries.reduce((t,l)=>t+Number(l.price),0)*100)/100:null;
+ const downs=count?[get('solarDown_0'),...Array.from({length:count},(_,i)=>get('solarDown_'+(i+1)))]:[get('down')];
+ const down=downs.every(x=>x!==''&&Number.isFinite(Number(x)))?Math.round(downs.reduce((t,x)=>t+Number(x),0)*100)/100:null;
+ const financed=price!==null&&down!==null?Math.round((price-down)*100)/100:null;
+ const monthly=financed!==null&&Number.isInteger(n)&&n>0?Math.round(financed/n*100)/100:null;
+ const put=(k,value)=>{const el=form.elements.namedItem(k);if(el)el.value=value??'';};
+ put('price',price);
+ if(count)put('down',down);
+ put('financed',financed);put('monthly',monthly);
+ put('solarPrice_0',primary?.price??'');
+ for(let i=0;i<count;i++)put('solarPrice_'+(i+1),entries[i+1]?.price??'');
+ const putText=(id,value)=>{const el=form.querySelector('#'+id);if(el)el.textContent=value;};
+ putText('contract-auto-price',price===null?'Sin precio registrado':'L '+contractIntakeManualCash(price));
+ putText('contract-auto-financed',financed===null?'—':'L '+contractIntakeManualCash(financed));
+ putText('contract-auto-monthly',monthly===null?'—':'L '+contractIntakeManualCash(monthly));
+}
+function contractIntakeClientSearch(query){
+ const box=document.getElementById('contract-client-results'),draft=contractIntakeWorking;
+ if(!box||!draft)return;
+ const clean=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ const q=clean(query).replace(/[\s-]/g,'');
+ if(q.length<2){box.innerHTML='<small class="sm muted">Escribe al menos dos caracteres.</small>';return;}
+ const results=db.clients.filter(c=>clean(c.name).replace(/\s/g,'').includes(q)||String(c.identity||'').replace(/\D/g,'').includes(q)).slice(0,12);
+ box.innerHTML=results.map(c=>'<button class="btn btn-outline btn-sm" type="button" data-contract-client-pick="'+esc(c.id)+'" style="display:block;width:100%;text-align:left;margin:3px 0">'+esc(c.name)+' · '+esc(c.identity||'Sin identidad')+'</button>').join('')||
+  '<p class="sm muted">No aparece el cliente. Puedes escribir los datos de uno nuevo.</p>';
+}
+document.addEventListener('input',event=>{
+ if(!contractIntakeWorking||contractIntakeWorking.mode!=='manual')return;
+ if(event.target.id==='contract-client-search'){
+  contractIntakeWorking.clientQuery=event.target.value;contractIntakeClientSearch(event.target.value);return;
+ }
+ const form=event.target.closest?.('#contract-intake-form');
+ if(!form)return;
+ if(['down','months'].includes(event.target.name)||/^solarDown_/.test(event.target.name))
+  contractIntakeManualRecalculate(form);
+},true);
+document.addEventListener('click',event=>{
+ if(!contractIntakeWorking||contractIntakeWorking.mode!=='manual')return;
+ const choice=event.target.closest?.('[data-contract-client-pick],[data-contract-client-clear]');
+ if(!choice)return;
+ event.preventDefault();event.stopImmediatePropagation();
+ const form=document.getElementById('contract-intake-form');
+ if(form)contractIntakeRememberExtras(form);
+ const selected=choice.dataset.contractClientPick?getClient(choice.dataset.contractClientPick):null;
+ const draft=contractIntakeWorking;
+ draft.preferredClientId=selected?.id||'';
+ draft.clientQuery='';
+ for(const key of ['name','identity','phone','address','rtn','maritalStatus','occupation'])draft.values[key]=selected?.[key]||'';
+ if(selected){
+  const assigned=residenceLots().filter(l=>l.ownerClientId===selected.id&&!db.sales.some(s=>s.lotId===l.id)&&!l.pendingContractId);
+  if(assigned.length===1){
+   const l=assigned[0];Object.assign(draft.values,{lotId:l.id,stage:String(l.stage),block:l.block,number:String(l.sourceNumber||l.number||'')});
+  }
+ }else draft.values.lotId='';
+ document.getElementById('contract-intake-review').innerHTML=contractIntakeFields();
+},true);
+
 function contractIntakeFields(){
+ if(contractIntakeWorking?.mode==='manual')return contractIntakeManualFields();
  const c=contractIntakeWorking?.values||{};
  const input=(label,key,type='text',readonly=false)=>'<label class="field-group"><span>'+esc(label)+'</span><input name="'+key+'" type="'+type+'" '+(type==='number'?'step="'+(key==='months'?'1':'any')+'" min="0" ':'')+(key==='identity'?'inputmode="numeric" autocomplete="off" maxlength="19" placeholder="0000 0000 00000" required ':'')+(readonly?'readonly ':'')+'value="'+esc(c[key]??'')+'" style="width:100%;min-width:0"></label>';
  const rows=residenceLots().filter(l=>l.type!=='private'&&l.status!=='private').sort((a,b)=>(Number(a.stage||0)-Number(b.stage||0))||String(a.block||'').localeCompare(String(b.block||''),'es')||String(a.sourceNumber||a.id).localeCompare(String(b.sourceNumber||b.id),'es'));
@@ -112,7 +281,7 @@ function contractIntakeOpen(clientId='',mode='ocr'){
  occupation:existing.occupation||'',address:existing.address||'',phone:existing.phone||''
  }:{},readVersion:0,busy:false};
  const content=manual?
-  '<p>Completa la ficha de contrato escribiendo los datos directamente. Se utilizará el cliente seleccionado; revisa etapa, bloque, solar, precio, prima pactada y plazo antes de guardar.</p>'+
+  '<p>Busca un cliente por nombre o identidad. Al elegir su solar, LOTIGEST recupera automáticamente las medidas y el precio. Solo indica prima, plazo en meses y fechas.</p>'+
   '<div id="contract-intake-review">'+contractIntakeFields()+'</div>':
   '<p>Primer paso: toma una foto del contrato con la cámara o elige una foto ya guardada en tu teléfono.</p>'+
   '<div class="field-group"><span>Imagen del contrato</span>'+
@@ -219,7 +388,7 @@ function contractIntakeData(form){
  const values=Object.fromEntries(new FormData(form));
  values.identity=contractIdentityFormat(values.identity);
  for(const key of ['areaVaras','areaM2','price','down','financed','monthly','months','pricePerVara']){
-  values[key]=values[key]===''?null:Number(values[key]);
+  values[key]=values[key]===undefined||values[key]===''?null:Number(values[key]);
  }
  if(Object.keys(values).some(key=>/^extraLotId_/.test(key))){
   values.lots=[{lotId:values.lotId,stage:values.stage,price:values.solarPrice_0,down:values.solarDown_0},...Object.keys(values).filter(key=>/^extraLotId_/.test(key)).map(key=>{const i=key.split('_')[1];return {lotId:values[key],stage:values['extraStage_'+i],price:values['solarPrice_'+(Number(i)+1)],down:values['solarDown_'+(Number(i)+1)]};})];
@@ -264,6 +433,32 @@ async function contractIntakeSave(form){
  const original=contractIntakeWorking,alert=document.getElementById('contract-intake-alert'),button=document.getElementById('contract-intake-save');
  if(!original||!form||original.busy||!contractIntakeAdmin())throw Error('La sesión está ocupada o sin autorización.');
  const data=contractIntakeData(form);
+ if(original.mode==='manual'){
+  // El inventario es la única fuente autorizada del precio. Nunca confiar en
+  // el precio enviado por campos HTML (incluso los campos ocultos).
+  const entries=Array.isArray(data.lots)&&data.lots.length?data.lots:[{lotId:data.lotId,stage:data.stage,down:data.down}];
+  const chosen=entries.map(entry=>{
+   const lot=db.lots.find(l=>l.id===entry.lotId&&l.residenceId===original.residenceId);
+   if(!lot)throw Error('Selecciona un solar válido de Terrenos y Predios.');
+   const price=Number(lot.price);
+   if(!(price>0&&Number.isFinite(price)))throw Error('El solar de etapa '+lot.stage+', bloque '+lot.block+' no tiene precio. Completa su precio en Terrenos y Predios.');
+   return {lot,price,down:entry.down};
+  });
+  const cents=v=>Math.round(Number(v)*100);
+  if(chosen.some(({down,price})=>down==null||down===''||!Number.isFinite(Number(down))||Number(down)<0||Number(down)>=price))
+   throw Error('Revisa la prima pactada de cada solar: debe ser menor que el precio del inventario.');
+  const fullPrice=chosen.reduce((total,x)=>total+cents(x.price),0);
+  const fullDown=chosen.reduce((total,x)=>total+cents(x.down),0);
+  if(!Number.isSafeInteger(fullPrice)||!Number.isSafeInteger(fullDown))throw Error('Importes demasiado grandes.');
+  const months=Number(data.months);
+  if(!Number.isInteger(months)||months<1||months>360)throw Error('Ingresa el plazo en meses (1 a 360).');
+  data.price=fullPrice/100;data.down=fullDown/100;
+  data.financed=(fullPrice-fullDown)/100;
+  data.monthly=Math.round((fullPrice-fullDown)/months)/100;
+  const first=chosen[0].lot;
+  Object.assign(data,{lotId:first.id,stage:first.stage,block:first.block,number:String(first.sourceNumber||first.number||'')});
+  if(chosen.length>1)data.lots=chosen.map(x=>({lotId:x.lot.id,stage:x.lot.stage,price:x.price,down:Number(x.down)}));
+ }
  const received=original.mode==='manual'&&data.primaPaid==='on';
  if(data.date)buyerDate(data.date,'fecha del contrato');
  if(data.firstDueDate&&(!data.date||buyerDate(data.firstDueDate,'primera cuota')<data.date))throw Error('La fecha de la primera cuota no puede ser anterior a la fecha del contrato.');
