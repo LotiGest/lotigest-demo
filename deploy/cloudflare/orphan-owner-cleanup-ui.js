@@ -18,7 +18,7 @@
     ' · Bloque '+esc(x.block||'—')+' · Solar '+esc(x.number)+'</small><small>'+esc(x.reason)+'</small></span></label>').join(''):
     '<p class="sm muted">No hay solares sin contrato elegibles para desvincular con este filtro.</p>')+'</div>'+
    (visible.length>300?'<p class="sm muted">Mostrando 300 resultados; busca el cliente para encontrar sus solares.</p>':'')+
-   '<p class="sm"><strong>'+draft.selected.size+' solares seleccionados</strong>. Solo desaparecerá la asociación provisional con el cliente. La medida, precio, etapa y geometría permanecerán.</p>'+
+   '<p class="sm"><strong>'+draft.selected.size+' solares seleccionados</strong> (máximo 20 por operación). Solo desaparecerá la asociación provisional con el cliente. La medida, precio, etapa y geometría permanecerán.</p>'+
    '<div class="owner-cleanup-actions"><button type="button" class="btn btn-outline btn-sm" data-owner-cleanup-select-all>Seleccionar los visibles</button>'+
    '<button type="button" class="btn btn-outline btn-sm" data-owner-cleanup-clear>Quitar selección</button>'+
    '<button type="button" class="btn btn-outline btn-sm" data-owner-cleanup-protected>Ver vínculos protegidos ('+protectedLinks.length+')</button></div>'+
@@ -28,7 +28,7 @@
    '<label>Escribe <strong>DESVINCULAR</strong> para confirmar<input id="owner-cleanup-code" autocomplete="off" value="'+esc(draft.code||'')+'"></label>'+
    '<p id="owner-cleanup-error" role="alert"></p></div>';
   const btn=document.querySelector('[data-owner-cleanup-save]');if(btn)
-   btn.disabled=draft.busy||!draft.selected.size||!draft.backupDownloaded||!draft.confirmedBackup||draft.code!=='DESVINCULAR';
+   btn.disabled=draft.busy||!draft.selected.size||draft.selected.size>20||!draft.backupDownloaded||!draft.confirmedBackup||draft.code!=='DESVINCULAR';
  }
  function open(){
   if(!contractIntakeAdmin()){toast('Para limpiar asociaciones necesitas sesión de administrador y nube sincronizada.','error');return;}
@@ -44,6 +44,7 @@
   const d=draft;if(!d||d.busy)return;
   const error=document.getElementById('owner-cleanup-error');
   try{
+   if(d.selected.size>20)throw Error('Solo se permiten 20 asociaciones por operación; reduce la selección.');
    if(!contractIntakeAdmin())throw Error('Debes estar conectado como administrador y sin sincronizaciones pendientes.');
    if(!d.backupDownloaded||!d.confirmedBackup||d.code!=='DESVINCULAR'||!d.selected.size)
     throw Error('Descarga el respaldo, confirma y selecciona los solares antes de continuar.');
@@ -83,7 +84,7 @@
   if(el.hasAttribute('data-owner-cleanup-select-all')){
    const q=String(d.search||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
    d.audit.candidates.filter(x=>[x.clientName,x.stage,x.block,x.number,x.lotId].join(' ')
-     .normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(q)).slice(0,300).forEach(x=>d.selected.add(x.lotId));
+     .normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(q)).slice(0,20).forEach(x=>d.selected.add(x.lotId));
   }else if(el.hasAttribute('data-owner-cleanup-clear'))d.selected.clear();
   else if(el.hasAttribute('data-owner-cleanup-backup')){
    try{download('LOTIGEST_respaldo_antes_desvincular_'+businessToday()+'.json',JSON.stringify(db,null,2),'application/json');d.backupDownloaded=true;toast('Respaldo descargado. Verifica que el archivo se guardó correctamente.');}
@@ -104,11 +105,14 @@
  },true);
  document.addEventListener('input',event=>{
   if(!draft)return;
-  if(event.target.id==='owner-cleanup-search'){draft.search=event.target.value;renderPreview();}
+  if(event.target.id==='owner-cleanup-search'){
+   const at=event.target.selectionStart;draft.search=event.target.value;renderPreview();
+   const next=document.getElementById('owner-cleanup-search');if(next){next.focus();if(at!=null)next.setSelectionRange(at,at);}
+  }
   if(event.target.id==='owner-cleanup-code'){
    draft.code=event.target.value;
    const button=document.querySelector('[data-owner-cleanup-save]');
-   if(button)button.disabled=draft.busy||!draft.selected.size||!draft.backupDownloaded||!draft.confirmedBackup||draft.code!=='DESVINCULAR';
+   if(button)button.disabled=draft.busy||!draft.selected.size||draft.selected.size>20||!draft.backupDownloaded||!draft.confirmedBackup||draft.code!=='DESVINCULAR';
   }
  },true);
 })();
