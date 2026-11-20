@@ -1,3 +1,4 @@
+import {assertPrimaCovered} from './prima-gate.mjs';
 // Abonos nuevos de propietarios. El historial importado nunca se convierte en ingresos nuevos.
 const ownerClone=value=>JSON.parse(JSON.stringify(value));
 const ownerToday=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Tegucigalpa'}).format(new Date());
@@ -16,6 +17,12 @@ export function createOwnerPayment(input,draft){
  for(const p of state.historicalPayments||[])if(p.residenceId===draft.residenceId&&String(p.receiptReference||p.sourceRaw?.receiptRef||p.sourceRaw?.folio||'').trim().toUpperCase()===ref)throw Error('El folio ya existe en el historial importado.');
  }
  const groups=new Map(),usedReferences=new Set(),allocations=request.allocations.map(a=>{const s=state.ownershipStatements?.find(s=>s.id===a.statementId);if(!s||s.clientId!==client.id||s.residenceId!==draft.residenceId)throw Error('Todos los solares deben pertenecer a la misma persona y residencial.');if((s.contractIds||[]).some(id=>state.historicalContracts?.find(c=>c.id===id)?.saleId))throw Error('Esta ficha ya tiene una venta con cuotas. Registra el abono desde sus ventas.');if(a.referenceIndex!=null&&(!Number.isInteger(a.referenceIndex)||a.referenceIndex<0))throw Error('Solar inválido.');const refs=ownerAllocationReferences(state,s,a.referenceIndex);for(const r of refs){const key=r.lotId||r.block+':'+r.solar;if(usedReferences.has(key))throw Error('El mismo solar aparece en más de una ficha seleccionada. Confirma una sola ficha antes de abonar.');usedReferences.add(key);const l=r.lotId&&state.lots.find(l=>l.id===r.lotId);if(l?.ownerClientId&&l.ownerClientId!==client.id||l&&state.sales.some(v=>v.lotId===l.id&&v.clientId!==client.id))throw Error('El terreno tiene otro propietario.');}if(!groups.has(s.id))groups.set(s.id,{indexes:new Set(),total:0,statement:s});const g=groups.get(s.id),key=a.referenceIndex==null?'group':a.referenceIndex;if(g.indexes.has(key)||g.indexes.has('group')||key==='group'&&g.indexes.size)throw Error('No mezcles el abono conjunto con los mismos solares individuales.');g.indexes.add(key);g.total+=a.amountCents;return {...a,references:refs,sourceName:s.sourceName};});
+ // Bloqueo también en la función de guardado: la validación de interfaz no es suficiente.
+ if(!/^PRIMA\b/i.test(concept))for(const a of allocations){
+   const ids=(a.references||[]).map(r=>r.lotId).filter(Boolean);
+   if(ids.length!==(a.references||[]).length)throw Error('Abono bloqueado: confirma el solar exacto en el mapa antes de pagar mensualidades.');
+   assertPrimaCovered(state,ids);
+ }
  for(const g of groups.values()){const left=ownerStatementBalance(state,g.statement);if(left!=null&&g.total>left)throw Error('El abono supera el saldo documentado disponible de la ficha. Revisa sus condiciones antes de continuar.');}
  const amountCents=allocations.reduce((n,a)=>n+a.amountCents,0);if(!Number.isSafeInteger(amountCents))throw Error('El total supera el límite permitido.');
  const receipt={id:draft.id,clientId:client.id,clientName:client.name,residenceId:draft.residenceId,residenceName:state.residences.find(r=>r.id===draft.residenceId).name||'',date,method,concept,...(receiptReference?{receiptReference}:{}),amountCents,allocations,request,recordedAt:new Date().toISOString(),balanceMode:'documentary-no-installment-schedule'};
