@@ -8,14 +8,20 @@ function lotigestPrimaStatus(clientId,rid,selectedLotIds=null){
  const sales=(db.sales||[]).filter(s=>s.clientId===clientId&&ids.has(s.lotId));
  const cents=n=>Math.round(Number(n||0)*100);
  const contracted=sales.filter(s=>s.type==='credit'&&Number(s.downPayment)>0);
- const agreedCents=contracted.reduce((sum,s)=>sum+cents(s.downPayment),0);
+ // Una ficha pendiente también tiene prima pactada, pero NO cobrada.
+ // Se evalúa por solar para no declarar pagados otros terrenos del mismo cliente.
+ const saleLots=new Set(sales.map(s=>s.lotId));
+ const pending=(db.contractTexts||[]).filter(d=>d.clientId===clientId&&d.residenceId===rid&&ids.has(d.lotId)&&
+  !saleLots.has(d.lotId)&&d.status==='pending-sale'&&['manual','photo+ocr'].includes(d.format)&&
+  Number(d.structured?.down)>0);
+ const agreedCents=contracted.reduce((sum,s)=>sum+cents(s.downPayment),0)+pending.reduce((sum,d)=>sum+cents(d.structured.down),0);
  const paidCents=contracted.reduce((sum,s)=>sum+Math.max(0,Math.min(cents(s.downPayment),cents(paidAmount(s.id)))),0);
  if(agreedCents>0){
   const remainingCents=Math.max(0,agreedCents-paidCents);
   return {
    kind:remainingCents===0?'paid':paidCents===0?'missing':'partial',
-   label:remainingCents===0?'Prima cubierta':paidCents===0?'Sin prima registrada':'Prima incompleta',
-   agreedCents,paidCents,remainingCents,contractVerified:true
+   label:remainingCents===0?'Prima pagada':paidCents===0?'Sin prima registrada':'Prima incompleta',
+   agreedCents,paidCents,remainingCents,contractVerified:pending.length===0
   };
  }
  const docs=(db.ownershipStatements||[]).filter(s=>s.clientId===clientId&&s.residenceId===rid&&
@@ -52,7 +58,7 @@ function lotigestPrimaLabel(status){
  if(status.kind==='missing'||status.kind==='partial')
   return status.label+' · falta '+money(status.remainingCents/100);
  if(status.kind==='recorded')return 'Prima registrada · al menos '+money(status.paidCents/100);
- if(status.kind==='paid')return 'Prima cubierta · '+money(status.paidCents/100);
+ if(status.kind==='paid')return 'Prima pagada · '+money(status.paidCents/100);
  if(status.kind==='missing-record')return 'Sin prima registrada · monto pactado por verificar';
  return 'Prima por verificar · faltan datos del contrato';
 }
