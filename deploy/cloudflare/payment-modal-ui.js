@@ -140,7 +140,7 @@ function pmCalendar(root,sales){
    status=paidCount===inMonth.length?'paid':paidCount>0?'mixed':inMonth.some(r=>r.status==='late')?'late':'pending';
    glyph=status==='paid'?'✓':status==='late'?'!':status==='mixed'?'◐':'◷';
   }
-  const cell=pmNode('button','pm-month '+status+(key===now.slice(0,7)?' current':'')+(key===pmDetailMonth?' pm-history-selected':''));
+  const cell=pmNode('button','pm-month '+status+(key===now.slice(0,7)?' current':'')+(key===upcoming?.dueDate.slice(0,7)?' pm-next-due':'')+(key===pmDetailMonth?' pm-history-selected':''));
   cell.type='button';cell.dataset.pmMonth=key;cell.setAttribute('aria-pressed',String(key===pmDetailMonth));
   cell.setAttribute('aria-label',names[m-1]+' '+pmYear+(inMonth.length?' · '+status+' · consultar pagos y recibos':' · sin cuota programada'));
   cell.title=inMonth.length?inMonth.map(x=>'Cuota '+x.number+' / '+x.total+' · '+x.dueDate+' · '+x.status).join('\n'):'Sin cuota programada';
