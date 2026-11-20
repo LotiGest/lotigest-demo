@@ -201,6 +201,17 @@ function contractIntakeManualRecalculate(form){
  putText('contract-auto-financed',financed===null?'—':'L '+contractIntakeManualCash(financed));
  putText('contract-auto-monthly',monthly===null?'—':'L '+contractIntakeManualCash(monthly));
 }
+// Enter busca al cliente sin enviar el formulario, y lo selecciona si hay una coincidencia única.
+document.addEventListener('keydown',event=>{
+ if(event.target.id!=='contract-client-search'||event.key!=='Enter'||contractIntakeWorking?.mode!=='manual')return;
+ event.preventDefault();event.stopImmediatePropagation();
+ const query=event.target.value||'';
+ contractIntakeWorking.clientQuery=query;
+ contractIntakeClientSearch(query);
+ const matches=document.querySelectorAll('#contract-client-results [data-contract-client-pick]');
+ if(matches.length===1)matches[0].click();
+ else if(matches.length>1)matches[0].focus();
+},true);
 function contractIntakeClientSearch(query){
  const box=document.getElementById('contract-client-results'),draft=contractIntakeWorking;
  if(!box||!draft)return;
@@ -690,8 +701,9 @@ document.addEventListener('change',event=>{
  else contractIntakeWorking.selectedLotId=data.lotId||'';
  contractIntakeWorking.preferredClientId=data.clientId||'';
  contractIntakeWorking.values={...contractIntakeWorking.values,...data};
- if(contractIntakeWorking.mode==='manual'&&target.name==='stage'){
-  Object.assign(contractIntakeWorking.values,{lotId:'',solarPrice_0:'',down:'',solarDown_0:''});
+ if(contractIntakeWorking.mode==='manual'&&['stage','block'].includes(target.name)){
+  Object.assign(contractIntakeWorking.values,{lotId:'',number:'',solarPrice_0:'',down:'',solarDown_0:''});
+  if(target.name==='stage')contractIntakeWorking.values.block='';
  }
  const review=document.getElementById('contract-intake-review');
  if(review)review.innerHTML=contractIntakeFields();
