@@ -1,4 +1,4 @@
 {
-  "version": "0.22.35",
-  "notes": "Nuevo Contrato actualizado según el panel de referencia: encabezado LOTIGEST, cuatro pasos compactos, consulta del solar, limpieza segura del borrador y diseño adaptable en PC, móvil y modo oscuro. Conserva búsqueda por identidad, prima, cotización y múltiples solares."
+  "version": "0.22.36",
+  "notes": "Abonos: al abrir un cliente se muestra la fecha real del último pago registrado (prima o abono) en la residencial y el último pago por cada solar. No confunde fechas con cuotas futuras, pagos anulados ni registros históricos sin confirmar. Conserva historial, recibos, cuotas y diseño móvil."
 }
