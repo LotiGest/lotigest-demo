@@ -75,18 +75,32 @@ function contractIntakeFields(){
   ['Plazo (meses)','months','number'],['Precio por vara² (L)','pricePerVara','number']
  ];
  const extraPicker=contractIntakeExtraFields(rows,c);
- const fields=labels.map(([label,key,type])=>input(label,key,type)).join('');
+ const manual=contractIntakeWorking?.mode==='manual',inventoried=getLot(selectedId);
+ const dimensionInfo=manual?'<div class="full notice-card"><strong>Medidas del inventario (automáticas, sin volver a ingresarlas)</strong><p class="sm">'+
+  (inventoried?'Área: '+esc(inventoried.area||'Por completar')+' m² · Varas²: '+esc(inventoried.areaVaras2||'Por completar')+
+   ' · Frente: '+esc(inventoried.dimensions?.front||'—')+' · Fondo: '+esc(inventoried.dimensions?.depth||'—')+
+   ' · Lateral izquierdo: '+esc(inventoried.dimensions?.left||'—')+' · Lateral derecho: '+esc(inventoried.dimensions?.right||'—'):'Primero selecciona el solar para mostrar sus medidas guardadas.')+
+  '</p><small>Las medidas y el croquis no se modifican desde este contrato.</small></div>':'';
+ const fields=labels.filter(([,key])=>!manual||!['areaVaras','areaM2','pricePerVara'].includes(key))
+  .map(([label,key,type])=>input(label,key,type)).join('');
+ const dates=manual?'<label class="field-group"><span>Fecha del contrato</span><input type="date" name="date" required value="'+esc(c.date||'')+'"></label>'+
+  '<label class="field-group"><span>Fecha de primera cuota</span><input type="date" name="firstDueDate" required value="'+esc(c.firstDueDate||'')+'"></label>':'';
+ const prima=manual?'<div class="full notice-card"><strong>Registrar prima recibida (opcional)</strong><p class="sm">La prima pactada NO es un pago. Activa esta opción solo si ya recibiste el dinero; se registrará el pago completo de prima de cada solar y aparecerá como pagada en Residenciales y Cobros.</p>'+
+  '<label><input type="checkbox" name="primaPaid" value="on" '+(c.primaPaid==='on'?'checked':'')+'> Ya recibí la prima pactada y deseo guardar este cobro</label></div>'+
+  '<label class="field-group"><span>Fecha real del pago de prima</span><input type="date" name="primaDate" value="'+esc(c.primaDate||'')+'"></label>'+
+  '<label class="field-group"><span>Método de pago</span><select name="primaMethod">'+['Efectivo','Transferencia','Tarjeta'].map(m=>'<option value="'+m+'" '+((c.primaMethod||'Efectivo')===m?'selected':'')+'>'+m+'</option>').join('')+'</select></label>'+
+  '<label class="field-group full"><span>Número de recibo o referencia (opcional)</span><input name="primaRef" maxlength="80" value="'+esc(c.primaRef||'')+'"></label>':'';
  const areaWarnings=matched.length===1&&Number(matched[0].area)>0&&Number(c.areaM2)>0&&Math.abs(Number(matched[0].area)-Number(c.areaM2))>.02?
  '<p style="color:#965a18"><strong>Medidas distintas:</strong> inventario '+esc(matched[0].area)+' m², documento '+esc(c.areaM2)+' m². Se conservará la medida original; revisa la discrepancia.</p>':'';
  const warning=(!stageChosen?'':matched.length>1?
  '<p style="color:#a35a1b">Hay varios solares con el mismo bloque y número en esta etapa: selecciona el correcto.</p>':
  !matched.length?'<p style="color:#a35a1b">No hay una coincidencia única en la etapa elegida. Corrige bloque o solar del OCR.</p>':'')+areaWarnings;
  return '<form id="contract-intake-form"><p class="sm muted">'+(contractIntakeWorking?.mode==='manual'?'Ingresa los datos de la ficha y elige la etapa y solar exactos. No necesitas subir imágenes.':'El documento debe revisarse antes de confirmar. La etapa no se supone si no aparece en la imagen.')+' No reemplazamos medidas existentes, ventas ni abonos.</p>'+warning+
-  '<div class="form-grid">'+clientPicker+stagePicker+pick+extraPicker+fields+'</div>'+
+  '<div class="form-grid">'+clientPicker+stagePicker+pick+dimensionInfo+extraPicker+dates+fields+prima+'</div>'+
   '<label>Observaciones del documento<textarea name="observations" rows="4" style="width:100%">'+esc(c.observations||'')+'</textarea></label>'+
   (contractIntakeWorking?.mode==='manual'?'':'<details><summary>Ver/corregir texto reconocido completo</summary><textarea name="rawText" rows="9" style="width:100%">'+esc(c.rawText||'')+'</textarea></details>')+
   '<div id="contract-intake-alert" role="alert">'+(!String(c.name||'').trim()?'<strong>Falta el nombre del cliente.</strong> Corrígelo antes de guardar.':'')+'</div>'+
-  '<p class="sm muted">Guardar ficha crea el cliente y su documento vinculado, NO registra la prima cobrada ni genera cuotas. Para registrar la venta necesitarás fecha de contrato y primer vencimiento; después podrás ingresar los abonos desde el módulo normal.</p></form>';
+  '<p class="sm muted">Guardar ficha vincula al cliente con el solar. Si marcas prima recibida, también se crea la venta y un cobro real de prima. Si no la marcas, se conserva pendiente y podrás activar el crédito después.</p></form>';
 }
 function contractIntakeOpen(clientId='',mode='ocr'){
  if(!contractIntakeAdmin()){toast('Solo el administrador, con datos sincronizados y conexión, puede registrar contratos.','error');return;}
@@ -308,8 +322,8 @@ function contractIntakeActivate(id){
   '<p><b>'+esc(getClient(d.clientId)?.name||'Cliente')+'</b> · Etapa '+esc(getLot(d.lotId)?.stage||'sin confirmar')+' · Bloque '+esc(getLot(d.lotId)?.block||'')+' · Solar '+esc(getLot(d.lotId)?.sourceNumber||'')+'</p>'+
   '<p>Precio '+money(d.structured.price)+' · Prima pactada '+money(d.structured.down)+' · '+esc(d.structured.months)+' cuotas. <strong>Prima recibida: L 0.00</strong>; deberás registrarla después desde Abonos.</p>'+
   '<form id="contract-intake-activate-form"><input type="hidden" name="documentId" value="'+esc(id)+'">'+
-  '<label>Fecha de contrato<input name="date" type="date" required></label>'+
-  '<label>Fecha primera cuota<input name="firstDueDate" type="date" required></label>'+
+  '<label>Fecha de contrato<input name="date" type="date" required value="'+esc(d.structured?.date||'')+'"></label>'+
+  '<label>Fecha primera cuota<input name="firstDueDate" type="date" required value="'+esc(d.structured?.firstDueDate||'')+'"></label>'+
   '<p class="sm muted">Estos datos no aparecen en la imagen y no pueden inventarse. Al activar, el sistema reconocerá la deuda y el calendario, pero no un pago.</p></form>',
   '<button class="btn btn-soft" data-action="close-modal">Cancelar</button><button class="btn btn-primary" type="submit" form="contract-intake-activate-form">Activar crédito sin registrar abonos</button>',true);
 }
@@ -357,7 +371,7 @@ document.addEventListener('click',event=>{
  const button=event.target.closest?.('[data-contract-intake-open],[data-contract-intake-activate]');
  if(!button)return;
  event.preventDefault();event.stopImmediatePropagation();
- if(button.hasAttribute('data-contract-intake-open'))contractIntakeOpen();
+ if(button.hasAttribute('data-contract-intake-open'))contractIntakeOpen('','manual');
  else contractIntakeActivate(button.dataset.contractIntakeActivate);
 },true);
 // Etapa manual y datos del OCR: encontrar solar sin usar una etapa adivinada.
@@ -415,7 +429,7 @@ function contractIntakeDescription(d){
   ['Área conjunta del documento, varas²','documentAreaVaras'],['Área conjunta del documento, m²','documentAreaM2'],
   ['Área según contrato, varas²','areaVaras'],['Área según contrato, m²','areaM2'],
   ['Norte','north'],['Sur','south'],['Este','east'],['Oeste','west'],
-  ['Precio del lote (L)','price'],['Prima pactada (L)','down'],['Saldo financiado (L)','financed'],
+  ['Fecha del contrato','date'],['Fecha primera cuota','firstDueDate'],['Precio del lote (L)','price'],['Prima pactada (L)','down'],['Saldo financiado (L)','financed'],
   ['Cuota pactada (L)','monthly'],['Plazo, cuotas','months'],['Precio por vara² (L)','pricePerVara'],
   ['Observaciones','observations']
  ];
@@ -429,6 +443,7 @@ function contractIntakeDescription(d){
   '<p class="sm muted">'+(d.format==='manual'?'Ficha ingresada manualmente':'Documento leído y revisado por OCR')+' · Etapa, bloque y solar vinculados al inventario.</p>'+
   (d.contractLotIds?.length>1?'<p><b>Ficha compartida:</b> '+esc(d.contractLotIds.map(id=>{const l=getLot(id);return 'Etapa '+l?.stage+' · Bloque '+l?.block+' · Solar '+(l?.sourceNumber||l?.number||id);}).join('; '))+'. Los importes de abajo corresponden solo a este solar.</p>':'')+list+delta+'<p class="sm muted">La prima del contrato no se registra como pagada al importar. Consulta Abonos para verificar los cobros posteriores.</p>'+
   (d.documentKey?'<a class="btn btn-outline" target="_blank" rel="noopener noreferrer" href="/api/app/file?key='+encodeURIComponent(d.documentKey)+'">Ver fotografía original</a>':'')+
+  (d.status!=='voided'?'<button type="button" class="btn btn-outline" data-contract-edit="'+esc(d.id)+'">Editar contrato</button> <button type="button" class="btn btn-outline" data-contract-delete="'+esc(d.id)+'">Eliminar contrato</button>':'')+
   '<button type="button" class="btn btn-outline" data-contract-dni-edit="'+esc(d.id)+'">Corregir DNI del cliente</button></section>';
 }
 const contractIntakeOriginalView=viewContractText;
