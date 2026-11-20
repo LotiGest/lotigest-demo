@@ -81,3 +81,29 @@ test('el módulo Contratos muestra asignaciones y abre formulario con etapa, blo
  app.view('D1');
  assert.match(footer.html,/data-contract-owner-open-client="C1"/);
 });
+
+test('guardar desde Contratos conserva ventas, recibos e inventario y sincroniza ambos solares',async()=>{
+ const db=fixture(),dialog=[],root={innerHTML:''},found={innerHTML:''},saveButton={disabled:false},queue={latest:'',confirmed:''};
+ let writes=0,closed=0,renders=0;
+ const document={
+  addEventListener:()=>{},
+  querySelector:key=>key.includes('.modal-content')?root:key.includes('data-contract-owner-save')?saveButton:null,
+  getElementById:key=>key==='contract-owner-results'?found:null
+ };
+ const mocks={db,document,contractsPage:()=>'',viewContractText:()=>{},residence:()=>db.residences[0],
+  residenceLots:()=>db.lots,getClient:id=>db.clients.find(c=>c.id===id),
+  normalizeClientLookup:s=>String(s||'').toLowerCase(),esc:s=>String(s),contractIntakeAdmin:()=>true,
+  cloudQueue:queue,cloudBlocked:false,cloudOffline:false,showModal:(...x)=>dialog.push(x),toast:()=>{},
+  cloudWrite:s=>{writes++;queue.latest=s;},cloudFlush:async()=>{queue.confirmed=queue.latest;},
+  closeModal:()=>closed++,render:()=>renders++};
+ const app=new Function(...Object.keys(mocks),ui+
+  ';return {open:contractOwnerOpen,save:contractOwnerSave,draft:()=>contractOwnerDraft,state:()=>db};')(...Object.values(mocks));
+ app.open('C1');app.draft().lotIds=['E1-I3','E2-B5'];
+ await app.save();
+ assert.equal(writes,1);
+ assert.equal(closed,1);
+ assert.equal(renders,1);
+ assert.equal(app.state().lots.filter(l=>l.ownerClientId==='C1').length,2);
+ assert.deepEqual(app.state().sales,db.sales);
+ assert.deepEqual(app.state().payments,db.payments);
+});
