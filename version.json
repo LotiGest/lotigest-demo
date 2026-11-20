@@ -1,4 +1,4 @@
 {
-  "version": "0.22.37",
-  "notes": "Abonos consecutivos: guardar un pago y registrar otro sin salir del cliente, con fechas diferentes y recibo PDF individual opcional. Calendario: cuotas completamente cubiertas por adelantos en verde con ✓; rojo para vencidas con saldo pendiente. Ejemplo L 19,500 cubre varias cuotas sin cobrar de nuevo la prima. No genera factura fiscal autorizada."
+  "version": "0.22.38",
+  "notes": "Terrenos / Predios: compradores y compra se registran desde Contratos. Solo aparecen titulares con ficha contractual, se retiran accesos de compra e importación desde Terrenos, manteniendo apartados y edición de medidas/precios. Revisión administrativa con respaldo para retirar compras sin contrato ni abonos; se protegen ventas, fichas, recibos, reservas y datos históricos. No elimina registros automáticamente."
 }
