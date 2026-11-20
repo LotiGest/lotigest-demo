@@ -67,7 +67,7 @@ function contractIntakeFields(){
  'Pendiente: selecciona una etapa.')+'</small></label>';
  const labels=[
   ['Nombre completo','name'],['Identidad / DNI','identity'],['RTN (opcional)','rtn'],['Estado civil','maritalStatus'],
-  ['Profesión u oficio','occupation'],['Dirección','address'],['Bloque leído','block'],['Solar leído','number'],
+  ['Profesión u oficio','occupation'],['Dirección','address'],['Teléfono (+504 / +1)','phone'],['Bloque leído','block'],['Solar leído','number'],
   ['Área del documento (varas²)','areaVaras','number'],['Área del documento (m²)','areaM2','number'],
   ['Norte','north'],['Sur','south'],['Este','east'],['Oeste','west'],
   ['Precio total de la ficha, todos los solares (L)','price','number'],['Prima total pactada de la ficha (L)','down','number'],
@@ -109,7 +109,7 @@ function contractIntakeOpen(clientId='',mode='ocr'){
  const manual=mode==='manual';
  contractIntakeWorking={mode:manual?'manual':'ocr',residenceId:residence().id,file:null,preferredClientId:existing?.id||'',values:existing?{
  name:existing.name||'',identity:existing.identity||'',rtn:existing.rtn||'',maritalStatus:existing.maritalStatus||'',
- occupation:existing.occupation||'',address:existing.address||''
+ occupation:existing.occupation||'',address:existing.address||'',phone:existing.phone||''
  }:{},readVersion:0,busy:false};
  const content=manual?
   '<p>Completa la ficha de contrato escribiendo los datos directamente. Se utilizará el cliente seleccionado; revisa etapa, bloque, solar, precio, prima pactada y plazo antes de guardar.</p>'+
@@ -237,14 +237,14 @@ function contractIntakeFindClient(state,data){
  const client=selected||matches[0]||(sameName.length===1?sameName[0]:null);
  if(!client){
   const created={id:'C-'+crypto.randomUUID(),name:String(data.name).trim().toUpperCase(),
-   identity:String(data.identity).trim(),phone:'',address:String(data.address||'').trim(),
+   identity:String(data.identity).trim(),phone:String(data.phone||'').trim(),address:String(data.address||'').trim(),
    email:'',rtn:String(data.rtn||'').trim(),maritalStatus:String(data.maritalStatus||'').trim(),
    occupation:String(data.occupation||'').trim()};
   state.clients.unshift(created);return created;
  }
  if(normalizeClientLookup(client.name)!==normalizedName)throw Error('El nombre del contrato no coincide con el cliente registrado. Corrige o elige la ficha correcta.');
  if(client.identity&&normalizeClientLookup(client.identity)!==identity)throw Error('El DNI no coincide con el cliente existente.');
- const fields=['identity','address','rtn','maritalStatus','occupation'];
+ const fields=['identity','phone','address','rtn','maritalStatus','occupation'];
  for(const key of fields){
   if(!String(client[key]||'').trim()&&String(data[key]||'').trim())client[key]=String(data[key]).trim();
  }
@@ -453,7 +453,7 @@ function contractIntakeDescription(d){
  const info=d?.structured;if(!info)return '';
  const keys=[
   ['Cliente','name'],['Identidad / DNI','identity'],['RTN','rtn'],
-  ['Estado civil','maritalStatus'],['Profesión u oficio','occupation'],['Dirección','address'],
+  ['Estado civil','maritalStatus'],['Profesión u oficio','occupation'],['Dirección','address'],['Teléfono','phone'],
   ['Bloque del contrato','block'],['Solar del contrato','number'],['Etapa verificada','stage'],
   ['Área conjunta del documento, varas²','documentAreaVaras'],['Área conjunta del documento, m²','documentAreaM2'],
   ['Área según contrato, varas²','areaVaras'],['Área según contrato, m²','areaM2'],
@@ -631,7 +631,7 @@ function contractManageEditOpen(id){
  const lot=getLot(d.lotId),client=getClient(d.clientId),v=d.structured||{},financial=!d.saleId&&!db.sales.some(s=>s.lotId===d.lotId);
  const field=(label,key,type='text')=>'<label class="field-group"><span>'+label+'</span><input name="'+key+'" type="'+type+'" '+(type==='number'?'min="0" step="0.01" ':'')+
   'value="'+esc(v[key]??'')+'" style="width:100%;min-width:0"></label>';
- const basic=[['RTN','rtn'],['Estado civil','maritalStatus'],['Profesión u oficio','occupation'],['Dirección','address'],
+ const basic=[['RTN','rtn'],['Estado civil','maritalStatus'],['Profesión u oficio','occupation'],['Dirección','address'],['Teléfono (+504 / +1)','phone'],
   ['Norte','north'],['Sur','south'],['Este','east'],['Oeste','west']].map(([label,key])=>field(label,key)).join('');
  const credit=financial?field('Precio pactado (L)','price','number')+field('Prima pactada (L)','down','number')+
   '<label class="field-group"><span>Plazo (meses)</span><input name="months" type="number" min="1" max="360" step="1" required value="'+esc(v.months??'')+'"></label>'+
@@ -653,7 +653,7 @@ async function contractManageEditSave(form){
  const lot=getLot(d.lotId),financial=!d.saleId&&!db.sales.some(s=>s.lotId===d.lotId);
  if(!lot)throw Error('El solar vinculado ya no existe.');
  const next=JSON.parse(JSON.stringify(db)),record=next.contractTexts.find(x=>x.id===d.id),p=record.structured||{};
- for(const key of ['rtn','maritalStatus','occupation','address','north','south','east','west','observations']){
+ for(const key of ['rtn','maritalStatus','occupation','address','phone','north','south','east','west','observations']){
   const value=String(data[key]||'').trim();
   if(value.length>(key==='observations'?5000:500))throw Error('Campo demasiado largo: '+key);
   p[key]=value;
