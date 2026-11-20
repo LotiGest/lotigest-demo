@@ -13,6 +13,8 @@ export function whatsappPhone(value) {
   // Estados Unidos: diez dígitos, con 1 o +1 opcionales.
   if (!raw.startsWith('+') && /^[2-9]\d{2}[2-9]\d{6}$/.test(digits)) return '1' + digits;
   if (/^1[2-9]\d{2}[2-9]\d{6}$/.test(digits)) return digits;
+  // Rechazar prefijos +1 y +504 mal formados antes de aceptar otros países.
+  if (raw.startsWith('+') && (digits.startsWith('1') || digits.startsWith('504'))) return null;
   // Otros países: conservar números internacionales explícitos en formato +E.164.
   return raw.startsWith('+') && /^[1-9]\d{7,14}$/.test(digits) ? digits : null;
 }
