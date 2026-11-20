@@ -121,3 +121,15 @@ test('pedido de solares por WhatsApp no exige sesión, precio, prima ni fecha, y
  assert.equal(f.state.payments.length,0);
  assert.equal(f.state.reservations?.length||0,0);
 });
+
+test('solicitud desde mapa público acepta WhatsApp con código +1 de Estados Unidos',async()=>{
+ const f=await seed();
+ const url='https://test/api/client-sales/maps/'+f.slug+'/requests';
+ const response=await createRequest({env:f.env,params:{slug:f.slug},request:new Request(url,{
+  method:'POST',headers:{Origin:'https://test','Content-Type':'application/json'},
+  body:JSON.stringify({lotIds:['A1'],name:'CLIENTE ESTADOS UNIDOS',phone:'+1 (305) 555-0123',mode:'inquiry'})
+ })});
+ assert.equal(response.status,201);
+ const row=f.db.db.prepare("SELECT phone FROM public_lot_requests WHERE lot_id='A1'").get();
+ assert.equal(row.phone,'+1 (305) 555-0123');
+});
