@@ -49,6 +49,7 @@ export function auditOrphanOwnerLinks(state,residenceId=null){
 }
 export function removeOrphanOwnerLinks(state,selectedIds,residenceId=null){
  if(!Array.isArray(selectedIds)||!selectedIds.length)throw Error('Selecciona solares para desvincular.');
+ if(selectedIds.length>20)throw Error('Por seguridad, limpia hasta 20 asociaciones a la vez; vuelve a revisar antes de continuar.');
  const unique=new Set(selectedIds);
  if(unique.size!==selectedIds.length||[...unique].some(x=>typeof x!=='string'||!x))
   throw Error('Selección incompatible.');
