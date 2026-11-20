@@ -16,7 +16,8 @@ files['mobile-layout.js'] = await readFile(new URL('./mobile-layout.js', import.
 files['mobile-layout.css'] = await readFile(new URL('./mobile-layout.css', import.meta.url), 'utf8');
 files['payment-modal.css'] = await readFile(new URL('./payment-modal.css', import.meta.url), 'utf8');
 files['contracts-dashboard.css'] = await readFile(new URL('./contracts-dashboard.css', import.meta.url), 'utf8');
-files['index.html']=files['index.html'].replace('</head>','<script src="/qr-generator.js"></script><script src="/lotigestPaperReceipt.js"></script><script src="/lotigestOcrAbonos.js"></script><link rel="stylesheet" href="/mobile-layout.css"><link rel="stylesheet" href="/payment-modal.css"><link rel="stylesheet" href="/contracts-dashboard.css"><script src="/mobile-layout.js" defer></script></head>');
+files['contract-intake-modern.css'] = await readFile(new URL('./contract-intake-modern.css', import.meta.url), 'utf8');
+files['index.html']=files['index.html'].replace('</head>','<script src="/qr-generator.js"></script><script src="/lotigestPaperReceipt.js"></script><script src="/lotigestOcrAbonos.js"></script><link rel="stylesheet" href="/mobile-layout.css"><link rel="stylesheet" href="/payment-modal.css"><link rel="stylesheet" href="/contracts-dashboard.css"><link rel="stylesheet" href="/contract-intake-modern.css"><script src="/mobile-layout.js" defer></script></head>');
 files['qr-generator.js']=await readFile(new URL('./vendor/qr-generator.js',import.meta.url),'utf8');
 files['verificar-recibo.html']=await readFile(new URL('./verificar-recibo.html',import.meta.url),'utf8');
 // El paquete Pages no contiene /ocr local. Usar el lector Tesseract del CDN en esta compilación.
