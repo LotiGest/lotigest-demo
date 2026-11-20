@@ -1,4 +1,4 @@
 {
-  "version": "0.22.32",
-  "notes": "Prima separada de mensualidades (L 30,000 se resta del precio sin contar como cuota); abonos con mes verificado, saldo de apertura sin inventar cuotas; fecha actual de Honduras visible en cronogramas y registro, con botón usar hoy y opción de ingresar fechas antiguas; conserva recibos, abonos y datos existentes."
+  "version": "0.22.33",
+  "notes": "Cuotas futuras cubiertas por adelanto permanecen acreditadas al vencimiento sin generar mora ni cobros duplicados; adelantos parciales muestran saldo real. Ventana Historial de pagos por fecha con filtros, solares, prima, cuotas y acceso a recibos. Sin borrar ni modificar pagos existentes."
 }
