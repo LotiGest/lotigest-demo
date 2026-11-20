@@ -26,7 +26,7 @@ test('tres cuotas vencidas saldadas en noviembre quedan verde oscuro con el reci
  const {rows}=ledger([s],[p]);
  assert.deepEqual(rows.slice(0,3).map(r=>r.status),['paid-late','paid-late','paid-late']);
  assert.ok(rows.slice(0,3).every(r=>r.receipts[0].groupId==='RC-123'));
- assert.equal(rows[3].status,'pending');
+ assert.equal(rows[3].status,'late');
 });
 test('cuota actual pagada hasta vencimiento se muestra verde claro',()=>{
  const s=sale({firstDueDate:'2026-11-26',months:2,price:32000,downPayment:30000});
