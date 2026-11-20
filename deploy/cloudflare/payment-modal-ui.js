@@ -111,10 +111,10 @@ function pmFields(grid,form){
  }
  if(date)fields.append(date);
  const slot=pmNode('div','pm-slot');slot.id='pm-amount-slot';fields.append(slot);
- const apply=pmNode('div','pm-field pm-span-2');apply.innerHTML='<label for="pm-apply">Aplicar a:</label><select id="pm-apply" aria-label="Aplicación automática del abono"><option value="auto">Según deuda pendiente (automático)</option></select><p class="pm-help">Primero prima pendiente; después, cuotas más antiguas. El sistema no cambiará el orden.</p>';
+ const apply=pmNode('div','pm-field pm-span-2');apply.innerHTML='<label for="pm-apply">Aplicar a:</label><select id="pm-apply" aria-label="Aplicación automática del abono"><option value="auto">Según deuda pendiente (automático)</option></select><p class="pm-help">La prima y las mensualidades se registran en operaciones separadas. No puedes abonar una mensualidad hasta cubrir toda la prima.</p>';
  fields.append(apply);
  if(ref){ref.classList.add('pm-span-2');fields.append(ref);}
- if(concept){concept.classList.add('pm-span-2');const input=concept.querySelector('input,textarea');if(input)input.placeholder='Ej. Abono correspondiente a noviembre de 2026';fields.append(concept);}
+ if(concept){concept.classList.add('pm-span-2');const input=concept.querySelector('input,textarea');if(input)input.placeholder='Prima inicial o Abono mensual de noviembre';const hint=pmNode('p','pm-help','Para registrar prima, escribe «Prima» al inicio del concepto. Para pagar mensualidades, usa «Abono». Sin prima completa, el abono mensual se bloqueará.');concept.append(hint);fields.append(concept);}
  grid.remove();return fields;
 }
 function pmQrOcr(form){
@@ -162,7 +162,7 @@ function pmRepaintSales(){
  const application=document.getElementById('pm-apply');
  if(application){
   const primaFaltante=sales.reduce((total,s)=>total+Math.max(0,Number(s.downPayment||0)-paidAmount(s.id)),0);
-  application.options[0].textContent=primaFaltante>.009?'Prima pendiente y después mensual (automático)':'Abono mensual (automático)';
+  application.options[0].textContent=primaFaltante>.009?'Prima pendiente: regístrala por separado':'Abono mensual (prima cubierta)';
  }
  const distribution=document.getElementById('pm-distribution');
  if(distribution)distribution.hidden=sales.length<2;
@@ -222,7 +222,7 @@ function pmOwnerDecorate(){
  const alert=pmNode('div','pm-prima-alert '+(lotigestPrimaHighlight(status)?'pm-prima-unpaid':
   status.kind==='paid'||status.kind==='recorded'?'pm-prima-ok':'pm-prima-unknown'));
  alert.append(pmNode('strong','',lotigestPrimaLabel(status)));
- if(lotigestPrimaHighlight(status))alert.append(pmNode('small','','Prima sin registrar o incompleta: revisa el recibo y selecciona el pago correspondiente antes de guardarlo.'));
+ if(lotigestPrimaHighlight(status)||status.kind==='unknown')alert.append(pmNode('small','','🔒 No se aceptarán mensualidades sin la prima completa y verificada para cada solar. Puedes registrar el pago de prima con concepto «Prima».'));
  left.body.append(alert);
  left.body.append(pmSummaryRow('Prima acordada',status.agreedCents===null?'Por verificar':money(status.agreedCents/100)),
   pmSummaryRow('Prima registrada',status.paidCents===null?'Por verificar':money(status.paidCents/100)),
@@ -238,7 +238,7 @@ function pmOwnerDecorate(){
  if(confirm)right.body.append(confirm);
  if(error){error.classList.add('pm-error');right.body.append(error);}
  main.append(left.card,right.card);shell.append(main);
- const cal=pmCard('Calendario de pagos (Cronograma)','calendar');cal.body.append(pmNode('p','pm-help','Las fichas de propietario no tienen un calendario de cuotas verificable hasta que se registren el contrato, las fechas y el plazo. Puedes registrar el abono sin inventar meses pagados.'));
+ const cal=pmCard('Calendario de pagos (Cronograma)','calendar');cal.body.append(pmNode('p','pm-help','Las fichas de propietario no tienen un calendario de cuotas verificable hasta que se registren el contrato, las fechas y el plazo. Primero confirma la prima de cada solar para habilitar sus mensualidades.'));
  shell.append(cal.card);form.replaceChildren(shell);pmFooter(modal,'owner-abono-form');
 }
 // Interceptor único: cualquiera que sea el acceso (Cuotas, Clientes, Fichas, Cobros),
