@@ -29,3 +29,13 @@ test('importación transaccional respeta permisos y rechaza duplicados sin guard
     assert.throws(() => store.command(user, 'client-import', 'duplicate', { rows: [{ ...first, id: 'C2' }] }), /identidad ya existe/);
   } finally { store.close(); }
 });
+
+test('importa números estadounidenses con +1 desde Excel sin quitar el prefijo', () => {
+  const mapped = mapClientRows([
+    ['Nombre','Identidad','Teléfono'],
+    ['Compradora de prueba','TESTUSA0001','+1 (305) 555-0123'],
+    ['Comprador de prueba','TESTUSA0002','305-555-0199']
+  ]);
+  assert.equal(mapped.clients[0].phone,'+1 (305) 555-0123');
+  assert.equal(mapped.clients[1].phone,'305-555-0199');
+});
