@@ -59,14 +59,14 @@ test('rechaza selección sin cliente, sin etapa o residencial incorrecta',()=>{
  assert.throws(()=>planContractOwnerAssignment(state,'R','C1',['E2-I3']),/etapa/);
 });
 test('el módulo Contratos muestra asignaciones y abre formulario con etapa, bloque y solar',()=>{
- const db=fixture(),events=[],dialogs=[],content={innerHTML:''},results={innerHTML:''},save={disabled:false};
- const document={addEventListener:(name,cb)=>events.push({name,cb}),querySelector:selector=>selector.includes('.modal-content')?content:selector.includes('data-contract-owner-save')?save:null,
+ const db=fixture(),events=[],dialogs=[],content={innerHTML:''},results={innerHTML:''},save={disabled:false},footer={html:'',insertAdjacentHTML:(at,html)=>{footer.html+=html;}};
+ const document={addEventListener:(name,cb)=>events.push({name,cb}),querySelector:selector=>selector.includes('.modal-content')?content:selector.includes('.modal-footer')?footer:selector.includes('data-contract-owner-save')?save:null,
   getElementById:id=>id==='contract-owner-results'?results:null};
  const env={db,document,contractsPage:()=>'<section class="card" style="padding:18px;margin:14px 0">Panel de Contratos</section>',
   residence:()=>db.residences[0],residenceLots:()=>db.lots,getClient:id=>db.clients.find(c=>c.id===id),
   normalizeClientLookup:s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,''),esc:s=>String(s),contractIntakeAdmin:()=>true,
-  showModal:(...args)=>dialogs.push(args),toast:()=>{}};
- const app=new Function(...Object.keys(env),ui+';return {page:contractsPage,open:contractOwnerOpen,draft:()=>contractOwnerDraft};')(...Object.values(env));
+  showModal:(...args)=>dialogs.push(args),toast:()=>{},viewContractText:()=>{}};
+ const app=new Function(...Object.keys(env),ui+';return {page:contractsPage,view:viewContractText,open:contractOwnerOpen,draft:()=>contractOwnerDraft};')(...Object.values(env));
  assert.match(app.page(),/Asignar solares a cliente/);
  assert.match(app.page(),/Completar ficha de contrato manual/);
  app.open('C1');
@@ -77,4 +77,7 @@ test('el módulo Contratos muestra asignaciones y abre formulario con etapa, blo
  assert.match(results.innerHTML,/ANA DE PRUEBA/);
  assert.equal(save.disabled,false);
  assert.ok(events.some(e=>e.name==='click'));
+ db.contractTexts.push({id:'D1',clientId:'C1',residenceId:'R',format:'text-only',status:'active'});
+ app.view('D1');
+ assert.match(footer.html,/data-contract-owner-open-client="C1"/);
 });
