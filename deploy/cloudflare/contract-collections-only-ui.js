@@ -23,6 +23,7 @@
     '<p><strong>'+count+' ficha(s) contractual(es)</strong> · '+active+
     ' compra(s) activada(s) · '+pending+' ficha(s) pendiente(s) de activar.</p>'+
     '<button type="button" class="btn btn-primary" data-collection-new-contract>Ingresar nuevo contrato</button>'+
+    (cloudUser?.role==='admin'?'<button type="button" class="btn btn-outline" data-collection-review-legacy>Revisar limpieza de asociaciones anteriores</button>':'')+
     (!count?'<p class="contract-collection-empty">Todavía no hay clientes ni solares ingresados desde Contratos para esta residencial.</p>':'')+
     '</section>';
    // Insertar antes del primer bloque de estadísticas, conservando el diseño del módulo.
@@ -58,9 +59,10 @@
  const previousDebt=debtReport;
  debtReport=function(...args){return withScope(()=>previousDebt(...args));};
  document.addEventListener('click',event=>{
-  const button=event.target.closest?.('[data-collection-new-contract],[data-collection-go-contracts]');
+  const button=event.target.closest?.('[data-collection-new-contract],[data-collection-go-contracts],[data-collection-review-legacy]');
   if(!button)return;
   event.preventDefault();event.stopImmediatePropagation();
+  if(button.hasAttribute('data-collection-review-legacy')){page='lots';render();return;}
   page='contracts';render();
   if(button.hasAttribute('data-collection-new-contract')){
    contractIntakeOpen('','manual');
