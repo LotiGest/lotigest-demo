@@ -390,3 +390,25 @@ body.lotigest-dark #modal-root .lg-payment-modern .pm-last-payment-solares{borde
  }
  #modal-root .lg-payment-modern .pm-last-payment-solar{flex-wrap:wrap}
 }
+
+
+/* Abonos consecutivos con comprobante PDF individual y cuota adelantada cubierta en verde. */
+#modal-root .lg-payment-modern .pm-batch-continue{background:#166c43;color:white;border:1px solid #155c39;border-radius:10px;font-weight:750;min-height:44px;padding:10px 15px}
+#modal-root .lg-payment-modern .pm-batch-continue:disabled{opacity:.5}
+#modal-root .lg-payment-modern .pm-batch-receipts{display:grid;gap:8px;padding:12px 15px;background:#ebf7ef;color:#155436;border-radius:12px;border:1px solid #b2dbc0}
+#modal-root .lg-payment-modern .pm-batch-receipts[hidden]{display:none}
+#modal-root .lg-payment-modern .pm-batch-receipts>small{font-size:11px;color:#476751}
+#modal-root .lg-payment-modern .pm-batch-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding-top:8px;border-top:1px solid #b2dbc0;font-size:12px}
+#modal-root .lg-payment-modern .pm-batch-row>span{overflow-wrap:anywhere;flex:1 1 210px}
+#modal-root .lg-payment-modern .pm-batch-row>.btn{flex:none;font-size:12px}
+body.lotigest-dark #modal-root .lg-payment-modern .pm-batch-receipts{background:#183f2c;color:#e4f6e9;border-color:#376f4e}
+body.lotigest-dark #modal-root .lg-payment-modern .pm-batch-receipts>small{color:#c5dbc9}
+/* Una cuota totalmente cubierta con adelanto está pagada: verde, no azul. */
+#modal-root .lg-payment-modern .pm-month.advance-covered{background:#d9f4dd!important;color:#0e6635!important;border-color:#6abf81!important}
+#modal-root .lg-payment-modern .pm-month.advance-covered :is(.pm-due-day,.pm-today-day){color:#0e6635!important}
+#modal-root .lg-payment-modern .pm-dot.advance-covered{background:#2f9b57!important}
+@media(max-width:720px){
+ #modal-root .lg-payment-modern .modal-footer{flex-wrap:wrap}
+ #modal-root .lg-payment-modern .modal-footer .pm-batch-continue{flex:1 1 100%;order:2}
+ #modal-root .lg-payment-modern .pm-batch-row>.btn{flex:1 1 100%}
+}

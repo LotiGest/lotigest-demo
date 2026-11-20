@@ -85,9 +85,11 @@ function pmCalendar(root,sales){
   let status='none';
   if(inMonth.length){
    const all=s=>inMonth.every(r=>r.status===s);
+   const hasOverdue=inMonth.some(r=>r.remainingCents>0&&r.dueDate<now);
    status=all('paid')?'paid':
     inMonth.every(r=>r.remainingCents===0)&&inMonth.some(r=>r.status==='advance-covered')?'advance-covered':
     inMonth.every(r=>r.status==='paid'||r.status==='paid-late')?'paid-late':
+    hasOverdue?'late':
     all('advance')?'advance':
     all('late')?'late':
     all('pending')?'pending':
@@ -103,7 +105,7 @@ function pmCalendar(root,sales){
   if(key===now.slice(0,7))cell.append(pmNode('small','pm-today-day','Hoy '+now.slice(8,10)));
   months.append(cell);
  }
- const foot=pmNode('p','pm-calendar-note','Verde claro: pagada; verde oscuro: vencida pagada; azul con ✓: cubierta con adelanto, incluso al vencer; azul con ↗: adelanto parcial antes de vencer; rojo: vencida con saldo. La prima nunca cuenta como cuota. Pulsa un mes para ver sus recibos.');
+ const foot=pmNode('p','pm-calendar-note','Verde claro: pagada; verde con ✓: cuota cubierta con adelanto, incluso al vencer; verde oscuro: vencida pagada; azul con ↗: adelanto parcial antes de vencer; rojo: cuota vencida con saldo pendiente. La prima nunca cuenta como cuota. Pulsa un mes para ver sus recibos.');
  root.append(progress,bar,months,foot);
  const unknown=validSales.reduce((sum,s)=>sum+Math.max(0,Number(s.openingPaid||0)),0);
  if(unknown>0)root.append(pmNode('p','pm-calendar-note pm-calendar-warning','Saldo de apertura sin recibos mensuales fechados: '+money(unknown)+'. Se conserva en el saldo financiero, pero no colorea meses como pagados.'));
