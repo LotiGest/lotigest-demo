@@ -31,6 +31,22 @@
    return at>=0?html.slice(0,at)+note+html.slice(at):note+html;
   });
  };
+
+ // En la misma pantalla, Registrar abono nunca abre el selector histórico
+ // de propietarios importados sin contrato. Solo se ofrecen ventas con ficha.
+ const previousNewPayment=newPayment;
+ const previousPaymentCandidates=paymentCandidates;
+ paymentCandidates=function(query=''){
+  const candidates=previousPaymentCandidates(query);
+  if(page!=='collections')return candidates;
+  const scoped=contractCollectionsScope(db,residence().id);
+  const allowed=new Set(scoped.sales.map(s=>s.id));
+  return candidates.filter(s=>allowed.has(s.id));
+ };
+ newPayment=function(saleId,useOcr=false){
+  if(!saleId&&!useOcr&&page==='collections')return baseNewPayment(null,false);
+  return previousNewPayment(saleId,useOcr);
+ };
  const previousCard=ordinaryCollectionCard;
  ordinaryCollectionCard=function(x){
   if(!currentScope)return previousCard(x);
