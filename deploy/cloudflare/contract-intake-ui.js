@@ -100,7 +100,9 @@ function contractIntakeManualFields(){
  const monthly=financed!==null&&term>0?Math.round(financed/term*100)/100:null;
  const owned=customer?eligible.filter(l=>l.ownerClientId===customer.id):[];
  const stages=[...new Set(eligible.map(l=>Number(l.stage)).filter(n=>n>0))].sort((a,b)=>a-b);
- const options=eligible.filter(l=>String(l.stage)===stage).sort((a,b)=>{
+ const blocks=[...new Set(eligible.filter(l=>String(l.stage)===stage).map(l=>String(l.block||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es',{numeric:true}));
+ const chosenBlock=String(v.block||selected?.block||'').trim();
+ const options=eligible.filter(l=>String(l.stage)===stage&&String(l.block||'').trim()===chosenBlock).sort((a,b)=>{
   const ownedA=customer&&a.ownerClientId===customer.id?0:1,ownedB=customer&&b.ownerClientId===customer.id?0:1;
   return ownedA-ownedB||String(a.block).localeCompare(String(b.block),'es',{numeric:true})||
    String(a.sourceNumber||a.number).localeCompare(String(b.sourceNumber||b.number),'es',{numeric:true});
@@ -109,15 +111,20 @@ function contractIntakeManualFields(){
   (customer&&l.ownerClientId===customer.id?' · Asignado a este cliente':'')+'</option>').join('');
  const lots='<label class="field-group"><span>Etapa</span><select name="stage" id="contract-intake-stage" required>'+
   '<option value="">Selecciona etapa</option>'+stages.map(n=>'<option value="'+n+'" '+(stage===String(n)?'selected':'')+'>Etapa '+n+'</option>').join('')+
-  '</select></label><label class="field-group"><span>Solar de Terrenos y Predios</span><select name="lotId" id="contract-intake-lot" required>'+
-  '<option value="">'+(stage?'Selecciona bloque y solar':'Primero selecciona etapa')+'</option>'+options+'</select></label>'+
-  hidden('block',selected?.block||'')+hidden('number',selected?.sourceNumber||selected?.number||'');
- const measures=selected?'<div class="full notice-card"><strong>Terreno y medidas automáticas</strong><p class="sm">Etapa '+val(selected.stage)+' · Bloque '+
-  val(selected.block)+' · Solar '+val(selected.sourceNumber||selected.number)+' · Área '+val(selected.area||'Sin medida')+
-  ' m² · Varas² '+val(selected.areaVaras2||'—')+' · Frente '+val(selected.dimensions?.front||'—')+
-  ' · Fondo '+val(selected.dimensions?.depth||'—')+
-  ' · Izquierdo '+val(selected.dimensions?.left||'—')+' · Derecho '+val(selected.dimensions?.right||'—')+'</p><small>Se obtienen de Terrenos y Predios. No puedes cambiarlas aquí.</small></div>':
-  '<div class="full notice-card">Elige el solar para cargar precio y medidas del inventario.</div>';
+  '</select></label><label class="field-group"><span>Bloque</span><select name="block" id="contract-intake-block" required>'+
+  '<option value="">'+(stage?'Selecciona bloque':'Primero elige una etapa')+'</option>'+
+  blocks.map(b=>'<option value="'+val(b)+'" '+(chosenBlock===b?'selected':'')+'>Bloque '+val(b)+'</option>').join('')+
+  '</select></label><label class="field-group"><span>Número de solar</span><select name="lotId" id="contract-intake-lot" required>'+
+  '<option value="">'+(chosenBlock?'Selecciona solar':'Primero elige bloque')+'</option>'+options+'</select></label>'+
+  hidden('number',selected?.sourceNumber||selected?.number||'');
+ const measures=selected?'<div class="lg-contract-solar-info"><div class="lg-contract-solar-metrics"><strong>Datos del solar · Terrenos y Predios</strong>'+
+  '<p><b>Etapa:</b> '+val(selected.stage)+' &nbsp; <b>Bloque:</b> '+val(selected.block)+' &nbsp; <b>Solar:</b> '+val(selected.sourceNumber||selected.number||selected.id)+'</p>'+
+  '<p><b>Área:</b> '+val(selected.area||'Sin medida')+' m² &nbsp; <b>Varas²:</b> '+val(selected.areaVaras2||'—')+
+  ' &nbsp; <b>Frente:</b> '+val(selected.dimensions?.front||'—')+' &nbsp; <b>Fondo:</b> '+val(selected.dimensions?.depth||'—')+
+  ' &nbsp; <b>Izquierdo:</b> '+val(selected.dimensions?.left||'—')+' &nbsp; <b>Derecho:</b> '+val(selected.dimensions?.right||'—')+'</p>'+
+  '<small>Medidas automáticas y protegidas; no se modifican al guardar el contrato.</small></div>'+
+  '<aside class="lg-contract-base-price"><span>Precio base del solar</span><strong>'+(Number(selected.price)>0?'L '+contractIntakeManualCash(selected.price):'Sin precio')+'</strong></aside></div>':
+  '<div class="lg-contract-solar-info lg-contract-empty">Selecciona la etapa, el bloque y el número de solar para ver sus medidas y precio registrados.</div>';
  const more=extra.map((row,i)=>{
   const idx=i+1,l=all[idx],s=String(row.stage||''),stageOptions=stages.map(n=>'<option value="'+n+'" '+(s===String(n)?'selected':'')+'>Etapa '+n+'</option>').join('');
   const lotOptions=eligible.filter(item=>String(item.stage)===s&&item.id!==selected?.id).map(item=>
