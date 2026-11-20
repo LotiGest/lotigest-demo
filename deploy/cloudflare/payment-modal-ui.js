@@ -39,7 +39,7 @@ function pmActualSchedule(sales){
  return pmReconciled(sales.filter(s=>s?.type==='credit'&&Number(s.months)>0)).rows;
 }
 function pmMonthLabel(status){
- return {'paid':'Cuota pagada','paid-late':'Cuota vencida pagada','advance':'Adelanto registrado (no mensualidad pagada)',
+ return {'paid':'Cuota pagada','paid-late':'Cuota vencida pagada','advance-covered':'Cuota cubierta por adelanto','advance':'Adelanto parcial para esta cuota',
   'partial':'Abono parcial','late':'Cuota vencida sin pagar','pending':'Pendiente'}[status]||'Sin cuota';
 }
 function pmCalendar(root,sales){
@@ -56,18 +56,20 @@ function pmCalendar(root,sales){
   return;
  }
  if(!yearAll.includes(pmYear))pmYear=yearAll.includes(current)?current:yearAll[0];
- const paid=rows.filter(r=>r.status==='paid'||r.status==='paid-late').length;
+ const paid=rows.filter(r=>r.status==='paid'||r.status==='paid-late'||r.status==='advance-covered').length;
  const latePaid=rows.filter(r=>r.status==='paid-late').length;
- const advances=rows.filter(r=>r.advanceCents>0).length;
+ const advances=rows.filter(r=>r.status==='advance-covered').length;
+ const partialAdvances=rows.filter(r=>r.advanceCents>0&&r.remainingCents>0).length;
  const pending=rows.length-paid;
- const next=rows.find(r=>r.status!=='paid'&&r.status!=='paid-late');
+ const next=rows.find(r=>r.remainingCents>0);
  const progress=pmNode('div','pm-progress');
  for(const [label,value] of [
   ['Plan de pago',rows.length+' cuotas (la prima es aparte)'],
-  ['Cuotas pagadas con recibo',String(paid)],
+  ['Cuotas cubiertas (sin prima)',String(paid)],
   ['Vencidas pagadas',String(latePaid)],
   ['Cuotas pendientes / por conciliar',String(pending)],
-  ['Adelantos separados',String(advances)],
+  ['Cuotas cubiertas por adelanto',String(advances)],
+  ['Cuotas con adelanto parcial',String(partialAdvances)],
   ['Próxima cuota por revisar',next?next.dueDate:'Sin cuotas pendientes']
  ]){
   const item=pmNode('div');item.append(pmNode('span','',label),pmNode('strong','',value));progress.append(item);
@@ -84,13 +86,14 @@ function pmCalendar(root,sales){
   if(inMonth.length){
    const all=s=>inMonth.every(r=>r.status===s);
    status=all('paid')?'paid':
+    inMonth.every(r=>r.remainingCents===0)&&inMonth.some(r=>r.status==='advance-covered')?'advance-covered':
     inMonth.every(r=>r.status==='paid'||r.status==='paid-late')?'paid-late':
     all('advance')?'advance':
     all('late')?'late':
     all('pending')?'pending':
     all('partial')?'partial':'mixed';
   }
-  const glyph={'paid':'✓','paid-late':'✓','advance':'↗','late':'!','pending':'◷','partial':'◐','mixed':'◐',none:'—'}[status];
+  const glyph={'paid':'✓','paid-late':'✓','advance-covered':'↗✓','advance':'↗','late':'!','pending':'◷','partial':'◐','mixed':'◐',none:'—'}[status];
   const cell=pmNode('button','pm-month '+status+(key===now.slice(0,7)?' current':'')+(pmSelectedMonth===key?' pm-month-selected':''));
   cell.type='button';cell.dataset.pmMonth=key;cell.setAttribute('aria-pressed',String(pmSelectedMonth===key));
   cell.setAttribute('aria-label',names[m-1]+' '+pmYear+': '+(inMonth.length?inMonth.map(x=>pmMonthLabel(x.status)).join('; '):'sin cuota programada'));
@@ -100,7 +103,7 @@ function pmCalendar(root,sales){
   if(key===now.slice(0,7))cell.append(pmNode('small','pm-today-day','Hoy '+now.slice(8,10)));
   months.append(cell);
  }
- const foot=pmNode('p','pm-calendar-note','Verde claro: pagada en fecha; verde oscuro: cuota vencida pagada; rojo: vencida sin pagar; azul: adelanto separado. Toca un mes para ver fechas y recibos. Un saldo acumulado o prima no confirma una mensualidad.');
+ const foot=pmNode('p','pm-calendar-note','Verde claro: pagada; verde oscuro: vencida pagada; azul con ✓: cubierta con adelanto, incluso al vencer; azul con ↗: adelanto parcial antes de vencer; rojo: vencida con saldo. La prima nunca cuenta como cuota. Pulsa un mes para ver sus recibos.');
  root.append(progress,bar,months,foot);
  const unknown=validSales.reduce((sum,s)=>sum+Math.max(0,Number(s.openingPaid||0)),0);
  if(unknown>0)root.append(pmNode('p','pm-calendar-note pm-calendar-warning','Saldo de apertura sin recibos mensuales fechados: '+money(unknown)+'. Se conserva en el saldo financiero, pero no colorea meses como pagados.'));
@@ -115,8 +118,8 @@ function pmCalendar(root,sales){
    const card=pmNode('div','pm-month-receipt');
    card.append(pmNode('strong','',pmMonthLabel(row.status)+' · Cuota '+row.number+' de '+row.total));
    card.append(pmNode('small','','Etapa '+(lot?.stage||'—')+' · Bloque '+(lot?.block||'—')+' · Solar '+(lot?.sourceNumber||lot?.id||'—')+' · Vence '+row.dueDate));
-   card.append(pmNode('small','','Valor cuota: '+money(row.dueCents/100)+' · Aplicado con recibos fechados: '+money(row.confirmedCents/100)));
-   if(row.advanceCents>0)card.append(pmNode('small','pm-advance-text','Adelantos registrados: '+money(row.advanceCents/100)+' (separados del pago mensual)'));
+   card.append(pmNode('small','','Valor cuota: '+money(row.dueCents/100)+' · Cubierto con recibos fechados: '+money(row.appliedCents/100)+' · Falta: '+money(row.remainingCents/100)));
+   if(row.advanceCents>0)card.append(pmNode('small','pm-advance-text','Aplicado por anticipado: '+money(row.advanceCents/100)+(row.remainingCents===0?' · Cuota cubierta: no genera mora ni nuevo cobro':' · Aún falta '+money(row.remainingCents/100))));
    if(!row.receipts.length)card.append(pmNode('small','','No hay recibos fechados vinculados a esta cuota.'));
    for(const pay of row.receipts){
     const line=pmNode('div','pm-month-receipt-line');
@@ -133,7 +136,7 @@ function pmCalendar(root,sales){
 function pmCalendarCard(sales){
  const card=pmCard('Calendario de pagos (Cronograma)','calendar');card.card.classList.add('pm-calendar');
  const legend=pmNode('div','pm-legend');
- legend.innerHTML='<span><i class="pm-dot paid"></i>Pagada</span><span><i class="pm-dot paid-late"></i>Vencida pagada</span><span><i class="pm-dot late"></i>Vencida</span><span><i class="pm-dot advance"></i>Adelanto</span>';
+ legend.innerHTML='<span><i class="pm-dot paid"></i>Pagada</span><span><i class="pm-dot paid-late"></i>Vencida pagada</span><span><i class="pm-dot late"></i>Vencida</span><span><i class="pm-dot advance-covered"></i>Cubierta por adelanto</span><span><i class="pm-dot advance"></i>Adelanto parcial</span>';
  const top=pmNode('div','pm-calendar-top');top.append(card.card.querySelector('h3'),legend);card.card.prepend(top);
  card.body.classList.add('pm-calendar-body');pmCalendar(card.body,sales);return card.card;
 }
@@ -208,15 +211,15 @@ function pmRepaintSales(){
    const price=sales.reduce((a,s)=>a+Number(s.price||0),0),agreed=sales.reduce((a,s)=>a+Number(s.downPayment||0),0),paid=sales.reduce((a,s)=>a+paidAmount(s.id),0);
    const paidPrima=sales.reduce((a,s)=>a+Math.min(Number(s.downPayment||0),paidAmount(s.id)),0);
    const remaining=sales.reduce((a,s)=>a+balance(s),0);
-   const ledger=pmReconciled(sales),confirmed=ledger.rows.filter(r=>r.status==='paid'||r.status==='paid-late').length;
+   const ledger=pmReconciled(sales),confirmed=ledger.rows.filter(r=>r.status==='paid'||r.status==='paid-late'||r.status==='advance-covered').length;
    const monthlyCents=ledger.rows.reduce((t,r)=>t+r.confirmedCents,0);
    const advances=ledger.rows.reduce((t,r)=>t+r.advanceCents,0);
    summary.append(pmSummaryRow('Precio total del terreno'+(single?'':'s'),money(price)),pmSummaryRow('Prima acordada (no es cuota)',money(agreed)),pmSummaryRow('Prima aplicada en la contabilidad',money(paidPrima)));
    summary.append(pmSummaryRow('Prima faltante',money(Math.max(0,agreed-paidPrima)),agreed-paidPrima>.009?'pm-warning':''));
    summary.append(pmSummaryRow('Saldo inicial a financiar (precio − prima)',money(Math.max(0,price-agreed))));
-   summary.append(pmSummaryRow('Cuotas pagadas con recibos',String(confirmed)+' cuotas'));
+   summary.append(pmSummaryRow('Cuotas cubiertas con recibos (sin prima)',String(confirmed)+' cuotas'));
    summary.append(pmSummaryRow('Abonos a cuotas identificadas',money(monthlyCents/100)));
-   summary.append(pmSummaryRow('Adelantos a mensualidades futuras',money(advances/100)));
+   summary.append(pmSummaryRow('Adelantos aplicados a meses futuros',money(advances/100)));
    summary.append(pmSummaryRow('Total contabilizado (prima y demás pagos)',money(paid)));
    summary.append(pmSummaryRow('Saldo restante actual',money(remaining),'pm-good'));
    if(ledger.unmatched.length||sales.some(s=>Number(s.openingPaid)>0))
