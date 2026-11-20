@@ -17,6 +17,21 @@
   const date=String(p.date||'');
   return /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/.test(date)?date:null;
  }
+ // La fecha original del recibo propone un mes; cualquier mes elegido por el usuario prevalece.
+ function syncHistoricalPeriod(form,force=false){
+  const period=form.elements.period,date=form.elements.date,type=form.elements.type;
+  if(!period||!date||!type)return;
+  if(type.value==='PRIMA'){
+   if(period.value||period.dataset.pmPeriodEdited==='true'){period.value='';period.dataset.pmPeriodEdited='false';}
+   return;
+  }
+  if(type.value!=='ABONO'||(!force&&period.dataset.pmPeriodEdited==='true'))return;
+  const valid=validPaymentDate({date:date.value});
+  if(!valid)return;
+  period.value=valid.slice(0,7);
+  period.dataset.pmPeriodEdited='false';
+  historyYear=Number(valid.slice(0,4));
+ }
  // Solo incluye pagos vinculados por identificador de solar, no por coincidencia de nombre.
  // El pago conjunto se cuenta una vez, aunque incluya varios solares.
  function clientPayments(form){
@@ -234,7 +249,7 @@
   }
   if(date)fields.append(date);
   if(amount)fields.append(amount);
-  if(period){period.classList.add('pm-span-2');fields.append(period);}
+  if(period){period.classList.add('pm-span-2');period.append(make('small','pm-help','El mes se completa según la fecha real del abono. Puedes corregirlo si el recibo corresponde a otra mensualidad.'));fields.append(period);}
   if(ref){ref.classList.add('pm-span-2');fields.append(ref);}
   if(note){note.classList.add('pm-span-2');fields.append(note);}
   entry.body.append(fields);
@@ -255,6 +270,7 @@
   modal.querySelector('.modal-content').replaceChildren(form);
   const footer=modal.querySelector('.modal-footer');
   if(footer)footer.innerHTML='<button type="button" class="btn btn-soft pm-cancel" data-action="close-modal">Cancelar</button><button type="submit" class="btn pm-receipt" data-pm-save-mode="receipt" form="manual-history-form">▤ Guardar y generar recibo</button><button type="submit" class="btn pm-save" data-pm-save-mode="save" form="manual-history-form">✓ Guardar pago</button>';
+  syncHistoricalPeriod(form,true);
   historySummary(form);
  }
  const previousShowModal=showModal;
@@ -272,6 +288,8 @@
   if(btn.dataset.pmHistoryType){
    const select=form.querySelector('[name="type"]');select.value=btn.dataset.pmHistoryType;
    form.querySelectorAll('[data-pm-history-type]').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));
+   syncHistoricalPeriod(form,select.value==='ABONO');
+   historySummary(form);
    return;
   }
   if(btn.dataset.pmMethod){
@@ -281,10 +299,11 @@
   }
   if(btn.dataset.pmHistoricalMonth){
    const month=btn.dataset.pmHistoricalMonth;
-   if(!validMonth(month))return;
+   if(!validMonth(month)||form.elements.type?.value==='PRIMA')return;
    const field=form.elements.period;
    if(!field)return;
    field.value=field.value===month?'':month;
+   field.dataset.pmPeriodEdited='true';
    if(field.value)historyYear=Number(field.value.slice(0,4));
    field.dispatchEvent(new Event('change',{bubbles:true}));
    return;
@@ -295,12 +314,20 @@
    historySummary(form);
   }
  });
+ document.addEventListener('input',event=>{
+  const form=event.target.closest?.('#manual-history-form');
+  if(form&&event.target.matches('[name="date"]')){syncHistoricalPeriod(form);historySummary(form);}
+ });
  document.addEventListener('change',event=>{
   const form=event.target.closest?.('#manual-history-form');if(!form)return;
   if(event.target.id==='pm-history-year-select'){
    historyYear=Number(event.target.value);historySummary(form);return;
   }
-  if(event.target.matches('[name="period"]')&&event.target.value)historyYear=Number(event.target.value.slice(0,4));
-  if(event.target.matches('[data-manual-lot],[name="period"]'))historySummary(form);
+  if(event.target.matches('[name="period"]')){
+   event.target.dataset.pmPeriodEdited='true';
+   if(event.target.value)historyYear=Number(event.target.value.slice(0,4));
+  }
+  if(event.target.matches('[name="date"],[name="type"]'))syncHistoricalPeriod(form);
+  if(event.target.matches('[data-manual-lot],[name="period"],[name="date"],[name="type"]'))historySummary(form);
  });
 })();
