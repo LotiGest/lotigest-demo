@@ -62,8 +62,10 @@
    for(const option of [...operation.options])if(['credit','cash'].includes(option.value))option.remove();
    if(['credit','cash'].includes(operation.value))operation.value='';
   }
+  // El bloque de venta permanece oculto para que el manejador legado de apartados
+  // conserve sus referencias DOM; no se ofrecen ni ejecutan compras directas.
   const saleSection=form.querySelector('#solar-sale-section');
-  if(saleSection)saleSection.remove();
+  if(saleSection)saleSection.classList.add('hidden');
   const note=document.createElement('div');note.className='notice-card lot-contract-first-tip';
   note.innerHTML='<strong>Compra exclusivamente desde Contratos</strong><p class="sm">Aquí puedes consultar el solar y realizar apartados. Para asignar comprador, prima, fecha y mensualidades, abre Nuevo contrato.</p>'+
    '<button type="button" class="btn btn-outline btn-sm" data-lot-go-contracts>Nuevo contrato</button>';
