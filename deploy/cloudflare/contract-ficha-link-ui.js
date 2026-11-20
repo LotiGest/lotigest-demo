@@ -57,7 +57,7 @@ viewClient=function(clientId){
     '<p class="sm muted">Este cliente todavía no tiene una ficha estructurada de contrato. Puedes completarla desde una fotografía, sin duplicar el cliente.</p>')+'</section>';
   root.insertAdjacentHTML('beforeend',block);
  }
- if(footer)footer.insertAdjacentHTML('beforeend','<button type="button" class="btn btn-outline" data-contract-ficha-new="'+esc(clientId)+'">Completar ficha desde contrato</button>');
+ if(footer)footer.insertAdjacentHTML('beforeend','<button type="button" class="btn btn-outline" data-contract-ficha-new="'+esc(clientId)+'">Llenar ficha de contrato (manual)</button>');
 };
 const contractFichaViewLotBase=viewLot;
 viewLot=function(lotId){
