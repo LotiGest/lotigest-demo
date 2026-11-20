@@ -50,8 +50,8 @@ body.lotigest-dark .ct-state.ct-missing{background:#37434d;color:#e3eaf0}
 }
 
 /* Cabecera exclusiva de Contratos. Mantiene paleta y navegación LOTIGEST. */
-body .lotigest-shell .ct-topbar .lg-top-title{flex:0 0 auto;flex-direction:row;align-items:center;min-width:0;gap:8px}
-body .lotigest-shell .ct-topbar .lg-top-title>span{display:none}
+body .lotigest-shell .ct-topbar .lg-top-title{flex:0 0 auto;flex-direction:column;justify-content:center;align-items:flex-start;min-width:0;gap:3px}
+body .lotigest-shell .ct-topbar .lg-top-title>span{display:block;font-size:10px;white-space:nowrap}
 body .lotigest-shell .ct-topbar .lg-top-title strong{font-size:17px}
 body .lotigest-shell .ct-topbar .ct-top-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex:1 1 auto;min-width:0}
 body .lotigest-shell .ct-topbar .ct-top-residence{display:flex;align-items:center;gap:7px;flex:none;min-width:0;font-size:12px;font-weight:750;white-space:nowrap;color:inherit}
@@ -73,7 +73,7 @@ body.lotigest-dark .lotigest-shell .ct-topbar .ct-top-actions .btn-primary{backg
  html body #app .lotigest-shell:has(.ct-topbar){--lg-top-height:116px}
  html body #app .lotigest-shell .ct-topbar .lg-search{display:none!important}
  html body #app .lotigest-shell .ct-topbar .ct-top-actions{left:10px;right:10px}
- html body #app .lotigest-shell .ct-topbar .ct-top-title strong{font-size:15px}
+ html body #app .lotigest-shell .ct-topbar .lg-top-title strong{font-size:15px}
 }
 @media screen and (max-width:600px){
  html body #app .lotigest-shell:has(.ct-topbar){--lg-top-height:116px}
