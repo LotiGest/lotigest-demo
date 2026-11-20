@@ -341,3 +341,52 @@
  .pm-history-item-head{font-size:13px}
  .pm-history-item>.btn{justify-self:stretch}
 }
+
+
+/* Último pago efectivamente registrado por cliente (sin inventar cuotas). */
+#modal-root .lg-payment-modern .pm-last-payment{
+ display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;
+ background:#e9f6ed;border:1px solid #b8dcc3;border-radius:13px;padding:12px 16px;
+ color:#144f2c;overflow-wrap:anywhere;min-width:0;
+}
+#modal-root .lg-payment-modern .pm-last-payment-main{display:grid;gap:3px;min-width:0;flex:1 1 240px}
+#modal-root .lg-payment-modern .pm-last-payment-main>small{
+ font-size:12px;font-weight:750;color:#42765a;
+}
+#modal-root .lg-payment-modern .pm-last-payment-main>strong{
+ font-size:clamp(15px,1.6vw,20px);font-weight:850;color:#124b29;
+}
+#modal-root .lg-payment-modern .pm-last-payment-main>p{
+ font-size:11px;line-height:1.45;color:#436b50;margin:0;
+}
+#modal-root .lg-payment-modern .pm-last-payment-lot{
+ display:block;color:#205f3b;font-weight:750;font-size:12px;
+}
+#modal-root .lg-payment-modern .pm-last-payment-solares{
+ display:grid;gap:5px;min-width:min(100%,340px);flex:1 1 340px;
+ border-left:1px solid #a8d2b5;padding-left:13px;
+}
+#modal-root .lg-payment-modern .pm-last-payment-solares>small{
+ color:#436b50;font-size:11px;font-weight:750;
+}
+#modal-root .lg-payment-modern .pm-last-payment-solar{
+ display:flex;justify-content:space-between;gap:10px;font-size:12px;
+}
+#modal-root .lg-payment-modern .pm-last-payment-solar>span{min-width:0}
+#modal-root .lg-payment-modern .pm-last-payment-solar>strong{text-align:right;white-space:normal;color:#114b2a}
+body.lotigest-dark #modal-root .lg-payment-modern .pm-last-payment{
+ background:#193e2e;border-color:#3b7456;color:#e1f6e7;
+}
+body.lotigest-dark #modal-root .lg-payment-modern .pm-last-payment :is(
+ .pm-last-payment-main>small,.pm-last-payment-main>strong,.pm-last-payment-main>p,
+ .pm-last-payment-lot,.pm-last-payment-solares>small,.pm-last-payment-solar>strong
+){color:#d5f2df}
+body.lotigest-dark #modal-root .lg-payment-modern .pm-last-payment-solares{border-left-color:#40775a}
+@media(max-width:650px){
+ #modal-root .lg-payment-modern .pm-last-payment{padding:11px 12px}
+ #modal-root .lg-payment-modern .pm-last-payment-solares{
+  flex-basis:100%;border-left:0;border-top:1px solid #a8d2b5;
+  padding-left:0;padding-top:9px;
+ }
+ #modal-root .lg-payment-modern .pm-last-payment-solar{flex-wrap:wrap}
+}
