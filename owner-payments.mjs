@@ -34,7 +34,7 @@ export function ownerPrimaRecordedLots(state,clientId,residenceId,lotIds){
   const paid=Number(sale.openingPaid||0)+(state.payments||[]).filter(p=>p.saleId===sale.id&&!p.voidedAt&&!p.deletedAt).reduce((n,p)=>n+Number(p.amount||0),0);
   if(Math.round(paid*100)>=Math.round(Number(sale.downPayment)*100))blocked.add(sale.lotId);
  }
- return [...blocked];
+ return lots.filter(l=>blocked.has(l.id)).map(l=>l.id);
 }
 export function createOwnerPayment(input,draft){
  const state=ownerClone(input);state.ownerPayments??=[];if(!/^OP-[a-f0-9-]{36}$/.test(draft.id||''))throw Error('Referencia de recibo inválida.');if(!draft.reviewed)throw Error('Confirma el cliente, los solares y los montos antes de guardar.');
