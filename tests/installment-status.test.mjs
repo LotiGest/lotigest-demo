@@ -1,0 +1,50 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {reconcileInstallments} from '../installment-status.mjs';
+
+const sale=(overrides={})=>({id:'V-1',date:'2025-01-01',firstDueDate:'2025-01-26',type:'credit',months:60,price:90000,downPayment:30000,openingPaid:0,...overrides});
+const installment=()=>100000;
+const addMonth=(start,offset)=>{
+ const d=new Date(start+'T12:00:00Z');const day=d.getUTCDate();
+ d.setUTCDate(1);d.setUTCMonth(d.getUTCMonth()+offset);
+ const max=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).getUTCDate();
+ d.setUTCDate(Math.min(day,max));return d.toISOString().slice(0,10);
+};
+const ledger=(sales,payments,asOf='2026-11-20')=>reconcileInstallments(sales,payments,asOf,installment,addMonth);
+test('saldo de apertura y prima no inventan mensualidades de 2026',()=>{
+ const s=sale({openingPaid:47000});
+ const {rows}=ledger([s],[{id:'PRIMA',saleId:s.id,amount:30000,date:'2025-01-01',receiptInfo:{allocations:[{label:'Prima',amount:30000}]}}]);
+ const year=rows.filter(r=>r.dueDate.startsWith('2026-'));
+ assert.equal(year.length,12);
+ assert.ok(year.every(r=>!['paid','paid-late'].includes(r.status)));
+ assert.equal(year.reduce((n,r)=>n+r.confirmedCents,0),0);
+});
+test('tres cuotas vencidas saldadas en noviembre quedan verde oscuro con el recibo correcto',()=>{
+ const s=sale({firstDueDate:'2025-08-26',months:5,price:35000,downPayment:30000});
+ const p={id:'RC-123-1',groupId:'RC-123',saleId:s.id,date:'2025-11-26',amount:3000,
+  receiptInfo:{allocations:[1,2,3].map(number=>({number,amount:1000}))}};
+ const {rows}=ledger([s],[p]);
+ assert.deepEqual(rows.slice(0,3).map(r=>r.status),['paid-late','paid-late','paid-late']);
+ assert.ok(rows.slice(0,3).every(r=>r.receipts[0].groupId==='RC-123'));
+ assert.equal(rows[3].status,'late');
+});
+test('cuota actual pagada hasta vencimiento se muestra verde claro',()=>{
+ const s=sale({firstDueDate:'2026-11-26',months:2,price:32000,downPayment:30000});
+ const p={id:'R-2',saleId:s.id,date:'2026-11-20',amount:1000,
+  receiptInfo:{allocations:[{number:1,amount:1000}]}};
+ assert.equal(ledger([s],[p]).rows[0].status,'paid');
+});
+test('adelanto para 2026 pagado en 2025 no aparece como mensualidad pagada',()=>{
+ const s=sale({firstDueDate:'2026-01-26',months:2,price:32000,downPayment:30000});
+ const p={id:'R-3',saleId:s.id,date:'2025-11-26',amount:2000,
+  receiptInfo:{allocations:[{number:1,amount:1000},{number:2,amount:1000}]}};
+ const {rows}=ledger([s],[p]);
+ assert.deepEqual(rows.map(r=>r.status),['advance','advance']);
+ assert.ok(rows.every(r=>r.confirmedCents===0&&r.advanceCents===100000));
+});
+test('no se asigna a otro solar y los recibos futuros no se pintan',()=>{
+ const a=sale({id:'A'}),b=sale({id:'B'});
+ const {rows,unmatched}=ledger([a,b],[{id:'R-FUT',saleId:'A',date:'2027-01-03',amount:1000,receiptInfo:{allocations:[{number:1,amount:1000}]}}]);
+ assert.ok(rows.every(r=>r.confirmedCents===0));
+ assert.equal(unmatched.length,1);
+});

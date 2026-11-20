@@ -1,0 +1,67 @@
+// Conciliación visual de cuotas: nunca usa openingPaid ni saldo total como prueba de pago mensual.
+// Los anticipos siguen en contabilidad pero se muestran separados del mes pagado.
+export function reconcileInstallments(sales,payments,asOf,installmentCents,addMonth) {
+ const cents=v=>Math.max(0,Math.round(Number(v||0)*100));
+ const valid=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||'')) && !Number.isNaN(Date.parse(v+'T12:00:00Z'));
+ const rows=[];
+ const unmatched=[];
+ for (const sale of sales.filter(s=>s?.type==='credit'&&Number.isInteger(Number(s.months))&&Number(s.months)>0)) {
+  const months=Number(sale.months),first=sale.firstDueDate||sale.date;
+  if(!valid(first))continue;
+  const saleRows=Array.from({length:months},(_,i)=>({
+   saleId:sale.id,number:i+1,total:months,dueDate:addMonth(first,sale.firstDueDate?i:i+1),
+   dueCents:Math.max(0,Number(installmentCents(sale,i+1))||0),
+   appliedCents:0,confirmedCents:0,advanceCents:0,receipts:[]
+  }));
+  const chronological=payments.filter(p=>p.saleId===sale.id&&!p.voidedAt&&!p.deletedAt)
+   .sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.id||'').localeCompare(String(b.id||'')));
+  let cumulative=cents(sale.openingPaid);
+  const down=cents(sale.downPayment);
+  for (const payment of chronological) {
+   const amount=cents(payment.amount);
+   if(!amount)continue;
+   const dated=valid(payment.date)&&payment.date<=asOf&&payment.date>=sale.date;
+   let allocations=Array.isArray(payment.receiptInfo?.allocations)?
+    payment.receiptInfo.allocations.filter(a=>Number.isInteger(Number(a.number))&&Number(a.number)>0&&Number(a.amount)>0):null;
+   // Recibos antiguos sin asignación guardada: reconstruir la aplicación original
+   // cronológicamente, sin asignar nunca fechas a un saldo inicial desconocido.
+   if(!allocations){
+    allocations=[];
+    const start=cumulative,end=Math.min(cents(sale.price),start+amount);
+    let offset=down;
+    for(let i=0;i<saleRows.length;i++){
+     const due=saleRows[i].dueCents;
+     const applied=Math.max(0,Math.min(end,offset+due)-Math.max(start,offset));
+     if(applied)allocations.push({number:i+1,amount:applied/100});
+     offset+=due;
+    }
+   }
+   cumulative+=amount;
+   if(!dated){unmatched.push({saleId:sale.id,paymentId:payment.id,reason:'sin fecha válida o posterior al corte'});continue;}
+   for(const allocation of allocations) {
+    const row=saleRows[Number(allocation.number)-1];
+    if(!row)continue;
+    const value=Math.min(row.dueCents-row.appliedCents,cents(allocation.amount));
+    if(value<=0)continue;
+    const advance=payment.date.slice(0,7)<row.dueDate.slice(0,7);
+    row.appliedCents+=value;
+    if(advance)row.advanceCents+=value;
+    else row.confirmedCents+=value;
+    row.receipts.push({paymentId:payment.id,date:payment.date,amountCents:value,
+     groupId:payment.groupId||payment.id,method:payment.method||'',advance});
+   }
+  }
+  for(const row of saleRows){
+   const completed=row.confirmedCents>=row.dueCents&&row.dueCents>0;
+   const confirmedDates=row.receipts.filter(p=>!p.advance).map(p=>p.date).sort();
+   const last=confirmedDates.at(-1)||null;
+   row.status=completed?(last>row.dueDate?'paid-late':'paid'):
+     row.advanceCents>0?'advance':row.confirmedCents>0?'partial':
+     row.dueDate<asOf?'late':'pending';
+   row.remainingCents=Math.max(0,row.dueCents-row.confirmedCents-row.advanceCents);
+   row.lastPaidAt=last;
+  }
+  rows.push(...saleRows);
+ }
+ return {rows,unmatched};
+}

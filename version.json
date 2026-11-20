@@ -1,4 +1,4 @@
 {
-  "version": "0.22.30",
-  "notes": "La barra de cuenta muestra el usuario y su perfil real: Administrador o Vendedor. Pruebas reales aisladas de clientes, venta, abonos mínimos, PDF, permisos, sesión y recuperación de sincronización. Limpieza solicitada de abonos históricos con respaldo, sin borrar clientes ni inventario."
+  "version": "0.22.31",
+  "notes": "Cronograma de pagos conciliado por recibo y fecha real: cuota pagada verde claro, vencida pagada verde oscuro, adelantos azules fuera de mensualidades; meses clicables con historial y recibo, saldos de apertura sin cuotas inventadas. No modifica la contabilidad ni datos existentes."
 }
