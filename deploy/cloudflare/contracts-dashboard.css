@@ -125,3 +125,22 @@ body.lotigest-dark .lotigest-shell .ct-topbar .ct-top-actions .btn-primary{backg
  .lot-contract-first-actions>.btn{flex:1 1 100%}
  #lot-uncontracted-content .owner-cleanup-confirm{padding:9px}
 }
+
+
+/* Cobros: vista alimentada únicamente por Contratos, sin importaciones antiguas. */
+.contract-collection-note{padding:15px 18px;margin:12px 0 17px;border-left:4px solid #19794e}
+.contract-collection-note h3{margin:0 0 8px;color:var(--text,#213b2c);font-size:17px}
+.contract-collection-note p{margin:7px 0 10px;line-height:1.5}
+.contract-collection-note .btn{margin-top:6px}
+.contract-collection-empty{border-radius:9px;border:1px dashed #c8d6cd;background:#eef8f1;padding:12px;color:#205e3d;font-size:13px}
+.contract-collection-pending{padding:14px;border:1px solid #d6e4d8;border-top:4px solid #d29d42;border-radius:10px;display:grid;gap:7px}
+.contract-collection-pending>strong{font-size:16px;color:var(--text,#1b3727)}
+.contract-collection-pending .contract-collection-state{color:#8b621e;font-weight:700;font-size:13px}
+.contract-collection-pending .btn{justify-self:start}
+body.lotigest-dark .contract-collection-empty{background:#1e3a2c;color:#d5ebdd;border-color:#557562}
+body.lotigest-dark .contract-collection-pending .contract-collection-state{color:#f0cc86}
+@media(max-width:600px){
+ .contract-collection-note{padding:12px}
+ .contract-collection-note .btn{width:100%}
+ .contract-collection-pending .btn{width:100%}
+}
