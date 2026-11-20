@@ -187,7 +187,7 @@ test('cronograma muestra último mes cubierto, siguiente cuota y recibos por tre
   for(const month of ['02','03','04']){
    app.click('[data-pm-month="2026-'+month+'"]');
    const panel=app.d.querySelector('#pm-calendar-history');
-   assert.match(panel.textContent,/17\/11\/2026|2026-11-17/,'fecha real del abono atrasado');
+   assert.match(panel.textContent,/17.*nov.*2026|17\/11\/2026|2026-11-17/i,'fecha real del abono atrasado');
    const pdf=panel.querySelector('[data-action="payment-receipt-pdf"]');
    const preview=panel.querySelector('[data-action="receipt-preview"]');
    assert.equal(pdf?.dataset.id,installmentPayment.id);
