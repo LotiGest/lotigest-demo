@@ -100,8 +100,14 @@ function contractIntakeOpen(clientId='',mode='ocr'){
  const content=manual?
   '<p>Completa la ficha de contrato escribiendo los datos directamente. Se utilizará el cliente seleccionado; revisa etapa, bloque, solar, precio, prima pactada y plazo antes de guardar.</p>'+
   '<div id="contract-intake-review">'+contractIntakeFields()+'</div>':
-  '<p>Primer paso: sube una foto legible del documento de compra de esta residencial.</p>'+
-  '<label class="field-group"><span>Imagen del contrato</span><input id="contract-intake-file" type="file" accept="image/jpeg,image/png,image/webp"></label>'+
+  '<p>Primer paso: toma una foto del contrato con la cámara o elige una foto ya guardada en tu teléfono.</p>'+
+  '<div class="field-group"><span>Imagen del contrato</span>'+
+  '<div role="group" aria-label="Seleccionar fotografía del contrato" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px">'+
+  '<label class="btn btn-primary" style="position:relative;display:inline-flex;align-items:center;justify-content:center;min-height:44px;cursor:pointer;overflow:hidden">📷 Tomar foto'+
+  '<input id="contract-intake-camera" type="file" accept="image/*" capture="environment" aria-label="Tomar foto con la cámara" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer"></label>'+
+  '<label class="btn btn-outline" style="position:relative;display:inline-flex;align-items:center;justify-content:center;min-height:44px;cursor:pointer;overflow:hidden">🖼️ Elegir de galería'+
+  '<input id="contract-intake-file" type="file" accept="image/*" aria-label="Elegir foto de la galería o archivos" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer"></label></div>'+
+  '<small class="sm muted">Fotos JPG, PNG o WebP (máximo 12 MB). También puedes elegir una imagen desde Archivos.</small></div>'+
   '<p class="sm muted">El OCR se realiza en tu dispositivo. Luego podrás revisar los datos antes de guardar; la imagen original se almacena de forma privada en LOTIGEST al confirmar.</p>'+
   '<div id="contract-intake-status" role="status"></div><button type="button" id="contract-intake-retry" class="btn btn-outline" hidden>Volver a leer la foto</button><div id="contract-intake-review"></div>';
  showModal(manual?'Llenar ficha de contrato manual':'Registrar cliente desde contrato',content,
@@ -134,14 +140,22 @@ async function decodeContractIntakeImage(file){
   image.onerror=()=>reject(Error('El teléfono no pudo abrir esta imagen. Prueba con otra foto JPG o PNG.'));image.src=url;
  });}finally{URL.revokeObjectURL(url);}
 }
+function contractIntakeImageMime(file){
+ const declared=String(file?.type||'').toLowerCase();
+ if(['image/jpeg','image/png','image/webp'].includes(declared))return declared;
+ if(declared&&declared!=='application/octet-stream')return '';
+ const extension=String(file?.name||'').toLowerCase().split('.').pop();
+ return {jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp'}[extension]||'';
+}
 async function contractIntakeRead(file){
  const scan=contractIntakeWorking,status=document.getElementById('contract-intake-status'),box=document.getElementById('contract-intake-review'),saveBtn=document.getElementById('contract-intake-save'),retryBtn=document.getElementById('contract-intake-retry');
  if(!scan||!file||!status||!box)return;
  const reviewForm=document.getElementById('contract-intake-form');
  if(reviewForm){const edited=contractIntakeData(reviewForm);scan.values={...scan.values,...edited};scan.preferredClientId=edited.clientId||scan.preferredClientId||'';}
  const version=++scan.readVersion;
- if(file.size>12*1024*1024||!['image/jpeg','image/png','image/webp'].includes(file.type)){
-  status.textContent='Usa una imagen JPG, PNG o WebP de hasta 12 MB.';return;
+ if(!file.size||file.size>12*1024*1024||!contractIntakeImageMime(file)){
+  scan.file=null;saveBtn.disabled=true;
+  status.textContent='No se pudo adjuntar la foto. Elige una imagen JPG, PNG o WebP de hasta 12 MB desde Cámara, Galería o Archivos.';return;
  }
  scan.busy=true;saveBtn.disabled=true;scan.file=file;if(retryBtn){retryBtn.hidden=true;retryBtn.disabled=true;}
  let bmp=null,worker=null,canvas=null;
@@ -225,7 +239,7 @@ function contractIntakeFindClient(state,data){
 async function contractIntakeStorePhoto(file){
  const key='contrato_'+crypto.randomUUID().replace(/-/g,'');
  const response=await fetch('/api/app/file?key='+encodeURIComponent(key),{
-  method:'PUT',credentials:'same-origin',headers:{'Content-Type':file.type},body:file
+  method:'PUT',credentials:'same-origin',headers:{'Content-Type':contractIntakeImageMime(file)},body:file
  });
  let body={};
  try{body=await response.json();}catch{}
@@ -269,7 +283,7 @@ async function contractIntakeSave(form){
     title:'FICHA CONTRACTUAL DE '+String(client.name).slice(0,85),pages:original.mode==='manual'?[]:[{number:1,text:String(data.rawText||'').slice(0,50000),confidence:original.values._confidence??null}],
     structured:{...structuredFields,identity:contractIdentityFormat(client.identity),lotId:lot.id,stage:lot.stage??null,monthlyCalculated:Math.round((fields.price-fields.down)/months*100)/100,downPaymentReceived:false},
     ...(groupId?{contractGroupId:groupId,contractLotIds:planned.map(r=>r.lot.id)}:{}),
-    ...(key?{documentKey:key,documentMime:original.file.type}:{}),format:original.mode==='manual'?'manual':'photo+ocr',status:'pending-sale',createdAt:now,updatedAt:now};
+    ...(key?{documentKey:key,documentMime:contractIntakeImageMime(original.file)}:{}),format:original.mode==='manual'?'manual':'photo+ocr',status:'pending-sale',createdAt:now,updatedAt:now};
    next.contractTexts??=[];next.contractTexts.unshift(record);
    target.ownerClientId=client.id;target.pendingContractId=record.id;
    if(!(Number(target.area)>0)&&Number(fields.areaM2)>0){target.area=Number(fields.areaM2);target.areaMode='manual';target.areaOrigin='contract-reviewed';}
@@ -370,8 +384,9 @@ document.addEventListener('change',event=>{
  if(review)review.innerHTML=contractIntakeFields();
 },true);
 document.addEventListener('change',event=>{
- if(event.target.id==='contract-intake-file'){
+ if(event.target.id==='contract-intake-file'||event.target.id==='contract-intake-camera'){
   const file=event.target.files?.[0];
+  event.target.value=''; // Permite elegir o tomar de nuevo la misma foto tras un error.
   if(file)contractIntakeRead(file);
  }
 },true);
