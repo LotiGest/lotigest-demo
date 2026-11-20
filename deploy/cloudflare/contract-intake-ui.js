@@ -411,7 +411,7 @@ function contractIntakeDescription(d){
  const lot=getLot(d.lotId),delta=Number(lot?.area)>0&&Number(info.areaM2)>0&&Math.abs(Number(lot.area)-Number(info.areaM2))>.02?
   '<p style="color:#9b581f"><strong>Medida protegida:</strong> el catastro conserva '+esc(String(lot.area))+' m² aunque el contrato indique '+esc(String(info.areaM2))+' m².</p>':'';
  return '<section class="card" style="padding:15px;margin-bottom:15px"><h3>Descripción completa del contrato</h3>'+
-  '<p class="sm muted">Etapa, bloque y solar identificados en el inventario · documento privado.</p>'+
+  '<p class="sm muted">'+(d.format==='manual'?'Ficha ingresada manualmente':'Documento leído y revisado por OCR')+' · Etapa, bloque y solar vinculados al inventario.</p>'+
   (d.contractLotIds?.length>1?'<p><b>Ficha compartida:</b> '+esc(d.contractLotIds.map(id=>{const l=getLot(id);return 'Etapa '+l?.stage+' · Bloque '+l?.block+' · Solar '+(l?.sourceNumber||l?.number||id);}).join('; '))+'. Los importes de abajo corresponden solo a este solar.</p>':'')+list+delta+'<p class="sm muted">La prima del contrato no se registra como pagada al importar. Consulta Abonos para verificar los cobros posteriores.</p>'+
   (d.documentKey?'<a class="btn btn-outline" target="_blank" rel="noopener noreferrer" href="/api/app/file?key='+encodeURIComponent(d.documentKey)+'">Ver fotografía original</a>':'')+
   '<button type="button" class="btn btn-outline" data-contract-dni-edit="'+esc(d.id)+'">Corregir DNI del cliente</button></section>';
@@ -430,8 +430,8 @@ viewContractText=function(id){
 document.addEventListener('click',event=>{
  const action=event.target.closest?.('[data-action="contract-text-edit"]');
  if(!action)return;
- const doc=(db.contractTexts||[]).find(x=>x.id===action.dataset.id&&x.format==='photo+ocr');
- if(doc){event.preventDefault();event.stopImmediatePropagation();toast('Ficha importada protegida. No se debe reemplazar mediante OCR antiguo.','error');}
+ const doc=(db.contractTexts||[]).find(x=>x.id===action.dataset.id&&['photo+ocr','manual'].includes(x.format));
+ if(doc){event.preventDefault();event.stopImmediatePropagation();toast('Ficha contractual protegida. No se debe reemplazar mediante el editor antiguo.','error');}
 },true);
 
 function clientRegisterResetOpen(){
@@ -516,7 +516,7 @@ async function contractDniEditSave(form){
  if(!contractIntakeAdmin())throw Error('La sesión no está disponible o la nube no está sincronizada.');
  const data=Object.fromEntries(new FormData(form));
  const digits=contractIdentityDigits(data.identity);
- if(digits.length!==13)throw Error('El DNI debe tener 13 dígitos. Revisa la fotografía del contrato.');
+ if(digits.length!==13)throw Error('El DNI debe tener 13 dígitos. Revisa la ficha contractual.');
  const doc=(db.contractTexts||[]).find(d=>d.id===data.documentId&&['photo+ocr','manual'].includes(d.format)&&d.status!=='voided');
  if(!doc)throw Error('No existe la ficha contractual.');
  const client=getClient(doc.clientId);
