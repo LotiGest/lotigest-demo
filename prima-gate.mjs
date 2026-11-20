@@ -17,7 +17,7 @@ export function lotPrimaStatus(state, lotId) {
     }
   } else {
     for (const p of state.ownerPayments || []) {
-      if (!/^PRIMA\\b/i.test(String(p.concept || '')) || p.voidedAt || p.deletedAt) continue;
+      if (!/^PRIMA\b/i.test(String(p.concept || '')) || p.voidedAt || p.deletedAt) continue;
       for (const a of p.allocations || []) {
         const refs = a.references || [];
         if (!refs.some(r => r.lotId === lotId)) continue;
