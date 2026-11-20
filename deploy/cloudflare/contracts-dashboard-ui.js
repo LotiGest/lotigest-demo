@@ -86,11 +86,12 @@
     '<div><button class="btn btn-outline btn-sm" data-ct-page="'+(state.page-1)+'" '+(state.page<=1?'disabled':'')+'>Anterior</button>'+
     '<span>Página '+state.page+' de '+pages+'</span>'+
     '<button class="btn btn-outline btn-sm" data-ct-page="'+(state.page+1)+'" '+(state.page>=pages?'disabled':'')+'>Siguiente</button></div></footer></section>';
+  const assignments=(db.lots||[]).filter(l=>l.residenceId===rid&&l.ownerClientId&&getClient(l.ownerClientId)).sort((a,b)=>val(getClient(a.ownerClientId).name).localeCompare(val(getClient(b.ownerClientId).name),'es-HN')||val(a.stage).localeCompare(val(b.stage),'es-HN',{numeric:true}));
   const tools='<details class="card ct-tools"><summary>Más herramientas de contratos</summary><p class="sm muted">Estas operaciones conservan las fichas, los pagos y las medidas actuales.</p>'+
     '<div class="ct-tool-actions"><button class="btn btn-outline" data-contract-owner-manual>Ficha de contrato manual</button>'+
     '<button class="btn btn-outline" data-contract-owner-open>Asignar solares a un cliente</button>'+
     '<button class="btn btn-outline" data-action="contract-scan-choose">Escanear contrato (solo texto)</button>'+
-    '<button class="btn btn-outline" data-contract-rebuild-open>Preparar limpieza de clientes</button></div>'+
+    '<button class="btn btn-outline" data-contract-rebuild-open>Preparar limpieza de clientes</button></div>'+    '<details style="margin:12px 0"><summary>Solares asignados a clientes ('+assignments.length+')</summary>'+    '<div class="table-scroll"><table><thead><tr><th>Cliente</th><th>Etapa</th><th>Bloque</th><th>Solar</th></tr></thead><tbody>'+    assignments.slice(0,70).map(l=>'<tr><td>'+esc(getClient(l.ownerClientId).name)+'</td><td>'+esc(l.stage||'—')+'</td><td>'+esc(l.block||'—')+'</td><td>'+esc(num(l))+'</td></tr>').join('')+'</tbody></table></div>'+    (assignments.length>70?'<p class="sm muted">Se muestran 70 registros; el resto continúa disponible en Clientes.</p>':'')+'</details>'+
     '<p class="sm muted">Registrar una ficha no significa cobrar la prima. El crédito y los abonos se activan por separado.</p></details>';
   return '<div class="ct-module">'+residencePicker()+
     header('Contratos','Gestión de fichas, documentos y terrenos vinculados.',toolbar)+
