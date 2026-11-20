@@ -30,12 +30,12 @@ export function reconcileInstallments(sales,payments,asOf,installmentCents,addMo
     // de cuota. No se distribuye dinero basándose únicamente en su monto.
     const explicitNumber=Number(payment.installmentNumber||0);
     const period=String(payment.period||payment.paymentMonth||payment.installmentMonth||'');
-    const matchByMonth=/^\\d{4}-(?:0[1-9]|1[0-2])$/.test(period)?
+    const matchByMonth=/^\d{4}-(?:0[1-9]|1[0-2])$/.test(period)?
      saleRows.filter(row=>row.dueDate.slice(0,7)===period):[];
     const row=Number.isInteger(explicitNumber)&&explicitNumber>0?
      saleRows[explicitNumber-1]:matchByMonth.length===1?matchByMonth[0]:null;
     allocations=row?[{number:row.number,amount:payment.amount}]:[];
-    const isPrima=/\\bprima\\b/i.test(String(payment.concept||'')+' '+String(payment.kind||'')+' '+String(payment.type||''));
+    const isPrima=/\bprima\b/i.test(String(payment.concept||'')+' '+String(payment.kind||'')+' '+String(payment.type||''));
     if(!row&&!isPrima)unmatched.push({saleId:sale.id,paymentId:payment.id,reason:'pago sin cuota identificada (no confundir con prima)'});
    }
    if(!dated){unmatched.push({saleId:sale.id,paymentId:payment.id,reason:'sin fecha válida o posterior al corte'});continue;}
