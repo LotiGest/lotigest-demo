@@ -1,4 +1,4 @@
 {
-  "version": "0.22.39",
-  "notes": "Residenciales, solares y cobros: vista limpia alimentada exclusivamente desde Contratos. Los clientes, solares y abonos importados sin nueva ficha contractual ya no se muestran en el módulo ni sus exportaciones. Los contratos pendientes se ven sin generar abonos; los activos muestran sus pagos reales. Terrenos y Predios conserva el inventario, croquis, medidas y precios. Los antiguos registros financieros NO se borran automáticamente: respaldo y revisión administrativa para limpieza definitiva."
+  "version": "0.22.40",
+  "notes": "Nuevo Contrato: al buscar y seleccionar un cliente registrado se copian automáticamente nombre, identidad, teléfono, dirección, RTN, estado civil y ocupación de Clientes; no solicita documentos ni rellenar la identidad otra vez. Permite fichas existentes con DNI pendiente sin inventarlo, vincula por identificador, evita duplicados y conserva los pasos de solar, precio, prima, plazo y fecha. Los clientes nuevos siguen requiriendo DNI válido."
 }
