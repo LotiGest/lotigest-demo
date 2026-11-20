@@ -274,6 +274,7 @@
 #modal-root .lg-payment-modern #pm-calendar-body .pm-month[data-pm-month]:focus-visible{
  outline:3px solid #188848;outline-offset:2px
 }
+#modal-root .lg-payment-modern #pm-calendar-body .pm-month.pm-next-due:not(.pm-history-selected){border:2px dashed #c38b17;box-shadow:inset 0 0 0 1px #d9a23a33}
 #modal-root .lg-payment-modern #pm-calendar-body .pm-month.pm-history-selected{
  border:2px solid #118846;box-shadow:0 0 0 2px #11884623,inset 0 0 0 1px #118846
 }
