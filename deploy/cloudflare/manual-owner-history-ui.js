@@ -79,6 +79,22 @@
      (rows.map(c=>{const status=lotigestPrimaStatus(c.id,rid);return `<button class="btn btn-outline" style="display:block;width:100%;text-align:left;margin:8px 0;white-space:normal" data-action="manual-history-person" data-id="${esc(c.id)}"><strong>${esc(c.name)}</strong> · ${esc(ownerClientSolarSummary(c.id,rid).label)}<br><span class="pm-prima-tag ${lotigestPrimaHighlight(status)?'pm-prima-tag-red':'pm-prima-tag-neutral'}">${esc(lotigestPrimaLabel(status))}</span></button>`;}).join('')||'<p>No hay propietarios que coincidan con el filtro.</p>');
   }
 
+  // Al seleccionar un solar cuya prima consta en el historial, ofrecer solo Abono.
+  function refreshManualPrimaChoice(){
+    const form=document.getElementById('manual-history-form');
+    if(!form||!historyDraft)return;
+    const chosen=[...form.querySelectorAll('[data-manual-lot]:checked')].map(el=>el.value);
+    const paid=lotigestOwnerPayments.ownerPrimaRecordedLots(db,historyDraft.clientId,historyDraft.residenceId,chosen);
+    const type=form.elements.type,option=type?.querySelector('option[value="PRIMA"]');
+    if(!option)return;
+    option.disabled=option.hidden=paid.length>0;
+    if(paid.length&&type.value==='PRIMA')type.value='ABONO';
+    const note=form.querySelector('#manual-prima-once-note');
+    if(note)note.textContent=paid.length?
+      '💚 La prima ya está registrada para '+paid.length+' solar(es) seleccionados. Solo puedes ingresar abonos. Para registrar la prima de otro solar, selecciónalo por separado.':
+      'La prima se registra una sola vez por solar. Después, utiliza únicamente abonos.';
+  }
+
   function openHistoricalManual(clientId,rid=residence().id){
     const c=getClient(clientId);
     if(!c)return;
@@ -88,7 +104,8 @@
     if(!lots.length){const sale=db.sales.find(s=>s.clientId===clientId&&getLot(s.lotId)?.residenceId===rid&&balance(s)>.009);if(sale){previousAbono(clientId,rid);return;}toast('No hay terrenos vendidos vinculados a este propietario para registrar este historial.','error');return;}
     historyDraft={clientId,residenceId:rid,snapshot:JSON.stringify(db),id:'OP-'+crypto.randomUUID(),statementId:'OS-'+crypto.randomUUID()};
     const checks=lots.map(l=>`<label style="display:block;padding:7px 2px"><input type="checkbox" data-manual-lot value="${esc(l.id)}" ${lots.length===1?'checked':''}> ${esc('Etapa '+(l.stage||'por confirmar')+' · Bloque '+l.block+' · Solar '+(l.sourceNumber||l.number||l.id))}</label>`).join('');
-    showModal('Contratos · Registrar prima o abono histórico',`<p><strong>${esc(c.name)}</strong></p><p>Marca el solar o los solares a los que corresponde el pago. Si marcas varios, se conservará como <strong>un solo pago conjunto</strong>, sin repartirlo ni duplicarlo.</p><form id="manual-history-form" data-owner-client-id="${esc(clientId)}"><div style="max-height:220px;overflow:auto">${checks}</div><div class="form-grid">${field('Fecha real del pago','date',businessToday(),{type:'date',required:true})}<label>Tipo de pago<select name="type" required><option value="PRIMA">Prima</option><option value="ABONO" selected>Abono</option></select></label>${field('Monto recibido (L.)','amount','',{type:'number',min:'.01',step:'.01',required:true})}${receiptMethodField()}${receiptReferenceField()}<label>Mes al que corresponde (opcional)<input type="month" name="period"></label>${field('Referencia o nota del recibo','note','',{full:true})}</div>${receiptOcrWidget()}<p>Los pagos anteriores se registran en su fecha original. Sin precio y plazo comprobados, el saldo y la mora quedan pendientes de verificar.</p><label><input type="checkbox" name="reviewed" required> Confirmé el recibo original, propietario, solares y que este pago no está registrado anteriormente.</label><p id="manual-history-error" role="alert"></p></form>`,'<button class="btn btn-soft" data-action="close-modal">Cancelar</button><button class="btn btn-primary" type="submit" form="manual-history-form">Guardar y generar recibo</button>',true);
+    showModal('Contratos · Registrar prima o abono histórico',`<p><strong>${esc(c.name)}</strong></p><p>Marca el solar o los solares a los que corresponde el pago. Si marcas varios, se conservará como <strong>un solo pago conjunto</strong>, sin repartirlo ni duplicarlo.</p><form id="manual-history-form" data-owner-client-id="${esc(clientId)}"><div style="max-height:220px;overflow:auto">${checks}</div><div class="form-grid">${field('Fecha real del pago','date',businessToday(),{type:'date',required:true})}<label>Tipo de pago<select name="type" required><option value="PRIMA">Prima</option><option value="ABONO" selected>Abono</option></select></label>${field('Monto recibido (L.)','amount','',{type:'number',min:'.01',step:'.01',required:true})}${receiptMethodField()}${receiptReferenceField()}<label>Mes al que corresponde (opcional)<input type="month" name="period"></label>${field('Referencia o nota del recibo','note','',{full:true})}</div><p id="manual-prima-once-note" class="sm"></p>${receiptOcrWidget()}<p>Los pagos anteriores se registran en su fecha original. Sin precio y plazo comprobados, el saldo y la mora quedan pendientes de verificar.</p><label><input type="checkbox" name="reviewed" required> Confirmé el recibo original, propietario, solares y que este pago no está registrado anteriormente.</label><p id="manual-history-error" role="alert"></p></form>`,'<button class="btn btn-soft" data-action="close-modal">Cancelar</button><button class="btn btn-primary" type="submit" form="manual-history-form">Guardar y generar recibo</button>',true);
+    refreshManualPrimaChoice();
   }
 
   async function submitHistoricalManual(form){
@@ -144,6 +161,7 @@
   };
   document.addEventListener('input',e=>{if(e.target.id==='manual-history-search')renderHistoricalPicker();});
   document.addEventListener('change',e=>{if(e.target.matches('[data-manual-prima-filter]')){manualPrimaFilter=e.target.checked;renderHistoricalPicker();}});
+  document.addEventListener('change',e=>{if(e.target.matches('#manual-history-form [data-manual-lot]'))refreshManualPrimaChoice();});
   document.addEventListener('submit',e=>{if(e.target.id==='manual-history-form'){e.preventDefault();submitHistoricalManual(e.target);}});
   document.addEventListener('click',e=>{
     const b=e.target.closest('[data-action]');if(!b)return;
