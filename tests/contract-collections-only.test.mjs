@@ -99,7 +99,7 @@ test('UI conserva la base completa y filtra reportes y exportaciones',()=>{
   residence:()=>({id:'R'}),document:{addEventListener:(name,fn)=>{(events[name]??=[]).push(fn);}},
   esc:v=>String(v),getClient:id=>state.clients.find(c=>c.id===id),
   inventoryArea:l=>l.area,inventoryPrice:l=>'L '+l.price,
-  page:'collections',render:()=>{},contractIntakeOpen:()=>{}
+  page:'collections',cloudUser:{role:'admin'},render:()=>{},contractIntakeOpen:()=>{}
  };
  // Definir los renderizadores dentro del mismo ámbito mutable que utiliza el
  // complemento (no cerrar sobre una referencia externa fija).
