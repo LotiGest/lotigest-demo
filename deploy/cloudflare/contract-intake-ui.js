@@ -152,7 +152,7 @@ function contractIntakeManualFields(){
   '<label class="field-group"><span>Método</span><select name="primaMethod">'+
   ['Efectivo','Transferencia','Tarjeta'].map(m=>'<option '+((v.primaMethod||'Efectivo')===m?'selected':'')+'>'+m+'</option>').join('')+
   '</select></label>'+field('Referencia (opcional)','primaRef')+'</div></details>';
- return '<form id="contract-intake-form"><p class="sm muted">Busca al cliente, selecciona su solar y escribe solamente la prima, el plazo y las fechas. Los demás datos se cargan automáticamente.</p>'+
+ return '<form id="contract-intake-form"><p class="sm muted">Busca un cliente existente y selecciona su solar. Se cargarán sus medidas y el precio de Predios; puedes ajustar el precio de venta y la prima para este contrato. Saldo y cuota se calculan automáticamente.</p>'+
   '<div class="form-grid"><div class="full field-group"><span><strong>Cliente ya registrado</strong> · Buscar en la base de Clientes</span>'+
   '<div style="display:flex;gap:8px;flex-wrap:wrap"><input id="contract-client-search" type="search" autocomplete="off" placeholder="Nombre o identidad" aria-label="Buscar cliente por nombre o identidad" value="'+val(draft?.clientQuery||'')+'" style="min-width:170px;flex:1">'+
   '<button type="button" class="btn btn-primary" data-contract-client-search>Buscar</button></div>'+
@@ -313,7 +313,7 @@ function contractIntakeOpen(clientId='',mode='ocr'){
  occupation:existing.occupation||'',address:existing.address||'',phone:existing.phone||''
  }:{},readVersion:0,busy:false};
  const content=manual?
-  '<p>Busca un cliente por nombre o identidad. Al elegir su solar, LOTIGEST recupera automáticamente las medidas y el precio. Solo indica prima, plazo en meses y fechas.</p>'+
+  '<p>Busca un cliente por nombre o identidad. Se cargarán sus datos y las medidas del terreno. Puedes negociar el precio y la prima sin cambiar el valor original del inventario.</p>'+
   '<div id="contract-intake-review">'+contractIntakeFields()+'</div>':
   '<p>Primer paso: toma una foto del contrato con la cámara o elige una foto ya guardada en tu teléfono.</p>'+
   '<div class="field-group"><span>Imagen del contrato</span>'+
@@ -481,7 +481,9 @@ async function contractIntakeSave(form){
   });
   const cents=v=>Math.round(Number(v)*100);
   if(chosen.some(({down,price})=>down==null||down===''||!Number.isFinite(Number(down))||Number(down)<0||Number(down)>=price))
-   throw Error('Revisa la prima pactada de cada solar: debe ser menor que el precio del inventario.');
+   throw Error('Revisa la prima de cada solar: debe ser menor que el precio de venta acordado.');
+  if(chosen.some(({down})=>Math.round(Number(down)*100)/100!==Number(down)))
+   throw Error('La prima debe expresarse en lempiras con máximo dos decimales.');
   const fullPrice=chosen.reduce((total,x)=>total+cents(x.price),0);
   const fullDown=chosen.reduce((total,x)=>total+cents(x.down),0);
   if(!Number.isSafeInteger(fullPrice)||!Number.isSafeInteger(fullDown))throw Error('Importes demasiado grandes.');
