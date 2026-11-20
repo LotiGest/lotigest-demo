@@ -35,7 +35,7 @@ function boot(page){
     table(['Recibo / fecha','Persona'],rowsOf(people,c=>'<tr><td>R</td><td>'+c.name+'</td></tr>'));
   w.collectionPage=()=>'<label>Mes de consulta<input type="month"></label><div>'+
     rowsOf(people,c=>'<article class="card"><p class="sm"><strong>'+c.name+'</strong></p></article>')+'</div>';
-  w.render=()=>{w.document.querySelector('#app').innerHTML=w[w.page+'Page']();};
+  w.render=()=>{w.document.querySelector('#app').innerHTML=w[(w.page==='collections'?'collection':w.page)+'Page']();};
   w.page=page;
   w.eval(source);
   w.render();
