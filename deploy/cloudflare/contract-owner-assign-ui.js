@@ -82,7 +82,7 @@ function contractOwnerRender(){
   '<label>Buscar cliente por nombre o identidad<input id="contract-owner-search" type="search" autocomplete="off" placeholder="Nombre o identidad" value="'+esc(draft.search||'')+'"></label>'+
   '<div id="contract-owner-results" style="max-height:165px;overflow:auto;margin:8px 0"></div>'+
   '<div class="notice-card">'+(client?'<strong>Cliente seleccionado: '+esc(client.name)+'</strong><p class="sm">Identidad: '+esc(client.identity||'Pendiente')+'</p>'+
-  '<p class="sm">Solares vinculados: '+(linked.length?linked.map(l=>esc(contractOwnerLotTitle(l))).join(' · '):'Ninguno en esta residencial')+'</p>':
+  '<p class="sm">Solares asociados (pueden ser provisionales sin contrato): '+(linked.length?linked.map(l=>esc(contractOwnerLotTitle(l))).join(' · '):'Ninguno en esta residencial')+'</p>':
   '<strong>Selecciona un cliente existente antes de guardar.</strong>')+'</div>'+
   '<h3 style="margin:14px 0 8px">Etapa, bloque y solar de este cliente</h3>'+
   contractOwnerRows()+
@@ -129,14 +129,19 @@ contractsPage=function(){
   '<p>Asigna solares a personas ya registradas y comprueba su etapa, bloque y número desde Contratos. Esto no registra ningún cobro.</p>'+
   '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-primary" data-contract-owner-open>Asignar solares a cliente</button>'+
   '<button type="button" class="btn btn-outline" data-contract-owner-manual>Completar ficha de contrato manual</button></div>'+
-  '<div style="margin-top:12px"><strong>'+assignments.length+' solares con cliente identificado</strong>'+
-  (assignments.length?'<div class="table-scroll" style="margin-top:10px;max-height:320px;overflow:auto"><table><thead><tr><th>Cliente</th><th>Etapa</th><th>Bloque</th><th>Solar</th></tr></thead><tbody>'+
-   assignments.slice(0,70).map(l=>'<tr><td>'+esc(getClient(l.ownerClientId).name)+'</td><td>'+esc(l.stage||'—')+'</td><td>'+esc(l.block||'—')+'</td><td>'+esc(l.sourceNumber||l.number||l.id)+'</td></tr>').join('')+
+  '<div style="margin-top:12px"><strong>'+assignments.filter(contractOwnerHasConfirmedContract).length+' solares respaldados por contrato; '+assignments.filter(l=>!contractOwnerHasConfirmedContract(l)).length+' asociaciones provisionales</strong>'+
+  (assignments.length?'<div class="table-scroll" style="margin-top:10px;max-height:320px;overflow:auto"><table><thead><tr><th>Cliente</th><th>Etapa</th><th>Bloque</th><th>Solar</th><th>Respaldo</th></tr></thead><tbody>'+
+   assignments.slice(0,70).map(l=>'<tr><td>'+esc(getClient(l.ownerClientId).name)+'</td><td>'+esc(l.stage||'—')+'</td><td>'+esc(l.block||'—')+'</td><td>'+esc(l.sourceNumber||l.number||l.id)+'</td><td>'+(contractOwnerHasConfirmedContract(l)?'En contrato':'Provisional, sin contrato')+'</td></tr>').join('')+
    '</tbody></table></div>'+(assignments.length>70?'<p class="sm muted">Mostrando 70 solares. Abre la ficha del cliente para consultar sus demás solares.</p>':''):
    '<p class="sm muted">Sin propietarios identificados todavía en esta residencial.</p>')+'</div></section>';
  const marker='<section class="card" style="padding:18px;margin:14px 0">';
  return html.includes(marker)?html.replace(marker,panel+marker):panel+html;
 };
+function contractOwnerHasConfirmedContract(lot){
+ return (db.contractTexts||[]).some(d=>d.status!=='voided'&&d.clientId===lot.ownerClientId&&
+  (d.lotId===lot.id||(d.contractLotIds||[]).includes(lot.id)||
+   db.sales.some(s=>s.id===d.saleId&&s.lotId===lot.id)));
+}
 const contractOwnerPreviousView=viewContractText;
 viewContractText=function(id){
  contractOwnerPreviousView(id);
