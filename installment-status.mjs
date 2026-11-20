@@ -15,28 +15,30 @@ export function reconcileInstallments(sales,payments,asOf,installmentCents,addMo
   }));
   const chronological=payments.filter(p=>p.saleId===sale.id&&!p.voidedAt&&!p.deletedAt)
    .sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.id||'').localeCompare(String(b.id||'')));
-  let cumulative=cents(sale.openingPaid);
-  const down=cents(sale.downPayment);
+  // La prima, el saldo inicial y el precio financiado NO son recibos de mensualidad.
+  // Por seguridad, solo se acreditan meses respaldados por un detalle explícito
+  // de cuota o período; un pago antiguo ambiguo queda pendiente de conciliación.
   for (const payment of chronological) {
    const amount=cents(payment.amount);
    if(!amount)continue;
    const dated=valid(payment.date)&&payment.date<=asOf&&payment.date>=sale.date;
-   let allocations=Array.isArray(payment.receiptInfo?.allocations)?
-    payment.receiptInfo.allocations.filter(a=>Number.isInteger(Number(a.number))&&Number(a.number)>0&&Number(a.amount)>0):null;
-   // Recibos antiguos sin asignación guardada: reconstruir la aplicación original
-   // cronológicamente, sin asignar nunca fechas a un saldo inicial desconocido.
+   const primaType=/\bprima\b/i.test(String(payment.kind||'')+' '+String(payment.type||''));
+   const saved=payment.receiptInfo?.allocations;
+   let allocations=Array.isArray(saved)?
+    saved.filter(a=>!(/\bprima\b/i.test(String(a.label||'')))&&!primaType&&Number.isInteger(Number(a.number))&&Number(a.number)>0&&Number(a.amount)>0):null;
    if(!allocations){
-    allocations=[];
-    const start=cumulative,end=Math.min(cents(sale.price),start+amount);
-    let offset=down;
-    for(let i=0;i<saleRows.length;i++){
-     const due=saleRows[i].dueCents;
-     const applied=Math.max(0,Math.min(end,offset+due)-Math.max(start,offset));
-     if(applied)allocations.push({number:i+1,amount:applied/100});
-     offset+=due;
-    }
+    // Compatibilidad con recibos antiguos que sí especificaban número o mes
+    // de cuota. No se distribuye dinero basándose únicamente en su monto.
+    const explicitNumber=Number(payment.installmentNumber||0);
+    const period=String(payment.period||payment.paymentMonth||payment.installmentMonth||'');
+    const matchByMonth=/^\d{4}-(?:0[1-9]|1[0-2])$/.test(period)?
+     saleRows.filter(row=>row.dueDate.slice(0,7)===period):[];
+    const isPrima=primaType||/\bprima\b/i.test(String(payment.concept||''));
+    const row=!isPrima&&Number.isInteger(explicitNumber)&&explicitNumber>0?
+     saleRows[explicitNumber-1]:!isPrima&&matchByMonth.length===1?matchByMonth[0]:null;
+    allocations=row?[{number:row.number,amount:payment.amount}]:[];
+    if(!row&&!isPrima)unmatched.push({saleId:sale.id,paymentId:payment.id,reason:'pago sin cuota identificada (no confundir con prima)'});
    }
-   cumulative+=amount;
    if(!dated){unmatched.push({saleId:sale.id,paymentId:payment.id,reason:'sin fecha válida o posterior al corte'});continue;}
    for(const allocation of allocations) {
     const row=saleRows[Number(allocation.number)-1];

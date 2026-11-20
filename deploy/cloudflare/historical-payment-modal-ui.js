@@ -90,6 +90,10 @@
   const host=document.getElementById('pm-history-calendar-body');if(!host)return;
   host.replaceChildren();
   const today=businessToday(),currentYear=Number(today.slice(0,4));
+  const todayBadge=make('div','pm-current-date');
+  todayBadge.append(make('strong','','Fecha actual de Honduras: '+pmReadableDate(today)),
+   make('small','','La prima es un pago inicial, no una mensualidad. Puedes registrar recibos históricos con su fecha original.'));
+  host.append(todayBadge);
   const period=form.elements.period?.value||'';
   const documentedYears=pays.flatMap(p=>[Number(validPaymentDate(p)?.slice(0,4)),Number(monthOf(p)?.slice(0,4))])
    .filter(y=>Number.isInteger(y)&&y>=1900&&y<=currentYear);
@@ -247,7 +251,14 @@
    wrap.append(make('label','','Método de pago: *'),pmMethodButtons(select));
    method.hidden=true;wrap.append(method);fields.append(wrap);
   }
-  if(date)fields.append(date);
+  if(date){
+   const wrapper=make('div','pm-date-group'),input=date.querySelector('input[name="date"]');
+   if(input){input.max=businessToday();input.setAttribute('aria-label','Fecha real del recibo histórico');}
+   const note=make('small','pm-help','Hoy en Honduras: '+pmReadableDate(businessToday())+'. Conserva la fecha original para pagos atrasados.');
+   const button=make('button','btn btn-outline btn-sm pm-date-today','Usar fecha de hoy');
+   button.type='button';button.dataset.pmUseToday='true';
+   wrapper.append(date,note,button);fields.append(wrapper);
+  }
   if(amount)fields.append(amount);
   if(period){period.classList.add('pm-span-2');period.append(make('small','pm-help','El mes se completa según la fecha real del abono. Puedes corregirlo si el recibo corresponde a otra mensualidad.'));fields.append(period);}
   if(ref){ref.classList.add('pm-span-2');fields.append(ref);}

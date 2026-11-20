@@ -1,4 +1,4 @@
 {
-  "version": "0.22.31",
-  "notes": "Cronograma de pagos conciliado por recibo y fecha real: cuota pagada verde claro, vencida pagada verde oscuro, adelantos azules fuera de mensualidades; meses clicables con historial y recibo, saldos de apertura sin cuotas inventadas. No modifica la contabilidad ni datos existentes."
+  "version": "0.22.32",
+  "notes": "Prima separada de mensualidades (L 30,000 se resta del precio sin contar como cuota); abonos con mes verificado, saldo de apertura sin inventar cuotas; fecha actual de Honduras visible en cronogramas y registro, con botón usar hoy y opción de ingresar fechas antiguas; conserva recibos, abonos y datos existentes."
 }
