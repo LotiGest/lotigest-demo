@@ -31,6 +31,7 @@ export function auditOrphanOwnerLinks(state,residenceId=null){
   if(!owner)reasons.push('cliente no disponible');
   if(hasThisContract)reasons.push('contrato vigente');
   else if(docs.length)reasons.push('contrato de otra persona');
+  if(lot.type==='private'||lot.status==='private')reasons.push('propiedad privada');
   if(anySales)reasons.push('venta registrada');
   if(anyReservation)reasons.push('apartado o reserva');
   if(lot.pendingContractId)reasons.push('contrato pendiente');
