@@ -53,8 +53,21 @@ function contractIntakeFields(){
  const clientSelection=contractIntakeWorking?.preferredClientId||
   (db.clients.filter(cl=>normalizeClientLookup(cl.identity)&&normalizeClientLookup(cl.identity)===normalizeClientLookup(c.identity)).length===1?
    db.clients.find(cl=>normalizeClientLookup(cl.identity)===normalizeClientLookup(c.identity)).id:'');
- const clientPicker='<label class="field-group full"><span>Cliente ya registrado (opcional, para no duplicar)</span><select name="clientId"><option value="">Crear o buscar por DNI</option>'+
-  db.clients.map(cl=>'<option value="'+esc(cl.id)+'" '+(cl.id===clientSelection?'selected':'')+'>'+esc(cl.name)+' · '+esc(cl.identity||'Sin identidad')+'</option>').join('')+'</select></label>';
+ const existingClientOptions=db.clients.map(cl=>'<option value="'+esc(cl.id)+'" '+(cl.id===clientSelection?'selected':'')+'>'+esc(cl.name)+' · '+esc(cl.identity||'Sin identidad')+'</option>').join('');
+ const manualClient=contractIntakeWorking?.mode==='manual';
+ const clientMode=contractIntakeWorking?.clientMode||(clientSelection?'existing':'new');
+ const clientPicker=manualClient?
+  '<fieldset class="full" style="min-width:0;border:1px solid var(--line);border-radius:12px;padding:12px;margin:0"><legend><strong>1. Registrar cliente</strong></legend>'+
+  '<label class="field-group"><span>Tipo de cliente</span><select name="clientMode" id="contract-intake-client-mode">'+
+  '<option value="new" '+(clientMode==='new'?'selected':'')+'>Crear cliente nuevo manualmente</option>'+
+  '<option value="existing" '+(clientMode==='existing'?'selected':'')+'>Seleccionar cliente existente</option></select></label>'+
+  '<label class="field-group" style="margin-top:10px"><span>Buscar cliente registrado</span><select name="clientId" id="contract-intake-client-select" '+(clientMode==='new'?'disabled':'')+'>'+
+  '<option value="">Selecciona el cliente</option>'+existingClientOptions+'</select></label>'+
+  '<p class="sm muted" style="margin:9px 0 0">'+(clientMode==='new'?
+   'Escribe abajo nombre, DNI, teléfono y dirección para crear al cliente junto con su contrato. Si el DNI ya está registrado, se revisará y se evitará duplicarlo.':
+   'Selecciona una persona ya registrada. Puedes completar datos faltantes, sin sustituir su nombre ni su DNI.')+'</p></fieldset>':
+  '<label class="field-group full"><span>Cliente ya registrado (opcional, para no duplicar)</span><select name="clientId"><option value="">Crear o buscar por DNI</option>'+
+   existingClientOptions+'</select></label>';
  const stagePicker='<label class="field-group full"><span>Etapa del contrato (selección manual obligatoria)</span><select id="contract-intake-stage" name="stage" required>'+
  '<option value="">Selecciona una etapa</option>'+
  '<option value="1" '+(stageChosen==='1'?'selected':'')+'>Etapa 1</option>'+
@@ -66,7 +79,7 @@ function contractIntakeFields(){
  (stageChosen?(matched.length===1?'Coincidencia: Bloque '+esc(c.block)+' · Solar '+esc(c.number):matched.length?'Hay varias coincidencias; revisa el solar.':'No se encontró coincidencia única. Puedes corregir el bloque o solar.'):
  'Pendiente: selecciona una etapa.')+'</small></label>';
  const labels=[
-  ['Nombre completo','name'],['Identidad / DNI','identity'],['RTN (opcional)','rtn'],['Estado civil','maritalStatus'],
+  ['Nombre completo','name'],['Identidad / DNI','identity'],['Teléfono (Honduras o EE. UU.)','phone'],['RTN (opcional)','rtn'],['Estado civil','maritalStatus'],
   ['Profesión u oficio','occupation'],['Dirección','address'],['Bloque leído','block'],['Solar leído','number'],
   ['Área del documento (varas²)','areaVaras','number'],['Área del documento (m²)','areaM2','number'],
   ['Norte','north'],['Sur','south'],['Este','east'],['Oeste','west'],
@@ -93,12 +106,12 @@ function contractIntakeOpen(clientId='',mode='ocr'){
  const existing=clientId?getClient(clientId):null;
  if(clientId&&!existing){toast('No se encontró al cliente seleccionado.','error');return;}
  const manual=mode==='manual';
- contractIntakeWorking={mode:manual?'manual':'ocr',residenceId:residence().id,file:null,preferredClientId:existing?.id||'',values:existing?{
- name:existing.name||'',identity:existing.identity||'',rtn:existing.rtn||'',maritalStatus:existing.maritalStatus||'',
+ contractIntakeWorking={mode:manual?'manual':'ocr',clientMode:existing?'existing':'new',residenceId:residence().id,file:null,preferredClientId:existing?.id||'',values:existing?{
+ name:existing.name||'',identity:existing.identity||'',phone:existing.phone||'',rtn:existing.rtn||'',maritalStatus:existing.maritalStatus||'',
  occupation:existing.occupation||'',address:existing.address||''
  }:{},readVersion:0,busy:false};
  const content=manual?
-  '<p>Completa la ficha de contrato escribiendo los datos directamente. Se utilizará el cliente seleccionado; revisa etapa, bloque, solar, precio, prima pactada y plazo antes de guardar.</p>'+
+  '<p>Ingresa la ficha sin fotografías: primero crea un cliente nuevo o busca uno existente, luego registra etapa, bloque, solar, precio, prima pactada y plazo. El cliente se guardará al confirmar la ficha contractual.</p>'+
   '<div id="contract-intake-review">'+contractIntakeFields()+'</div>':
   '<p>Primer paso: sube una foto legible del documento de compra de esta residencial.</p>'+
   '<label class="field-group"><span>Imagen del contrato</span><input id="contract-intake-file" type="file" accept="image/jpeg,image/png,image/webp"></label>'+
@@ -189,6 +202,7 @@ async function contractIntakeRead(file){
 }
 function contractIntakeData(form){
  const values=Object.fromEntries(new FormData(form));
+ if(values.clientMode==='new')values.clientId='';
  values.identity=contractIdentityFormat(values.identity);
  for(const key of ['areaVaras','areaM2','price','down','financed','monthly','months','pricePerVara']){
   values[key]=values[key]===''?null:Number(values[key]);
@@ -209,14 +223,14 @@ function contractIntakeFindClient(state,data){
  const client=selected||matches[0]||(sameName.length===1?sameName[0]:null);
  if(!client){
   const created={id:'C-'+crypto.randomUUID(),name:String(data.name).trim().toUpperCase(),
-   identity:String(data.identity).trim(),phone:'',address:String(data.address||'').trim(),
+   identity:String(data.identity).trim(),phone:String(data.phone||'').trim(),address:String(data.address||'').trim(),
    email:'',rtn:String(data.rtn||'').trim(),maritalStatus:String(data.maritalStatus||'').trim(),
    occupation:String(data.occupation||'').trim()};
   state.clients.unshift(created);return created;
  }
  if(normalizeClientLookup(client.name)!==normalizedName)throw Error('El nombre del contrato no coincide con el cliente registrado. Corrige o elige la ficha correcta.');
  if(client.identity&&normalizeClientLookup(client.identity)!==identity)throw Error('El DNI no coincide con el cliente existente.');
- const fields=['identity','address','rtn','maritalStatus','occupation'];
+ const fields=['identity','phone','address','rtn','maritalStatus','occupation'];
  for(const key of fields){
   if(!String(client[key]||'').trim()&&String(data[key]||'').trim())client[key]=String(data[key]).trim();
  }
@@ -236,6 +250,8 @@ async function contractIntakeSave(form){
  const original=contractIntakeWorking,alert=document.getElementById('contract-intake-alert'),button=document.getElementById('contract-intake-save');
  if(!original||!form||original.busy||!contractIntakeAdmin())throw Error('La sesión está ocupada o sin autorización.');
  const data=contractIntakeData(form);
+ if(original.mode==='manual'&&data.clientMode==='existing'&&!data.clientId)throw Error('Selecciona un cliente existente o cambia a Crear cliente nuevo.');
+ if(String(data.phone||'').trim().length>40)throw Error('Revisa el teléfono; máximo 40 caracteres.');
  if(original.mode!=='manual'&&!original.file)throw Error('Debes subir primero la foto del documento original.');
  if(original.residenceId!==residence().id)throw Error('La residencial cambió; revisa la ficha.');
  const planned=intakePlanLots(data,db.lots,original.residenceId);
@@ -350,6 +366,17 @@ document.addEventListener('click',event=>{
 document.addEventListener('change',event=>{
  const target=event.target,form=target.closest?.('#contract-intake-form');
  if(!form||!contractIntakeWorking)return;
+ if(target.name==='clientMode'){
+  contractIntakeRememberExtras(form);
+  contractIntakeWorking.clientMode=target.value==='existing'?'existing':'new';
+  if(contractIntakeWorking.clientMode==='new'){
+   contractIntakeWorking.preferredClientId='';
+   contractIntakeWorking.values.clientId='';
+  }
+  const review=document.getElementById('contract-intake-review');
+  if(review)review.innerHTML=contractIntakeFields();
+  return;
+ }
  if(!['stage','block','number','lotId'].includes(target.name)&&!/^extra(?:LotId|Stage)_/.test(target.name))return;
  contractIntakeRememberExtras(form);
  const data=contractIntakeData(form);
