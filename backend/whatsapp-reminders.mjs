@@ -5,10 +5,16 @@ export function reminderMatches(kind, due, today, settings) {
 
 export function whatsappPhone(value) {
   const raw = String(value ?? '').trim();
-  if (!/^\+?[0-9() -]+$/.test(raw)) return null;
+  if (!/^\+?[0-9() .-]+$/.test(raw)) return null;
   const digits = raw.replace(/\D/g, '');
+  // Honduras: números locales de 8 dígitos o prefijo 504.
   if (!raw.startsWith('+') && /^[2389]\d{7}$/.test(digits)) return '504' + digits;
-  return (raw.startsWith('+') || digits.startsWith('504')) && /^[1-9]\d{7,14}$/.test(digits) ? digits : null;
+  if (/^504[2389]\d{7}$/.test(digits)) return digits;
+  // Estados Unidos: diez dígitos, con 1 o +1 opcionales.
+  if (!raw.startsWith('+') && /^[2-9]\d{2}[2-9]\d{6}$/.test(digits)) return '1' + digits;
+  if (/^1[2-9]\d{2}[2-9]\d{6}$/.test(digits)) return digits;
+  // Otros países: conservar números internacionales explícitos en formato +E.164.
+  return raw.startsWith('+') && /^[1-9]\d{7,14}$/.test(digits) ? digits : null;
 }
 
 export function createWhatsAppSender(env = process.env, send = fetch) {
