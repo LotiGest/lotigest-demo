@@ -1326,6 +1326,7 @@ function clientWhatsappPhone(value){
  if(/^504[2389]\d{7}$/.test(digits))return digits;
  if(!raw.startsWith('+')&&/^[2-9]\d{2}[2-9]\d{6}$/.test(digits))return '1'+digits;
  if(/^1[2-9]\d{2}[2-9]\d{6}$/.test(digits))return digits;
+ if(raw.startsWith('+')&&(digits.startsWith('1')||digits.startsWith('504')))return null;
  return raw.startsWith('+')&&/^[1-9]\d{7,14}$/.test(digits)?digits:null;
 }
 function contactLink(x){const raw=clientWhatsappPhone(x.client?.phone);if(!raw)return '<span class="muted">Sin teléfono válido</span>';let text=`Hola ${x.client?.name||''}, le saludamos de ${db.company.name||'GRUPO H'} por el solar ${x.lot.id}. Tiene ${money(x.lateAmount)} en cuotas vencidas y ${money(x.monthAmount)} pendiente del mes ${collectionMonth} (pueden coincidir). Por favor comuníquese con nosotros para coordinar su depósito. Gracias.`;return `<a class="btn btn-outline btn-sm" href="https://wa.me/${raw}?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">Contactar por WhatsApp</a>`}
