@@ -264,6 +264,17 @@ async function contractIntakeSave(form){
  const original=contractIntakeWorking,alert=document.getElementById('contract-intake-alert'),button=document.getElementById('contract-intake-save');
  if(!original||!form||original.busy||!contractIntakeAdmin())throw Error('La sesión está ocupada o sin autorización.');
  const data=contractIntakeData(form);
+ const received=original.mode==='manual'&&data.primaPaid==='on';
+ if(data.date)buyerDate(data.date,'fecha del contrato');
+ if(data.firstDueDate&&(!data.date||buyerDate(data.firstDueDate,'primera cuota')<data.date))throw Error('La fecha de la primera cuota no puede ser anterior a la fecha del contrato.');
+ if(data.date&&data.date>businessToday())throw Error('La fecha del contrato no puede estar en el futuro.');
+ if(received){
+  if(!data.date||!data.firstDueDate)throw Error('Para guardar una prima pagada, registra la fecha del contrato y la primera cuota.');
+  if(!data.primaDate||buyerDate(data.primaDate,'fecha del pago de prima')<data.date||data.primaDate>businessToday())throw Error('Comprueba la fecha real de la prima. Debe ser posterior al contrato y no futura.');
+  if(!['Efectivo','Transferencia','Tarjeta'].includes(data.primaMethod))throw Error('Selecciona un método de pago.');
+  if(!(Number(data.down)>0))throw Error('La prima pactada debe ser mayor que cero para registrar el cobro.');
+  if(String(data.primaRef||'').length>80)throw Error('Número de recibo demasiado largo.');
+ }
  if(original.mode!=='manual'&&!original.file)throw Error('Debes subir primero la foto del documento original.');
  if(original.residenceId!==residence().id)throw Error('La residencial cambió; revisa la ficha.');
  const planned=intakePlanLots(data,db.lots,original.residenceId);
@@ -286,20 +297,38 @@ async function contractIntakeSave(form){
   const client=contractIntakeFindClient(next,data);
   if(contractIdentityDigits(client.identity)!==contractIdentityDigits(data.identity))throw Error('El número de identidad no coincide con el contrato. Revisa y vuelve a guardar.');
   const groupId=planned.length>1?'CG-'+crypto.randomUUID():null;
+  const receiptGroup=received&&planned.length>1?'PG-'+crypto.randomUUID():null;
   const now=new Date().toISOString();
   for(const {lot,fields} of planned){
    const target=next.lots.find(l=>l.id===lot.id);
    if(target.ownerClientId&&target.ownerClientId!==client.id)throw Error('Un solar ya está asignado a otro cliente; verifica la identidad.');
    const {rawText:sourceOCR,...structuredFields}=fields;
    // Las claves auxiliares del formulario no forman parte de la descripción.
-   for(const k of Object.keys(structuredFields))if(/^(?:extra|solarPrice_|solarDown_)/.test(k))delete structuredFields[k];
+   for(const k of Object.keys(structuredFields))if(/^(?:extra|solarPrice_|solarDown_|primaPaid$|primaDate$|primaMethod$|primaRef$)/.test(k))delete structuredFields[k];
    const record={id:(original.mode==='manual'?'CM-':'OCR-')+crypto.randomUUID(),clientId:client.id,lotId:lot.id,saleId:'',residenceId:original.residenceId,
     title:'FICHA CONTRACTUAL DE '+String(client.name).slice(0,85),pages:original.mode==='manual'?[]:[{number:1,text:String(data.rawText||'').slice(0,50000),confidence:original.values._confidence??null}],
-    structured:{...structuredFields,identity:contractIdentityFormat(client.identity),lotId:lot.id,stage:lot.stage??null,monthlyCalculated:Math.round((fields.price-fields.down)/months*100)/100,downPaymentReceived:false},
+    structured:{...structuredFields,identity:contractIdentityFormat(client.identity),lotId:lot.id,stage:lot.stage??null,monthlyCalculated:Math.round((fields.price-fields.down)/months*100)/100,downPaymentReceived:received},
     ...(groupId?{contractGroupId:groupId,contractLotIds:planned.map(r=>r.lot.id)}:{}),
-    ...(key?{documentKey:key,documentMime:contractIntakeImageMime(original.file)}:{}),format:original.mode==='manual'?'manual':'photo+ocr',status:'pending-sale',createdAt:now,updatedAt:now};
+    ...(key?{documentKey:key,documentMime:contractIntakeImageMime(original.file)}:{}),format:original.mode==='manual'?'manual':'photo+ocr',status:received?'active':'pending-sale',createdAt:now,updatedAt:now};
    next.contractTexts??=[];next.contractTexts.unshift(record);
-   target.ownerClientId=client.id;target.pendingContractId=record.id;
+   target.ownerClientId=client.id;
+   if(received){
+    if(!(fields.down>0))throw Error('Todos los solares deben tener una prima positiva si se marca como pagada.');
+    const sale={id:'V-'+crypto.randomUUID(),clientId:client.id,lotId:lot.id,type:'credit',
+     price:fields.price,downPayment:fields.down,months,date:data.date,firstDueDate:data.firstDueDate,
+     openingPaid:0,importedPaidInstallments:0,historical:false,source:'contract-manual',documentId:record.id};
+    const payment={id:'P-'+crypto.randomUUID(),saleId:sale.id,date:data.primaDate,amount:fields.down,
+     concept:'Prima',method:data.primaMethod,recordedAt:now,
+     ...(data.primaRef?{receiptReference:String(data.primaRef).trim()}:{}),
+     ...(receiptGroup?{groupId:receiptGroup}:{})};
+    next.sales.unshift(sale);next.payments.unshift(payment);record.saleId=sale.id;
+    target.status='sold';target.mapDebtFlag=false;delete target.pendingContractId;
+    const residential=next.residences?.find(r=>r.id===target.residenceId);
+    if(residential&&target.sourceFeatureKey){
+     residential.records??={};residential.records[target.sourceFeatureKey]={...(residential.records[target.sourceFeatureKey]||{}),
+      lotId:target.id,block:target.block,status:'sold'};
+    }
+   }else target.pendingContractId=record.id;
    if(!(Number(target.area)>0)&&Number(fields.areaM2)>0){target.area=Number(fields.areaM2);target.areaMode='manual';target.areaOrigin='contract-reviewed';}
    if(!(Number(target.areaVaras2)>0)&&Number(fields.areaVaras)>0)target.areaVaras2=Number(fields.areaVaras);
    if(!(Number(target.price)>0))target.price=fields.price;
@@ -310,7 +339,7 @@ async function contractIntakeSave(form){
   if(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed){
    toast('La ficha se conserva pendiente de sincronizar. Comprueba el indicador de nube antes de ingresar otro contrato.','error');
   }else if(contractIdentityDigits(getClient(client.id)?.identity)!==contractIdentityDigits(data.identity))toast('El servidor confirmó el guardado, pero no aparece el DNI correcto. No registres abonos y revisa Clientes.','error');
-  else toast('Ficha y DNI guardados para '+planned.length+' solar(es). Puedes activar cada crédito y registrar los abonos.');
+  else toast(received?'Contrato, crédito y prima pagada registrados en '+planned.length+' solar(es). Revisa Residenciales y Cobros.':'Ficha y DNI guardados para '+planned.length+' solar(es). Puedes activar cada crédito y registrar los abonos.');
   contractIntakeWorking=null;closeModal();render();
  }finally{original.busy=false;if(button?.isConnected)button.disabled=false;}
 }
@@ -356,8 +385,8 @@ contractsPage=function(){
   .replace('Escanea hasta tres páginas por contrato y guarda solo su texto.','Carga la fotografía, verifica nombre y ficha completa, vincula el solar y activa el crédito después.');
  const pending=(db.contractTexts||[]).filter(d=>d.residenceId===residence().id&&['photo+ocr','manual'].includes(d.format));
  const box='<section class="card" style="padding:18px;margin:14px 0"><h2>Ingresar clientes desde sus contratos</h2>'+
-  '<p>Sube la fotografía, revisa la ficha completa, vincula etapa/bloque/solar y guarda el contrato original. Después activa el crédito con las fechas y registra los abonos normalmente.</p>'+
-  '<button type="button" class="btn btn-primary" data-contract-intake-open="true">Subir contrato y crear ficha</button> '+ 
+  '<p>Registra la ficha manualmente, selecciona cada solar y utiliza sus medidas existentes. La prima solo figurará como pagada si guardas un cobro real.</p>'+
+  '<button type="button" class="btn btn-primary" data-contract-intake-open="true">Nuevo contrato manual</button> '+ 
   '<button type="button" class="btn btn-outline" data-contract-rebuild-open="true">Preparar limpieza de clientes</button>'+
   '<div style="margin-top:12px">'+pending.map(d=>{
    const lot=getLot(d.lotId),client=getClient(d.clientId);
