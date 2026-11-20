@@ -48,3 +48,35 @@ test('no se asigna a otro solar y los recibos futuros no se pintan',()=>{
  assert.ok(rows.every(r=>r.confirmedCents===0));
  assert.equal(unmatched.length,1);
 });
+
+test('prima de L 30,000 registrada sin cuotas no cuenta entre las 60 mensualidades',()=>{
+ const s=sale({openingPaid:47000});
+ const payments=[{id:'PR-1',saleId:s.id,date:'2025-01-01',amount:30000,
+  receiptInfo:{allocations:[{label:'Prima inicial',amount:30000}]}}];
+ const result=ledger([s],payments);
+ assert.equal(result.rows.filter(r=>r.status==='paid'||r.status==='paid-late').length,0);
+ assert.equal(result.rows.reduce((total,r)=>total+r.confirmedCents,0),0);
+});
+test('prima antigua sin detalle no se distribuye sobre cuotas por saldo de apertura',()=>{
+ const s=sale({openingPaid:47000});
+ const p={id:'P-ANT',saleId:s.id,date:'2025-01-01',amount:30000,concept:'Prima inicial'};
+ const result=ledger([s],[p]);
+ assert.equal(result.rows.filter(r=>r.appliedCents>0).length,0);
+});
+test('recibo mal etiquetado como cuota no convierte un pago tipo prima',()=>{
+ const s=sale(),p={id:'P-LEG',saleId:s.id,date:'2025-02-26',amount:30000,type:'PRIMA',
+  receiptInfo:{allocations:[{label:'Prima inicial',number:1,amount:30000}]}};
+ assert.equal(ledger([s],[p]).rows.filter(r=>r.status==='paid').length,0);
+});
+test('abono sin número ni mes se conserva para conciliación sin afirmar cuotas pagadas',()=>{
+ const s=sale({openingPaid:47000}),p={id:'P-SIN',saleId:s.id,date:'2025-03-26',amount:1000,concept:'Abono a crédito'};
+ const result=ledger([s],[p]);
+ assert.equal(result.unmatched.length,1);
+ assert.equal(result.rows.filter(r=>r.appliedCents>0).length,0);
+});
+test('abono con mes explícito confirma esa cuota pero no la prima',()=>{
+ const s=sale(),payments=[{id:'PRIMA',saleId:s.id,date:'2025-01-01',amount:30000,type:'PRIMA',period:'2025-01'},
+  {id:'CUOTA-3',saleId:s.id,date:'2025-03-26',amount:1000,period:'2025-03'}];
+ const result=ledger([s],payments);
+ assert.deepEqual(result.rows.filter(r=>r.status==='paid').map(r=>r.number),[3]);
+});
