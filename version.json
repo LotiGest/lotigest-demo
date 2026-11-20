@@ -1,4 +1,4 @@
 {
-  "version": "0.22.40",
-  "notes": "Nuevo Contrato: al buscar y seleccionar un cliente registrado se copian automáticamente nombre, identidad, teléfono, dirección, RTN, estado civil y ocupación de Clientes; no solicita documentos ni rellenar la identidad otra vez. Permite fichas existentes con DNI pendiente sin inventarlo, vincula por identificador, evita duplicados y conserva los pasos de solar, precio, prima, plazo y fecha. Los clientes nuevos siguen requiriendo DNI válido."
+  "version": "0.22.41",
+  "notes": "Nuevo Contrato: se separó su buscador del escáner de contrato antiguo. Buscar por nombre o identidad rellena automáticamente los datos existentes en el Paso 1 y conserva los cuatro pasos; si hay una sola coincidencia la selecciona sin abrir fotografías ni OCR, y si hay varias permite elegir. Enter también selecciona coincidencia única. No se cambian clientes, solares, abonos ni contratos existentes."
 }

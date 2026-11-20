@@ -114,7 +114,7 @@ test('prima pagada crea venta y recibo por el importe negociado',async()=>{
 test('búsqueda recupera clientes existentes por nombre o identidad',()=>{
  const db=base(),draft={mode:'manual',values:{}};
  const box={innerHTML:''};
- const env={contractIntakeWorking:draft,db,document:{addEventListener(){},getElementById:id=>id==='contract-client-results'?box:null},esc:v=>String(v??'')};
+ const env={contractIntakeWorking:draft,db,document:{addEventListener(){},getElementById:id=>id==='contract-intake-client-results'?box:null},esc:v=>String(v??'')};
  const search=new Function(...Object.keys(env),fieldsCode+';return contractIntakeClientSearch;')(...Object.values(env));
  search('ficticio');assert.match(box.innerHTML,/CLIENTE FICTICIO/);
  search('0801');assert.match(box.innerHTML,/CLIENTE FICTICIO/);

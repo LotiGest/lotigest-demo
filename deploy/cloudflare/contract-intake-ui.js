@@ -165,10 +165,10 @@ function contractIntakeManualFields(){
   '</select></label>'+field('Referencia (opcional)','primaRef')+'</div></details>';
  return '<form id="contract-intake-form" class="lg-contract-form"><p class="lg-contract-lead">Encuentra al cliente, asígnale su solar y revisa el precio. Solo cambia los datos necesarios.</p>'+
   '<section class="lg-contract-step" aria-labelledby="lg-contract-step-client"><h3 id="lg-contract-step-client" class="lg-contract-step-heading"><span>1</span> Buscar cliente</h3>'+
-  '<div class="lg-contract-client-layout"><div class="lg-contract-client-search field-group"><label for="contract-client-search">Identidad o nombre del cliente</label>'+
-  '<div class="lg-contract-searchbar"><input id="contract-client-search" type="search" autocomplete="off" enterkeyhint="search" placeholder="Escribe identidad o nombre y presiona Enter" aria-label="Buscar cliente por nombre o identidad" value="'+val(draft?.clientQuery||'')+'">'+
+  '<div class="lg-contract-client-layout"><div class="lg-contract-client-search field-group"><label for="contract-intake-client-search">Identidad o nombre del cliente</label>'+
+  '<div class="lg-contract-searchbar"><input id="contract-intake-client-search" type="search" autocomplete="off" enterkeyhint="search" placeholder="Escribe identidad o nombre y presiona Enter" aria-label="Buscar cliente por nombre o identidad" value="'+val(draft?.clientQuery||'')+'">'+
   '<button type="button" class="btn btn-primary" data-contract-client-search>Buscar</button></div>'+
-  '<div id="contract-client-results" role="status" class="lg-contract-client-results"></div></div>'+
+  '<div id="contract-intake-client-results" role="status" class="lg-contract-client-results"></div></div>'+
   '<div class="lg-contract-client-card">'+
   (customer?'<strong class="lg-contract-client-title">Cliente ya registrado</strong>':'')+
   (customer?'<button type="button" class="btn btn-outline lg-contract-change-client" data-contract-client-clear>Cambiar cliente</button>':'')+
@@ -226,17 +226,17 @@ document.addEventListener('click',event=>{
 },true);
 // Enter busca al cliente sin enviar el formulario, y lo selecciona si hay una coincidencia única.
 document.addEventListener('keydown',event=>{
- if(event.target.id!=='contract-client-search'||event.key!=='Enter'||contractIntakeWorking?.mode!=='manual')return;
+ if(event.target.id!=='contract-intake-client-search'||event.key!=='Enter'||contractIntakeWorking?.mode!=='manual')return;
  event.preventDefault();event.stopImmediatePropagation();
  const query=event.target.value||'';
  contractIntakeWorking.clientQuery=query;
  contractIntakeClientSearch(query);
- const matches=document.querySelectorAll('#contract-client-results [data-contract-client-pick]');
+ const matches=document.querySelectorAll('#contract-intake-client-results [data-contract-client-pick]');
  if(matches.length===1)matches[0].click();
  else if(matches.length>1)matches[0].focus();
 },true);
 function contractIntakeClientSearch(query){
- const box=document.getElementById('contract-client-results'),draft=contractIntakeWorking;
+ const box=document.getElementById('contract-intake-client-results'),draft=contractIntakeWorking;
  if(!box||!draft)return;
  const clean=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  const q=clean(query).replace(/[\s-]/g,'');
@@ -247,7 +247,7 @@ function contractIntakeClientSearch(query){
 }
 document.addEventListener('input',event=>{
  if(!contractIntakeWorking||contractIntakeWorking.mode!=='manual')return;
- if(event.target.id==='contract-client-search'){
+ if(event.target.id==='contract-intake-client-search'){
   contractIntakeWorking.clientQuery=event.target.value;contractIntakeClientSearch(event.target.value);return;
  }
  const form=event.target.closest?.('#contract-intake-form');
@@ -260,9 +260,14 @@ document.addEventListener('click',event=>{
  const search=event.target.closest?.('[data-contract-client-search]');
  if(search){
   event.preventDefault();event.stopImmediatePropagation();
-  const query=document.getElementById('contract-client-search')?.value||'';
+  const query=document.getElementById('contract-intake-client-search')?.value||'';
   contractIntakeWorking.clientQuery=query;
   contractIntakeClientSearch(query);
+  // Un único cliente encontrado se selecciona en este mismo formulario.
+  // No abrir el escáner legado ni volver a solicitar fotos.
+  const choices=document.querySelectorAll('#contract-intake-client-results [data-contract-client-pick]');
+  if(choices.length===1)choices[0].click();
+  else if(choices.length>1)choices[0].focus();
   return;
  }
  const choice=event.target.closest?.('[data-contract-client-pick],[data-contract-client-clear]');
