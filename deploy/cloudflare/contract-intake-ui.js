@@ -167,6 +167,7 @@ function contractIntakeManualFields(){
   '<button type="button" class="btn btn-primary" data-contract-client-search>Buscar</button></div>'+
   '<div id="contract-client-results" role="status" class="lg-contract-client-results"></div></div>'+
   '<div class="lg-contract-client-card">'+
+  (customer?'<strong class="lg-contract-client-title">Cliente ya registrado</strong>':'')+
   (customer?'<button type="button" class="btn btn-outline lg-contract-change-client" data-contract-client-clear>Cambiar cliente</button>':'')+
   hidden('clientId',customer?.id||'')+person+'</div></div></section>'+
   '<section class="lg-contract-step" aria-labelledby="lg-contract-step-lot"><h3 id="lg-contract-step-lot" class="lg-contract-step-heading"><span>2</span> Asignar solar</h3>'+
@@ -352,7 +353,7 @@ function contractIntakeOpen(clientId='',mode='ocr'){
  showModal(manual?'Nuevo contrato':'Registrar cliente desde contrato',content,
  '<button type="button" class="btn btn-outline" data-action="close-modal">Cancelar</button><button type="submit" id="contract-intake-save" form="contract-intake-form" class="btn btn-primary" '+(manual?'':'disabled')+'>'+(manual?'Guardar contrato':'Guardar ficha revisada')+'</button>',
  true,manual?'Cliente → Solar → Precio y prima → Fecha':'Contratos → Cliente → Solares → Abonos');
- if(manual)document.querySelector('#modal-root .modal')?.classList.add('lg-contract-modern');
+ if(manual&&typeof document!=='undefined')document.querySelector('#modal-root .modal')?.classList.add('lg-contract-modern');
 }
 // Recursos versionados servidos por el mismo sitio, sin descargas de CDN en el teléfono.
 let contractIntakeOcrLoading=null;
