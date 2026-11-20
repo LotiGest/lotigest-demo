@@ -1,7 +1,7 @@
 const monthlyCents=v=>v!=null&&v!==''&&Number.isFinite(Number(v))?Math.round(Number(v)*100):null;
 export function monthlyLotTerms(state,lotId){
  const sale=(state.sales||[]).find(s=>s.lotId===lotId&&s.type==='credit');
- const doc=(state.contractTexts||[]).find(d=>d.lotId===lotId&&d.format==='photo+ocr'&&d.status!=='voided');
+ const doc=(state.contractTexts||[]).find(d=>d.lotId===lotId&&['photo+ocr','manual'].includes(d.format)&&d.status!=='voided');
  const p=sale?{price:sale.price,down:sale.downPayment??0,months:sale.months}:doc?.structured;
  if(!p)return null;
  const price=monthlyCents(p.price),down=monthlyCents(p.down),months=Number(p.months);

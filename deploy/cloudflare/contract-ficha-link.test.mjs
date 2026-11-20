@@ -27,7 +27,7 @@ test('Ficha del cliente y ficha del terreno muestran la descripción, sin una ve
  const {app,captured}=mock();
  app.viewClient('C1');app.viewLot('G16');
  assert.ok(captured.some(x=>x.includes('Ficha completa')));
- assert.ok(captured.some(x=>x.includes('Completar ficha desde contrato')));
+ assert.ok(captured.some(x=>x.includes('Llenar ficha de contrato (manual)')));
  assert.ok(captured.some(x=>x.includes('Pendiente de activar crédito')));
 });
 test('No permite vender ni importar nuevamente un solar con contrato pendiente',()=>{
@@ -42,4 +42,13 @@ test('El nombre del cliente previamente asociado al solar se muestra aunque falt
  assert.match(app.buyerInventorySummary(lot),/Falta completar contrato/);
  assert.match(app.inventoryInfo(lot),/Completar desde contrato/);
  assert.throws(()=>app.planSolarAction({lotId:'G16',operation:'credit'}),/ya tiene cliente registrado/);
+});
+
+test('ficha registrada manualmente aparece en Clientes y Terrenos como contrato asociado',()=>{
+ const {app,db,lot,captured}=mock();
+ db.contractTexts[0].format='manual';
+ app.viewClient('C1');
+ assert.ok(captured.some(x=>x.includes('Ficha completa')));
+ assert.ok(captured.some(x=>x.includes('Llenar ficha de contrato (manual)')));
+ assert.equal(app.buyerInventorySummary(lot).includes('Contrato registrado'),true);
 });

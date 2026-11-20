@@ -7,9 +7,9 @@ const start=ui.indexOf('function contractIntakeData(form){');
 const end=ui.indexOf('function contractIntakeActivate(',start);
 if(start<0||end<start)throw Error('No se encontró guardado contractual.');
 const code=ui.slice(start,end);
-function setup(){
- let state={version:1,residences:[{id:'R',name:'Altos'}],lots:[{id:'G16',residenceId:'R',stage:2,block:'G',sourceNumber:'16',status:'sold',area:176,price:580564.16,dimensions:{front:11,depth:16}}],clients:[],sales:[],payments:[],reservations:[],contractTexts:[]};
- let confirmed='',writes=0,working={residenceId:'R',file:{type:'image/jpeg',size:2000},values:{_confidence:95},busy:false};
+function setup({manual=false,existingClient=false}={}){
+ let state={version:1,residences:[{id:'R',name:'Altos'}],lots:[{id:'G16',residenceId:'R',stage:2,block:'G',sourceNumber:'16',status:'sold',area:176,price:580564.16,dimensions:{front:11,depth:16}}],clients:existingClient?[{id:'C-EXIST',name:'PERSONA FICTICIA',identity:'0801 1990 00021',address:'DIRECCIÓN DE PRUEBA'}]:[],sales:[],payments:[],reservations:[],contractTexts:[]};
+ let confirmed='',writes=0,uploads=0,working={mode:manual?'manual':'ocr',residenceId:'R',file:manual?null:{type:'image/jpeg',size:2000},values:{_confidence:95},busy:false};
  let count=1;
  const queue={latest:JSON.stringify(state),confirmed:JSON.stringify(state),pending:null};
  class F{constructor(form){return Object.entries(form.fields)}}
@@ -20,7 +20,7 @@ function setup(){
   db:state,activeReservation:()=>null,
   crypto:{randomUUID:()=>String(count++).padStart(8,'0')+'-0000-4000-8000-000000000000'},
   normalizeClientLookup:x=>String(x||'').replace(/[^A-Za-z0-9]/g,'').toLowerCase(),
-  fetch:async()=>({ok:true,json:async()=>({key:'foto-privada'})}),
+  fetch:async()=>{uploads++;return {ok:true,json:async()=>({key:'foto-privada'})};},
   cloudWrite:text=>{state=JSON.parse(text);queue.latest=text;writes++;},
   cloudFlush:async()=>{queue.confirmed=queue.latest;confirmed=queue.latest;},
   cloudQueue:queue,cloudBlocked:false,cloudOffline:false,
@@ -33,7 +33,8 @@ function setup(){
   areaM2:'176',areaVaras:'252.42',north:'CALLE 8 M',south:'G-3',east:'G-15',west:'G-17',
   price:'580564.16',down:'58056.42',financed:'522507.74',monthly:'6220.33',months:'84',
   pricePerVara:'2300',observations:'REPRESENTANTE FICTICIO',rawText:'TEXTO OCR DE PRUEBA'};
- return {fn,fields,state:()=>state,writes:()=>writes,confirmed:()=>confirmed};
+ if(existingClient)fields.clientId='C-EXIST';
+ return {fn,fields,state:()=>state,writes:()=>writes,uploads:()=>uploads,confirmed:()=>confirmed};
 }
 test('Guardar la imagen crea cliente con identidad verificada y descripción contractual completa',async()=>{
  const f=setup();await f.fn.save({fields:f.fields});
@@ -87,4 +88,34 @@ test('bloquea el mismo solar repetido y repartir importes que no suman el contra
  await assert.rejects(duplicate.fn.save({fields:duplicate.fields}),/mismo solar dos veces/);assert.equal(duplicate.writes(),0);
  const amounts=threeLots();amounts.fields.solarPrice_2='600000';
  await assert.rejects(amounts.fn.save({fields:amounts.fields}),/suma de precios/);assert.equal(amounts.writes(),0);
+});
+
+test('ficha manual de cliente existente se guarda sin fotografía, sin OCR y sin duplicar cliente',async()=>{
+ const f=setup({manual:true,existingClient:true});
+ await f.fn.save({fields:f.fields});
+ const state=f.state(),doc=state.contractTexts[0];
+ assert.equal(state.clients.length,1);
+ assert.equal(doc.clientId,'C-EXIST');
+ assert.equal(doc.format,'manual');
+ assert.equal(doc.documentKey,undefined);
+ assert.equal(doc.documentMime,undefined);
+ assert.deepEqual(doc.pages,[]);
+ assert.equal(doc.structured.identity,'0801 1990 00021');
+ assert.equal(doc.structured.north,'CALLE 8 M');
+ assert.equal(doc.structured.price,580564.16);
+ assert.equal(state.lots[0].ownerClientId,'C-EXIST');
+ assert.equal(state.sales.length,0);
+ assert.equal(state.payments.length,0);
+ assert.equal(f.uploads(),0);
+ assert.equal(f.writes(),1);
+});
+test('la ficha manual exige identidad completa y evita contratos duplicados sobre el solar',async()=>{
+ const missing=setup({manual:true,existingClient:true});
+ missing.fields.identity='0801 1990';
+ await assert.rejects(missing.fn.save({fields:missing.fields}),/13 dígitos/);
+ assert.equal(missing.writes(),0);
+ const duplicate=setup({manual:true,existingClient:true});
+ duplicate.state().contractTexts.push({id:'DOC-ANT',lotId:'G16',status:'pending-sale'});
+ await assert.rejects(duplicate.fn.save({fields:duplicate.fields}),/Ya existe un documento/);
+ assert.equal(duplicate.writes(),0);
 });

@@ -1,10 +1,10 @@
 // LOTIGEST: mostrar la ficha contractual completa en Cliente, Terrenos y Mapa.
 // Vínculo inmediato sin fingir cobros o ventas; solo admin puede revisar documentos privados.
 function contractFichaByLot(lotId){
- return (db.contractTexts||[]).find(d=>d.lotId===lotId&&d.format==='photo+ocr'&&d.status!=='voided')||null;
+ return (db.contractTexts||[]).find(d=>d.lotId===lotId&&['photo+ocr','manual'].includes(d.format)&&d.status!=='voided')||null;
 }
 function contractFichaByClient(clientId){
- return (db.contractTexts||[]).filter(d=>d.clientId===clientId&&d.format==='photo+ocr'&&d.status!=='voided');
+ return (db.contractTexts||[]).filter(d=>d.clientId===clientId&&['photo+ocr','manual'].includes(d.format)&&d.status!=='voided');
 }
 function contractFichaTitle(doc){
  const client=getClient(doc.clientId),lot=getLot(doc.lotId);
@@ -57,7 +57,7 @@ viewClient=function(clientId){
     '<p class="sm muted">Este cliente todavía no tiene una ficha estructurada de contrato. Puedes completarla desde una fotografía, sin duplicar el cliente.</p>')+'</section>';
   root.insertAdjacentHTML('beforeend',block);
  }
- if(footer)footer.insertAdjacentHTML('beforeend','<button type="button" class="btn btn-outline" data-contract-ficha-new="'+esc(clientId)+'">Completar ficha desde contrato</button>');
+ if(footer)footer.insertAdjacentHTML('beforeend','<button type="button" class="btn btn-outline" data-contract-ficha-new="'+esc(clientId)+'">Llenar ficha de contrato (manual)</button>');
 };
 const contractFichaViewLotBase=viewLot;
 viewLot=function(lotId){
@@ -106,7 +106,7 @@ document.addEventListener('click',event=>{
  if(!view&&!create)return;
  event.preventDefault();event.stopImmediatePropagation();
  if(view)return viewContractText(view.dataset.contractFichaView);
- contractIntakeOpen(create.dataset.contractFichaNew);
+ contractIntakeOpen(create.dataset.contractFichaNew,'manual');
 },true);
 // Seleccionar un cliente existente solo completa datos VACÍOS; no cambia nombres ni DNI automáticamente.
 document.addEventListener('change',event=>{
