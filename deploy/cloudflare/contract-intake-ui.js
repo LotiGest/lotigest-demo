@@ -115,7 +115,7 @@ function contractIntakeManualFields(){
   '<option value="">'+(stage?'Selecciona bloque':'Primero elige una etapa')+'</option>'+
   blocks.map(b=>'<option value="'+val(b)+'" '+(chosenBlock===b?'selected':'')+'>Bloque '+val(b)+'</option>').join('')+
   '</select></label><label class="field-group"><span>Número de solar</span><select name="lotId" id="contract-intake-lot" required>'+
-  '<option value="">'+(chosenBlock?'Selecciona solar':'Primero elige bloque')+'</option>'+options+'</select></label>'+
+  '<option value="">'+(chosenBlock?'Selecciona solar':'Primero elige bloque')+'</option>'+options+'</select></label><button type="button" class="btn btn-primary lg-contract-consult" data-contract-intake-consult>Consultar</button>'+
   hidden('number',selected?.sourceNumber||selected?.number||'');
  const measures=selected?'<div class="lg-contract-solar-info"><div class="lg-contract-solar-metrics"><strong>Datos del solar · Terrenos y Predios</strong>'+
   '<p><b>Etapa:</b> '+val(selected.stage)+' &nbsp; <b>Bloque:</b> '+val(selected.block)+' &nbsp; <b>Solar:</b> '+val(selected.sourceNumber||selected.number||selected.id)+'</p>'+
@@ -202,6 +202,25 @@ function contractIntakeManualRecalculate(form){
  putText('contract-auto-financed',financed===null?'—':'L '+contractIntakeManualCash(financed));
  putText('contract-auto-monthly',monthly===null?'—':'L '+contractIntakeManualCash(monthly));
 }
+// Consultar refresca el solar seleccionado, sin modificar datos del inventario.
+document.addEventListener('click',event=>{
+ const button=event.target.closest?.('[data-contract-intake-consult]');
+ if(!button||contractIntakeWorking?.mode!=='manual')return;
+ event.preventDefault();event.stopImmediatePropagation();
+ const select=document.getElementById('contract-intake-lot');
+ if(!select?.value){const alert=document.getElementById('contract-intake-alert');if(alert)alert.textContent='Primero selecciona etapa, bloque y solar.';return;}
+ select.dispatchEvent(new Event('change',{bubbles:true}));
+},true);
+// Limpiar solamente reinicia el formulario: no elimina clientes, solares ni contratos.
+document.addEventListener('click',event=>{
+ const button=event.target.closest?.('[data-contract-intake-clear]');
+ if(!button||contractIntakeWorking?.mode!=='manual'||contractIntakeWorking.busy)return;
+ event.preventDefault();event.stopImmediatePropagation();
+ contractIntakeWorking.preferredClientId='';contractIntakeWorking.clientQuery='';
+ contractIntakeWorking.extraLots=[];contractIntakeWorking.values={date:contractIntakeLocalToday()};
+ const review=document.getElementById('contract-intake-review');
+ if(review)review.innerHTML=contractIntakeFields();
+},true);
 // Enter busca al cliente sin enviar el formulario, y lo selecciona si hay una coincidencia única.
 document.addEventListener('keydown',event=>{
  if(event.target.id!=='contract-client-search'||event.key!=='Enter'||contractIntakeWorking?.mode!=='manual')return;
@@ -328,6 +347,7 @@ function contractIntakeFields(){
   '<div id="contract-intake-alert" role="alert">'+(!String(c.name||'').trim()?'<strong>Falta el nombre del cliente.</strong> Corrígelo antes de guardar.':'')+'</div>'+
   '<p class="sm muted">Guardar ficha vincula al cliente con el solar. Si marcas prima recibida, también se crea la venta y un cobro real de prima. Si no la marcas, se conserva pendiente y podrás activar el crédito después.</p></form>';
 }
+function contractIntakeLocalToday(){const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');}
 function contractIntakeOpen(clientId='',mode='ocr'){
  if(!contractIntakeAdmin()){toast('Solo el administrador, con datos sincronizados y conexión, puede registrar contratos.','error');return;}
  const existing=clientId?getClient(clientId):null;
@@ -337,8 +357,8 @@ function contractIntakeOpen(clientId='',mode='ocr'){
  name:existing.name||'',identity:existing.identity||'',rtn:existing.rtn||'',maritalStatus:existing.maritalStatus||'',
  occupation:existing.occupation||'',address:existing.address||'',phone:existing.phone||''
  }:{},readVersion:0,busy:false};
+ if(manual)contractIntakeWorking.values.date=contractIntakeLocalToday();
  const content=manual?
-  '<p>Busca un cliente por nombre o identidad. Se cargarán sus datos y las medidas del terreno. Puedes negociar el precio y la prima sin cambiar el valor original del inventario.</p>'+
   '<div id="contract-intake-review">'+contractIntakeFields()+'</div>':
   '<p>Primer paso: toma una foto del contrato con la cámara o elige una foto ya guardada en tu teléfono.</p>'+
   '<div class="field-group"><span>Imagen del contrato</span>'+
@@ -351,9 +371,16 @@ function contractIntakeOpen(clientId='',mode='ocr'){
   '<p class="sm muted">El OCR se realiza en tu dispositivo. Luego podrás revisar los datos antes de guardar; la imagen original se almacena de forma privada en LOTIGEST al confirmar.</p>'+
   '<div id="contract-intake-status" role="status"></div><button type="button" id="contract-intake-retry" class="btn btn-outline" hidden>Volver a leer la foto</button><div id="contract-intake-review"></div>';
  showModal(manual?'Nuevo contrato':'Registrar cliente desde contrato',content,
- '<button type="button" class="btn btn-outline" data-action="close-modal">Cancelar</button><button type="submit" id="contract-intake-save" form="contract-intake-form" class="btn btn-primary" '+(manual?'':'disabled')+'>'+(manual?'Guardar contrato':'Guardar ficha revisada')+'</button>',
+ (manual?'<button type="button" id="contract-intake-clear" class="btn btn-outline" data-contract-intake-clear>Limpiar</button>':'<button type="button" class="btn btn-outline" data-action="close-modal">Cancelar</button>')+'<button type="submit" id="contract-intake-save" form="contract-intake-form" class="btn btn-primary" '+(manual?'':'disabled')+'>'+(manual?'Guardar contrato':'Guardar ficha revisada')+'</button>',
  true,manual?'Cliente → Solar → Precio y prima → Fecha':'Contratos → Cliente → Solares → Abonos');
- if(manual&&typeof document!=='undefined')document.querySelector('#modal-root .modal')?.classList.add('lg-contract-modern');
+ if(manual&&typeof document!=='undefined'){
+  const modal=document.querySelector('#modal-root .modal');
+  modal?.classList.add('lg-contract-modern');
+  const header=modal?.querySelector('.modal-header');
+  if(header&&!header.querySelector('.lg-contract-brand'))header.insertAdjacentHTML('afterbegin','<div class="lg-contract-brand" aria-label="LOTIGEST"><span class="lg-contract-brand-icon" aria-hidden="true">⌂</span><span><strong>LOTIGEST</strong><small>Sistema de Lotificadora</small></span></div>');
+  const back=header?.querySelector('.modal-close');
+  if(back){back.textContent='← Volver';back.setAttribute('aria-label','Volver a Contratos');}
+ }
 }
 // Recursos versionados servidos por el mismo sitio, sin descargas de CDN en el teléfono.
 let contractIntakeOcrLoading=null;
