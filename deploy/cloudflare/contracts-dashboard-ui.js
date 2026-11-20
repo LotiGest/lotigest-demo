@@ -42,6 +42,8 @@
     '<button class="btn btn-outline btn-sm" data-action="contract-preview" data-id="'+esc(r.id)+'">Plantilla</button>';
   const d=r.doc;
   return '<button class="btn btn-outline btn-sm" data-contract-ficha-view="'+esc(d.id)+'">Ver</button> '+
+   (d.status!=='voided'?'<button class="btn btn-outline btn-sm" data-contract-edit="'+esc(d.id)+'">Editar</button> '+
+    '<button class="btn btn-outline btn-sm" data-contract-delete="'+esc(d.id)+'">Eliminar</button> ':'')+
    (d.structured&&d.clientId?'<button class="btn btn-outline btn-sm" data-contract-sheet="'+esc(d.id)+'">PDF</button> ':'')+
    (r.sale?'<button class="btn btn-outline btn-sm" data-action="contract-preview" data-id="'+esc(r.sale.id)+'">Plantilla</button> ':'')+
    (d.format==='text-only'?'<button class="btn btn-outline btn-sm" data-action="contract-text-edit" data-id="'+esc(d.id)+'">Editar texto</button> ':'')+
