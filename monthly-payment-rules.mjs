@@ -1,4 +1,4 @@
-import {lotPrimaStatus, assertPrimaCovered} from './prima-gate.mjs';
+import {lotPrimaStatus, assertPrimaCovered, assertPrimaAmount} from './prima-gate.mjs';
 const monthlyCents=v=>v!=null&&v!==''&&Number.isFinite(Number(v))?Math.round(Number(v)*100):null;
 export function monthlyLotTerms(state,lotId){
  const sale=(state.sales||[]).find(s=>s.lotId===lotId&&s.type==='credit');
@@ -31,7 +31,7 @@ export function monthlyPaymentInfo(state,lotIds){
 }
 export function assertMonthlyPayment(state,lotIds,amountCents,{prima=false}={}){
  const info=monthlyPaymentInfo(state,lotIds);
- if(prima)return info; // Los pagos de prima se registran aparte; nunca habilitan cuotas en el mismo recibo.
+ if(prima){assertPrimaAmount(state,lotIds,amountCents);return info;} // Nunca mezclar la prima y la mensualidad en el mismo recibo.
  assertPrimaCovered(state,lotIds);
  if(!info.known)throw Error('Abono bloqueado: falta registrar el precio, plazo y mensualidad del contrato.');
  const remaining=info.remainingCents;
