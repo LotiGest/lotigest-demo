@@ -104,7 +104,10 @@ export function intakeCheckValues(input,lot){
  if(!lot)errors.push('Selecciona el solar exacto, incluida la etapa.');
  const str=v=>String(v||'').trim();
  if(str(input.name).length<3)errors.push('Falta el nombre del cliente.');
- if(contractIdentityDigits(input.identity).length!==13)errors.push('El DNI debe contener exactamente 13 dígitos. Revisa la lectura OCR o escríbelo manualmente.');
+ // Las fichas de Clientes ya verificadas por su identificador se reutilizan sin
+ // exigir documento nuevo. Para un cliente nuevo/OCR se conservan 13 dígitos obligatorios.
+ if(contractIdentityDigits(input.identity).length!==13&&input.existingClientVerified!==true)
+  errors.push('El DNI debe contener exactamente 13 dígitos. Revisa la lectura OCR o escríbelo manualmente.');
  const price=Number(input.price),down=Number(input.down),months=Number(input.months);
  if(!Number.isFinite(price)||price<=0||price>1e12)errors.push('El precio total debe ser positivo.');
  if(!Number.isFinite(down)||down<0||down>=price)errors.push('La prima debe ser menor que el precio.');
