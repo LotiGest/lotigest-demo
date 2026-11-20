@@ -48,6 +48,9 @@ function pmCalendar(root,sales){
  const ledger=pmReconciled(validSales),rows=ledger.rows;
  const yearAll=[...new Set(rows.map(r=>Number(r.dueDate.slice(0,4))))].sort((a,b)=>a-b);
  const now=businessToday(),current=Number(now.slice(0,4));
+ const todayNotice=pmNode('div','pm-current-date');
+ todayNotice.append(pmNode('strong','','Fecha actual de Honduras: '+pmReadableDate(now)),pmNode('small','','Esta fecha es informativa. Los recibos antiguos conservan su fecha real de pago.'));
+ root.append(todayNotice);
  if(!yearAll.length){
   root.append(pmNode('p','pm-help',validSales.length?'Revisa la fecha de primera cuota y el plazo del contrato.':'Selecciona un solar con un contrato de crédito registrado.'));
   return;
@@ -98,9 +101,7 @@ function pmCalendar(root,sales){
   months.append(cell);
  }
  const foot=pmNode('p','pm-calendar-note','Verde claro: pagada en fecha; verde oscuro: cuota vencida pagada; rojo: vencida sin pagar; azul: adelanto separado. Toca un mes para ver fechas y recibos. Un saldo acumulado o prima no confirma una mensualidad.');
- const todayNotice=pmNode('div','pm-current-date');
- todayNotice.append(pmNode('strong','','Fecha actual de Honduras: '+pmReadableDate(now)),pmNode('small','','Esta fecha es informativa. Los recibos antiguos conservan su fecha real de pago.'));
- root.append(todayNotice,progress,bar,months,foot);
+ root.append(progress,bar,months,foot);
  const unknown=validSales.reduce((sum,s)=>sum+Math.max(0,Number(s.openingPaid||0)),0);
  if(unknown>0)root.append(pmNode('p','pm-calendar-note pm-calendar-warning','Saldo de apertura sin recibos mensuales fechados: '+money(unknown)+'. Se conserva en el saldo financiero, pero no colorea meses como pagados.'));
  if(ledger.unmatched.length)root.append(pmNode('p','pm-calendar-note pm-calendar-warning',ledger.unmatched.length+' pago(s) sin fecha verificable para este calendario. Consulta los recibos antes de asignar cuotas.'));
