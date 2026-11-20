@@ -28,7 +28,8 @@ test('Clientes abre de inmediato la ficha manual prellenada y sin selector de OC
  assert.equal(draft.preferredClientId,'C1');
  assert.equal(draft.values.name,'CLIENTE DE PRUEBA');
  assert.equal(draft.values.identity,'0801 1990 00021');
- assert.equal(dialog[0],'Llenar ficha de contrato manual');
+ assert.equal(dialog[0],'Nuevo contrato');
+ assert.match(dialog[2],/Guardar contrato/);
  assert.match(dialog[1],/contract-intake-form/);
  assert.doesNotMatch(dialog[1],/contract-intake-file/);
  assert.doesNotMatch(dialog[2],/disabled/);
