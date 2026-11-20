@@ -284,3 +284,22 @@
  #modal-root .lg-payment-modern .pm-month-receipt-line button{width:100%}
  #modal-root .lg-payment-modern .pm-month-details{max-width:100%;overflow-wrap:anywhere}
 }
+
+
+/* La fecha visible es la de Honduras; nunca sobreescribe el recibo histórico. */
+#modal-root .lg-payment-modern .pm-current-date{
+ display:grid;gap:3px;margin-bottom:12px;padding:11px 13px;
+ border:1px solid #bcdac7;border-radius:11px;background:#eef8f1;color:#174d2d
+}
+#modal-root .lg-payment-modern .pm-current-date strong{font-size:13px}
+#modal-root .lg-payment-modern .pm-current-date small{font-size:11px}
+#modal-root .lg-payment-modern .pm-date-group{display:grid;gap:6px;min-width:0}
+#modal-root .lg-payment-modern .pm-date-today{width:max-content;max-width:100%;font-size:11px;padding:6px 10px;min-height:32px}
+#modal-root .lg-payment-modern .pm-month .pm-due-day{font-size:9px;font-weight:650;line-height:1.2;white-space:nowrap}
+#modal-root .lg-payment-modern .pm-month .pm-today-day{font-size:9px;color:#17603a;font-weight:850;line-height:1.2}
+#modal-root .lg-payment-modern .pm-month.paid-late .pm-today-day{color:#fff}
+#modal-root .lg-payment-modern .pm-month{min-height:75px}
+@media(max-width:560px){
+ #modal-root .lg-payment-modern .pm-month{min-height:66px}
+ #modal-root .lg-payment-modern .pm-current-date{padding:9px 10px}
+}
