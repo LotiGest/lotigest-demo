@@ -46,7 +46,13 @@ test('nuevo contrato muestra cliente y medidas del inventario sin pedir colindan
  assert.match(html,/data-contract-client-search>Buscar/);
  assert.match(html,/name="solarPrice_0"/);
  assert.match(html,/CLIENTE FICTICIO/);
- assert.match(html,/Frente 10/);
+ assert.match(html,/Frente:<\/b> 10/);
+ assert.match(html,/lg-contract-step-client/);
+ assert.match(html,/lg-contract-step-lot/);
+ assert.match(html,/lg-contract-step-terms/);
+ assert.match(html,/lg-contract-step-dates/);
+ assert.match(html,/name="block"/);
+ assert.match(html,/name="lotId"/);
  assert.match(html,/L 200,000.00/);
  assert.match(html,/L 150,000.00/);
  assert.match(html,/L 2,500.00/);
