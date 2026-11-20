@@ -97,18 +97,20 @@ test('UI conserva la base completa y filtra reportes y exportaciones',()=>{
   contractCollectionsScope,
   db,
   residence:()=>({id:'R'}),document:{addEventListener:(name,fn)=>{(events[name]??=[]).push(fn);}},
-  collectionPage:()=>'<div class="cards-four">Lotes: '+db.lots.length+'</div><button data-action="ledger-import">Importar Excel de pagos</button>',
-  ordinaryCollectionCard:()=>'<article>Anterior</article>',
-  collectionPaymentRows:()=>db.payments.map(p=>p.id),
-  collectionClientRows:()=>db.clients.map(c=>c.id),
-  debtReport:()=>db.sales.map(s=>s.id),
-  esc:v=>String(v),getClient:id=>db.clients.find(c=>c.id===id),
+  esc:v=>String(v),getClient:id=>state.clients.find(c=>c.id===id),
   inventoryArea:l=>l.area,inventoryPrice:l=>'L '+l.price,
   page:'collections',render:()=>{},contractIntakeOpen:()=>{}
  };
- // JavaScript compilation scope uses db as a parameter so the state must be
- // observed through its returned closure, not the outer test variable.
- const api=new Function(...Object.keys(environment),ui+
+ // Definir los renderizadores dentro del mismo ámbito mutable que utiliza el
+ // complemento (no cerrar sobre una referencia externa fija).
+ const bases=[
+  "let collectionPage=()=>'<div class=\"cards-four\">Lotes: '+db.lots.length+'</div><button data-action=\"ledger-import\">Importar Excel de pagos</button>';",
+  "let ordinaryCollectionCard=()=>'<article>Anterior</article>';",
+  "let collectionPaymentRows=()=>db.payments.map(p=>p.id);",
+  "let collectionClientRows=()=>db.clients.map(c=>c.id);",
+  "let debtReport=()=>db.sales.map(s=>s.id);"
+ ].join('\n');
+ const api=new Function(...Object.keys(environment),bases+'\n'+ui+
   ';return {collectionPage,collectionPaymentRows,collectionClientRows,debtReport,ordinaryCollectionCard,current:()=>db};')(...Object.values(environment));
  const html=api.collectionPage();
  assert.match(html,/Clientes y solares desde Contratos/);
