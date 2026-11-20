@@ -74,3 +74,43 @@ test('Presionar Enter busca al cliente sin enviar accidentalmente el contrato',(
  assert.equal(button.clicked,true);
  assert.match(results.innerHTML,/CLIENTE DE PRUEBA/);
 });
+
+
+test('Panel de referencia incorpora Consultar, Limpiar y la marca sin perder datos del solar',()=>{
+ const html=view('1','A','E1A1');
+ assert.match(html,/data-contract-intake-consult>Consultar/);
+ assert.match(html,/Datos del solar · Terrenos y Predios/);
+ assert.match(html,/Precio base del solar/);
+ assert.match(ui,/data-contract-intake-clear>Limpiar/);
+ assert.match(ui,/contractIntakeWorking\.values\.date=contractIntakeLocalToday\(\)/);
+ assert.match(ui,/lg-contract-brand/);
+ assert.match(css,/Panel Nuevo Contrato · referencia aprobada/);
+ assert.match(css,/grid-template-columns:repeat\(3,minmax\(0,1fr\)\) minmax\(110px,auto\)/);
+ assert.match(css,/body\.lotigest-dark #modal-root \.lg-contract-modern/);
+});
+
+test('Limpiar reinicia solo el borrador sin alterar clientes ni solares',()=>{
+ const callbacks={};
+ const draft={mode:'manual',busy:false,preferredClientId:'C',clientQuery:'CLIENTE',extraLots:[{lotId:'L2'}],
+  values:{date:'2024-01-01',name:'CLIENTE DE PRUEBA',down:50000,lotId:'L1'}};
+ const db={clients:[{id:'C'}],lots:[{id:'L1'}]};
+ const review={innerHTML:'anterior'};
+ const mockDocument={addEventListener:(name,fn)=>(callbacks[name]??=[]).push(fn),
+  getElementById:id=>id==='contract-intake-review'?review:null};
+ const env={contractIntakeWorking:draft,document:mockDocument,db,
+  contractIntakeFields:()=>'<form id="contract-intake-form">Limpio</form>',
+  contractIntakeLocalToday:()=> '2026-11-20',esc:x=>String(x??'')};
+ new Function(...Object.keys(env),source+';return true')(...Object.values(env));
+ const clear=callbacks.click.find(fn=>fn.toString().includes("data-contract-intake-clear"));
+ assert.ok(clear,'Debe registrar el botón Limpiar');
+ let prevented=false;
+ clear({target:{closest:selector=>selector==='[data-contract-intake-clear]'?{}:null},
+  preventDefault(){prevented=true},stopImmediatePropagation(){}});
+ assert.equal(prevented,true);
+ assert.equal(draft.preferredClientId,'');
+ assert.deepEqual(draft.extraLots,[]);
+ assert.deepEqual(draft.values,{date:'2026-11-20'});
+ assert.match(review.innerHTML,/Limpio/);
+ assert.equal(db.clients.length,1);
+ assert.equal(db.lots.length,1);
+});
