@@ -48,3 +48,37 @@ body.lotigest-dark .ct-state.ct-missing{background:#37434d;color:#e3eaf0}
  .ct-table{min-width:0;font-size:9pt}.ct-table th,.ct-table td{padding:6px!important}.ct-scroll{overflow:visible!important}.workspace-inner{padding:0!important}
  @page{size:landscape;margin:10mm}
 }
+
+/* Cabecera exclusiva de Contratos. Mantiene paleta y navegación LOTIGEST. */
+body .lotigest-shell .ct-topbar .lg-top-title{flex:0 0 auto;flex-direction:column;justify-content:center;align-items:flex-start;min-width:0;gap:3px}
+body .lotigest-shell .ct-topbar .lg-top-title>span{display:block;font-size:10px;white-space:nowrap}
+body .lotigest-shell .ct-topbar .lg-top-title strong{font-size:17px}
+body .lotigest-shell .ct-topbar .ct-top-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex:1 1 auto;min-width:0}
+body .lotigest-shell .ct-topbar .ct-top-residence{display:flex;align-items:center;gap:7px;flex:none;min-width:0;font-size:12px;font-weight:750;white-space:nowrap;color:inherit}
+body .lotigest-shell .ct-topbar .ct-top-residence select{display:block;flex:none;min-width:0;width:clamp(135px,13vw,190px);max-width:220px;height:38px;min-height:38px;padding:7px 9px;font-size:12px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:10px}
+body .lotigest-shell .ct-topbar .ct-top-actions>.btn{flex:none;min-height:36px;padding:7px 10px;font-size:11px;white-space:nowrap}
+body .lotigest-shell .ct-topbar .lg-top-tools{flex:0 0 auto;gap:5px}
+body.lotigest-dark .lotigest-shell .ct-topbar .ct-top-residence select{background:#263e2c;color:#edf7ed;border-color:#48604b}
+body.lotigest-dark .lotigest-shell .ct-topbar .ct-top-actions .btn-outline{background:#294332;color:#edf7ed;border-color:#4c6852}
+body.lotigest-dark .lotigest-shell .ct-topbar .ct-top-actions .btn-primary{background:#9fdd72;color:#17321c}
+@media screen and (max-width:1400px){
+ html body #app .lotigest-shell:has(.ct-topbar){--lg-top-height:116px}
+ html body #app .lotigest-shell .ct-topbar{align-items:flex-start!important;padding-top:8px!important}
+ html body #app .lotigest-shell .ct-topbar .lg-top-title{height:40px;flex:1 1 auto!important}
+ html body #app .lotigest-shell .ct-topbar .lg-top-tools{height:40px;flex:none!important}
+ html body #app .lotigest-shell .ct-topbar .ct-top-actions{position:absolute;left:13px;right:13px;bottom:8px;width:auto;height:43px;justify-content:flex-start;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:thin;touch-action:pan-x;white-space:nowrap;padding:2px 1px 3px}
+ html body #app .lotigest-shell .ct-topbar .ct-top-residence select{width:clamp(135px,20vw,175px);max-width:175px}
+}
+@media screen and (max-width:900px){
+ html body #app .lotigest-shell:has(.ct-topbar){--lg-top-height:116px}
+ html body #app .lotigest-shell .ct-topbar .lg-search{display:none!important}
+ html body #app .lotigest-shell .ct-topbar .ct-top-actions{left:10px;right:10px}
+ html body #app .lotigest-shell .ct-topbar .lg-top-title strong{font-size:15px}
+}
+@media screen and (max-width:600px){
+ html body #app .lotigest-shell:has(.ct-topbar){--lg-top-height:116px}
+ html body #app .lotigest-shell .ct-topbar .ct-top-actions{bottom:6px}
+ html body #app .lotigest-shell .ct-topbar .ct-top-residence{gap:5px;font-size:11px}
+ html body #app .lotigest-shell .ct-topbar .ct-top-residence select{width:140px;font-size:12px}
+ html body #app .lotigest-shell .ct-topbar .ct-top-actions>.btn{min-height:36px}
+}

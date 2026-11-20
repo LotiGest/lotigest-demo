@@ -92,11 +92,64 @@
     '<div class="ct-tool-actions"><button class="btn btn-outline" data-contract-owner-manual>Ficha de contrato manual</button>'+
     '<button class="btn btn-outline" data-contract-owner-open>Asignar solares a un cliente</button>'+
     '<button class="btn btn-outline" data-action="contract-scan-choose">Escanear contrato (solo texto)</button>'+
-    '<button class="btn btn-outline" data-contract-rebuild-open>Preparar limpieza de clientes</button></div>'+    '<details style="margin:12px 0"><summary>Solares asignados a clientes ('+assignments.length+')</summary>'+    '<div class="table-scroll"><table><thead><tr><th>Cliente</th><th>Etapa</th><th>Bloque</th><th>Solar</th></tr></thead><tbody>'+    assignments.slice(0,70).map(l=>'<tr><td>'+esc(getClient(l.ownerClientId).name)+'</td><td>'+esc(l.stage||'—')+'</td><td>'+esc(l.block||'—')+'</td><td>'+esc(num(l))+'</td></tr>').join('')+'</tbody></table></div>'+    (assignments.length>70?'<p class="sm muted">Se muestran 70 registros; el resto continúa disponible en Clientes.</p>':'')+'</details>'+
+    '<button class="btn btn-outline" data-contract-rebuild-open>Preparar limpieza de clientes</button>'+
+    '<button class="btn btn-outline" data-page="residences">Administrar residenciales</button></div>'+
+    (typeof annexPlansMarkup==='function'?annexPlansMarkup(residence()):'')+    '<details style="margin:12px 0"><summary>Solares asignados a clientes ('+assignments.length+')</summary>'+    '<div class="table-scroll"><table><thead><tr><th>Cliente</th><th>Etapa</th><th>Bloque</th><th>Solar</th></tr></thead><tbody>'+    assignments.slice(0,70).map(l=>'<tr><td>'+esc(getClient(l.ownerClientId).name)+'</td><td>'+esc(l.stage||'—')+'</td><td>'+esc(l.block||'—')+'</td><td>'+esc(num(l))+'</td></tr>').join('')+'</tbody></table></div>'+    (assignments.length>70?'<p class="sm muted">Se muestran 70 registros; el resto continúa disponible en Clientes.</p>':'')+'</details>'+
     '<p class="sm muted">Registrar una ficha no significa cobrar la prima. El crédito y los abonos se activan por separado.</p></details>';
-  return '<div class="ct-module">'+residencePicker()+
+  return '<div class="ct-module">'+
     header('Contratos','Gestión de fichas, documentos y terrenos vinculados.',toolbar)+
     cards+filters+table+tools+'</div>';
+ };
+ // En Contratos, aprovechar la barra superior del sistema en lugar de repetir
+ // cabecera, selector de residencial y botones dentro del área de trabajo.
+ function contractToolbarInTopbar(){
+  const root=document.getElementById('app');
+  const bar=root?.querySelector('.lg-topbar');
+  const content=root?.querySelector('.ct-module');
+  const head=content?.querySelector('.page-head');
+  const buttons=head?.querySelector('.head-actions');
+  if(!bar||!content||!head||!buttons||bar.querySelector('.ct-top-actions'))return;
+  const toolbar=document.createElement('div');
+  toolbar.className='ct-top-actions';
+  toolbar.setAttribute('aria-label','Residencial y acciones de contratos');
+  const label=document.createElement('label');
+  label.className='ct-top-residence';
+  label.htmlFor='ct-top-residence-select';
+  const name=document.createElement('span');
+  name.textContent='Residencial';
+  const select=document.createElement('select');
+  select.id='ct-top-residence-select';
+  select.setAttribute('data-residence-picker','');
+  select.setAttribute('aria-label','Seleccionar residencial para contratos');
+  const current=residence().id;
+  for(const r of db.residences.filter(r=>!r.hidden||r.id===current)){
+   const opt=document.createElement('option');
+   opt.value=r.id;opt.textContent=r.name;
+   opt.selected=r.id===current;
+   select.appendChild(opt);
+  }
+  label.append(name,select);
+  toolbar.appendChild(label);
+  // Mover los botones reales: se conservan sus data-action y permisos existentes.
+  while(buttons.firstChild)toolbar.appendChild(buttons.firstChild);
+  bar.insertBefore(toolbar,bar.querySelector('.lg-top-tools'));
+  bar.classList.add('ct-topbar');
+  head.remove();
+  // Proteger esta vista frente a otros adaptadores que añadieran otro selector.
+  content.querySelectorAll('[data-residence-picker]').forEach(el=>{
+   const wrapper=el.closest('.card');
+   if(wrapper&&wrapper.querySelectorAll('[data-residence-picker]').length===1){
+    wrapper.remove();
+   }else{
+    el.closest('label')?.remove();
+   }
+  });
+ }
+ const contractDashboardPreviousRender=render;
+ render=function(){
+  const result=contractDashboardPreviousRender.apply(this,arguments);
+  if(page==='contracts')contractToolbarInTopbar();
+  return result;
  };
  function update(key,val){state[key]=val;state.page=1;if(key==='stage'){state.block='all';state.solar='all';}else if(key==='block')state.solar='all';render();}
  document.addEventListener('input',e=>{

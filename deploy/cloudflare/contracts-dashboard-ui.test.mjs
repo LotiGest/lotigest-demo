@@ -15,18 +15,21 @@ function boot(){
   {id:'D2',residenceId:'R',clientId:'C2',lotId:'L2',status:'active',format:'photo+ocr',createdAt:'2026-11-02',structured:{price:110000}}];
  const sales=[{id:'S1',clientId:'C2',lotId:'L3',price:95000,date:'2026-11-03'}];
  const reports=[];
- w.db={clients,lots,sales,contractTexts:documents};
+ w.db={clients,lots,sales,contractTexts:documents,residences:[{id:'R',name:'Altos del Arrayán'},{id:'R2',name:'Nueva residencial'}]};
  w.getClient=id=>clients.find(c=>c.id===id);
  w.getLot=id=>lots.find(l=>l.id===id);
  w.getSale=id=>sales.find(s=>s.id===id);
- w.residence=()=>({id:'R',name:'Altos del Arrayán'});
+ let currentResidence='R';
+ w.residence=()=>w.db.residences.find(r=>r.id===currentResidence);
  w.residencePicker=()=>'<div id="residence-picker">Residencial</div>';
- w.header=(t,s,actions)=>'<header><h1>'+t+'</h1>'+actions+'</header>';
+ w.header=(t,s,actions)=>'<div class="page-head"><h1>'+t+'</h1><div class="head-actions">'+actions+'</div></div>';
  w.esc=x=>String(x??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
  w.ic=()=>'';w.money=n=>'L '+Number(n).toFixed(2);w.fmtDate=x=>x;
  w.downloadExcel=(...args)=>reports.push(args);
  w.contractIntakeOpen=()=>{};
- w.render=()=>{w.document.body.innerHTML=w.contractsPage();};
+ w.page='contracts';
+ w.render=()=>{w.document.body.innerHTML='<div id="app" class="lotigest-shell"><header class="lg-topbar"><div class="lg-top-title"><span>GRUPO H / LOTIGEST</span><strong>'+w.page+'</strong></div><div class="lg-top-tools"></div></header><main class="workspace-inner">'+(w.page==='contracts'?w.contractsPage():'<h1>Clientes</h1>')+'</main></div>';};
+ w.document.addEventListener('change',event=>{if(event.target.matches('[data-residence-picker]')){currentResidence=event.target.value;w.render();}});
  w.eval(code);w.render();
  return {w,reports,close:()=>w.close()};
 }
@@ -81,5 +84,26 @@ test('Contratos: vinculación de varios solares aparece en la ubicación',()=>{
   w.render();
   assert.match(w.document.body.textContent,/1 solares adicionales/);
   assert.ok(w.document.querySelector('.ct-tools summary'));
+ }finally{close();}
+});
+
+test('Contratos: cabecera única mueve residencial, crear, imprimir y exportar a la barra superior',()=>{
+ const {w,close}=boot();
+ try{
+  const topbar=w.document.querySelector('.lg-topbar.ct-topbar');
+  assert.ok(topbar,'La cabecera de Contratos utiliza la barra existente de LOTIGEST');
+  assert.equal(w.document.querySelectorAll('[data-residence-picker]').length,1,'Residencial aparece una sola vez');
+  assert.equal(topbar.querySelector('[data-residence-picker]').value,'R');
+  assert.equal(topbar.querySelector('[data-contract-intake-open]')?.textContent.includes('Nuevo contrato'),true);
+  assert.ok(topbar.querySelector('[data-ct-print]'));
+  assert.ok(topbar.querySelector('[data-ct-export]'));
+  assert.equal(w.document.querySelector('.ct-module .page-head'),null,'No ocupa una segunda fila de título');
+  assert.equal(w.document.querySelector('.ct-module [data-residence-picker]'),null);
+  select(w,'ct-top-residence-select','R2');
+  assert.equal(w.document.querySelectorAll('[data-residence-picker]').length,1);
+  assert.equal(w.document.querySelector('[data-residence-picker]').value,'R2');
+  assert.equal(rows(w).length,0,'Cambiar residencial actualiza las fichas visibles');
+  w.page='clients';w.render();
+  assert.equal(w.document.querySelector('.ct-topbar'),null,'No altera las demás páginas');
  }finally{close();}
 });
