@@ -110,3 +110,16 @@ test('Bloquea compradores y compras directas desde Terrenos, mantiene apartados'
  assert.match(build,/uncontracted-sales-cleanup\.mjs/);
  assert.match(build,/lot-contract-first-ui\.js/);
 });
+
+
+test('protege comprobantes de Caja e históricos aunque no exista ficha de contrato',()=>{
+ const db=state();
+ db.cashEntries=[{id:'CAJA1',saleId:'S1',date:'2026-11-20',amount:1000}];
+ assert.deepEqual(auditUncontractedSales(db,'R').candidates.map(x=>x.saleId),[]);
+ db.cashEntries=[];
+ db.receipts=[{id:'R1',lotId:'L1'}];
+ assert.deepEqual(auditUncontractedSales(db,'R').candidates.map(x=>x.saleId),[]);
+ db.receipts=[];
+ db.historicalContracts=[{id:'H1',clientId:'C1',residenceId:'R'}];
+ assert.deepEqual(auditUncontractedSales(db,'R').candidates.map(x=>x.saleId),[]);
+});
