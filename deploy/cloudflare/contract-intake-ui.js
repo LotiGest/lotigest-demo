@@ -84,7 +84,7 @@ function contractIntakeFields(){
  const fields=labels.filter(([,key])=>!manual||!['areaVaras','areaM2','pricePerVara'].includes(key))
   .map(([label,key,type])=>input(label,key,type)).join('');
  const dates=manual?'<label class="field-group"><span>Fecha del contrato</span><input type="date" name="date" required value="'+esc(c.date||'')+'"></label>'+
-  '<label class="field-group"><span>Fecha de primera cuota</span><input type="date" name="firstDueDate" required value="'+esc(c.firstDueDate||'')+'"></label>':'';
+  '<label class="field-group"><span>Fecha de primera cuota</span><input type="date" name="firstDueDate" value="'+esc(c.firstDueDate||'')+'"></label>':'';
  const prima=manual?'<div class="full notice-card"><strong>Registrar prima recibida (opcional)</strong><p class="sm">La prima pactada NO es un pago. Activa esta opción solo si ya recibiste el dinero; se registrará el pago completo de prima de cada solar y aparecerá como pagada en Residenciales y Cobros.</p>'+
   '<label><input type="checkbox" name="primaPaid" value="on" '+(c.primaPaid==='on'?'checked':'')+'> Ya recibí la prima pactada y deseo guardar este cobro</label></div>'+
   '<label class="field-group"><span>Fecha real del pago de prima</span><input type="date" name="primaDate" value="'+esc(c.primaDate||'')+'"></label>'+
