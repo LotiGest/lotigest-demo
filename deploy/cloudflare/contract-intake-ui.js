@@ -140,15 +140,16 @@ function contractIntakeManualFields(){
  const inventoryTotal=all.every(Boolean)&&all.every(l=>Number(l.price)>0)?all.reduce((n,l)=>n+Number(l.price),0):null;
  const priceLabel=total===null?'Completa el precio acordado':'L '+contractIntakeManualCash(total);
  const finText=financed===null?'—':'L '+contractIntakeManualCash(financed),monthlyText=monthly===null?'—':'L '+contractIntakeManualCash(monthly);
- const finances=field('Precio de venta acordado (L)','solarPrice_0','number',true,false,v.solarPrice_0??selected?.price??'')+
+ const finances='<div class="lg-contract-terms-grid"><div class="lg-contract-term-fields">'+
+  field('Precio de venta (L) · Editable','solarPrice_0','number',true,false,v.solarPrice_0??selected?.price??'')+
   (multi?field('Prima del primer solar (L)','solarDown_0','number',true,false,v.solarDown_0??v.down??'')+
-    hidden('down',prima??''):field('Prima pactada (L)','down','number',true,false,v.down??selected?.defaultDownPayment??selected?.downPayment??selected?.prima??''))+
-  '<label class="field-group"><span>Plazo del crédito en meses</span><input type="number" name="months" min="1" max="360" step="1" required value="'+val(v.months??'')+'"></label>'+
-  '<div class="full notice-card"><div><strong>Precio registrado en Predios:</strong> '+(inventoryTotal===null?'No registrado':'L '+contractIntakeManualCash(inventoryTotal))+'</div>'+
-  '<div><strong>Precio acordado para el contrato:</strong> <span id="contract-auto-price">'+priceLabel+'</span></div>'+
-  '<div><strong>Saldo a financiar:</strong> <span id="contract-auto-financed">'+finText+'</span></div>'+
-  '<div><strong>Cuota mensual (0 % interés):</strong> <span id="contract-auto-monthly">'+monthlyText+'</span></div>'+
-  '<small>Puedes subir o bajar el precio y cambiar la prima en este contrato. No cambia el precio general del solar en Terrenos y Predios.</small></div>'+
+    hidden('down',prima??''):field('Prima (L) · Editable','down','number',true,false,v.down??selected?.defaultDownPayment??selected?.downPayment??selected?.prima??''))+
+  '<label class="field-group"><span>Plazo (meses)</span><input type="number" name="months" min="1" max="360" step="1" required value="'+val(v.months??'')+'"></label></div>'+
+  '<aside class="lg-contract-calc"><h4>Cálculo automático · 0 % interés</h4>'+
+  '<div class="lg-contract-calc-row"><span>Precio del contrato</span><strong id="contract-auto-price">'+priceLabel+'</strong></div>'+
+  '<div class="lg-contract-calc-row"><span>Saldo a financiar</span><strong id="contract-auto-financed">'+finText+'</strong></div>'+
+  '<div class="lg-contract-calc-row lg-contract-payment-row"><span>Cuota mensual</span><strong id="contract-auto-monthly">'+monthlyText+'</strong></div>'+
+  '<small>El precio original de Predios ('+(inventoryTotal===null?'sin registrar':'L '+contractIntakeManualCash(inventoryTotal))+') no cambia si modificas las condiciones de este contrato.</small></aside></div>'+
   '<input type="hidden" name="price" value="'+val(total??'')+'">'+
   '<input type="hidden" name="financed" value="'+val(financed??'')+'">'+
   '<input type="hidden" name="monthly" value="'+val(monthly??'')+'">';
@@ -159,18 +160,23 @@ function contractIntakeManualFields(){
   '<label class="field-group"><span>Método</span><select name="primaMethod">'+
   ['Efectivo','Transferencia','Tarjeta'].map(m=>'<option '+((v.primaMethod||'Efectivo')===m?'selected':'')+'>'+m+'</option>').join('')+
   '</select></label>'+field('Referencia (opcional)','primaRef')+'</div></details>';
- return '<form id="contract-intake-form"><p class="sm muted">Busca un cliente existente y selecciona su solar. Se cargarán sus medidas y el precio de Predios; puedes ajustar el precio de venta y la prima para este contrato. Saldo y cuota se calculan automáticamente.</p>'+
-  '<div class="form-grid"><div class="full field-group"><span><strong>Cliente ya registrado</strong> · Buscar en la base de Clientes</span>'+
-  '<div style="display:flex;gap:8px;flex-wrap:wrap"><input id="contract-client-search" type="search" autocomplete="off" placeholder="Nombre o identidad" aria-label="Buscar cliente por nombre o identidad" value="'+val(draft?.clientQuery||'')+'" style="min-width:170px;flex:1">'+
+ return '<form id="contract-intake-form" class="lg-contract-form"><p class="lg-contract-lead">Encuentra al cliente, asígnale su solar y revisa el precio. Solo cambia los datos necesarios.</p>'+
+  '<section class="lg-contract-step" aria-labelledby="lg-contract-step-client"><h3 id="lg-contract-step-client" class="lg-contract-step-heading"><span>1</span> Buscar cliente</h3>'+
+  '<div class="lg-contract-client-layout"><div class="lg-contract-client-search field-group"><label for="contract-client-search">Identidad o nombre del cliente</label>'+
+  '<div class="lg-contract-searchbar"><input id="contract-client-search" type="search" autocomplete="off" enterkeyhint="search" placeholder="Escribe identidad o nombre y presiona Enter" aria-label="Buscar cliente por nombre o identidad" value="'+val(draft?.clientQuery||'')+'">'+
   '<button type="button" class="btn btn-primary" data-contract-client-search>Buscar</button></div>'+
-  '<div id="contract-client-results" role="status" style="max-height:200px;overflow:auto"></div></div>'+
-  (customer?'<div class="full"><button class="btn btn-outline btn-sm" type="button" data-contract-client-clear>Elegir otro cliente / Crear cliente nuevo</button></div>':'')+
-  hidden('clientId',customer?.id||'')+person+lots+measures+more+
-  '<div class="full"><button type="button" class="btn btn-outline btn-sm" data-contract-intake-add>+ Agregar otro solar</button></div>'+
-  '<div class="full"><strong>Condiciones de la compra</strong></div>'+finances+
-  field('Fecha del contrato','date','date',true)+field('Fecha de primera cuota','firstDueDate','date')+payment+
-  '<details class="full"><summary>Observaciones (opcional)</summary><textarea name="observations" rows="2" style="width:100%">'+val(v.observations||'')+'</textarea></details></div>'+
-  '<div id="contract-intake-alert" role="alert"></div></form>';
+  '<div id="contract-client-results" role="status" class="lg-contract-client-results"></div></div>'+
+  '<div class="lg-contract-client-card">'+
+  (customer?'<button type="button" class="btn btn-outline lg-contract-change-client" data-contract-client-clear>Cambiar cliente</button>':'')+
+  hidden('clientId',customer?.id||'')+person+'</div></div></section>'+
+  '<section class="lg-contract-step" aria-labelledby="lg-contract-step-lot"><h3 id="lg-contract-step-lot" class="lg-contract-step-heading"><span>2</span> Asignar solar</h3>'+
+  '<div class="lg-contract-lot-fields">'+lots+'</div>'+measures+more+
+  '<div class="lg-contract-lot-actions"><button type="button" class="btn btn-outline" data-contract-intake-add>+ Agregar otro solar a este contrato</button></div></section>'+
+  '<section class="lg-contract-step" aria-labelledby="lg-contract-step-terms"><h3 id="lg-contract-step-terms" class="lg-contract-step-heading"><span>3</span> Condiciones del contrato</h3>'+finances+'</section>'+
+  '<section class="lg-contract-step" aria-labelledby="lg-contract-step-dates"><h3 id="lg-contract-step-dates" class="lg-contract-step-heading"><span>4</span> Fecha del contrato</h3>'+
+  '<div class="lg-contract-date-fields">'+field('Fecha del contrato','date','date',true)+field('Fecha de primera cuota','firstDueDate','date')+'</div>'+
+  payment+'<details class="lg-contract-notes"><summary>Observaciones (opcional)</summary><textarea name="observations" rows="2" style="width:100%">'+val(v.observations||'')+'</textarea></details></section>'+
+  '<div id="contract-intake-alert" role="alert" class="lg-contract-alert"></div></form>';
 }
 function contractIntakeManualRecalculate(form){
  if(!form||contractIntakeWorking?.mode!=='manual')return;
@@ -332,9 +338,10 @@ function contractIntakeOpen(clientId='',mode='ocr'){
   '<small class="sm muted">Fotos JPG, PNG o WebP (máximo 12 MB). También puedes elegir una imagen desde Archivos.</small></div>'+
   '<p class="sm muted">El OCR se realiza en tu dispositivo. Luego podrás revisar los datos antes de guardar; la imagen original se almacena de forma privada en LOTIGEST al confirmar.</p>'+
   '<div id="contract-intake-status" role="status"></div><button type="button" id="contract-intake-retry" class="btn btn-outline" hidden>Volver a leer la foto</button><div id="contract-intake-review"></div>';
- showModal(manual?'Llenar ficha de contrato manual':'Registrar cliente desde contrato',content,
- '<button type="button" class="btn btn-outline" data-action="close-modal">Cancelar</button><button type="submit" id="contract-intake-save" form="contract-intake-form" class="btn btn-primary" '+(manual?'':'disabled')+'>Guardar ficha revisada</button>',
- true,'Contratos → Cliente → Solares → Abonos');
+ showModal(manual?'Nuevo contrato':'Registrar cliente desde contrato',content,
+ '<button type="button" class="btn btn-outline" data-action="close-modal">Cancelar</button><button type="submit" id="contract-intake-save" form="contract-intake-form" class="btn btn-primary" '+(manual?'':'disabled')+'>'+(manual?'Guardar contrato':'Guardar ficha revisada')+'</button>',
+ true,manual?'Cliente → Solar → Precio y prima → Fecha':'Contratos → Cliente → Solares → Abonos');
+ if(manual)document.querySelector('#modal-root .modal')?.classList.add('lg-contract-modern');
 }
 // Recursos versionados servidos por el mismo sitio, sin descargas de CDN en el teléfono.
 let contractIntakeOcrLoading=null;
