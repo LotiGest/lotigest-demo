@@ -5,6 +5,37 @@ function ownerCents(value){const n=Number(value),c=Math.round(n*100);if(value===
 function ownerDate(value){if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value))throw Error('Fecha de abono inválida.');const d=new Date(value+'T12:00:00Z');if(!Number.isFinite(+d)||d.toISOString().slice(0,10)!==value||value>ownerToday())throw Error('La fecha debe ser válida y no futura.');return value;}
 export function ownerStatementBalance(state,statement){const rows=statement.documentedBalances||[],last=rows.length?rows[rows.length-1]:null;const initial=last?last.amountCents:statement.documentedOpeningBalanceCents;if(!Number.isSafeInteger(initial)||initial<0)return null;const paid=(state.ownerPayments||[]).reduce((n,p)=>n+p.allocations.filter(a=>a.statementId===statement.id).reduce((x,a)=>x+a.amountCents,0),0);return initial-paid;}
 export function ownerAllocationReferences(state,statement,index){const refs=index==null?statement.references:[statement.references[index]];if(!refs?.length||refs.some(r=>!r))throw Error('Confirma primero el bloque y solar de esta ficha.');return refs.map(r=>{const l=r.lotId?state.lots.find(l=>l.id===r.lotId):null,block=String(r.block||l?.block||''),solar=String(r.lot||l?.sourceNumber||'');if(!block||!solar)throw Error('Confirma primero el bloque y solar de esta ficha.');return {stage:r.stage||l?.stage||null,block,solar,lotId:r.lotId||null,mapAssignmentPending:!r.lotId};});}
+// Una prima es un pago inicial por solar, no un concepto que pueda cobrarse otra vez.
+const ownerPrimaConcept = concept => /^(?:prima|pago de prima)(?:$|[\\s·:–-])/i.test(String(concept||'').trim());
+const ownerRefMatchesLot = (ref, lot) => {
+ if(!ref||!lot)return false;
+ if(ref.lotId)return ref.lotId===lot.id;
+ const norm=v=>String(v??'').trim().toUpperCase();
+ const solar=norm(ref.lot??ref.solar),number=norm(lot.sourceNumber??lot.number);
+ // Si no consta la etapa, no adivinar coincidencias entre etapas distintas.
+ return !!solar&&!!number&&solar===number&&norm(ref.block)===norm(lot.block)&&
+   !!ref.stage&&norm(ref.stage)===norm(lot.stage);
+};
+export function ownerPrimaRecordedLots(state,clientId,residenceId,lotIds){
+ const lots=(state.lots||[]).filter(l=>lotIds.includes(l.id)&&l.residenceId===residenceId);
+ const blocked=new Set();
+ const mark=refs=>{for(const lot of lots)if(refs.some(ref=>ownerRefMatchesLot(ref,lot)))blocked.add(lot.id);};
+ for(const p of state.ownerPayments||[]){
+  if(p.clientId!==clientId||p.residenceId!==residenceId||p.voidedAt||p.deletedAt||!ownerPrimaConcept(p.concept))continue;
+  mark((p.allocations||[]).flatMap(a=>a.references||[]));
+ }
+ for(const p of state.historicalPayments||[]){
+  const contract=(state.historicalContracts||[]).find(c=>c.id===p.contractId);
+  if((p.clientId||contract?.clientId)!==clientId||p.residenceId!==residenceId||String(p.type||'').toUpperCase()!=='PRIMA'||p.voidedAt||p.deletedAt)continue;
+  mark([...(p.references||[]),...(p.lotId?[{lotId:p.lotId}]:[])]);
+ }
+ for(const sale of state.sales||[]){
+  if(sale.clientId!==clientId||!lots.some(l=>l.id===sale.lotId)||Number(sale.downPayment)<=0)continue;
+  const paid=Number(sale.openingPaid||0)+(state.payments||[]).filter(p=>p.saleId===sale.id&&!p.voidedAt&&!p.deletedAt).reduce((n,p)=>n+Number(p.amount||0),0);
+  if(Math.round(paid*100)>=Math.round(Number(sale.downPayment)*100))blocked.add(sale.lotId);
+ }
+ return [...blocked];
+}
 export function createOwnerPayment(input,draft){
  const state=ownerClone(input);state.ownerPayments??=[];if(!/^OP-[a-f0-9-]{36}$/.test(draft.id||''))throw Error('Referencia de recibo inválida.');if(!draft.reviewed)throw Error('Confirma el cliente, los solares y los montos antes de guardar.');
  const date=ownerDate(draft.date),client=state.clients.find(c=>c.id===draft.clientId);if(!client||!state.residences?.some(r=>r.id===draft.residenceId))throw Error('Selecciona un propietario y una residencial válidos.');if(!Array.isArray(draft.allocations)||!draft.allocations.length||draft.allocations.length>30)throw Error('Selecciona entre 1 y 30 solares o grupos.');
@@ -16,6 +47,11 @@ export function createOwnerPayment(input,draft){
  for(const p of state.historicalPayments||[])if(p.residenceId===draft.residenceId&&String(p.receiptReference||p.sourceRaw?.receiptRef||p.sourceRaw?.folio||'').trim().toUpperCase()===ref)throw Error('El folio ya existe en el historial importado.');
  }
  const groups=new Map(),usedReferences=new Set(),allocations=request.allocations.map(a=>{const s=state.ownershipStatements?.find(s=>s.id===a.statementId);if(!s||s.clientId!==client.id||s.residenceId!==draft.residenceId)throw Error('Todos los solares deben pertenecer a la misma persona y residencial.');if((s.contractIds||[]).some(id=>state.historicalContracts?.find(c=>c.id===id)?.saleId))throw Error('Esta ficha ya tiene una venta con cuotas. Registra el abono desde sus ventas.');if(a.referenceIndex!=null&&(!Number.isInteger(a.referenceIndex)||a.referenceIndex<0))throw Error('Solar inválido.');const refs=ownerAllocationReferences(state,s,a.referenceIndex);for(const r of refs){const key=r.lotId||r.block+':'+r.solar;if(usedReferences.has(key))throw Error('El mismo solar aparece en más de una ficha seleccionada. Confirma una sola ficha antes de abonar.');usedReferences.add(key);const l=r.lotId&&state.lots.find(l=>l.id===r.lotId);if(l?.ownerClientId&&l.ownerClientId!==client.id||l&&state.sales.some(v=>v.lotId===l.id&&v.clientId!==client.id))throw Error('El terreno tiene otro propietario.');}if(!groups.has(s.id))groups.set(s.id,{indexes:new Set(),total:0,statement:s});const g=groups.get(s.id),key=a.referenceIndex==null?'group':a.referenceIndex;if(g.indexes.has(key)||g.indexes.has('group')||key==='group'&&g.indexes.size)throw Error('No mezcles el abono conjunto con los mismos solares individuales.');g.indexes.add(key);g.total+=a.amountCents;return {...a,references:refs,sourceName:s.sourceName};});
+ if(ownerPrimaConcept(concept)){
+  const selected=[...new Set(allocations.flatMap(a=>a.references.map(r=>r.lotId).filter(Boolean)))];
+  const existing=ownerPrimaRecordedLots(state,client.id,draft.residenceId,selected);
+  if(existing.length)throw Error('La prima ya fue registrada para uno de los solares seleccionados. Desde ahora registra únicamente abonos; si hay un error, revisa el recibo original.');
+ }
  for(const g of groups.values()){const left=ownerStatementBalance(state,g.statement);if(left!=null&&g.total>left)throw Error('El abono supera el saldo documentado disponible de la ficha. Revisa sus condiciones antes de continuar.');}
  const amountCents=allocations.reduce((n,a)=>n+a.amountCents,0);if(!Number.isSafeInteger(amountCents))throw Error('El total supera el límite permitido.');
  const receipt={id:draft.id,clientId:client.id,clientName:client.name,residenceId:draft.residenceId,residenceName:state.residences.find(r=>r.id===draft.residenceId).name||'',date,method,concept,...(receiptReference?{receiptReference}:{}),amountCents,allocations,request,recordedAt:new Date().toISOString(),balanceMode:'documentary-no-installment-schedule'};
