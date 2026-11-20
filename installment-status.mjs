@@ -22,9 +22,10 @@ export function reconcileInstallments(sales,payments,asOf,installmentCents,addMo
    const amount=cents(payment.amount);
    if(!amount)continue;
    const dated=valid(payment.date)&&payment.date<=asOf&&payment.date>=sale.date;
+   const primaType=/\bprima\b/i.test(String(payment.kind||'')+' '+String(payment.type||''));
    const saved=payment.receiptInfo?.allocations;
    let allocations=Array.isArray(saved)?
-    saved.filter(a=>Number.isInteger(Number(a.number))&&Number(a.number)>0&&Number(a.amount)>0):null;
+    saved.filter(a=>!(/\bprima\b/i.test(String(a.label||'')))&&!primaType&&Number.isInteger(Number(a.number))&&Number(a.number)>0&&Number(a.amount)>0):null;
    if(!allocations){
     // Compatibilidad con recibos antiguos que sí especificaban número o mes
     // de cuota. No se distribuye dinero basándose únicamente en su monto.
@@ -32,10 +33,10 @@ export function reconcileInstallments(sales,payments,asOf,installmentCents,addMo
     const period=String(payment.period||payment.paymentMonth||payment.installmentMonth||'');
     const matchByMonth=/^\d{4}-(?:0[1-9]|1[0-2])$/.test(period)?
      saleRows.filter(row=>row.dueDate.slice(0,7)===period):[];
-    const row=Number.isInteger(explicitNumber)&&explicitNumber>0?
-     saleRows[explicitNumber-1]:matchByMonth.length===1?matchByMonth[0]:null;
+    const isPrima=primaType||/\bprima\b/i.test(String(payment.concept||''));
+    const row=!isPrima&&Number.isInteger(explicitNumber)&&explicitNumber>0?
+     saleRows[explicitNumber-1]:!isPrima&&matchByMonth.length===1?matchByMonth[0]:null;
     allocations=row?[{number:row.number,amount:payment.amount}]:[];
-    const isPrima=/\bprima\b/i.test(String(payment.concept||'')+' '+String(payment.kind||'')+' '+String(payment.type||''));
     if(!row&&!isPrima)unmatched.push({saleId:sale.id,paymentId:payment.id,reason:'pago sin cuota identificada (no confundir con prima)'});
    }
    if(!dated){unmatched.push({saleId:sale.id,paymentId:payment.id,reason:'sin fecha válida o posterior al corte'});continue;}
