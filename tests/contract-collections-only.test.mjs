@@ -99,7 +99,8 @@ test('UI conserva la base completa y filtra reportes y exportaciones',()=>{
   residence:()=>({id:'R'}),document:{addEventListener:(name,fn)=>{(events[name]??=[]).push(fn);}},
   esc:v=>String(v),getClient:id=>state.clients.find(c=>c.id===id),
   inventoryArea:l=>l.area,inventoryPrice:l=>'L '+l.price,
-  page:'collections',cloudUser:{role:'admin'},render:()=>{},contractIntakeOpen:()=>{}
+  page:'collections',cloudUser:{role:'admin'},render:()=>{},contractIntakeOpen:()=>{},
+  newPayment:()=> 'historico',baseNewPayment:()=> 'contrato',paymentCandidates:()=>state.sales
  };
  // Definir los renderizadores dentro del mismo ámbito mutable que utiliza el
  // complemento (no cerrar sobre una referencia externa fija).
@@ -111,7 +112,7 @@ test('UI conserva la base completa y filtra reportes y exportaciones',()=>{
   "let debtReport=()=>db.sales.map(s=>s.id);"
  ].join('\n');
  const api=new Function(...Object.keys(environment),bases+'\n'+ui+
-  ';return {collectionPage,collectionPaymentRows,collectionClientRows,debtReport,ordinaryCollectionCard,current:()=>db};')(...Object.values(environment));
+  ';return {collectionPage,collectionPaymentRows,collectionClientRows,debtReport,ordinaryCollectionCard,paymentCandidates,newPayment,current:()=>db};')(...Object.values(environment));
  const html=api.collectionPage();
  assert.match(html,/Clientes y solares desde Contratos/);
  assert.match(html,/Lotes: 1/);
@@ -119,6 +120,8 @@ test('UI conserva la base completa y filtra reportes y exportaciones',()=>{
  assert.deepEqual(api.collectionPaymentRows(),['P-NEW']);
  assert.deepEqual(api.collectionClientRows(),['NEW']);
  assert.deepEqual(api.debtReport(),['S-NEW']);
+ assert.deepEqual(api.paymentCandidates().map(s=>s.id),['S-NEW']);
+ assert.equal(api.newPayment(null,false),'contrato');
  assert.equal(api.current(),state);
  assert.match(api.ordinaryCollectionCard({lot:state.lots[0]}),/Anterior/);
  assert.match(build,/contract-collections-scope\.mjs/);
