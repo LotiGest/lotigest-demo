@@ -261,3 +261,69 @@
 #modal-root .lg-payment-modern .pm-reconcile-table .btn{
  font-size:11px;white-space:normal;max-width:160px;line-height:1.3;
 }
+
+
+/* Historial de cuotas por mes: se consulta sin crear un cobro nuevo. */
+#modal-root .lg-payment-modern #pm-calendar-body .pm-month[data-pm-month]{
+ cursor:pointer;touch-action:manipulation;font:inherit;min-width:0;
+ transition:border-color .15s,transform .15s,box-shadow .15s;
+}
+#modal-root .lg-payment-modern #pm-calendar-body .pm-month[data-pm-month]:hover{
+ border-color:#218e4c;transform:translateY(-1px)
+}
+#modal-root .lg-payment-modern #pm-calendar-body .pm-month[data-pm-month]:focus-visible{
+ outline:3px solid #188848;outline-offset:2px
+}
+#modal-root .lg-payment-modern #pm-calendar-body .pm-month.pm-history-selected{
+ border:2px solid #118846;box-shadow:0 0 0 2px #11884623,inset 0 0 0 1px #118846
+}
+#modal-root .lg-payment-modern #pm-calendar-body .pm-progress{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px
+}
+#modal-root .lg-payment-modern #pm-calendar-body .pm-progress>div{min-width:0}
+#modal-root .lg-payment-modern #pm-calendar-body .pm-progress strong{
+ font-size:13px;white-space:normal;overflow-wrap:anywhere
+}
+#modal-root .lg-payment-modern .pm-calendar-history{
+ margin-top:12px;padding:13px;border:1px solid #d8e8dd;border-radius:12px;
+ background:#f7fbf8;display:grid;gap:10px;color:#183e29
+}
+#modal-root .lg-payment-modern .pm-history-heading{
+ display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:5px 12px
+}
+#modal-root .lg-payment-modern .pm-history-heading strong{font-size:15px}
+#modal-root .lg-payment-modern .pm-history-heading small{font-size:11px;color:#557261}
+#modal-root .lg-payment-modern .pm-history-installment{
+ padding:11px;border:1px solid #d9e7dd;border-radius:10px;background:#fff;min-width:0
+}
+#modal-root .lg-payment-modern .pm-history-installment-heading{
+ display:flex;justify-content:space-between;gap:9px;align-items:center;flex-wrap:wrap
+}
+#modal-root .lg-payment-modern .pm-history-state{
+ padding:4px 8px;border-radius:20px;font-size:11px;font-weight:800
+}
+#modal-root .lg-payment-modern .pm-history-state.paid{background:#dcf7e2;color:#146b38}
+#modal-root .lg-payment-modern .pm-history-state.late{background:#ffebeb;color:#a6323a}
+#modal-root .lg-payment-modern .pm-history-state.pending{background:#fff1ce;color:#885e12}
+#modal-root .lg-payment-modern .pm-history-payment{
+ display:flex;align-items:center;justify-content:space-between;gap:12px;
+ padding:10px 0;border-top:1px solid #e7efea;flex-wrap:wrap
+}
+#modal-root .lg-payment-modern .pm-history-payment strong{display:block;font-size:13px}
+#modal-root .lg-payment-modern .pm-history-payment small{
+ display:block;margin-top:3px;font-size:11px;color:#526959;overflow-wrap:anywhere
+}
+#modal-root .lg-payment-modern .pm-history-actions{display:flex;flex-wrap:wrap;gap:7px}
+#modal-root .lg-payment-modern .pm-history-actions .btn{
+ min-height:36px;font-size:12px;border:1px solid #a8ccae;background:#edf8f0;color:#165c34
+}
+@media(max-width:680px){
+ #modal-root .lg-payment-modern #pm-calendar-body .pm-progress{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #modal-root .lg-payment-modern .pm-history-payment{align-items:flex-start}
+ #modal-root .lg-payment-modern .pm-history-actions{width:100%}
+ #modal-root .lg-payment-modern .pm-history-actions .btn{flex:1}
+}
+@media(max-width:420px){
+ #modal-root .lg-payment-modern #pm-calendar-body .pm-progress{grid-template-columns:1fr 1fr}
+ #modal-root .lg-payment-modern .pm-calendar-history{padding:10px}
+}
