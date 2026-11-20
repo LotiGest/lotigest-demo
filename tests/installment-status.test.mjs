@@ -39,7 +39,7 @@ test('adelanto para 2026 pagado en 2025 no aparece como mensualidad pagada',()=>
  const p={id:'R-3',saleId:s.id,date:'2025-11-26',amount:2000,
   receiptInfo:{allocations:[{number:1,amount:1000},{number:2,amount:1000}]}};
  const {rows}=ledger([s],[p]);
- assert.deepEqual(rows.map(r=>r.status),['advance','advance']);
+ assert.deepEqual(rows.map(r=>r.status),['advance-covered','advance-covered']);
  assert.ok(rows.every(r=>r.confirmedCents===0&&r.advanceCents===100000));
 });
 test('no se asigna a otro solar y los recibos futuros no se pintan',()=>{
@@ -79,4 +79,39 @@ test('abono con mes explícito confirma esa cuota pero no la prima',()=>{
   {id:'CUOTA-3',saleId:s.id,date:'2025-03-26',amount:1000,period:'2025-03'}];
  const result=ledger([s],payments);
  assert.deepEqual(result.rows.filter(r=>r.status==='paid').map(r=>r.number),[3]);
+});
+
+test('dos cuotas futuras totalmente adelantadas no generan mora al vencer',()=>{
+ const s=sale({firstDueDate:'2026-01-26',months:3,price:33000,downPayment:30000});
+ const p={id:'A-1',saleId:s.id,date:'2025-11-20',amount:2000,receiptInfo:{allocations:[
+  {number:1,month:'2026-01',amount:1000},{number:2,month:'2026-02',amount:1000}]}};
+ const {rows}=ledger([s],[p],'2026-03-20');
+ assert.deepEqual(rows.map(r=>r.status),['advance-covered','advance-covered','pending']);
+ assert.equal(rows[0].remainingCents,0);
+ assert.equal(rows[1].remainingCents,0);
+ assert.ok(rows.slice(0,2).every(r=>r.receipts[0].paymentId==='A-1'));
+ assert.equal(rows.filter(r=>r.status==='late').length,0);
+});
+test('adelanto parcial conserva mora solo por la diferencia cuando vence',()=>{
+ const s=sale({firstDueDate:'2026-01-26',months:2,price:32000,downPayment:30000});
+ const p={id:'A-2',saleId:s.id,date:'2025-11-20',amount:500,receiptInfo:{allocations:[{number:1,amount:500}]}};
+ const {rows}=ledger([s],[p],'2026-02-20');
+ assert.equal(rows[0].status,'late');
+ assert.equal(rows[0].remainingCents,50000);
+ assert.equal(rows[0].advanceCents,50000);
+ assert.equal(rows[1].status,'pending');
+});
+test('adelanto completo no se cobra dos veces cuando vence y pasa el año',()=>{
+ const s=sale({firstDueDate:'2026-01-26',months:2,price:32000,downPayment:30000});
+ const p={id:'A-3',saleId:s.id,date:'2025-11-20',amount:2000,receiptInfo:{allocations:[{number:1,amount:1000},{number:2,amount:1000}]}};
+ const {rows}=ledger([s],[p],'2026-11-20');
+ assert.equal(rows.reduce((n,r)=>n+r.remainingCents,0),0);
+ assert.equal(rows.filter(r=>r.status==='advance-covered').length,2);
+ assert.equal(rows.filter(r=>r.status==='late').length,0);
+});
+test('cuota pagada tarde después de su vencimiento en el mismo mes se destaca como vencida pagada',()=>{
+ const s=sale({firstDueDate:'2026-01-10',months:2,price:32000,downPayment:30000});
+ const p={id:'AB-1',saleId:s.id,date:'2026-01-20',amount:1000,receiptInfo:{allocations:[{number:1,amount:1000}]}};
+ const {rows}=ledger([s],[p],'2026-02-20');
+ assert.equal(rows[0].status,'paid-late');
 });

@@ -54,13 +54,16 @@ export function reconcileInstallments(sales,payments,asOf,installmentCents,addMo
    }
   }
   for(const row of saleRows){
-   const completed=row.confirmedCents>=row.dueCents&&row.dueCents>0;
-   const confirmedDates=row.receipts.filter(p=>!p.advance).map(p=>p.date).sort();
-   const last=confirmedDates.at(-1)||null;
-   row.status=completed?(last>row.dueDate?'paid-late':'paid'):
-     row.advanceCents>0?'advance':row.confirmedCents>0?'partial':
-     row.dueDate<asOf?'late':'pending';
-   row.remainingCents=Math.max(0,row.dueCents-row.confirmedCents-row.advanceCents);
+   // Los adelantos SI pagan anticipadamente la cuota del mes señalado:
+   // el dinero no entra de nuevo a caja cuando llega su vencimiento.
+   row.remainingCents=Math.max(0,row.dueCents-row.appliedCents);
+   const completed=row.dueCents>0&&row.remainingCents===0;
+   const dates=row.receipts.map(p=>p.date).sort();
+   const last=dates.at(-1)||null;
+   row.coveredByAdvance=completed&&row.advanceCents>0;
+   row.status=completed?(row.coveredByAdvance?'advance-covered':last>row.dueDate?'paid-late':'paid'):
+     row.dueDate<asOf?'late':row.advanceCents>0?'advance':
+     row.confirmedCents>0?'partial':'pending';
    row.lastPaidAt=last;
   }
   rows.push(...saleRows);

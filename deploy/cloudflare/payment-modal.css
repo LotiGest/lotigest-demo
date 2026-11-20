@@ -303,3 +303,41 @@
  #modal-root .lg-payment-modern .pm-month{min-height:66px}
  #modal-root .lg-payment-modern .pm-current-date{padding:9px 10px}
 }
+
+
+/* Adelantos: mensualidad cubierta se muestra azul con check y nunca morosa. */
+#modal-root .lg-payment-modern .pm-dot.advance-covered{background:#285fbb}
+#modal-root .lg-payment-modern .pm-month.advance-covered{background:#225ea6!important;color:#fff!important;border-color:#1b4e8c!important}
+#modal-root .lg-payment-modern .pm-month.advance-covered .pm-due-day,
+#modal-root .lg-payment-modern .pm-month.advance-covered .pm-today-day{color:#fff!important}
+#modal-root .lg-payment-modern .pm-history-toolbar{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px}
+#modal-root .lg-payment-modern .pm-history-launch{border:1px solid #7da58d;background:#f4faf6;color:#155e37;font-weight:800;min-height:41px}
+#modal-root .lg-payment-modern .pm-history-launch:disabled{opacity:.55;cursor:not-allowed}
+.pm-history-layer{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:15px;box-sizing:border-box;font:14px/1.45 system-ui,sans-serif;color:#213d2a;color-scheme:light}
+.pm-history-shade{position:absolute;inset:0;background:rgba(13,33,21,.72)}
+.pm-history-window{position:relative;display:flex;flex-direction:column;gap:13px;background:#fff;border:1px solid #d0dfd5;border-radius:17px;padding:17px;box-shadow:0 25px 90px #0006;width:min(980px,100%);max-height:calc(100dvh - 30px);box-sizing:border-box;overflow:hidden}
+.pm-history-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.pm-history-head h2{color:#173e2a;font-size:21px;margin:0}
+.pm-history-head p{font-size:12px;color:#64766a;margin:5px 0 0}
+.pm-history-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr)) minmax(180px,1.5fr) auto;align-items:end;gap:10px}
+.pm-history-filters label{font-size:12px;font-weight:750;display:grid;gap:4px;min-width:0}
+.pm-history-filters input{width:100%;min-width:0;box-sizing:border-box;min-height:39px;padding:8px;border:1px solid #b9cfc1;border-radius:8px;background:white;color:#223d2a;font-size:14px}
+.pm-history-filters .btn{min-height:39px;white-space:nowrap}
+.pm-history-count{font-size:12px;font-weight:650;color:#4c6f57;margin:0}
+.pm-history-list{display:grid;gap:10px;overflow:auto;overscroll-behavior:contain;padding-right:4px;min-height:0}
+.pm-history-item{background:#f8fbf9;border:1px solid #d9e6de;border-radius:12px;padding:13px;display:grid;gap:8px;overflow-wrap:anywhere}
+.pm-history-item-head{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#173e2a;font-size:15px}
+.pm-history-tag{font-size:11px;font-weight:750;color:#256345;background:#e3f2e8;border-radius:20px;padding:4px 8px;width:fit-content}
+.pm-history-item-body{font-size:12px;color:#3c5544;display:grid;gap:5px}
+.pm-history-item-body p{margin:0}
+.pm-history-item>.btn{justify-self:end}
+@media(max-width:720px){
+ .pm-history-layer{padding:6px}
+ .pm-history-window{padding:12px;max-height:calc(100dvh - 12px);border-radius:11px}
+ .pm-history-head h2{font-size:17px}
+ .pm-history-filters{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .pm-history-filters label:has(input[type=search]){grid-column:1 / -1}
+ .pm-history-filters>.btn{grid-column:1 / -1}
+ .pm-history-item-head{font-size:13px}
+ .pm-history-item>.btn{justify-self:stretch}
+}
