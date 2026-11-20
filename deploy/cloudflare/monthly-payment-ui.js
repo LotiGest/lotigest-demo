@@ -14,7 +14,7 @@ function monthlyRefresh(){
  if(!banner){banner=document.createElement('section');banner.dataset.monthlyBanner='true';banner.className='notice-card';banner.style.cssText='margin:0 0 14px;padding:14px;border:1px solid #abc89b';form.prepend(banner);}
  const ids=monthlyFormLots(form),info=monthlyPaymentInfo(db,ids);
  const isPrima=form.id==='manual-history-form'?form.elements.type?.value==='PRIMA':
-   /^PRIMA\\b/i.test(form.elements.concept?.value||'');
+   /^PRIMA\b/i.test(form.elements.concept?.value||'');
  const blocked=ids.length&&!isPrima&&ids.some(id=>!lotPrimaStatus(db,id).covered);
  banner.replaceChildren();const heading=document.createElement('strong');
  heading.textContent=info.known?'Cuota mensual '+(ids.length>1?'de los solares seleccionados: ':': ')+money(info.monthlyCents/100):'Cuota mensual: pendiente de completar contrato';banner.append(heading);
