@@ -1,4 +1,4 @@
 {
-  "version": "0.22.41",
-  "notes": "Nuevo Contrato: se separó su buscador del escáner de contrato antiguo. Buscar por nombre o identidad rellena automáticamente los datos existentes en el Paso 1 y conserva los cuatro pasos; si hay una sola coincidencia la selecciona sin abrir fotografías ni OCR, y si hay varias permite elegir. Enter también selecciona coincidencia única. No se cambian clientes, solares, abonos ni contratos existentes."
+  "version": "0.22.42",
+  "notes": "Respuesta de cotizaciones con formulario y vista previa, condiciones de contado o crédito, vigencia y mensaje guardados en la nube. PDF carta verde con tabla de importes, etapa, bloque y solar; compartir por WhatsApp."
 }

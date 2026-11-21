@@ -18,8 +18,8 @@ export async function setup(){
  server.read=async()=>{const r=await state({env:f.env,request:new Request('https://lotigest.test/api/app/state',{headers:{Cookie:server.cookie}})});return r.json();};
  server.write=async(data)=>state({env:f.env,request:new Request('https://lotigest.test/api/app/state',{method:'PUT',headers:{Cookie:server.cookie,Origin:'https://lotigest.test','Content-Type':'application/json'},body:JSON.stringify(data)})});return server;
 }
-export function boot(server,cache,storage={}){
- const html=readFileSync(new URL('cloudflare-pages/index.html',root),'utf8');const dom=new JSDOM(html,{url:'https://lotigest.test/',runScripts:'outside-only',pretendToBeVisual:true});const w=dom.window,d=w.document;w.indexedDB=server.indexedDB;
+export function boot(server,cache,storage={},transformSource=html=>html){
+ const html=transformSource(readFileSync(new URL('cloudflare-pages/index.html',root),'utf8'));const dom=new JSDOM(html,{url:'https://lotigest.test/',runScripts:'outside-only',pretendToBeVisual:true});const w=dom.window,d=w.document;w.indexedDB=server.indexedDB;
  Object.defineProperty(w,'crypto',{value:webcrypto});w.AbortController=AbortController;w.Blob=Blob;w.DecompressionStream=DecompressionStream;w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;w.matchMedia=()=>({matches:false,addEventListener(){},addListener(){}});w.confirm=()=>false;w.alert=()=>{};w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};w.URL.createObjectURL=()=>'';w.ResizeObserver=class {observe(){}disconnect(){}};w.HTMLCanvasElement.prototype.getContext=()=>new Proxy({measureText:()=>({width:50})},{get:(o,k)=>o[k]??(()=>{})});
  for(const [key,value] of Object.entries(storage))w.localStorage.setItem(key,value);
  if(cache)w.localStorage.setItem('lotigest_d1_pending_v1',cache);

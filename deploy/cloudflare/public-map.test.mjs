@@ -133,3 +133,18 @@ test('solicitud desde mapa público acepta WhatsApp con código +1 de Estados Un
  const row=f.db.db.prepare("SELECT phone FROM public_lot_requests WHERE lot_id='A1'").get();
  assert.equal(row.phone,'+1 (305) 555-0123');
 });
+
+test('cotización conserva mensaje, vigencia y modalidad sin alterar inventario',async()=>{
+ const f=await seed(),date=new Date(Date.now()+2*86400000).toISOString().slice(0,10);
+ const created=await createRequest({env:f.env,params:{slug:f.slug},request:new Request('https://test/api/client-sales/maps/'+f.slug+'/requests',{method:'POST',headers:{Origin:'https://test','Content-Type':'application/json'},body:JSON.stringify({lotId:'A1',name:'CLIENTE COTIZACION',phone:'9999-1234',mode:'credit',proposedDownPayment:50000,paymentDate:date})})});
+ assert.equal(created.status,201);const id=(await created.json()).requestId;
+ const quote={price:250000,down:30000,principal:220000,months:60,years:5,rate:0,monthly:3666.67,total:250000,mode:'credit',validUntil:date,message:'Hola, te compartimos la propuesta.'};
+ const patch=q=>patchRequest({env:f.env,params:{id},request:new Request('https://test/api/client-sales/requests/'+id,{method:'PATCH',headers:{Origin:'https://test',Cookie:f.cookie,'Content-Type':'application/json'},body:JSON.stringify({status:'quoted',quote:q})})});
+ assert.equal((await patch({...quote,validUntil:'2026-02-30'})).status,400);
+ assert.equal((await patch({...quote,message:'x'.repeat(601)})).status,400);
+ assert.equal((await patch(quote)).status,200);
+ const listed=await listRequests({env:f.env,request:new Request('https://test/api/client-sales/requests',{headers:{Cookie:f.cookie}})});
+ const item=(await listed.json()).requests[0];assert.deepEqual(item.quote,quote);assert.equal(item.status,'quoted');
+ const lot=f.db.db.prepare('SELECT payload FROM app_records WHERE key=?').get('lot:A1');
+ if(lot)assert.equal(JSON.parse(lot.payload).status,'available');
+});

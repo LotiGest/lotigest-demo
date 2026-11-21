@@ -178,7 +178,10 @@ export async function updateRequest({request,env,params}){
    if(status!=='quoted'||!input.quote||typeof input.quote!=='object'||JSON.stringify(input.quote).length>3000)err('Cotización no válida.');
    const q=input.quote;
    if(!isMoney(q.price)||q.price<=0||!isMoney(q.down)||q.down>q.price||!Number.isInteger(q.months)||q.months<0||q.months>360||!Number.isFinite(q.rate)||q.rate<0||q.rate>100)err('Revisa los importes de la cotización.');
-   quote=JSON.stringify({price:q.price,down:q.down,months:q.months,years:q.years,rate:q.rate,principal:q.principal,monthly:q.monthly,total:q.total});
+   if(q.validUntil!==undefined&&(!validDate(q.validUntil)))err('Vigencia de cotización no válida.');
+   if(q.mode!==undefined&&!['cash','credit'].includes(q.mode))err('Tipo de pago no válido.');
+   if(q.message!==undefined&&(typeof q.message!=='string'||q.message.length>600))err('Mensaje de cotización no válido.');
+   quote=JSON.stringify({mode:q.mode,validUntil:q.validUntil,message:q.message,price:q.price,down:q.down,months:q.months,years:q.years,rate:q.rate,principal:q.principal,monthly:q.monthly,total:q.total});
   }
   await db.prepare('UPDATE public_lot_requests SET status=?,quote_json=?,updated_at=? WHERE id=?').bind(status,quote,new Date().toISOString(),id).run();
   return json({ok:true,status});

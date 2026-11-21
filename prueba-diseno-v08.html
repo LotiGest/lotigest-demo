@@ -80,7 +80,9 @@ body.darkmode #lgUpdateNotice .lg-update-later,body[data-theme="dark"] #lgUpdate
 @keyframes lgUpdateArrive{from{transform:translateY(12px);opacity:0}to{transform:translateY(0);opacity:1}}
 @media(prefers-reduced-motion:reduce){#lgUpdateNotice{animation:none}}
 </style>
-</head>
+<style>
+.cq-modal{width:min(1250px,96vw)!important;max-width:1250px!important}.cq-layout{display:grid;grid-template-columns:1.1fr 1fr;gap:18px}.cq-fields,.cq-output{min-width:0;display:flex;flex-direction:column;gap:16px}.cq-card{border:1px solid #d0ddd3;border-radius:14px;background:var(--card,#fff);padding:18px}.cq-card h3{margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid #d0ddd3;color:#164532}.cq-card dl{display:grid;grid-template-columns:95px 1fr;gap:8px;margin:0}.cq-card dd{margin:0;overflow-wrap:anywhere}.cq-card textarea{box-sizing:border-box;width:100%;font:inherit;border:1px solid #bacbc0;border-radius:8px;padding:12px;background:inherit;color:inherit}.cq-paper{background:white;color:#164532;border:1px solid #d0ddd3;border-radius:10px;padding:22px;overflow-wrap:anywhere}.cq-paper header{display:flex;flex-direction:column;gap:5px}.cq-paper header strong{font-size:30px}.cq-paper h2{text-align:center;letter-spacing:2px}.cq-ref{text-align:right;font-size:12px}.cq-location{background:#edf5e9;padding:12px;border-radius:8px}.cq-paper table{width:100%;border-collapse:collapse;font-size:14px}.cq-paper td{padding:10px 6px;border-bottom:1px solid #d0ddd3}.cq-paper td:last-child{text-align:right;white-space:nowrap}.cq-total{background:#e0f1d4;font-weight:700}.lotigest-dark .cq-card{background:#1a3027;color:#edf5e9}.lotigest-dark .cq-card h3{color:#c4e7a6}@media(max-width:800px){.cq-layout{grid-template-columns:1fr}.cq-modal .modal-footer{flex-wrap:wrap}.cq-paper{padding:14px}.cq-card{padding:14px}}@media print{.cq-paper{box-shadow:none}}
+</style></head>
 <body>
   <div id="app"></div>
   <div id="modal-root"></div>
@@ -363,23 +365,40 @@ function quoteValues(data, request) {
   const monthly=cash?0:monthlyRate===0?principal/months:principal*monthlyRate/(1-Math.pow(1+monthlyRate,-months));
   return {price,down,years:cash?0:years,months,rate:cash?0:rate,principal,monthly:Math.round(monthly*100)/100,total:cash?price:Math.round((down+monthly*months)*100)/100};
 }
-function openClientQuote(id){
-  const request=clientRequests.find(r=>r.id===id);if(!request)return;
-  const price=getLot(request.lotId)?.price||request.price||'';
-  const quote=request.quote||{};
-  showModal('Cotización · '+request.lotId,`<p><b>${esc(request.client.name)}</b> · ${esc(request.title)} · ${esc(request.client.phone)}</p><form id="client-quote-form"><input type="hidden" name="requestId" value="${esc(id)}"><div class="form-grid">${field('Precio de venta (L.)','price',quote.price||price,{type:'number',min:'.01',step:'.01',required:true})}${request.client.mode==='credit'?`${field('Prima a cotizar (L.)','downPayment',quote.down??request.client.proposedDownPayment,{type:'number',min:0,step:'.01',required:true})}${field('Plazo en años','years',quote.years||5,{type:'number',min:'.083333',max:30,step:'any',required:true})}${field('Tasa de interés anual (%)','rate',quote.rate??0,{type:'number',min:0,max:100,step:'.01',required:true})}`:'<input type="hidden" name="years" value="0"><input type="hidden" name="rate" value="0">'}</div><div id="client-quote-summary" class="notice-card" style="margin-top:16px"></div><p class="sm muted">Cuota fija calculada sobre saldo, con tasa anual dividida entre 12. Los totales son estimados por redondeo. La cotización incluye las medidas registradas y la fecha de pago propuesta.</p><p id="client-quote-error" role="alert" style="color:#bd3742"></p></form>`,`<button class="btn btn-outline" type="submit" form="client-quote-form" name="delivery" value="download">Descargar cotización PDF</button><button class="btn btn-primary" type="submit" form="client-quote-form" name="delivery" value="share">Enviar PDF por WhatsApp</button>`,true);
-  updateClientQuoteSummary();
+function quoteRequestMode(request,data){return {...request,client:{...request.client,mode:data.mode||request.quote?.mode||(request.client.mode==='cash'?'cash':'credit')}};}
+function clientQuoteDetails(form,request){
+ const data=Object.fromEntries(new FormData(form)),q=quoteValues(data.mode==='cash'?{...data,years:0,rate:0}:data,quoteRequestMode(request,data));
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(data.validUntil||'')||data.validUntil<businessToday())throw Error('Selecciona una vigencia desde la fecha de hoy.');
+ return {...q,mode:data.mode,validUntil:data.validUntil,message:String(data.message||'').trim().slice(0,600)};
 }
-function updateClientQuoteSummary(){const form=$('#client-quote-form');if(!form)return;const data=Object.fromEntries(new FormData(form));const request=clientRequests.find(r=>r.id===data.requestId);try{const q=quoteValues(data,request);$('#client-quote-summary').innerHTML=`<p>Precio <b>${money(q.price)}</b> · Prima <b>${money(q.down)}</b></p><p>${q.months?`Financiamiento <b>${q.years} años / ${q.months} meses</b><br>Cuota mensual estimada <b>${money(q.monthly)}</b><br>Tasa anual <b>${q.rate}%</b><br>`:''}Total estimado <b>${money(q.total)}</b></p>`;}catch(error){$('#client-quote-summary').textContent=error.message;}}
+function openClientQuote(id){
+ const request=clientRequests.find(r=>r.id===id);if(!request)return;
+ const lot=getLot(request.lotId)||request.lot||{},quote=request.quote||{},mode=quote.mode||(request.client.mode==='cash'?'cash':'credit');
+ const valid=quote.validUntil||addDays(new Date(businessToday()+'T12:00:00'),7).toISOString().slice(0,10);
+ showModal('Responder solicitud de cotización',`<form id="client-quote-form"><input type="hidden" name="requestId" value="${esc(id)}"><div class="cq-layout"><div class="cq-fields"><section class="cq-card"><h3>Datos de la solicitud</h3><dl><dt>Cliente</dt><dd>${esc(request.client.name)}</dd><dt>Teléfono</dt><dd>${esc(request.client.phone)}</dd><dt>Recibida</dt><dd>${fmtDate(request.createdAt)}</dd></dl><p>${esc(request.client.note||'Solicitud de información del terreno.')}</p></section><section class="cq-card"><h3>Terreno solicitado</h3><p><b>${esc(request.title)}</b></p><p>${esc(lot.stage?'Etapa '+lot.stage:'Etapa por confirmar')} · Bloque ${esc(lot.block||'Por confirmar')} · Solar ${esc(lot.sourceNumber||lot.number||request.lotId)}</p><p>Área: ${lot.area?number(lot.area)+' m²':'Por confirmar'} · ${esc(lot.status==='available'?'Disponible':lot.status==='sold'?'Vendido':lot.status==='reserved'?'Apartado':'Consultar disponibilidad')}</p></section><section class="cq-card"><h3>Condiciones de la cotización</h3><div class="form-grid"><div class="form-field full"><label class="field-label" for="cq-mode">Tipo de pago</label><select id="cq-mode" name="mode"><option value="credit" ${mode==='credit'?'selected':''}>Crédito</option><option value="cash" ${mode==='cash'?'selected':''}>Contado</option></select></div>${field('Precio del terreno (L)','price',quote.price||lot.price||request.price||'',{type:'number',min:'.01',step:'.01',required:true})}${field('Prima (L)','downPayment',quote.down??request.client.proposedDownPayment??0,{type:'number',min:0,step:'.01',required:true})}${field('Plazo en años','years',quote.years||5,{type:'number',min:'.083333',max:30,step:'any',required:true})}${field('Tasa anual (%)','rate',quote.rate??0,{type:'number',min:0,max:100,step:'.01',required:true})}${field('Válida hasta','validUntil',valid,{type:'date',required:true})}</div><p class="sm muted">La cuota se calcula sobre el saldo. Los importes son estimados por redondeo.</p></section></div><div class="cq-output"><section class="cq-card"><h3>Vista previa</h3><div id="client-quote-summary" aria-live="polite"></div></section><section class="cq-card"><label class="field-label" for="cq-message">Mensaje para el cliente</label><textarea id="cq-message" name="message" maxlength="600" rows="4">${esc(quote.message??('Hola, '+request.client.name+'. Te compartimos la cotización del solar que solicitaste. Estamos a tu disposición.'))}</textarea></section><p id="client-quote-error" role="alert" style="color:#bd3742"></p><p id="client-quote-saved" role="status"></p></div></div></form>`,`<button class="btn btn-outline" type="submit" form="client-quote-form" value="draft">Guardar propuesta</button><button class="btn btn-outline" type="submit" form="client-quote-form" value="download">Descargar PDF</button><button class="btn btn-primary" type="submit" form="client-quote-form" value="share">Enviar por WhatsApp</button>`,true);
+ $('#client-quote-form').closest('.modal').classList.add('cq-modal');updateClientQuoteSummary();
+}
+function updateClientQuoteSummary(){
+ const form=$('#client-quote-form');if(!form)return;const request=clientRequests.find(r=>r.id===form.elements.requestId.value);
+ const cash=form.elements.mode.value==='cash';for(const name of ['downPayment','years','rate'])form.elements[name].disabled=cash;
+ try{const q=clientQuoteDetails(form,request),lot=getLot(request.lotId)||request.lot||{};
+ $('#client-quote-summary').innerHTML=`<article class="cq-paper"><header><strong>LOTIGEST</strong><span>${esc(db.company.name||'GRUPO H')}</span></header><h2>COTIZACIÓN</h2><p class="cq-ref">${esc(request.id.slice(0,16))}</p><p>Preparada para <b>${esc(request.client.name)}</b></p><p class="cq-location">${esc(request.title)}<br>${esc(lot.stage?'Etapa '+lot.stage:'Etapa por confirmar')} / Bloque ${esc(lot.block||'Por confirmar')} / Solar ${esc(lot.sourceNumber||lot.number||request.lotId)}</p><table><tbody><tr><td>Precio del terreno</td><td>${money(q.price)}</td></tr>${q.months?`<tr><td>Prima</td><td>${money(q.down)}</td></tr><tr><td>A financiar</td><td>${money(q.principal)}</td></tr><tr class="cq-total"><td>${q.months} cuotas estimadas de</td><td>${money(q.monthly)}</td></tr><tr><td>Tasa anual</td><td>${q.rate}%</td></tr>`:'<tr class="cq-total"><td>Pago al contado</td><td>'+money(q.price)+'</td></tr>'}<tr><td>Total estimado</td><td>${money(q.total)}</td></tr></tbody></table><p>Área: ${lot.area?number(lot.area)+' m²':'Por confirmar'}</p><p>Validez: <b>${fmtDate(q.validUntil)}</b></p><p class="sm">Cotización sujeta a disponibilidad. No constituye una reserva.</p></article>`;
+ $('#client-quote-error').textContent='';
+ }catch(error){$('#client-quote-summary').textContent=error.message;}
+}
 async function deliverClientQuote(form,delivery){
-  const data=Object.fromEntries(new FormData(form)),request=clientRequests.find(r=>r.id===data.requestId);if(!request)return;
-  try{
-    const quote=quoteValues(data,request),pdf=makeClientQuotePdf(request,quote),filename='Cotizacion-'+request.lotId+'.pdf';
-    const file=new File([pdf],filename,{type:'application/pdf'});
-    if(delivery==='share'&&navigator.share&&navigator.canShare?.({files:[file]}))await navigator.share({files:[file]});
-    else{download(filename,pdf,'application/pdf');if(delivery==='share')toast('PDF descargado. Adjúntalo como documento en WhatsApp.');}
-    if(['pending','quoted'].includes(request.status)){await clientSalesApi('requests/'+request.id,'PATCH',{status:'quoted',quote});request.quote=quote;request.status='quoted';updatePendingBadge();}
-  }catch(error){if(error.name!=='AbortError')$('#client-quote-error').textContent=error.message;}
+ if(form.dataset.sending)return;const request=clientRequests.find(r=>r.id===form.elements.requestId.value);if(!request)return;
+ form.dataset.sending='yes';$('#client-quote-error').textContent='';
+ try{
+ const quote=clientQuoteDetails(form,request);
+ if(delivery!=='draft'){
+ const pdf=makeClientQuotePdf(quoteRequestMode(request,quote),quote),filename='Cotizacion-'+request.lotId+'.pdf',file=new File([pdf],filename,{type:'application/pdf'});
+ if(delivery==='share'&&navigator.share&&navigator.canShare?.({files:[file]}))await navigator.share({files:[file],text:quote.message});
+ else{download(filename,pdf,'application/pdf');if(delivery==='share')toast('PDF descargado. Adjúntalo como documento en WhatsApp.');}
+ }
+ if(['pending','quoted'].includes(request.status)){await clientSalesApi('requests/'+request.id,'PATCH',{status:'quoted',quote});request.quote=quote;request.status='quoted';updatePendingBadge();if($('#client-quote-saved'))$('#client-quote-saved').textContent='Propuesta guardada en la nube.';}
+ }catch(error){if(error.name!=='AbortError'&&$('#client-quote-error'))$('#client-quote-error').textContent=error.message;}
+ finally{delete form.dataset.sending;}
 }
 async function confirmClientReservation(id){
   const request=clientRequests.find(r=>r.id===id);if(!request||!['pending','quoted'].includes(request.status))return;
@@ -411,6 +430,7 @@ document.addEventListener('click',event=>{
   if(action==='client-reject')clientSalesApi('requests/'+id,'PATCH',{status:'rejected'}).then(()=>refreshClientRequests()).catch(error=>toast(error.message,'error'));
 });
 document.addEventListener('input',event=>{if(event.target.closest('#client-quote-form'))updateClientQuoteSummary();});
+document.addEventListener('change',event=>{if(event.target.closest('#client-quote-form'))updateClientQuoteSummary();});
 document.addEventListener('submit',event=>{if(event.target.id==='client-quote-form'){event.preventDefault();deliverClientQuote(event.target,event.submitter?.value||'download');}});
 setInterval(refreshClientRequests,30000);
 
@@ -1134,14 +1154,14 @@ async function uploadCompanyLogo(file){if(!file)return;try{if(!['image/png','ima
 function removeCompanyLogo(){try{const next={...db,company:{...db.company,logo:null}};localStorage.setItem(STORAGE,JSON.stringify(next));db=next;render();toast('Logo eliminado.');}catch(e){toast('No se pudo guardar el cambio.','error');}}
 document.addEventListener('change',e=>{if(e.target.id==='company-logo-file')uploadCompanyLogo(e.target.files[0]);});
 function receiptLetterPdf(parts,company,reference,kind='receipt'){
- const navy='0.02 0.13 0.27',gold='0.76 0.57 0.20',green='0.12 0.38 0.20',pages=[];let cmds=[],y=640;
+ const navy=kind==='quote'?'0.086 0.27 0.196':'0.02 0.13 0.27',gold=kind==='quote'?'0.57 0.72 0.41':'0.76 0.57 0.20',green='0.12 0.38 0.20',pages=[];let cmds=[],y=640;
  const pdfEscape=s=>String(s).replace(/[^\x20-\xFF]/g,c=>({'–':'-','—':'-','’':"'",'²':'²'}[c]||' ')).replace(/([\\()])/g,'\\$1');
  const draw=(text,x,pos,size=11,bold=false,color=navy)=>cmds.push(`${color} rg BT /${bold?'F2':'F1'} ${size} Tf 1 0 0 1 ${x} ${pos} Tm (${pdfEscape(text)}) Tj ET`);
  const logo=db.company.logo?.data?.startsWith('data:image/jpeg;base64,')?db.company.logo:null;
  const header=()=>{
  cmds.push(`${navy} rg 0 792 m 0 733 l 156 792 l f ${gold} rg 0 733 m 0 721 l 184 792 l 156 792 l f`);
  if(logo){let scale=Math.min(75/logo.width,66/logo.height),w=logo.width*scale,h=logo.height*scale;cmds.push(`q ${w} 0 0 ${h} ${44+(75-w)/2} ${682+(66-h)/2} cm /Logo Do Q`);}else{cmds.push(`${navy} RG 4 w 48 706 m 78 731 l 108 706 l S 57 708 m 57 683 l 98 683 l 98 708 l S ${green} rg 44 680 m 64 696 84 689 118 680 c f`);}
- draw(company.slice(0,31),132,715,23,true);draw('L O T I F I C A C I Ó N',133,693,8,true,green);
+ draw(kind==='quote'?'LOTIGEST':company.slice(0,31),132,715,23,true);draw(kind==='quote'?company.slice(0,40):'L O T I F I C A C I Ó N',133,693,8,true,green);
  cmds.push(`${navy} rg 432 710 136 37 re f ${gold} RG 0.7 w 432 684 136 26 re S`);draw(kind==='quote'?'COTIZACIÓN':'RECIBO DE PAGO',440,724,10,true,'1 1 1');draw('N. '+String(reference).slice(0,25),440,694,8,true);
  cmds.push(`${gold} RG 1.6 w 44 663 m 568 663 l S`);
  };
@@ -1150,7 +1170,7 @@ function receiptLetterPdf(parts,company,reference,kind='receipt'){
  cmds.push(`${gold} rg 0 94 m 165 39 386 122 612 85 c 612 0 l 0 0 l f ${navy} rg 0 84 m 180 31 396 113 612 75 c 612 0 l 0 0 l f`);
  const contact=[db.company.phone,db.company.email].filter(Boolean).join(' | ');draw(contact.slice(0,86)||'GRUPO H · Atención al cliente',44,49,9,false,'1 1 1');draw(String(db.company.location||'Honduras').slice(0,88),44,33,9,false,'1 1 1');draw('Powered by NEXORA SYSTEMS',44,16,7,false,'1 1 1');draw('Página '+(pages.length+1),520,16,7,false,'1 1 1');pages.push(cmds.join('\n'));cmds=[];y=640;};
  header();
- for(const part of parts){const size=part.size||10,max=Math.floor(510/(size*.58)),chunks=[];let line='';for(const word of String(part.text).split(/\s+/)){if(line.length+word.length+1>max&&line){chunks.push(line);line='';}if(word.length>max){if(line){chunks.push(line);line='';}for(let i=0;i<word.length;i+=max)chunks.push(word.slice(i,i+max));}else line+=(line?' ':'')+word;}if(line)chunks.push(line);y-=part.gap||4;
+ for(const part of parts){if(part.row){if(y-30<151){footer();header();}cmds.push(`${part.highlight?'0.88 0.95 0.83':'1 1 1'} rg 44 ${y-20} 524 29 re f 0.78 0.85 0.79 RG 0.4 w 44 ${y-20} 524 29 re S 365 ${y-20} m 365 ${y+9} l S`);draw(part.row[0],52,y-9,10,!!part.highlight);draw(part.row[1],378,y-9,10,!!part.highlight);y-=29;continue;}const size=part.size||10,max=Math.floor(510/(size*.58)),chunks=[];let line='';for(const word of String(part.text).split(/\s+/)){if(line.length+word.length+1>max&&line){chunks.push(line);line='';}if(word.length>max){if(line){chunks.push(line);line='';}for(let i=0;i<word.length;i+=max)chunks.push(word.slice(i,i+max));}else line+=(line?' ':'')+word;}if(line)chunks.push(line);y-=part.gap||4;
  for(const line of chunks){if(y-size<151){footer();header();}const section=part.gap===13||part.section,highlight=/^(DEUDA PENDIENTE|TOTAL RECIBIDO|Total estimado|Cuota mensual estimada|Precio del terreno)/.test(line);if(section){cmds.push(`${navy} rg 44 ${y-6} 524 ${size+13} re f`);draw(line,52,y,size,true,'1 1 1');y-=size+14;}else if(highlight){cmds.push(`0.90 0.95 0.88 rg 44 ${y-6} 524 ${size+12} re f`);draw(line,52,y,size,true,green);y-=size+12;}else{draw(line,44,y,size,!!part.bold);y-=size+5;}}
  }
  footer();const objects=[],enc=s=>Uint8Array.from(s,c=>c.charCodeAt(0)&255),add=s=>objects.push(s),logoId=5+pages.length*2;
@@ -1159,8 +1179,15 @@ function receiptLetterPdf(parts,company,reference,kind='receipt'){
  let pdf='%PDF-1.4\n',offsets=[0];objects.forEach((o,i)=>{offsets.push(pdf.length);pdf+=(i+1)+' 0 obj\n'+o+'\nendobj\n';});const xref=pdf.length;pdf+='xref\n0 '+offsets.length+'\n0000000000 65535 f \n'+offsets.slice(1).map(n=>String(n).padStart(10,'0')+' 00000 n \n').join('')+'trailer\n<< /Size '+offsets.length+' /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF';return new Blob([enc(pdf)],{type:'application/pdf'});
 }
 function makeClientQuotePdf(request,quote){
- const lot=getLot(request.lotId)||request.lot||{},d=lot.dimensions||{},parts=[{text:'Cotización de terreno · '+(request.client.mode==='cash'?'Contado':'Crédito'),size:15,bold:true},{text:'Cliente: '+request.client.name},{text:'Teléfono: '+request.client.phone},{text:'Proyecto: '+request.title},{text:'Bloque: '+(lot.block||'Por confirmar')+' | Solar: '+(lot.sourceNumber||lot.number||request.lotId)},{text:'Área: '+(lot.area?number(lot.area)+' m²':'Por confirmar')+' | Frente: '+(d.front||'—')+' m | Fondo: '+(d.depth||'—')+' m'},{text:'Laterales: '+(d.left||'—')+' m / '+(d.right||'—')+' m'},{text:'Detalle de la cotización',section:true,bold:true,gap:12},{text:'Precio del terreno: '+money(quote.price),bold:true},{text:'Prima / pago inicial: '+money(quote.down)},{text:'Fecha prevista de pago: '+fmtDate(request.client.paymentDate)}];
- if(quote.months)parts.push({text:'Monto financiado: '+money(quote.principal)},{text:'Plazo: '+quote.years+' años / '+quote.months+' meses'},{text:'Tasa de interés anual: '+quote.rate+'%'},{text:'Cuota mensual estimada: '+money(quote.monthly),bold:true});parts.push({text:'Total estimado: '+money(quote.total),bold:true,gap:12},{text:'Cotización sujeta a confirmación de disponibilidad y condiciones.',size:9,gap:12});if(quote.months)parts.push({text:'Cuota fija sobre saldo. Tasa mensual = tasa anual / 12. Importes estimados por redondeo.',size:9});return receiptLetterPdf(parts,db.company.name||'GRUPO H',request.id.slice(0,12),'quote');
+ const lot=getLot(request.lotId)||request.lot||{},d=lot.dimensions||{},parts=[{text:'Preparada para '+request.client.name,size:13,bold:true},{text:'Teléfono: '+request.client.phone},{text:request.title,section:true,gap:12},{text:'Etapa: '+(lot.stage||'Por confirmar')+' | Bloque: '+(lot.block||'Por confirmar')+' | Solar: '+(lot.sourceNumber||lot.number||request.lotId)},{text:'Área: '+(lot.area?number(lot.area)+' m²':'Por confirmar')+' | Frente: '+(d.front||'—')+' m | Fondo: '+(d.depth||'—')+' m'},{text:'Laterales: '+(d.left||'—')+' m / '+(d.right||'—')+' m'},{text:quote.months?'Condiciones al crédito':'Condiciones al contado',section:true,gap:12},{row:['Precio del terreno',money(quote.price)]}];
+ if(quote.months)parts.push({row:['Prima',money(quote.down)]},{row:['A financiar',money(quote.principal)]},{row:[quote.months+' cuotas mensuales estimadas de',money(quote.monthly)],highlight:true},{row:['Tasa de interés anual',quote.rate+'%']});
+ parts.push({row:['Total estimado',money(quote.total)],highlight:true});
+ if(quote.validUntil)parts.push({text:'Válida hasta: '+fmtDate(quote.validUntil),bold:true,gap:12});
+ if(request.client.paymentDate)parts.push({text:'Fecha prevista de pago: '+fmtDate(request.client.paymentDate)});
+ if(quote.message)parts.push({text:quote.message,gap:12});
+ parts.push({text:'Cotización sujeta a disponibilidad. No constituye una reserva.',size:9,gap:12});
+ if(quote.months)parts.push({text:'Cuota fija sobre saldo. Tasa mensual = tasa anual / 12. Importes estimados por redondeo.',size:9});
+ return receiptLetterPdf(parts,db.company.name||'GRUPO H',request.id.slice(0,16),'quote');
 }
 
 async function deliverPaymentReceipt(id,share){try{const {blob,name}=paymentReceiptPdf(id),file=new File([blob],name,{type:'application/pdf'});if(share&&navigator.canShare?.({files:[file]})){await navigator.share({files:[file],title:'Recibo de pago'});return;}download(name,blob,'application/pdf');toast(share?'PDF descargado. Adjunta el archivo al chat del cliente en WhatsApp.':'Recibo PDF descargado.');}catch(e){if(e.name!=='AbortError')toast('No se pudo generar o compartir el recibo.','error');}}
