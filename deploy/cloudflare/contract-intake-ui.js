@@ -43,15 +43,53 @@ function contractIntakeExtraFields(rows,c){
  });
  return html+'<div class="full"><button type="button" class="btn btn-outline" data-contract-intake-add="true">+ Agregar otro solar a esta ficha</button></div>';
 }
+
+// Quitar un solar SOLO de la selección de Nuevo contrato. No toca db, lotes,
+// ventas, pagos ni contratos existentes. Si hay otros solares seleccionados,
+// uno de ellos pasa a ser el principal para no perder el resto del contrato.
+function contractIntakeRemovePrimaryDraft(draft,lotById){
+ const values=draft.values||{},extras=Array.isArray(draft.extraLots)?draft.extraLots:[];
+ const keep=extras.findIndex(row=>row.lotId&&lotById(row.lotId));
+ const promoted=keep<0?null:extras.splice(keep,1)[0];
+ const lot=promoted?lotById(promoted.lotId):null;
+ draft.selectedLotId=lot?.id||'';
+ values.lotId=lot?.id||'';
+ values.stage=lot?String(lot.stage):String(values.stage||'');
+ values.block=lot?String(lot.block||''):String(values.block||'');
+ values.number=lot?String(lot.sourceNumber||lot.number||''):'';
+ values.solarPrice_0=lot?String(promoted.price??lot.price??''):'';
+ values.solarDown_0=lot?String(promoted.down??''):'';
+ values.down=lot?String(promoted.down??''):'';
+ delete values.lots;
+ for(const key of Object.keys(values)){
+  if(/^extra(?:Stage|LotId)_\d+$/.test(key)||/^solar(?:Price|Down)_[1-9]\d*$/.test(key))delete values[key];
+ }
+ extras.forEach((row,i)=>{
+  values['extraStage_'+i]=String(row.stage||lotById(row.lotId)?.stage||'');
+  values['extraLotId_'+i]=row.lotId||'';
+  values['solarPrice_'+(i+1)]=String(row.price??'');
+  values['solarDown_'+(i+1)]=String(row.down??'');
+ });
+ draft.extraLots=extras;
+ return lot?.id||null;
+}
+
 document.addEventListener('click',event=>{
- const add=event.target.closest?.('[data-contract-intake-add]'),remove=event.target.closest?.('[data-contract-intake-remove]');
- if((!add&&!remove)||!contractIntakeWorking||contractIntakeWorking.busy)return;
+ const add=event.target.closest?.('[data-contract-intake-add]'),
+  remove=event.target.closest?.('[data-contract-intake-remove]'),
+  removePrimary=event.target.closest?.('[data-contract-intake-remove-primary]');
+ if((!add&&!remove&&!removePrimary)||!contractIntakeWorking||contractIntakeWorking.busy)return;
+ if(removePrimary&&contractIntakeWorking.mode!=='manual')return;
  event.preventDefault();event.stopImmediatePropagation();
  contractIntakeRememberExtras(document.getElementById('contract-intake-form'));
  contractIntakeWorking.extraLots??=[];
- if(add)contractIntakeWorking.extraLots.push({stage:String(contractIntakeWorking.values.stage||''),lotId:'',price:'',down:''});
+ if(removePrimary){
+  contractIntakeRemovePrimaryDraft(contractIntakeWorking,getLot);
+ }else if(add)contractIntakeWorking.extraLots.push({stage:String(contractIntakeWorking.values.stage||''),lotId:'',price:'',down:''});
  else contractIntakeWorking.extraLots.splice(Number(remove.dataset.contractIntakeRemove),1);
- document.getElementById('contract-intake-review').innerHTML=contractIntakeFields();
+ const review=document.getElementById('contract-intake-review');
+ if(review)review.innerHTML=contractIntakeFields();
+ if(removePrimary)toast('Solar quitado del contrato en preparación. El terreno sigue en el inventario.');
 },true);
 
 function contractIntakeManualCash(number){
@@ -126,7 +164,10 @@ function contractIntakeManualFields(){
   ' &nbsp; <b>Frente:</b> '+val(selected.dimensions?.front||'—')+' &nbsp; <b>Fondo:</b> '+val(selected.dimensions?.depth||'—')+
   ' &nbsp; <b>Izquierdo:</b> '+val(selected.dimensions?.left||'—')+' &nbsp; <b>Derecho:</b> '+val(selected.dimensions?.right||'—')+'</p>'+
   '<small>Medidas automáticas y protegidas; no se modifican al guardar el contrato.</small></div>'+
-  '<aside class="lg-contract-base-price"><span>Precio base del solar</span><strong>'+(Number(selected.price)>0?'L '+contractIntakeManualCash(selected.price):'Sin precio')+'</strong></aside></div>':
+  '<aside class="lg-contract-base-price"><div class="lg-contract-price-heading"><span>Precio base del solar</span>'+
+   '<button type="button" class="lg-contract-remove-primary" data-contract-intake-remove-primary title="Quitar solar de este contrato" aria-label="Quitar este solar del contrato en preparación">'+
+   '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 10v6M14 10v6"/></svg></button></div>'+
+   '<strong>'+(Number(selected.price)>0?'L '+contractIntakeManualCash(selected.price):'Sin precio')+'</strong></aside></div>':
   '<div class="lg-contract-solar-info lg-contract-empty">Selecciona la etapa, el bloque y el número de solar para ver sus medidas y precio registrados.</div>';
  const more=extra.map((row,i)=>{
   const idx=i+1,l=all[idx],s=String(row.stage||''),stageOptions=stages.map(n=>'<option value="'+n+'" '+(s===String(n)?'selected':'')+'>Etapa '+n+'</option>').join('');
