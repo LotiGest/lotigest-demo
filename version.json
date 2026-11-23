@@ -1,4 +1,4 @@
 {
-  "version": "0.22.61",
-  "notes": "LOTIGEST PRO: nuevo panel de Finanzas y utilidad con ingresos acumulados, gráfica conjunta de ingresos y egresos, filtros por residencial y período, y libro diario mensual descargable en PDF y Excel con saldo inicial, entradas, salidas y saldo final. Los movimientos anulados quedan excluidos de los totales."
+  "version": "0.22.62",
+  "notes": "LOTIGEST PRO: el libro diario digital en PDF adopta el diseño aprobado con tabla de movimientos, correlativo original del recibo con ceros iniciales, saldo inicial, totales de ingresos y egresos, resultado del mes, saldo final, firmas y páginas numeradas. Excel usa también la columna Correlativo; no sustituye datos faltantes por identificadores internos."
 }

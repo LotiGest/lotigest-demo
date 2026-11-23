@@ -4,7 +4,8 @@
  const originalMovements=financeMovements;
  financeMovements=function(){return originalMovements().map(e=>{
   const source=e.id.startsWith('owner:')?(db.ownerPayments||[]).find(p=>'owner:'+p.id===e.id):(e.paymentId?db.payments.find(p=>p.id===e.paymentId):null);
-  const record=source||e;return {...e,voidedAt:record.voidedAt||(['voided','cancelled'].includes(record.status)?'anulado':null),reference:record.receiptReference||record.receiptRef||e.reference};
+  const record=source||e,correlative=String(record.receiptReference||record.receiptRef||record.originalReceiptRef||(source?'':e.reference)||'');
+  return {...e,voidedAt:record.voidedAt||(['voided','cancelled'].includes(record.status)?'anulado':null),reference:correlative,correlative};
  }).filter(e=>validSolarDate(String(e.date||''))&&Number.isFinite(Number(e.amount))&&Number(e.amount)>0);};
  // El panel permite consultar una residencial o consolidar todas, incluidos gastos generales.
  financeReport=residentialFinanceReport;
@@ -35,11 +36,11 @@
    '<section class="card"><div class="fn-section-head fn-transactions"><h2>Movimientos del período</h2><div class="fn-tools">'+[['all','Todos'],['income','Ingresos'],['expense','Egresos']].map(([id,label])=>'<button class="btn '+(id===kind?'btn-primary':'btn-outline')+'" data-fn-kind="'+id+'" aria-pressed="'+(id===kind)+'">'+label+'</button>').join('')+'<input type="search" data-fn-search aria-label="Buscar movimiento" placeholder="Buscar movimiento" value="'+esc(query)+'"></div></div><div id="fn-transactions">'+table()+'</div></section>'+
    '<details class="card fn-details"><summary>Revisar, editar o anular movimientos</summary>'+financeTransactionsTable(r.movements.filter(e=>financeShowVoided||!e.voidedAt))+'<label><input type="checkbox" id="finance-show-voided" '+(financeShowVoided?'checked':'')+'> Mostrar anulados</label><button class="btn btn-outline" data-action="finance-print">Reporte con gráficas / imprimir</button></details><p class="sm muted">La utilidad de caja refleja lo recibido menos lo pagado. Las deudas por cobrar, reservas sin pago e históricos sin contabilizar no suman ingresos.</p></div>';
  };
- function excel(){const j=journal(),headers=['Fecha','Concepto','Cliente / beneficiario','Residencial','Referencia','Ingreso (L)','Egreso (L)','Saldo (L)'];
-  const rows=[['','Saldo inicial · '+j.period.label+' · '+scope(),'','','',0,0,j.opening],...j.rows.map(e=>[e.date,e.description||e.category,e.payee||'',financeResidenceName(e.residenceId),e.reference||e.id,e.income,e.expense,e.balance]),['','Totales / saldo final','','','',j.income,j.expense,j.closing]];
+ function excel(){const j=journal(),headers=['Fecha','Concepto','Cliente / beneficiario','Residencial','Correlativo','Ingreso (L)','Egreso (L)','Saldo (L)'];
+  const rows=[['','Saldo inicial · '+j.period.label+' · '+scope(),'','','',0,0,j.opening],...j.rows.map(e=>[e.date,e.description||e.category,e.payee||'',financeResidenceName(e.residenceId),e.correlative||'Sin correlativo',e.income,e.expense,e.balance]),['','Totales / saldo final','','','',j.income,j.expense,j.closing]];
   downloadExcel('LOTIGEST_Libro_diario_'+j.period.from.slice(0,7)+'.xlsx',headers,rows,[],'Libro diario');
  }
- function pdf(){const j=journal();download('LOTIGEST_Libro_diario_'+j.period.from.slice(0,7)+'.pdf',financeJournalPdf(j,{company:db.company.name||'GRUPO H',period:j.period.label,scope:scope()}),'application/pdf');}
+ function pdf(){const j=journal();download('LOTIGEST_Libro_diario_'+j.period.from.slice(0,7)+'.pdf',financeJournalPdf(j,{company:db.company.name||'GRUPO H',period:j.period.label,scope:scope(),from:j.period.from,to:j.period.to}),'application/pdf');}
  document.addEventListener('click',e=>{const button=e.target.closest?.('[data-fn-excel],[data-fn-pdf],[data-fn-kind]');if(!button)return;e.preventDefault();try{if(button.hasAttribute('data-fn-excel'))excel();else if(button.hasAttribute('data-fn-pdf'))pdf();else{kind=button.dataset.fnKind;render();}}catch(err){toast(err.message,'error');}});
  document.addEventListener('change',e=>{if(e.target.matches('[data-fn-scope]')){financeFilter.residenceId=e.target.value;render();}else if(e.target.matches('[data-fn-book-month]')){financeFilter.month=Number(e.target.value);render();}});
  document.addEventListener('input',e=>{if(e.target.matches('[data-fn-search]')){query=e.target.value;document.getElementById('fn-transactions').innerHTML=table();}});
