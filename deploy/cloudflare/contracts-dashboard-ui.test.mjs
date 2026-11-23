@@ -84,7 +84,8 @@ test('Contratos: vinculación de varios solares aparece en la ubicación',()=>{
  try{
   w.db.contractTexts[0].contractLotIds=['L1','L2'];
   w.render();
-  assert.match(w.document.body.textContent,/1 solares adicionales/);
+  assert.match(w.document.body.textContent,/Otros del mismo grupo/);
+  assert.match(w.document.body.textContent,/Solar 3/);
   assert.ok(w.document.querySelector('.ct-tools summary'));
  }finally{close();}
 });
@@ -187,5 +188,43 @@ test('La ficha anulada propone liberar por solar con permisos, pero bloquea los 
   w.document.querySelector('[data-ct-voided-view="AN-LIB"]')?.click();
   assert.doesNotMatch(dialogs[1][1],/data-ct-voided-release="AN-LIB"/);
   assert.match(dialogs[1][1],/venta registrada/);
+ }finally{close();}
+});
+
+
+test('Contratos agrupados: la tabla presenta cada solar individual y no el primer solar de todo el grupo',()=>{
+ const {w,dialogs,close}=boot();
+ try{
+  w.db.lots.push({id:'L4',residenceId:'R',stage:1,block:'Comerciales',sourceNumber:'1'});
+  w.db.lots.push({id:'L5',residenceId:'R',stage:1,block:'Comerciales',sourceNumber:'2'});
+  w.db.contractTexts.push({id:'CM-ANULADO',residenceId:'R',clientId:'C2',lotId:'L5',
+   contractLotIds:['L4','L5'],contractGroupId:'GRUPO-COMERCIAL',status:'voided',format:'manual',
+   structured:{stage:1,block:'Comerciales',number:'2',price:2360000}});
+  w.db.contractTexts.push({id:'CM-ACTIVO',residenceId:'R',clientId:'C2',lotId:'L4',
+   contractLotIds:['L4','L5'],contractGroupId:'GRUPO-COMERCIAL',status:'active',format:'manual',
+   structured:{stage:1,block:'Comerciales',number:'1',price:2640000}});
+  w.render();
+  const byId=id=>[...w.document.querySelectorAll('.ct-table tbody tr')].find(x=>x.textContent.includes(id));
+  assert.match(byId('CM-ANULADO').textContent,/Vinculado: Etapa 1 \/ Bloque Comerciales \/ Solar 2/);
+  assert.match(byId('CM-ANULADO').textContent,/Otros del mismo grupo.*Solar 1/);
+  assert.match(byId('CM-ACTIVO').textContent,/Etapa 1 \/ Bloque Comerciales \/ Solar 1/);
+  assert.match(byId('CM-ACTIVO').textContent,/Otros del mismo grupo.*Solar 2/);
+  const original=JSON.stringify(w.db);
+  byId('CM-ANULADO').querySelector('[data-ct-voided-view]').click();
+  assert.match(dialogs[0][1],/Terreno vinculado en el inventario.*Solar 2/s);
+  assert.match(dialogs[0][1],/Otros solares del mismo grupo.*Solar 1/s);
+  assert.doesNotMatch(dialogs[0][1],/data-ct-voided-lot="L4"/);
+  assert.equal(JSON.stringify(w.db),original);
+ }finally{close();}
+});
+test('Contratos: discrepancias entre ficha y solar vinculado se advierten sin editar datos',()=>{
+ const {w,close}=boot();
+ try{
+  w.db.contractTexts[1].structured={price:110000,stage:2,block:'I',number:'2'};
+  w.render();
+  const row=[...w.document.querySelectorAll('.ct-table tbody tr')].find(x=>x.textContent.includes('D2'));
+  assert.match(row.textContent,/Solar 3/);
+  assert.match(row.textContent,/Según ficha: Etapa 2 \/ Bloque I \/ Solar 2/);
+  assert.match(row.textContent,/Revisar diferencia/);
  }finally{close();}
 });
