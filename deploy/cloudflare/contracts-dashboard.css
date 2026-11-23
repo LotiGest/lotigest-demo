@@ -144,3 +144,19 @@ body.lotigest-dark .contract-collection-pending .contract-collection-state{color
  .contract-collection-note .btn{width:100%}
  .contract-collection-pending .btn{width:100%}
 }
+
+/* Contratos anulados: tarjeta navegable y detalle histórico sin edición. */
+.ct-stat.ct-stat-link{appearance:none;font-family:inherit;text-align:left;cursor:pointer;width:100%;gap:13px}
+.ct-stat.ct-stat-link:hover{filter:brightness(.97);border-color:#c25a66}
+.ct-stat.ct-stat-link:focus-visible{outline:3px solid #b94156;outline-offset:3px}
+.ct-stat.ct-stat-link[aria-pressed="true"]{border:2px solid #b94156;box-shadow:0 0 0 2px rgba(185,65,86,.12)}
+.ct-void-location{font-weight:650}
+.ct-void-mismatch{color:#b5343f!important;font-weight:800}
+.ct-void-detail{display:grid;gap:9px}
+.ct-void-detail .detail-line{display:flex;justify-content:space-between;align-items:start;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:8px 0}
+.ct-void-detail .detail-line strong{text-align:right;overflow-wrap:anywhere}
+.ct-void-alert,.ct-void-warning{padding:12px;border:1px solid #dfb2b9;border-radius:9px;background:#fff0f2;color:#872f3c;line-height:1.5}
+.ct-void-section{padding:12px;border:1px solid var(--line);border-radius:10px}
+.ct-void-section p{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+body.lotigest-dark .ct-void-alert,body.lotigest-dark .ct-void-warning{background:#4a2731;color:#ffd7df;border-color:#8a4c59}
+body.lotigest-dark .ct-void-mismatch{color:#ffb7c3!important}
