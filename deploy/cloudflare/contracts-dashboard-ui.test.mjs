@@ -228,3 +228,47 @@ test('Contratos: discrepancias entre ficha y solar vinculado se advierten sin ed
   assert.match(row.textContent,/Revisar diferencia/);
  }finally{close();}
 });
+
+test('Reactivación: PIN solo administrador, valida entrada, conserva pagos y rota al usarlo',async()=>{
+ const {w,close}=boot();
+ try{
+  assert.equal(w.document.querySelector('[data-ct-pin-value]'),null);
+  w.cloudUser={role:'admin',name:'Admin'};w.contractIntakeAdmin=()=>true;
+  w.toast=()=>{};w.cloudWrite=()=>{};w.cloudFlush=async()=>{};
+  w.cloudBlocked=false;w.cloudOffline=false;w.cloudQueue={latest:1,confirmed:1};w.closeModal=()=>{};
+  w.db.contractTexts[0].status='voided';w.db.contractTexts[0].voidReason='Prueba';
+  w.db.payments=[{id:'P1',amount:100}];
+  w.render();
+  const pin=w.document.querySelector('[data-ct-pin-value]').textContent;
+  assert.match(pin,/^\d{4}$/);
+  assert.ok(w.document.querySelector('[data-ct-activate="D1"]'));
+  w.showModal=(title,body)=>{w.document.body.insertAdjacentHTML('beforeend',body);};
+  w.document.querySelector('[data-ct-activate="D1"]').click();
+  const form=w.document.querySelector('#ct-activation-form');
+  form.elements.pin.value='xxxx';form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+  assert.equal(w.db.contractTexts[0].status,'voided');
+  assert.match(w.document.querySelector('#ct-activation-error').textContent,/incorrecto/);
+  form.elements.pin.value=pin;form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(w.db.contractTexts[0].status,'pending-sale');
+  assert.equal(w.db.lots[0].pendingContractId,'D1');
+  assert.equal(w.db.contractTexts[0].reactivationHistory[0].by,'Admin');
+  assert.equal(w.db.contractTexts[0].voidReason,'Prueba');
+  assert.deepEqual(JSON.parse(JSON.stringify(w.db.payments)),[{id:'P1',amount:100}]);
+  assert.notEqual(w.document.querySelector('[data-ct-pin-value]').textContent,pin);
+  w.cloudUser.role='reader';w.render();
+  assert.equal(w.document.querySelector('[data-ct-pin-value]'),null);
+ }finally{close();}
+});
+
+test('Reactivación bloquea ubicación diferente y otro propietario',()=>{
+ const {w,dialogs,close}=boot();
+ try{
+  const errors=[];w.cloudUser={role:'admin'};w.contractIntakeAdmin=()=>true;w.toast=m=>errors.push(m);
+  w.db.contractTexts[0].status='voided';w.db.contractTexts[0].structured.number='2';w.render();
+  w.document.querySelector('[data-ct-activate="D1"]').click();assert.match(errors.pop(),/no coincide/);
+  delete w.db.contractTexts[0].structured.number;w.db.lots[0].ownerClientId='C2';
+  w.document.querySelector('[data-ct-activate="D1"]').click();assert.match(errors.pop(),/otra asignación/);
+  assert.equal(dialogs.length,0);assert.equal(w.db.contractTexts[0].status,'voided');
+ }finally{close();}
+});

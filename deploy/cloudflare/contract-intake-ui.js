@@ -1069,7 +1069,7 @@ async function contractManageDeleteSave(form){
  const d=contractManageRecord(data.documentId);if(!d)throw Error('Contrato inexistente o ya anulado.');
  const next=JSON.parse(JSON.stringify(db)),record=next.contractTexts.find(x=>x.id===d.id),lot=next.lots.find(l=>l.id===d.lotId);
  const hasSale=next.sales.some(s=>s.id===record.saleId||s.lotId===record.lotId);
- record.status='voided';record.voidedAt=new Date().toISOString();record.voidedBy=String(cloudUser?.name||'Administrador');
+ record.statusBeforeVoid=record.status;record.status='voided';record.voidedAt=new Date().toISOString();record.voidedBy=String(cloudUser?.name||'Administrador');
  record.voidReason=String(data.reason||'Anulación solicitada por administrador').trim().slice(0,300);
  record.updatedAt=record.voidedAt;
  if(lot&&!hasSale){

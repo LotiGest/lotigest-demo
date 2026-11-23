@@ -125,6 +125,74 @@
   showModal('Consultar contrato anulado',body,
    '<button type="button" class="btn btn-outline" data-action="close-modal">Cerrar</button>',true);
  }
+ // PIN de confirmación efímero: nunca se persiste ni se incluye en exportaciones.
+ let activationPin='',activationPinUntil=0,activationBusy=false;
+ const activationAdmin=()=>typeof cloudUser!=='undefined'&&cloudUser?.role==='admin';
+ function refreshActivationPin(force=false){
+  if(!activationAdmin()){activationPin='';activationPinUntil=0;return '';}
+  if(force||Date.now()>=activationPinUntil){
+   const previous=activationPin,bytes=new Uint32Array(1);
+   do{crypto.getRandomValues(bytes);activationPin=String(bytes[0]%10000).padStart(4,'0');}while(activationPin===previous);
+   activationPinUntil=Date.now()+60000;
+  }
+  return activationPin;
+ }
+ function activationPinMarkup(){
+  if(!activationAdmin())return '';
+  return '<div class="card ct-activation-pin" role="region" aria-label="PIN del administrador"><span>PIN para activar contratos</span> <strong data-ct-pin-value>'+refreshActivationPin()+'</strong><small> Solo administrador · cambia cada minuto y después de utilizarlo</small></div>';
+ }
+ setInterval(()=>{
+  const el=document.querySelector('.ct-activation-pin');
+  if(!el){if(!activationAdmin())refreshActivationPin();return;}
+  if(!activationAdmin()){el.remove();refreshActivationPin();return;}
+  el.querySelector('[data-ct-pin-value]').textContent=refreshActivationPin();
+ },1000);
+ function activationRecord(id){
+  if(!activationAdmin()||!contractIntakeAdmin())throw Error('Se requiere administrador con la nube sincronizada.');
+  const d=(db.contractTexts||[]).find(x=>x.id===id&&x.status==='voided'&&x.residenceId===residence().id);
+  if(!d)throw Error('El contrato ya no está anulado o pertenece a otra residencial.');
+  const lot=getLot(d.lotId);
+  if(!lot||lot.residenceId!==d.residenceId||!getClient(d.clientId))throw Error('Revisa el cliente y el solar del contrato.');
+  if(contractVoidMismatch({doc:d,lots:[lot]}))throw Error('La etapa, bloque o solar no coincide con la ficha. Corrige la ubicación antes de activar.');
+  if((lot.ownerClientId&&lot.ownerClientId!==d.clientId)||(lot.clientId&&lot.clientId!==d.clientId)||
+   (lot.pendingContractId&&lot.pendingContractId!==d.id)||(lot.contractId&&lot.contractId!==d.id)||
+   (db.contractTexts||[]).some(x=>x.id!==d.id&&x.status!=='voided'&&x.lotId===lot.id)||
+   (db.sales||[]).some(x=>x.lotId===lot.id&&x.id!==d.saleId)||
+   (db.reservations||[]).some(x=>x.lotId===lot.id&&!['expired','cancelled','voided'].includes(x.status)))
+   throw Error('El solar tiene otra asignación, venta, contrato o apartado.');
+  if(d.saleId&&!getSale(d.saleId))throw Error('No se encontró la venta original. Revisa el contrato.');
+  if(lot.type==='private'||lot.status==='private'||lot.purchaseFromPlan)throw Error('El solar está protegido en el plano.');
+  return d;
+ }
+ function activationOpen(id){
+  try{
+   const d=activationRecord(id);refreshActivationPin();
+   showModal('Activar contrato',
+    '<p>Reactivar contrato <strong>'+esc(d.id)+'</strong> de '+esc(getClient(d.clientId)?.name)+'.</p><p>Introduce el PIN que aparece arriba del panel del administrador.</p>'+
+    '<form id="ct-activation-form"><input type="hidden" name="documentId" value="'+esc(id)+'"><label>PIN de 4 dígitos<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" minlength="4" maxlength="4" autocomplete="off" required></label><p id="ct-activation-error" role="alert"></p></form>',
+    '<button type="button" class="btn btn-outline" data-action="close-modal">Cancelar</button><button type="submit" form="ct-activation-form" class="btn btn-primary">Activar contrato</button>',true);
+  }catch(e){toast(e.message,'error');}
+ }
+ document.addEventListener('submit',async e=>{
+  if(e.target.id!=='ct-activation-form')return;
+  e.preventDefault();e.stopImmediatePropagation();if(activationBusy)return;
+  try{
+   const data=Object.fromEntries(new FormData(e.target)),d=activationRecord(data.documentId);
+   if(Date.now()>=activationPinUntil||!/^\d{4}$/.test(data.pin)||data.pin!==activationPin){
+    refreshActivationPin();throw Error('PIN incorrecto o vencido. Consulta el PIN actual del administrador.');
+   }
+   const next=JSON.parse(JSON.stringify(db)),record=next.contractTexts.find(x=>x.id===d.id),lot=next.lots.find(x=>x.id===d.lotId);
+   const at=new Date().toISOString();
+   record.status=record.saleId?'active':(record.statusBeforeVoid==='registered'?'registered':'pending-sale');
+   record.reactivationHistory=[...(record.reactivationHistory||[]),{at,by:cloudUser.name||'Administrador',voidedAt:record.voidedAt,voidReason:record.voidReason}];
+   record.updatedAt=at;lot.ownerClientId=record.clientId;
+   if(record.saleId){lot.status='sold';delete lot.pendingContractId;}else lot.pendingContractId=record.id;
+   activationBusy=true;refreshActivationPin(true);
+   cloudWrite(JSON.stringify(next));db=next;await cloudFlush();closeModal();render();
+   toast(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed?'Reactivación pendiente de sincronización.':'Contrato reactivado.');
+  }catch(err){const el=document.getElementById('ct-activation-error');if(el)el.textContent=err.message;toast(err.message,'error');}
+  finally{activationBusy=false;}
+ },true);
  let voidedReleaseDraft=null;
  function contractVoidedReleaseOpen(documentId,lotId){
   if(typeof contractIntakeAdmin!=='function'||!contractIntakeAdmin()){
@@ -178,7 +246,7 @@
     '<button class="btn btn-outline btn-sm" data-action="contract-scan" data-client="'+esc(r.clientId)+'" data-id="'+esc(r.id)+'">Escanear texto</button> '+
     '<button class="btn btn-outline btn-sm" data-action="contract-preview" data-id="'+esc(r.id)+'">Plantilla</button>';
   const d=r.doc;
-  if(d.status==='voided')return '<button type="button" class="btn btn-outline btn-sm" data-ct-voided-view="'+esc(d.id)+'">Ver anulación</button>';
+  if(d.status==='voided')return '<button type="button" class="btn btn-outline btn-sm" data-ct-voided-view="'+esc(d.id)+'">Ver anulación</button>'+ (activationAdmin()?' <button type="button" class="btn btn-primary btn-sm" data-ct-activate="'+esc(d.id)+'">Activar contrato</button>':'');
   return '<button class="btn btn-outline btn-sm" data-contract-ficha-view="'+esc(d.id)+'">Ver</button> '+
    (d.status!=='voided'?'<button class="btn btn-outline btn-sm" data-contract-edit="'+esc(d.id)+'">Editar</button> '+
     '<button class="btn btn-outline btn-sm" data-contract-delete="'+esc(d.id)+'">Eliminar</button> ':'')+
@@ -240,7 +308,7 @@
     '<p class="sm muted">Registrar una ficha no significa cobrar la prima. El crédito y los abonos se activan por separado.</p></details>';
   return '<div class="ct-module">'+
     header('Contratos','Gestión de fichas, documentos y terrenos vinculados.',toolbar)+
-    cards+filters+table+tools+'</div>';
+    activationPinMarkup()+cards+filters+table+tools+'</div>';
  };
  // En Contratos, aprovechar la barra superior del sistema en lugar de repetir
  // cabecera, selector de residencial y botones dentro del área de trabajo.
@@ -315,9 +383,10 @@
   if(keys[e.target.id])update(keys[e.target.id],e.target.value);
  });
  document.addEventListener('click',e=>{
-  const btn=e.target.closest?.('[data-ct-manual],[data-ct-print],[data-ct-export],[data-ct-clear],[data-ct-page],[data-ct-show-voided],[data-ct-voided-view],[data-ct-voided-release],[data-ct-release-backup],[data-ct-release-confirm]');
+  const btn=e.target.closest?.('[data-ct-activate],[data-ct-manual],[data-ct-print],[data-ct-export],[data-ct-clear],[data-ct-page],[data-ct-show-voided],[data-ct-voided-view],[data-ct-voided-release],[data-ct-release-backup],[data-ct-release-confirm]');
   if(!btn)return;
   e.preventDefault();
+  if(btn.hasAttribute('data-ct-activate'))return activationOpen(btn.dataset.ctActivate);
   if(btn.hasAttribute('data-ct-voided-release'))
    return contractVoidedReleaseOpen(btn.dataset.ctVoidedRelease,btn.dataset.ctVoidedLot);
   if(btn.hasAttribute('data-ct-release-backup')){

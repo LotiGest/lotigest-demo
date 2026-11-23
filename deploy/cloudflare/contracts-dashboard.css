@@ -172,3 +172,6 @@ body.lotigest-dark .ct-void-mismatch{color:#ffb7c3!important}
 .ct-void-check input{width:18px;height:18px;flex:none}
 body.lotigest-dark .ct-void-protected{color:#ffb0ba}
 body.lotigest-dark .ct-void-released{color:#9defbf}
+
+.ct-activation-pin{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding:14px}.ct-activation-pin strong{letter-spacing:6px;font-size:26px;color:var(--green,#176039);font-variant-numeric:tabular-nums}.ct-activation-pin small{color:var(--muted,#657568)}
+@media print{.ct-activation-pin{display:none!important}}
