@@ -343,3 +343,9 @@ body.lotigest-dark #modal-root .lg-contract-modern .lg-contract-payment-row>stro
   flex:1 1 130px;
  }
 }
+
+/* Edición de solares del contrato en preparación. */
+#modal-root .lg-contract-modern .lg-contract-price-heading{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#modal-root .lg-contract-modern .lg-contract-edit-solar{min-height:34px;padding:6px 10px}
+#modal-root .lg-contract-modern .lg-contract-solar-edit-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+#modal-root .lg-contract-modern .lg-contract-solar-editing{outline:2px solid var(--green,#3baf45);outline-offset:4px;border-radius:10px}
