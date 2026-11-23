@@ -53,3 +53,37 @@ test('no quitar solar en otra residencial',()=>{
  assert.deepEqual(auditOrphanOwnerLinks(data,'ARRAYAN').candidates.map(x=>x.lotId),['L2','L4']);
  assert.throws(()=>removeOrphanOwnerLinks(data,['OTRO'],'ARRAYAN'),/no es seguro/);
 });
+
+test('solar Comprado provisional desde Excel vuelve a Disponible, conserva inventario y deja auditoría',()=>{
+ const initial=state();initial.residences[0].records={FIG:{lotId:'EXCEL',status:'sold'}};
+ initial.lots.push(lot('EXCEL','C2',{status:'sold',purchaseFromPlan:true,sourceFeatureKey:'FIG'}));
+ const frozen=JSON.stringify(initial);
+ const report=auditOrphanOwnerLinks(initial,'ARRAYAN');
+ assert.ok(report.candidates.some(x=>x.lotId==='EXCEL'));
+ const updated=removeOrphanOwnerLinks(initial,['EXCEL'],'ARRAYAN','ADMIN',
+  'Se había asociado solar equivocado','2026-11-23T20:00:00.000Z').state;
+ const released=updated.lots.find(x=>x.id==='EXCEL');
+ assert.equal(released.status,'available');
+ assert.equal(released.ownerClientId,undefined);
+ assert.equal(released.purchaseFromPlan,false);
+ assert.equal(updated.residences[0].records.FIG.status,'available');
+ assert.equal(released.price,200000);
+ assert.equal(released.area,240);
+ assert.equal(released.ownerUnlinkHistory.length,1);
+ assert.equal(released.ownerUnlinkHistory[0].previousOwnerClientId,'C2');
+ assert.equal(released.ownerUnlinkHistory[0].previousStatus,'sold');
+ assert.equal(updated.clients.length,initial.clients.length);
+ assert.equal(JSON.stringify(initial),frozen);
+});
+test('no liberar solar si existen abonos, recibos, deudas, solicitudes o referencias sin conciliar',()=>{
+ for(const kind of ['payment','receipt','ambiguous','debt','request','other-client']){
+  const data=state();data.lots.push(lot('EXCEL','C2',{status:'sold'}));
+  if(kind==='payment')data.payments.push({id:'P7',lotId:'EXCEL',clientId:'C2'});
+  if(kind==='receipt')data.receipts=[{id:'R7',lotId:'EXCEL',clientId:'C2'}];
+  if(kind==='ambiguous')data.ownerPayments.push({id:'P8',clientId:'C2',residenceId:'ARRAYAN'});
+  if(kind==='debt')data.lots.at(-1).mapDebtFlag=true;
+  if(kind==='request')data.clientRequests=[{id:'Q7',lotId:'EXCEL',status:'pending'}];
+  if(kind==='other-client')data.lots.at(-1).clientId='C1';
+  assert.throws(()=>removeOrphanOwnerLinks(data,['EXCEL'],'ARRAYAN'),/no es seguro/,kind);
+ }
+});
