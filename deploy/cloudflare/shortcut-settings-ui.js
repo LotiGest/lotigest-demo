@@ -18,7 +18,7 @@
   ['settings','Configuración','settings','']
  ];
  const defaults=()=>({order:defs.map(d=>d[0]),keys:Object.fromEntries(defs.map(d=>[d[0],d[3]?'ctrl+'+d[3]:'']))});
- let draft=null,draftUser=null,captureId=null,dragId=null;
+ let draft=null,draftUser=null,captureId=null,dragId=null,moreOpen=false;
  const safe=value=>esc(String(value??''));
  const who=()=>String(cloudUser?.id||cloudUser?.username||cloudUser?.name||'local');
  const storageKey=()=> 'lotigest-pro-shortcuts-v1:'+who();
@@ -80,7 +80,7 @@
    '<div class="lg-shortcut-header"><div><h2 id="lg-shortcut-title">⌨ Configuración de atajos</h2><p>Personaliza las combinaciones del teclado para abrir módulos y registrar abonos.</p></div></div>'+
    '<div class="lg-shortcut-note">✎ Pulsa <b>Cambiar</b> para asignar otras teclas. Puedes mover las filas con ↑ y ↓ o arrastrarlas en computadora.</div>'+
    '<h3>Atajos principales</h3><div class="lg-shortcut-rows">'+primary.map(scRow).join('')+'</div>'+
-   '<details class="lg-shortcut-more"><summary>Otros módulos del sistema ('+extra.length+')</summary><div class="lg-shortcut-rows">'+extra.map(scRow).join('')+'</div></details>'+
+   '<details class="lg-shortcut-more" '+(moreOpen||extra.includes(captureId)?'open':'')+'><summary>Otros módulos del sistema ('+extra.length+')</summary><div class="lg-shortcut-rows">'+extra.map(scRow).join('')+'</div></details>'+
    '<p class="lg-shortcut-caution">'+safe(caution)+'</p>'+
    '<div class="lg-shortcut-actions"><button type="button" class="btn btn-outline" data-shortcut-reset>↺ Restablecer</button><button type="button" class="btn btn-primary" data-shortcut-save>✓ Guardar cambios</button></div>'+
    '<p class="sm muted">Los cambios se guardan para este usuario en este navegador. No modifican los datos de contratos ni abonos.</p></section>';
@@ -93,6 +93,7 @@
  };
  function refreshSettings(){
   const container=document.querySelector('#lotigest-shortcut-settings');
+  if(container?.querySelector?.('.lg-shortcut-more')?.open)moreOpen=true;
   if(container)container.outerHTML=shortcutMarkup();
   if(captureId){
    const input=document.querySelector('[data-shortcut-capture="'+captureId+'"]');
@@ -183,6 +184,9 @@
   }
   try{localStorage.setItem(storageKey(),JSON.stringify(state));captureId=null;refreshSettings();toast('Configuración de atajos guardada para este navegador.');}
   catch{toast('No fue posible guardar los atajos en este navegador.','error');}
+ },true);
+ document.addEventListener('toggle',e=>{
+  if(e.target?.matches?.('#lotigest-shortcut-settings .lg-shortcut-more'))moreOpen=Boolean(e.target.open);
  },true);
  document.addEventListener('dragstart',e=>{
   const row=e.target?.closest?.('[data-shortcut-row]');
