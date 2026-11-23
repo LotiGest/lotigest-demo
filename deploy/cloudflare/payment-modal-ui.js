@@ -228,6 +228,33 @@ function pmEnsureOcrFooter(form){
  else if(!panel.contains(widget))panel.append(widget);
  pmAddOcrFooter(modal);
 }
+// La lista de asignados muestra todas las ventas elegibles del cliente,
+// sin agregar importes ni seleccionar cobros implícitamente.
+function pmAssignedSales(clientId){
+ if(!clientId||!paymentDraft)return [];
+ const rows=paymentCandidates('').filter(s=>s.clientId===clientId&&getLot(s.lotId)?.residenceId===paymentDraft.residenceId);
+ const seen=new Set(rows.map(s=>s.id));
+ for(const selected of pmSales())if(selected.clientId===clientId&&!seen.has(selected.id)){
+  rows.push(selected);seen.add(selected.id);
+ }
+ return rows.sort((a,b)=>String(getLot(a.lotId)?.stage||'').localeCompare(String(getLot(b.lotId)?.stage||''),'es',{numeric:true})||
+  String(getLot(a.lotId)?.block||'').localeCompare(String(getLot(b.lotId)?.block||''),'es',{numeric:true})||
+  String(getLot(a.lotId)?.sourceNumber||a.lotId).localeCompare(String(getLot(b.lotId)?.sourceNumber||b.lotId),'es',{numeric:true}));
+}
+function pmRenderAssignedLots(tags,clientId){
+ tags.replaceChildren();
+ const assigned=pmAssignedSales(clientId);
+ for(const sale of assigned){
+  const lot=getLot(sale.lotId),selected=Object.hasOwn(paymentDraft.amounts,sale.id);
+  const label='Etapa '+(lot?.stage||'por confirmar')+' · Bloque '+(lot?.block||'—')+' · Solar '+(lot?.sourceNumber||lot?.number||lot?.id||'—');
+  const tag=pmBadge(label+' '),button=pmNode('button',selected?'pm-remove-lot':'btn btn-outline btn-sm',selected?'×':'Agregar al abono');
+  button.type='button';button.dataset.action=selected?'multi-payment-remove':'multi-payment-add';button.dataset.id=sale.id;
+  button.title=selected?'Quitar solar del recibo':'Incluir solar en este recibo';
+  button.setAttribute('aria-label',(selected?'Quitar del recibo: ':'Agregar al abono: ')+label);
+  tag.append(button);tags.append(tag);
+ }
+ if(!assigned.length)tags.append(pmNode('small','','Busca y selecciona un terreno con saldo'));
+}
 function pmRepaintSales(){
  const form=document.querySelector('#multi-payment-form');
  if(!form||pmActive!=='sale'||!form.closest('.lg-payment-modern'))return;
@@ -235,7 +262,7 @@ function pmRepaintSales(){
  const name=document.getElementById('pm-client-name'),identity=document.getElementById('pm-client-id'),tags=document.getElementById('pm-lot-tags');
  if(name)name.textContent=client?.name||'Selecciona un cliente';
  if(identity)identity.textContent=client?.identity?'Identidad: '+client.identity:'Residencial: '+residence().name;
- if(tags){tags.replaceChildren();if(sales.length)for(const s of sales){const l=getLot(s.lotId),tag=pmBadge('Etapa '+(l?.stage||'por confirmar')+' · Bloque '+(l?.block||'—')+' · Solar '+(l?.sourceNumber||l?.id||'—'));const remove=pmNode('button','pm-remove-lot','×');remove.type='button';remove.dataset.action='multi-payment-remove';remove.dataset.id=s.id;remove.title='Quitar solar del recibo';remove.setAttribute('aria-label','Quitar solar '+(l?.sourceNumber||l?.id||''));tag.append(remove);tags.append(tag);}else tags.append(pmNode('small','','Busca y selecciona un terreno con saldo'));}
+ if(tags)pmRenderAssignedLots(tags,client?.id||paymentDraft?.clientId);
  const summary=document.getElementById('pm-summary');
  if(summary){
   summary.replaceChildren();
