@@ -1,4 +1,4 @@
 {
-  "version": "0.22.51",
-  "notes": "LOTIGEST PRO: Configuración de atajos editable en Configuración; Ctrl+C Contratos, Ctrl+A Abono individual, Ctrl+B Abonos varios, Ctrl+R Residenciales y cobros, Ctrl+T Terrenos, Ctrl+P Panel; otros módulos configurables, detección de duplicados, guardado y restablecer. Atajos protegidos al escribir en formularios."
+  "version": "0.22.52",
+  "notes": "LOTIGEST PRO: instrucciones de residenciales y carga de mapas sin referencias a ChatGPT. Se explica cómo adjuntar el PDF, sus limitaciones y la conservación de las otras residenciales. El mapa mantiene su enlace interno."
 }
