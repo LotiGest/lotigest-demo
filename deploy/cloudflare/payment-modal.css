@@ -521,3 +521,7 @@ body.lotigest-dark #modal-root .lg-payment-modern .pm-correlativo-control input[
  #modal-root .lg-payment-modern .pm-correlativo-control{gap:10px;padding:6px 10px}
  #modal-root .lg-payment-modern .pm-correlativo-control input[name=receiptRef]{font-size:25px!important}
 }
+
+/* Todos los solares elegibles se incluyen y se muestran uno debajo del otro. */
+#modal-root .lg-payment-modern #pm-lot-tags{display:flex;flex-direction:column;align-items:flex-start;gap:5px}
+#modal-root .lg-payment-modern #pm-lot-tags .pm-tag{opacity:1;background:#ddf2e3;color:#185a30;margin:0}
