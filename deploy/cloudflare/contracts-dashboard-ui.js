@@ -8,14 +8,21 @@
  const distinct=arr=>[...new Set(arr.filter(Boolean))].sort(new Intl.Collator('es-HN',{numeric:true,sensitivity:'base'}).compare);
  const opt=(value,label,selected)=>'<option value="'+esc(value)+'"'+(selected===value?' selected':'')+'>'+esc(label)+'</option>';
  const statuses={all:'Todos los estados',active:'Activo',pending:'Pendiente de activar',registered:'Ficha registrada',voided:'Anulado',missing:'Sin ficha contractual'};
- function relatedIds(d){const s=d.saleId?getSale(d.saleId):null;return [...new Set([...(Array.isArray(d.contractLotIds)?d.contractLotIds:[]),d.lotId,s?.lotId].filter(Boolean))];}
+ // contractLotIds representa un GRUPO de solares, no la propiedad del documento.
+ // Cada ficha tiene un solar principal d.lotId; nunca mostrar un solar ajeno primero.
+ function relatedIds(d){const s=d.saleId?getSale(d.saleId):null;return [d.lotId||s?.lotId].filter(Boolean);}
+ function otherGroupLots(d){
+  const primary=new Set(relatedIds(d));
+  return [...new Set(Array.isArray(d.contractLotIds)?d.contractLotIds:[])]
+   .filter(id=>!primary.has(id)).map(getLot).filter(l=>l?.residenceId===d.residenceId);
+ }
  function makeRows(){
   const rid=residence().id;
   const docs=(db.contractTexts||[]).filter(d=>d.residenceId===rid);
   const records=docs.map(d=>{
    const sale=d.saleId?getSale(d.saleId):null;
    return {type:'doc',id:d.id,doc:d,sale,client:getClient(d.clientId),clientId:d.clientId||'',
-    lots:relatedIds(d).map(getLot).filter(l=>l?.residenceId===rid),
+    lots:relatedIds(d).map(getLot).filter(l=>l?.residenceId===rid),groupLots:otherGroupLots(d),
     status:d.status==='voided'?'voided':d.status==='active'?'active':d.status==='pending-sale'?'pending':'registered',
     date:sale?.date||d.structured?.date||d.createdAt||d.updatedAt||'',
     amount:d.structured?.price??sale?.price??null};
@@ -51,8 +58,16 @@
  function where(r){
   const l=r.lots[0],saved=contractRecordedLocation(r.doc);
   const linked=l?'Etapa '+esc(l.stage||'—')+' / Bloque '+esc(l.block||'—')+' / Solar '+esc(num(l)):'Sin solar vinculado';
-  const extras=r.lots.length>1?'<small class="ct-more">+'+(r.lots.length-1)+' solares adicionales</small>':'';
-  if(r.status!=='voided')return linked+extras;
+  const extras=r.groupLots?.length?
+   '<small class="ct-more">Otros del mismo grupo (no de esta ficha): '+
+    r.groupLots.map(x=>'Etapa '+esc(x.stage||'—')+' / Bloque '+esc(x.block||'—')+' / Solar '+esc(num(x))).join('; ')+'</small>':'';
+  const mismatch=contractVoidMismatch(r);
+  if(r.status!=='voided'){
+   const written=saved.stage||saved.block||saved.number?
+    'Etapa '+esc(saved.stage||'—')+' / Bloque '+esc(saved.block||'—')+' / Solar '+esc(saved.number||'—'):'';
+   return linked+extras+(mismatch?'<small class="ct-more ct-void-mismatch">Según ficha: '+written+
+    ' · Revisar diferencia con el solar vinculado</small>':'');
+  }
   const recorded=saved.stage||saved.block||saved.number?
    'Etapa '+esc(saved.stage||'—')+' / Bloque '+esc(saved.block||'—')+' / Solar '+esc(saved.number||'—'):
    'Sin ubicación escrita en la ficha';
@@ -85,6 +100,8 @@
    '<div class="ct-void-section"><strong>Motivo de anulación</strong><p>'+esc(d.voidReason||'No se especificó motivo')+'</p></div>'+
    '<div class="ct-void-section"><strong>Terreno vinculado en el inventario</strong><p>'+linkedLabel+'</p></div>'+
    '<div class="ct-void-section"><strong>Terreno escrito en la ficha</strong><p>'+savedLabel+'</p></div>'+
+   (otherGroupLots(d).length?'<div class="ct-void-section"><strong>Otros solares del mismo grupo (no de esta ficha)</strong><p>'+
+    otherGroupLots(d).map(l=>'Etapa '+esc(l.stage||'—')+' · Bloque '+esc(l.block||'—')+' · Solar '+esc(num(l))).join('; ')+'</p></div>':'')+
    (mismatch?'<p class="ct-void-warning"><strong>Atención:</strong> la ubicación guardada en la ficha no coincide con el terreno vinculado. Revisa etapa, bloque y solar antes de registrar una ficha nueva.</p>':'')+
    moneyLine('Precio pactado',info.price??sale?.price)+moneyLine('Prima pactada',info.down??sale?.downPayment)+
    moneyLine('Saldo financiado',info.financed)+
