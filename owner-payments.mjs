@@ -33,7 +33,7 @@ export function validateNewReceiptCorrelativos(previous,next){
  const fresh=[];
  for(const p of next.payments||[])if(!oldSales.has(p.id)&&String(p.groupId||'').startsWith('RC-')&&!p.historicalImportId)
   fresh.push({raw:p.receiptReference,normalized:p.receiptReferenceNormalized,group:'venta:'+p.groupId});
- for(const p of next.ownerPayments||[])if(!oldOwners.has(p.id))
+ for(const p of next.ownerPayments||[])if(!oldOwners.has(p.id)&&p.request)
   fresh.push({raw:p.receiptReference,normalized:p.receiptReferenceNormalized,group:'propietario:'+p.id});
  const seen=new Map();
  for(const p of fresh){
