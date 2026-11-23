@@ -107,13 +107,27 @@
   const el=document.querySelector('[data-md-error]');if(el)el.textContent=message;
   toast(message,'error');
  }
+ async function mdCompressPhoto(file){
+  try{
+   const bitmap=await createImageBitmap(file);
+   const scale=Math.min(1,1800/Math.max(bitmap.width,bitmap.height));
+   const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+   const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+   const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.82));
+   bitmap.close();canvas.width=canvas.height=1;
+   return blob&&blob.size<file.size?new File([blob],'recibo.jpg',{type:'image/jpeg'}):file;
+  }catch{return file;}
+ }
  async function mdPhotoChanged(input){
   const row=mdById(input.dataset.mdPhoto),file=input.files?.[0];if(!row||!file)return;
   if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>12*1024*1024){
    input.value='';mdError('El recibo debe ser JPG, PNG o WebP de hasta 12 MB.');return;
   }
   if(row.preview)URL.revokeObjectURL(row.preview);
-  row.photo=file;row.preview=URL.createObjectURL(file);row.status='Recibo cargado · leyendo OCR…';
+  row.scanOriginal=file;
+  row.photo=await mdCompressPhoto(file);
+  if(!mdState||!mdById(row.id))return;
+  row.preview=URL.createObjectURL(row.photo);row.status='Recibo cargado · leyendo OCR…';
   mdRenderRows();
   await mdOcr(row);
  }
@@ -121,7 +135,7 @@
   let bitmap=null,worker=null,canvas=null;
   try{
    if(typeof loadContractOcr!=='function'||!window.lotigestPaperReceipt)throw Error('La lectura automática no está disponible.');
-   bitmap=await createImageBitmap(row.photo);
+   bitmap=await createImageBitmap(row.scanOriginal||row.photo);
    const scale=Math.min(1,1900/Math.max(bitmap.width,bitmap.height));
    canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
    const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
@@ -136,7 +150,7 @@
    mdRenderRows();
   }catch(e){
    if(mdById(row.id)){row.status='Recibo cargado · introduce o revisa datos manualmente';mdRenderRows();}
-  }finally{bitmap?.close();if(worker)try{await worker.terminate();}catch{}if(canvas)canvas.width=canvas.height=1;}
+  }finally{delete row.scanOriginal;bitmap?.close();if(worker)try{await worker.terminate();}catch{}if(canvas)canvas.width=canvas.height=1;}
  }
  function mdValidate(){
   if(!mdState||!mdState.rows.length)throw Error('Agrega al menos un abono.');
@@ -190,7 +204,7 @@
    cloudWrite(JSON.stringify(next));db=next;
    await cloudFlush();
    const confirmed=!!cloudQueue&&!cloudBlocked&&!cloudOffline&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed;
-   mdSaved={items:saved,confirmed,client:mdState.clientName};
+   mdSaved={items:saved,confirmed,client:mdState.clientName,kind:mdState.kind,saleId:mdState.saleId,clientId:mdState.clientId,residenceId:mdState.residenceId};
    for(const row of mdState.rows)if(row.preview)URL.revokeObjectURL(row.preview);
    mdState=null;mdShowSaved();
    if(!confirmed)toast('Los abonos quedaron en este dispositivo pendientes de sincronización. No compartas comprobantes hasta confirmar el guardado en Cloudflare.','error');
@@ -204,7 +218,7 @@
   const body='<div class="md-success"><h3>'+(confirmed?'✓ Pagos guardados por separado':'Pagos pendientes de sincronización')+'</h3><p>'+mdSafe(mdSaved.client)+' · '+mdSaved.items.length+' recibo(s) individuales</p>'+
    (confirmed?'<p>Ya puedes descargarlos por separado o generar un solo PDF con todas las fechas para compartirlo.</p>':'<p>Se conservó una copia local. Verifica la sincronización de Cloudflare antes de enviar los recibos.</p>')+'</div>'+
    '<div class="md-saved-list">'+mdSaved.items.map((p,i)=>'<div class="md-saved-item"><span>Abono '+(i+1)+' · '+mdSafe(p.date)+' · '+mdFmt(p.amount)+'<small>Correlativo '+mdSafe(p.ref)+'</small></span><span class="md-saved-actions">'+(confirmed?'<button type="button" data-md-pdf="'+mdSafe(p.id)+'" data-md-kind="'+mdSafe(p.kind)+'">PDF</button>':'')+(p.photoKey?'<button type="button" data-md-view-photo="'+mdSafe(p.photoKey)+'">Foto</button>':'')+'</span></div>').join('')+'</div>';
-  const footer=confirmed?'<button class="btn btn-outline" type="button" data-md-download-all>Descargar todos (PDF)</button><button class="btn btn-primary" type="button" data-md-share-all>Enviar todos</button><button class="btn btn-soft" type="button" data-action="close-modal">Cerrar</button>':'<button class="btn btn-soft" type="button" data-action="close-modal">Cerrar</button>';
+  const footer=confirmed?'<button class="btn btn-outline" type="button" data-md-download-all>Descargar todos (PDF)</button><button class="btn btn-primary" type="button" data-md-share-all>Enviar todos</button><button class="btn btn-outline" type="button" data-md-another>Guardar y registrar otro</button><button class="btn btn-soft" type="button" data-action="close-modal">Cerrar</button>':'<button class="btn btn-soft" type="button" data-action="close-modal">Cerrar</button>';
   showModal('Abonos · Recibos separados',body,footer,true);
   document.querySelector('#modal-root .modal')?.classList.add('lg-multi-date-modal','lg-payment-modern');
  }
@@ -252,8 +266,27 @@
    link.href=url;link.target='_blank';link.rel='noopener noreferrer';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
   }catch(e){toast(e.message||'No se pudo abrir la foto.','error');}
  }
+ // En el historial del recibo se puede consultar la fotografía de caja.
+ const mdPriorSalePreview=paymentReceiptPreview;
+ paymentReceiptPreview=function(id){
+  const result=mdPriorSalePreview(id),p=db.payments.find(p=>p.id===id);
+  if(p?.receiptImageKey){
+   const host=document.querySelector('#modal-root .modal-content');
+   if(host){const button=document.createElement('button');button.type='button';button.className='btn btn-outline';button.dataset.mdViewPhoto=p.receiptImageKey;button.textContent='▣ Ver fotografía del recibo de caja';host.append(button);}
+  }
+  return result;
+ };
+ const mdPriorOwnerPreview=ownerPaymentPreview;
+ ownerPaymentPreview=function(id){
+  const result=mdPriorOwnerPreview(id),p=(db.ownerPayments||[]).find(p=>p.id===id);
+  if(p?.receiptImageKey){
+   const host=document.querySelector('#modal-root .modal-content');
+   if(host){const button=document.createElement('button');button.type='button';button.className='btn btn-outline';button.dataset.mdViewPhoto=p.receiptImageKey;button.textContent='▣ Ver fotografía del recibo de caja';host.append(button);}
+  }
+  return result;
+ };
  document.addEventListener('click',event=>{
-  const action=event.target.closest?.('[data-md-start-sale],[data-md-start-owner],[data-md-pick-owner],[data-md-add],[data-md-remove],[data-md-one],[data-md-many],[data-md-save],[data-md-pdf],[data-md-download-all],[data-md-share-all],[data-md-view-photo]');
+  const action=event.target.closest?.('[data-md-start-sale],[data-md-start-owner],[data-md-pick-owner],[data-md-add],[data-md-remove],[data-md-one],[data-md-many],[data-md-save],[data-md-pdf],[data-md-download-all],[data-md-share-all],[data-md-another],[data-md-view-photo]');
   if(!action)return;
   event.preventDefault();event.stopImmediatePropagation();
   if(action.hasAttribute('data-md-start-sale'))mdStartSale(action.dataset.mdStartSale);
@@ -264,6 +297,7 @@
   else if(action.hasAttribute('data-md-one')){if(mdState?.kind==='sale'){const id=mdState.saleId;mdState=null;baseNewPayment(id,false);}else if(mdState?.kind==='owner'){const {clientId,residenceId}=mdState;mdState=null;openOwnerAbono(clientId,residenceId);}}
   else if(action.hasAttribute('data-md-save'))mdSave();
   else if(action.hasAttribute('data-md-pdf')){if(action.dataset.mdKind==='owner')deliverOwnerPayment(action.dataset.mdPdf,false);else deliverPaymentReceipt(action.dataset.mdPdf,false);}
+  else if(action.hasAttribute('data-md-another')){if(mdSaved?.kind==='sale')mdStartSale(mdSaved.saleId);else if(mdSaved?.kind==='owner')mdStartOwner(mdSaved.clientId,mdSaved.residenceId);}
   else if(action.hasAttribute('data-md-download-all'))mdShareAll(false);
   else if(action.hasAttribute('data-md-share-all'))mdShareAll(true);
   else if(action.hasAttribute('data-md-view-photo'))mdViewPhoto(action.dataset.mdViewPhoto);
