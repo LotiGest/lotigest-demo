@@ -56,18 +56,19 @@
   el.dispatchEvent(new Event('input',{bubbles:true}));
   return true;
  }
- document.addEventListener('input',event=>{
+ window.addEventListener('input',event=>{
   if(event.isComposing||event.target?.dataset?.preserveCase!==undefined)return;
   uppercaseInput(event.target);
  },true);
- document.addEventListener('compositionend',event=>{uppercaseInput(event.target);},true);
- document.addEventListener('change',event=>{
+ window.addEventListener('compositionend',event=>{uppercaseInput(event.target);},true);
+ window.addEventListener('change',event=>{
   if(isPhone(event.target))phoneInput(event.target);
   else uppercaseInput(event.target);
  },true);
- document.addEventListener('focusout',event=>{if(isPhone(event.target))phoneInput(event.target);},true);
- // Ejecutar antes de que FormData lea el formulario.
- document.addEventListener('submit',event=>{
+ window.addEventListener('focusout',event=>{if(isPhone(event.target))phoneInput(event.target);},true);
+ // En captura de WINDOW se ejecuta antes de cualquier manejador de DOCUMENT,
+ // para que el borrador de Clientes y FormData reciban los valores definitivos.
+ window.addEventListener('submit',event=>{
   const form=event.target;
   if(!form?.querySelectorAll)return;
   for(const input of form.querySelectorAll('input,textarea')){
