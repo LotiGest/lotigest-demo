@@ -160,3 +160,15 @@ body.lotigest-dark .contract-collection-pending .contract-collection-state{color
 .ct-void-section p{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
 body.lotigest-dark .ct-void-alert,body.lotigest-dark .ct-void-warning{background:#4a2731;color:#ffd7df;border-color:#8a4c59}
 body.lotigest-dark .ct-void-mismatch{color:#ffb7c3!important}
+
+/* Desbloqueo supervisado de solares en contratos anulados */
+.ct-void-release{border:1px solid var(--line);border-radius:11px;padding:14px;display:grid;gap:10px}
+.ct-void-release h4{font-size:15px;margin:0}
+.ct-void-release-row{padding:11px;border:1px solid var(--line);border-radius:9px;display:grid;gap:7px}
+.ct-void-release-row .btn{justify-self:start}
+.ct-void-protected{color:#a43b43;font-weight:650}
+.ct-void-released{color:#087b4c;font-weight:750}
+.ct-void-check{display:flex;gap:8px;align-items:center;font-size:13px;margin:13px 0}
+.ct-void-check input{width:18px;height:18px;flex:none}
+body.lotigest-dark .ct-void-protected{color:#ffb0ba}
+body.lotigest-dark .ct-void-released{color:#9defbf}
