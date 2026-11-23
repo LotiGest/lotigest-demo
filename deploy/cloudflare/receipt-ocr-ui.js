@@ -56,7 +56,6 @@ function receiptCorrelativoFeedback(input){
  if(input.setCustomValidity)input.setCustomValidity(error);
  input.setAttribute('aria-invalid',String(Boolean(error)));
  if(label){label.classList.toggle('pm-correlativo-duplicate',Boolean(error));label.classList.toggle('pm-correlativo-valid',Boolean(raw&&!error));}
- if(message)message.textContent=error||raw?'': '';
  if(message)message.textContent=error||(raw&&normalized!==null?'Correlativo para validar: '+normalized:'');
 }
 document.addEventListener('input',event=>{
