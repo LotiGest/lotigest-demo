@@ -230,3 +230,257 @@ body.lotigest-dark #modal-root .lg-multi-date-modal .md-last-empty{color:#b4cdbc
  #modal-root .lg-multi-date-modal .md-last-grid span:last-child{grid-column:1/-1}
  #modal-root .lg-multi-date-modal .md-last-payment{padding:11px 12px}
 }
+
+
+/* LOTIGEST PRO · Diseño aprobado del registro de varios abonos.
+   Historial menta, correlativo rojo, monto verde, filas plegables. */
+#modal-root .lg-multi-date-modal{
+ width:min(1120px,calc(100vw - 26px))!important;
+ max-width:1120px!important;
+ border-radius:17px!important;
+ background:#fff;
+}
+#modal-root .lg-multi-date-modal .modal-content{
+ padding:17px 22px!important;
+ max-height:calc(100dvh - 225px);
+}
+#modal-root .lg-multi-date-modal .md-client{
+ margin:9px 0 13px!important;
+ padding-bottom:10px;border-bottom:1px solid #e3eae5;
+ font-size:16px;font-weight:850;color:#333b35;
+}
+#modal-root .lg-multi-date-modal .md-client small{color:#6c7574;font-size:12px}
+#modal-root .lg-multi-date-modal .md-heading{
+ display:flex;justify-content:flex-end;margin-bottom:5px;
+}
+#modal-root .lg-multi-date-modal .md-heading h3{display:none!important}
+#modal-root .lg-multi-date-modal .md-choices{
+ display:flex!important;justify-content:flex-end;gap:5px!important;
+}
+#modal-root .lg-multi-date-modal .md-choices button{
+ font-size:11px;padding:6px 11px;min-height:29px;
+ border-radius:8px;background:#f7faf8;color:#3b6751;
+}
+#modal-root .lg-multi-date-modal .md-choices .selected{
+ background:#e0f5e6;color:#096737;border-color:#9ed0ac;
+}
+#modal-root .lg-multi-date-modal .md-note{
+ background:transparent;border:none!important;color:#6c8274;
+ font-size:11px;margin:0 0 5px;padding:0 2px;
+}
+#modal-root .lg-multi-date-modal .md-last-payment{
+ margin:13px 0 20px!important;
+ padding:16px 20px!important;
+ border:1px solid #b7e4c5!important;
+ border-radius:14px!important;
+ background:linear-gradient(110deg,#e3f8e8 0%,#e9faed 48%,#e0f6e6 100%)!important;
+ box-shadow:0 4px 14px #147d4211;
+ color:#154729;
+}
+#modal-root .lg-multi-date-modal .md-last-heading{
+ margin:0 0 14px!important;gap:10px!important;
+ display:flex;align-items:center;font-size:18px!important;
+ color:#064c2b!important;
+}
+#modal-root .lg-multi-date-modal .md-last-heading-icon{
+ display:grid;place-items:center;
+ width:38px;height:38px;flex:none;
+ border:1px solid #b5e6c0;border-radius:10px;
+ background:#d3f3db;color:#008d43;
+ box-shadow:0 3px 7px #14673516;font-size:24px;font-weight:850;
+}
+#modal-root .lg-multi-date-modal .md-last-grid{
+ display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+ gap:0!important;align-items:center;
+}
+#modal-root .lg-multi-date-modal .md-last-cell{
+ display:flex;align-items:center;gap:12px;min-width:0;
+ padding:4px 20px;
+ border-left:1px solid #b0dcbc;
+}
+#modal-root .lg-multi-date-modal .md-last-cell:first-child{
+ border-left:0;padding-left:6px;
+}
+#modal-root .lg-multi-date-modal .md-last-cell-icon{
+ display:grid;place-items:center;flex:none;
+ width:34px;height:34px;
+ border:1px solid #bae5c6;border-radius:10px;
+ background:#e8fff0;color:#0d9245;
+ font-weight:900;font-size:20px;
+}
+#modal-root .lg-multi-date-modal .md-last-cell-details{
+ display:flex;flex-direction:column;gap:4px;min-width:0;
+}
+#modal-root .lg-multi-date-modal .md-last-cell-details small{
+ display:block;color:#576f61;font-size:12px;font-weight:750;
+}
+#modal-root .lg-multi-date-modal .md-last-cell-details strong{
+ display:block;color:#263d32;font-size:clamp(14px,1.5vw,18px);
+ font-weight:900;overflow-wrap:anywhere;
+}
+#modal-root .lg-multi-date-modal .md-last-ref .md-last-cell-icon{
+ color:#d6203e;border-color:#ffc6ce;background:#fff0f1;
+ font-size:24px;
+}
+#modal-root .lg-multi-date-modal .md-last-ref .md-last-cell-details small,
+#modal-root .lg-multi-date-modal .md-last-ref .md-last-folio{
+ color:#cc1735!important;
+}
+#modal-root .lg-multi-date-modal .md-last-amount .md-last-money{
+ color:#006533!important;
+ font-size:clamp(18px,2.4vw,27px);letter-spacing:-.025em;
+}
+#modal-root .lg-multi-date-modal .md-last-empty{
+ display:block;margin:4px 2px;font-size:13px;color:#456753;
+}
+#modal-root .lg-multi-date-modal .md-last-description{
+ margin-top:13px;color:#4c6c58;font-size:12px;
+}
+/* Tarjetas de abonos similares a la maqueta aprobada. */
+#modal-root .lg-multi-date-modal .md-row{
+ margin:13px 0!important;
+ padding:0!important;overflow:hidden;
+ border:1px solid #d6dce0!important;
+ border-radius:13px!important;
+ box-shadow:0 2px 9px #112f2b0a!important;
+ background:#fbfcff!important;
+}
+#modal-root .lg-multi-date-modal .md-row-top{
+ display:flex;align-items:center;justify-content:space-between;
+ gap:10px;margin:0!important;padding:10px 15px;
+ min-height:46px;background:linear-gradient(180deg,#fff,#f9fafc);
+}
+#modal-root .lg-multi-date-modal .md-row-toggle{
+ display:inline-flex;align-items:center;gap:11px;
+ background:transparent;border:0;padding:4px 0;
+ color:#182e25;text-align:left;cursor:pointer;
+ min-width:0;
+}
+#modal-root .lg-multi-date-modal .md-row-toggle strong{
+ color:#1d2b26;font-size:18px;font-weight:850;
+}
+#modal-root .lg-multi-date-modal .md-row-icon{
+ display:grid;place-items:center;width:22px;height:25px;
+ color:#08a349;font-size:21px;flex:none;
+}
+#modal-root .lg-multi-date-modal .md-row-actions{
+ display:flex;align-items:center;gap:8px;flex:none;
+}
+#modal-root .lg-multi-date-modal .md-row-actions .md-manual-focus{
+ min-height:33px!important;
+ padding:5px 10px!important;
+ border:1px solid #a7d5b6!important;border-radius:9px;
+ background:#f3fbf6!important;color:#136b3a!important;
+ font-size:12px!important;
+}
+#modal-root .lg-multi-date-modal .md-row-actions .md-trash{
+ display:grid;place-items:center;width:31px;height:32px;
+ border:1px solid #f0d9dc;background:#fffafa;
+ border-radius:9px;color:#ba4051;font-size:16px;
+}
+#modal-root .lg-multi-date-modal .md-row-actions .md-trash:hover{
+ color:#a10a26;background:#ffe8eb;border-color:#e6a1ac;
+}
+#modal-root .lg-multi-date-modal .md-row-chevron{
+ display:grid;place-items:center;min-height:32px;min-width:32px;
+ border:0;background:transparent;color:#263d32;
+ font-size:26px;cursor:pointer;
+}
+#modal-root .lg-multi-date-modal .md-row-chevron:focus-visible,
+#modal-root .lg-multi-date-modal .md-row-toggle:focus-visible{
+ outline:2px solid #138946;outline-offset:3px;border-radius:6px;
+}
+#modal-root .lg-multi-date-modal .md-row-body{
+ padding:3px 17px 14px;border-top:1px solid #f1f3f5;
+}
+#modal-root .lg-multi-date-modal .md-row-body[hidden]{
+ display:none!important;
+}
+#modal-root .lg-multi-date-modal .md-row-collapsed{
+ background:#f8fafb!important;
+}
+#modal-root .lg-multi-date-modal .md-row-collapsed .md-row-top{
+ background:#f7f9fb;padding-top:10px;padding-bottom:10px;
+}
+#modal-root .lg-multi-date-modal .md-row-collapsed .md-manual-focus{
+ display:none!important;
+}
+#modal-root .lg-multi-date-modal .md-manual-head{
+ margin:0 0 10px;font-size:12px;color:#6d7880;
+}
+#modal-root .lg-multi-date-modal .md-ref-label{
+ font-weight:800;
+}
+#modal-root .lg-multi-date-modal .md-ref-line{
+ background:#fff!important;
+ border:1.5px solid #bccad2!important;
+}
+#modal-root .lg-multi-date-modal .md-ref-line:focus-within{
+ border-color:#c92743!important;
+ box-shadow:0 0 0 2px #e03a5322;
+}
+#modal-root .lg-multi-date-modal .md-ref-symbol{
+ background:#c9223b!important;
+}
+#modal-root .lg-multi-date-modal .md-photo-row{margin-top:10px!important}
+#modal-root .lg-multi-date-modal .md-add{
+ border-radius:10px;min-height:43px;
+ background:#f6fcf8;color:#0c6c36;
+}
+#modal-root .lg-multi-date-modal .modal-footer{
+ display:flex;justify-content:space-around;gap:15px;
+ background:#fff;padding:13px 20px;
+}
+#modal-root .lg-multi-date-modal .modal-footer>.btn{
+ flex:1 1 190px!important;border-radius:10px;
+ min-height:45px!important;
+}
+#modal-root .lg-multi-date-modal .modal-footer [data-md-save]{
+ color:#0c783d;border-color:#94c8a6;background:#f9fdfa;
+}
+/* No alterar la pantalla de recibos ya guardados. */
+body.lotigest-dark #modal-root .lg-multi-date-modal .md-last-ref .md-last-folio,
+body.lotigest-dark #modal-root .lg-multi-date-modal .md-last-ref small{
+ color:#ed536b!important;
+}
+body.lotigest-dark #modal-root .lg-multi-date-modal .md-row{
+ background:#20342a!important;border-color:#4e6957!important;
+}
+body.lotigest-dark #modal-root .lg-multi-date-modal .md-row-top{
+ background:#24392d;
+}
+body.lotigest-dark #modal-root .lg-multi-date-modal .md-row-toggle strong{
+ color:#f1fff5;
+}
+body.lotigest-dark #modal-root .lg-multi-date-modal .md-row-body{
+ border-top-color:#385543;
+}
+@media(max-width:690px){
+ #modal-root .lg-multi-date-modal{width:calc(100vw - 12px)!important}
+ #modal-root .lg-multi-date-modal .modal-content{padding:12px 13px!important;max-height:calc(100dvh - 255px)}
+ #modal-root .lg-multi-date-modal .md-last-payment{padding:12px!important}
+ #modal-root .lg-multi-date-modal .md-last-heading{font-size:15px!important}
+ #modal-root .lg-multi-date-modal .md-last-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  row-gap:12px!important;
+ }
+ #modal-root .lg-multi-date-modal .md-last-cell{padding:3px 8px;gap:7px}
+ #modal-root .lg-multi-date-modal .md-last-cell:first-child{padding-left:0}
+ #modal-root .lg-multi-date-modal .md-last-cell:nth-child(3){
+  border-left:0;grid-column:1/-1;padding-left:0;
+ }
+ #modal-root .lg-multi-date-modal .md-last-cell-icon{
+  width:29px;height:29px;font-size:17px;
+ }
+ #modal-root .lg-multi-date-modal .md-last-cell-details strong{font-size:14px}
+ #modal-root .lg-multi-date-modal .md-last-amount .md-last-money{font-size:21px}
+ #modal-root .lg-multi-date-modal .md-row-top{padding:8px 10px;gap:5px}
+ #modal-root .lg-multi-date-modal .md-row-toggle strong{font-size:16px}
+ #modal-root .lg-multi-date-modal .md-row-actions{gap:3px}
+ #modal-root .lg-multi-date-modal .md-row-actions .md-manual-focus{
+  min-height:31px!important;padding:4px 7px!important;font-size:11px!important;
+ }
+ #modal-root .lg-multi-date-modal .md-row-body{padding:4px 10px 12px}
+ #modal-root .lg-multi-date-modal .modal-footer{padding:10px}
+ #modal-root .lg-multi-date-modal .modal-footer>.btn{flex:1 1 100%!important}
+}
