@@ -27,10 +27,10 @@ function collectionPaymentRows(exportAllStages=false){
  for(const p of db.ownerPayments||[]){if(p.voidedAt)continue;for(const a of p.allocations||[])add(p,a.references||[],p.residenceId,p.clientId,'Abono',a.amountCents/100,p.concept||'');}
  return out.sort((a,b)=>String(a[0]).localeCompare(String(b[0]))||a[1].localeCompare(b[1]));
 }
-function paymentExcelBytes(rows,headers=null,additionalSheets=[]){
+function paymentExcelBytes(rows,headers=null,additionalSheets=[],mainSheetName='Primas y abonos'){
  const xml=s=>String(s??'').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
  const paymentHeaders=['Fecha','Cliente','Identidad','Residencial','Etapa','Bloque','Solar(es)','Tipo de pago','Monto (L)','Método','Recibo / Referencia','Observaciones','Mes del pago (fecha)','Mensualidad del recibo','Estado de vinculación'];
- const sheets=[...additionalSheets,{name:'Primas y abonos',rows:[headers||paymentHeaders,...rows]}];
+ const sheets=[...additionalSheets,{name:mainSheetName,rows:[headers||paymentHeaders,...rows]}];
  const column=n=>{let out='';for(n++;n;n=Math.floor((n-1)/26))out=String.fromCharCode(65+(n-1)%26)+out;return out;};
  const buildSheet=grid=>'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="'+grid[0].length+'" width="24" customWidth="1"/></cols><sheetData>'+grid.map((row,i)=>'<row r="'+(i+1)+'">'+row.map((v,j)=>'<c r="'+column(j)+(i+1)+'" '+(typeof v==='number'&&Number.isFinite(v)?'t="n"><v>'+v+'</v>':'t="inlineStr"><is><t xml:space="preserve">'+xml(v)+'</t></is>')+'</c>').join('')+'</row>').join('')+'</sheetData><autoFilter ref="A1:'+column(grid[0].length-1)+grid.length+'"/></worksheet>';
  const files={
@@ -190,9 +190,9 @@ const residentialFinanceForm=financeEntryForm;financeEntryForm=function(kind,id=
 const residentialRender=render;render=function(){residentialRender();for(const selector of ['#debt-residence','[data-finance-filter="residenceId"]']){const select=document.querySelector(selector);if(select){for(const o of [...select.options])if(o.value!==residence().id)o.remove();select.value=residence().id;}}};
 
 let excelDownloadUrl=null;
-function downloadExcel(name,headers,rows,additionalSheets=[]){
+function downloadExcel(name,headers,rows,additionalSheets=[],mainSheetName='Primas y abonos'){
  try{
-  const bytes=paymentExcelBytes(rows,headers,additionalSheets),mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',blob=new Blob([bytes],{type:mime});
+  const bytes=paymentExcelBytes(rows,headers,additionalSheets,mainSheetName),mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',blob=new Blob([bytes],{type:mime});
   if(excelDownloadUrl)URL.revokeObjectURL?.(excelDownloadUrl);
   document.querySelector('#excel-download-ready')?.remove();excelDownloadUrl=URL.createObjectURL(blob);
   const box=document.createElement('aside');box.id='excel-download-ready';box.setAttribute('role','status');box.style.cssText='position:fixed;bottom:16px;left:16px;right:16px;max-width:560px;z-index:25000;background:white;color:#164532;border:2px solid #164532;border-radius:12px;padding:16px;box-shadow:0 4px 24px #0004';

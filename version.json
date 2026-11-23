@@ -1,4 +1,4 @@
 {
-  "version": "0.22.60",
-  "notes": "LOTIGEST PRO: al pulsar Enter en formularios, avanza a la siguiente casilla visible sin guardar automáticamente; funciona en captura de clientes, contratos, terrenos, pagos y otros módulos. Shift+Enter conserva salto de línea en observaciones. Se respetan Enter de búsqueda, Abonos varios, desplegables e inicio de sesión; se explica en Configuración de atajos."
+  "version": "0.22.61",
+  "notes": "LOTIGEST PRO: nuevo panel de Finanzas y utilidad con ingresos acumulados, gráfica conjunta de ingresos y egresos, filtros por residencial y período, y libro diario mensual descargable en PDF y Excel con saldo inicial, entradas, salidas y saldo final. Los movimientos anulados quedan excluidos de los totales."
 }
