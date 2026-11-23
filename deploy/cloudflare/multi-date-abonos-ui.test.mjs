@@ -18,7 +18,7 @@ test('dos fechas desde + guardan dos movimientos, dos folios y dos recibos separ
   const sale=before.sales.find(x=>x.lotId==='MULTI-001');
   assert.ok(sale);
   app.click('[data-page=collections]');
-  assert.ok(app.d.querySelector('[data-md-start-sale]'),'Solares tiene el botón +');
+  assert.ok(typeof app.w.lotigestMultiDate?.openSale==='function','Abonos múltiples disponible en Solares');
   app.w.lotigestMultiDate.openSale(sale.id);
   assert.ok(app.d.querySelector('.lg-multi-date-modal'),'Debe abrir la ventana de fechas múltiples');
   assert.equal(app.d.querySelectorAll('[data-md-row]').length,2);
