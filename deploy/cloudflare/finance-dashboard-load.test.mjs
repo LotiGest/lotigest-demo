@@ -11,8 +11,8 @@ test('compilación completa abre finanzas y genera XLSX real y PDF descargables'
   app.w.URL.createObjectURL=b=>{blob=b;return 'blob:finance-test';};app.d.addEventListener('click',e=>{if(e.target.closest('a[download]'))e.preventDefault();});
   app.click('[data-fn-excel]');assert.ok(blob);assert.equal(blob.type,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   const sheets=await app.w.eval('readExcelRows')({arrayBuffer:()=>blob.arrayBuffer()});assert.equal(sheets[0].sheet,'Libro diario');
-  assert.deepEqual(Array.from(sheets[0].rows[0]),['Fecha','Concepto','Cliente / beneficiario','Residencial','Referencia','Ingreso (L)','Egreso (L)','Saldo (L)']);
+  assert.deepEqual(Array.from(sheets[0].rows[0]),['Fecha','Concepto','Cliente / beneficiario','Residencial','Correlativo','Ingreso (L)','Egreso (L)','Saldo (L)']);
   blob=null;app.click('[data-fn-pdf]');assert.ok(blob);assert.equal(blob.type,'application/pdf');
-  assert.ok(Buffer.from(await blob.arrayBuffer()).toString('latin1').includes('LIBRO DIARIO MENSUAL'));assert.deepEqual(server.errors,[]);
+  assert.ok(Buffer.from(await blob.arrayBuffer()).toString('latin1').includes('LIBRO DIARIO DIGITAL'));assert.deepEqual(server.errors,[]);
  }finally{app.close();}
 });
