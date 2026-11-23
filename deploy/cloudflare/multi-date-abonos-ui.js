@@ -10,11 +10,11 @@
  const mdMonths=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
  function mdDateISO(raw){
   const text=String(raw??'').trim().replace(/\s+/g,' ');
-  const clean=text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\./g,'');
+  const clean=text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   let year,month,day,m=clean.match(/^(20\d{2})[-/](\d{1,2})[-/](\d{1,2})$/);
   if(m){year=+m[1];month=+m[2];day=+m[3];}
   else if((m=clean.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](20\d{2})$/))){day=+m[1];month=+m[2];year=+m[3];}
-  else if((m=clean.match(/^(\d{1,2})\s+(?:de\s+)?([a-z]+)\s+(?:de\s+)?(20\d{2})$/))){
+  else if((m=clean.match(/^(\d{1,2})\s+(?:de\s+)?([a-z]+)\.?\s+(?:de\s+)?(20\d{2})$/))){
    const names=mdMonths.map(s=>s.toLowerCase());
    const full=names.findIndex(n=>n===m[2]);
    const shortened=names.findIndex(n=>n.startsWith(m[2])&&m[2].length>=3);
