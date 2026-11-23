@@ -128,7 +128,7 @@ function ocrContinue(){
    const form=$('#multi-payment-form');if(!form)return setError('No se abrió el formulario de ventas.');
    if(form.elements.date)form.elements.date.value=d.date;
    if(form.elements.method)form.elements.method.value=method;
-   if(form.elements.receiptRef)form.elements.receiptRef.value=d.reference;
+   if(form.elements.receiptRef){form.elements.receiptRef.value=d.reference;form.elements.receiptRef.dispatchEvent(new Event('input',{bubbles:true}));}
    if(form.elements.concept)form.elements.concept.value='Abono respaldado por recibo OCR';
    if(paymentDraft?.amounts&&Number(d.amount)<=balance(sale)){paymentDraft.amounts[sale.id]=d.amount;renderPaymentSelected();}
    else toast('Monto mayor que el saldo de la venta: corrígelo antes de guardar.','error');
@@ -139,7 +139,7 @@ function ocrContinue(){
  const form=manual||owner;if(!form)return setError('Revisa las fichas o ventas de este cliente antes de abonar.');
  if(form.elements.date)form.elements.date.value=d.date;
  if(form.elements.method)form.elements.method.value=method;
- if(form.elements.receiptRef)form.elements.receiptRef.value=d.reference;
+ if(form.elements.receiptRef){form.elements.receiptRef.value=d.reference;form.elements.receiptRef.dispatchEvent(new Event('input',{bubbles:true}));}
  if(manual){
    if(form.elements.amount)form.elements.amount.value=d.amount;
    for(const cb of form.querySelectorAll('[data-manual-lot]'))cb.checked=d.selectedLotIds.includes(cb.value);

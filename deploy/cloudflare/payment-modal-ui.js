@@ -181,9 +181,9 @@ function pmFields(grid,form){
   wrapper.append(date,help,today);fields.append(wrapper);
  }
  const slot=pmNode('div','pm-slot');slot.id='pm-amount-slot';fields.append(slot);
+ if(ref){ref.classList.add('pm-span-2');fields.append(ref);}
  const apply=pmNode('div','pm-field pm-span-2');apply.innerHTML='<label for="pm-apply">Aplicar a:</label><select id="pm-apply" aria-label="Aplicación automática del abono"><option value="auto">Según deuda pendiente (automático)</option></select><p class="pm-help">Primero prima pendiente; después, cuotas más antiguas. El sistema no cambiará el orden.</p>';
  fields.append(apply);
- if(ref){ref.classList.add('pm-span-2');fields.append(ref);}
  if(concept){concept.classList.add('pm-span-2');const input=concept.querySelector('input,textarea');if(input)input.placeholder='Ej. Abono correspondiente a noviembre de 2026';fields.append(concept);}
  grid.remove();return fields;
 }

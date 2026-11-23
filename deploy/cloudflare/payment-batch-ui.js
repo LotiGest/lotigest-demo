@@ -83,12 +83,14 @@ submitMultiPayment=function(form){
  try{
   if(!paymentDraft||!form?.isConnected)throw Error('Abre nuevamente el formulario de abonos.');
   const draft=paymentDraft,d=Object.fromEntries(new FormData(form)),rows=planMultiPayment(draft,d);
+  const originalRef=String(d.receiptRef||'').trim(),normalizedRef=lotigestOwnerPayments.requireReceiptCorrelativo(originalRef);
+  if(lotigestOwnerPayments.findReceiptCorrelativo(db,originalRef))throw Error('El correlativo '+normalizedRef+' ya está registrado en otro pago.');
   if(JSON.stringify(db)!==draft.snapshot||localStorage.getItem(STORAGE)!==draft.stored)
    throw Error('Los datos cambiaron. Abre Registrar pago nuevamente para evitar duplicados.');
   const reference=uid('RC'),next=JSON.parse(JSON.stringify(db)),stamp=new Date().toISOString();
   const payments=rows.map((r,i)=>({...r,id:reference+'-'+(i+1),groupId:reference,date:d.date,
    concept:String(d.concept||'Abono').trim().slice(0,300),
-   method:String(d.method||'').trim().slice(0,80),recordedAt:stamp}));
+   method:String(d.method||'').trim().slice(0,80),receiptReference:originalRef,receiptReferenceNormalized:normalizedRef,recordedAt:stamp}));
   for(const payment of payments)payment.receiptInfo=buildReceiptInfo(payment,paidAmount(payment.saleId));
   next.payments.unshift(...payments);
   // Primero registrar en cola D1; si falla, no cambiar db ni dar un recibo inexistente.
@@ -100,6 +102,7 @@ submitMultiPayment=function(form){
    .filter(id=>{const sale=getSale(id);return sale&&balance(sale)>.009;}).map(id=>[id,'']));
   paymentDraft=draft;
   form.elements.date.value=businessToday();
+  if(form.elements.receiptRef){form.elements.receiptRef.value='';form.elements.receiptRef.dispatchEvent(new Event('input',{bubbles:true}));}
   if(form.elements.concept)form.elements.concept.value='Abono a crédito';
   if(error)error.textContent='';
   pmBatchRemember('sale',draft.clientId,draft.residenceId,payments[0].id,reference,d.date,
