@@ -243,21 +243,34 @@ function pmAssignedSales(clientId){
 }
 function pmRenderAssignedLots(tags,clientId){
  tags.replaceChildren();
- const assigned=pmAssignedSales(clientId);
- for(const sale of assigned){
-  const lot=getLot(sale.lotId),selected=Object.hasOwn(paymentDraft.amounts,sale.id);
-  const label='Etapa '+(lot?.stage||'por confirmar')+' · Bloque '+(lot?.block||'—')+' · Solar '+(lot?.sourceNumber||lot?.number||lot?.id||'—');
-  const tag=pmBadge(label+' '),button=pmNode('button',selected?'pm-remove-lot':'btn btn-outline btn-sm',selected?'×':'Agregar al abono');
-  button.type='button';button.dataset.action=selected?'multi-payment-remove':'multi-payment-add';button.dataset.id=sale.id;
-  button.title=selected?'Quitar solar del recibo':'Incluir solar en este recibo';
-  button.setAttribute('aria-label',(selected?'Quitar del recibo: ':'Agregar al abono: ')+label);
-  tag.append(button);tags.append(tag);
+ for(const sale of pmAssignedSales(clientId)){
+  const lot=getLot(sale.lotId);
+  tags.append(pmBadge('Etapa '+(lot?.stage||'por confirmar')+' · Bloque '+(lot?.block||'—')+' · Solar '+(lot?.sourceNumber||lot?.number||lot?.id||'—')));
  }
- if(!assigned.length)tags.append(pmNode('small','','Busca y selecciona un terreno con saldo'));
+}
+function pmIncludeClientSales(){
+ if(!paymentDraft?.clientId)return;
+ for(const sale of pmAssignedSales(paymentDraft.clientId))paymentDraft.amounts[sale.id]??='';
+}
+function pmApplyClientTotal(raw){
+ const total=String(raw??'').replace(/,/g,'').trim(),sales=pmSales();
+ try{
+  const rows=total?splitClientPayment(db,sales.map(s=>s.id),Math.round(Number(total)*100)):[];
+  const amounts=new Map(rows.map(r=>[r.saleId,String(r.amount)]));
+  for(const sale of sales)paymentDraft.amounts[sale.id]=amounts.get(sale.id)||'';
+  for(const input of document.querySelectorAll('[data-payment-amount]'))input.value=paymentDraft.amounts[input.dataset.paymentAmount]||'';
+  updateMultiPaymentTotal();
+  const error=document.getElementById('multi-payment-error');if(error)error.textContent='';
+ }catch(e){
+  for(const sale of sales)paymentDraft.amounts[sale.id]='';
+  for(const input of document.querySelectorAll('[data-payment-amount]'))input.value='';
+  const error=document.getElementById('multi-payment-error');if(error)error.textContent=e.message;
+ }
 }
 function pmRepaintSales(){
  const form=document.querySelector('#multi-payment-form');
  if(!form||pmActive!=='sale'||!form.closest('.lg-payment-modern'))return;
+ pmIncludeClientSales();
  const sales=pmSales(),single=sales.length===1,client=sales.length?getClient(sales[0].clientId):null;
  const name=document.getElementById('pm-client-name'),identity=document.getElementById('pm-client-id'),tags=document.getElementById('pm-lot-tags');
  if(name)name.textContent=client?.name||'Selecciona un cliente';
@@ -296,7 +309,16 @@ function pmRepaintSales(){
   if(single){
    const label=selected?.querySelector('label:has([data-payment-amount])');
    if(label){label.firstChild.textContent='Monto a abonar (L) *';slot.append(label);}
-  }else slot.append(pmNode('p','pm-help',sales.length?'Ingresa el importe por cada solar en la distribución de abajo.':'Selecciona un terreno para ingresar un pago.'));
+  }else if(sales.length){
+   const label=pmNode('label','','Monto total del abono (L) *'),input=pmNode('input');
+   input.type='number';input.min='0.01';input.step='0.01';input.required=true;input.id='pm-client-total';
+   const total=Object.values(paymentDraft.amounts).reduce((n,a)=>n+Number(a||0),0);input.value=total?String(total):'';
+   input.addEventListener('input',()=>pmApplyClientTotal(input.value));label.append(input);slot.append(label);
+   slot.append(pmNode('p','pm-help','Se reparte automáticamente según la cuota de cada solar.'));
+   // Mantener los controles originales para el guardado, sin pedir un importe por solar.
+   if(selected)for(const input of selected.querySelectorAll('[data-payment-amount]')){input.readOnly=true;input.required=false;}
+   if(selected)for(const input of selected.querySelectorAll('[data-pm-currency]'))input.required=false;
+  }else slot.append(pmNode('p','pm-help','Selecciona un cliente para ingresar un pago.'));
  }
  const application=document.getElementById('pm-apply');
  if(application){
@@ -304,7 +326,7 @@ function pmRepaintSales(){
   application.options[0].textContent=primaFaltante>.009?'Prima pendiente y después mensual (automático)':'Abono mensual (automático)';
  }
  const distribution=document.getElementById('pm-distribution');
- if(distribution)distribution.hidden=sales.length<2;
+ if(distribution)distribution.hidden=true;
  const calendar=document.getElementById('pm-calendar-body');if(calendar)pmCalendar(calendar,sales);
 }
 function pmSalesDecorate(){
@@ -428,8 +450,20 @@ showModal=function(title,content,footer='',wide=false,subtitle=''){
  return result;
 };
 choosePaymentMode=function(){newPayment(null,false);};
+const pmPreviousPaymentResults=renderPaymentResults;
+renderPaymentResults=function(){
+ const result=pmPreviousPaymentResults(),root=document.getElementById('multi-payment-results');
+ if(!root||!paymentDraft)return result;
+ const seen=new Set();
+ for(const button of root.querySelectorAll('[data-action="multi-payment-add"]')){
+  const sale=getSale(button.dataset.id);if(!sale)continue;
+  if(seen.has(sale.clientId)){button.remove();continue;}
+  seen.add(sale.clientId);button.textContent=getClient(sale.clientId)?.name||'Cliente';
+ }
+ return result;
+};
 const pmOriginalSelected=renderPaymentSelected;
-renderPaymentSelected=function(){const ret=pmOriginalSelected();if(pmActive==='sale')pmRepaintSales();return ret;};
+renderPaymentSelected=function(){pmIncludeClientSales();const ret=pmOriginalSelected();if(pmActive==='sale')pmRepaintSales();return ret;};
 const pmOriginalReceiptPreview=paymentReceiptPreview;
 paymentReceiptPreview=function(id){if(pmSaveOnly){pmSaveOnly=false;return;}return pmOriginalReceiptPreview(id);};
 const pmOriginalOwnerPreview=ownerPaymentPreview;

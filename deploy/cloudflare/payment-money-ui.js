@@ -25,7 +25,7 @@ function pmLempiraFormat(raw){
 function pmMoneyDecorate(){
  const modal=document.querySelector('#modal-root .lg-payment-modern');
  if(!modal)return;
- const targets=[...modal.querySelectorAll('#multi-payment-form [data-payment-amount],#owner-abono-form [data-owner-statement],#manual-history-form [name="amount"]')];
+ const targets=[...modal.querySelectorAll('#multi-payment-form [data-payment-amount],#multi-payment-form #pm-client-total,#owner-abono-form [data-owner-statement],#manual-history-form [name="amount"]')];
  for(const native of targets){
   if(native.dataset.pmCurrencyPrepared==='yes')continue;
   native.dataset.pmCurrencyPrepared='yes';

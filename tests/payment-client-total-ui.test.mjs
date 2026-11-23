@@ -1,0 +1,24 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {JSDOM} from 'jsdom';
+import {splitClientPayment} from '../monthly-payment-rules.mjs';
+const source=readFileSync(new URL('../deploy/cloudflare/payment-modal-ui.js',import.meta.url),'utf8');
+const helpers=source.slice(source.indexOf('function pmAssignedSales('),source.indexOf('function pmSalesDecorate('));
+test('abono normal incluye los 2 solares, un total y ningún botón Agregar',()=>{
+ const dom=new JSDOM('<div class="lg-payment-modern"><form id="multi-payment-form"><div id="pm-lot-tags"></div><div id="pm-amount-slot"></div><div id="multi-payment-selected"></div><div id="multi-payment-error"></div></form></div>');
+ const document=dom.window.document,paymentDraft={clientId:'C',residenceId:'R',amounts:{S2:''}};
+ const db={lots:[{id:'L1',residenceId:'R',stage:1,block:'Comerciales',sourceNumber:'1'},{id:'L2',residenceId:'R',stage:1,block:'Comerciales',sourceNumber:'2'}],sales:[{id:'S1',clientId:'C',lotId:'L1',type:'credit',price:100000,downPayment:10000,months:12,openingPaid:10000},{id:'S2',clientId:'C',lotId:'L2',type:'credit',price:200000,downPayment:20000,months:12,openingPaid:20000}],payments:[]};
+ const node=(tag,cls='',text='')=>{const el=document.createElement(tag);el.className=cls;el.textContent=text;return el;};
+ const env={db,document,paymentDraft,pmActive:'sale',pmSales:()=>db.sales.filter(s=>Object.hasOwn(paymentDraft.amounts,s.id)),paymentCandidates:()=>db.sales,getLot:id=>db.lots.find(l=>l.id===id),getClient:()=>({id:'C',name:'DELMI'}),pmBadge:text=>node('span','pm-tag',text),pmNode:node,splitClientPayment,pmUpdateLastPayment:()=>{},residence:()=>({id:'R'}),updateMultiPaymentTotal:()=>{}};
+ const api=new Function(...Object.keys(env),helpers+';return {pmIncludeClientSales,pmRepaintSales};')(...Object.values(env));
+ try{
+  const before=JSON.stringify(db);api.pmIncludeClientSales();
+  assert.deepEqual(Object.keys(paymentDraft.amounts).sort(),['S1','S2']);
+  document.getElementById('multi-payment-selected').innerHTML='<label>Monto<input data-payment-amount="S1"></label><label>Monto<input data-payment-amount="S2"></label>';
+  api.pmRepaintSales();assert.equal(document.querySelectorAll('.pm-tag').length,2);assert.equal(document.querySelectorAll('.pm-tag button').length,0);
+  const total=document.getElementById('pm-client-total');assert.ok(total);total.value='30000';total.dispatchEvent(new dom.window.Event('input'));
+  assert.equal(paymentDraft.amounts.S1,'10000');assert.equal(paymentDraft.amounts.S2,'20000');assert.equal(JSON.stringify(db),before);
+  total.value='9999999';total.dispatchEvent(new dom.window.Event('input'));assert.match(document.getElementById('multi-payment-error').textContent,/supera/);assert.equal(paymentDraft.amounts.S1,'');
+ }finally{dom.window.close();}
+});
