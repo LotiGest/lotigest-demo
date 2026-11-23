@@ -276,3 +276,70 @@ body.lotigest-dark #modal-root .lg-contract-modern .lg-contract-payment-row>stro
   width:33px;height:33px;min-width:33px;
  }
 }
+
+
+/* Editor integrado de ficha del cliente desde Nuevo contrato. */
+#modal-root .lg-contract-modern .lg-contract-client-heading{
+ display:flex;align-items:center;justify-content:space-between;gap:9px;
+ margin:0 0 7px;min-width:0;clear:both;
+}
+#modal-root .lg-contract-modern .lg-contract-client-title{
+ font-size:14px;font-weight:800;color:var(--lgc-ink);min-width:0;
+}
+#modal-root .lg-contract-modern .lg-contract-client-pencil{
+ display:grid;place-items:center;flex:none;
+ width:34px;height:34px;min-width:34px;
+ padding:6px;border:1px solid #79b994;
+ border-radius:9px;background:#ecf9f0;color:#087b42;
+ cursor:pointer;box-shadow:none;
+}
+#modal-root .lg-contract-modern .lg-contract-client-pencil:hover{
+ background:#d8f2e1;border-color:#359561;
+}
+#modal-root .lg-contract-modern .lg-contract-client-pencil:focus-visible{
+ outline:2px solid #087b42;outline-offset:2px;
+}
+#modal-root .lg-contract-modern .lg-contract-client-pencil svg{pointer-events:none}
+#modal-root .lg-contract-modern .lg-contract-client-editor{
+ margin-top:13px;padding:13px;background:#fff;
+ border:1px solid #b9dbc6;border-radius:12px;
+ color:#1c3f2b;clear:both;
+}
+#modal-root .lg-contract-modern .lg-contract-client-editor>p{
+ color:#43654f;font-size:12px;margin:0 0 11px;
+}
+#modal-root .lg-contract-modern .lg-contract-client-edit-grid{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;
+}
+#modal-root .lg-contract-modern .lg-contract-client-edit-field{
+ display:block;font-size:12px;font-weight:750;color:#284a36;min-width:0;
+}
+#modal-root .lg-contract-modern .lg-contract-client-edit-field>span{
+ display:block;margin-bottom:5px;
+}
+#modal-root .lg-contract-modern .lg-contract-client-edit-field input{
+ width:100%;box-sizing:border-box;min-width:0;min-height:43px;
+ border:1px solid #b7ccc0;border-radius:8px;
+ background:#fff;color:#173828;padding:9px 11px;font-size:14px;
+}
+#modal-root .lg-contract-modern .lg-contract-client-edit-field input:focus{
+ outline:2px solid #61b984;outline-offset:1px;
+}
+#modal-root .lg-contract-modern .lg-contract-client-edit-error{
+ color:#b21f39;font-size:12px;font-weight:700;min-height:0;margin:8px 0;
+}
+#modal-root .lg-contract-modern .lg-contract-client-edit-actions{
+ display:flex;flex-wrap:wrap;gap:9px;justify-content:flex-end;
+}
+#modal-root .lg-contract-modern .lg-contract-client-edit-actions .btn{
+ min-height:43px;
+}
+@media(max-width:600px){
+ #modal-root .lg-contract-modern .lg-contract-client-edit-grid{
+  grid-template-columns:minmax(0,1fr);
+ }
+ #modal-root .lg-contract-modern .lg-contract-client-editor{padding:10px}
+ #modal-root .lg-contract-modern .lg-contract-client-edit-actions .btn{
+  flex:1 1 130px;
+ }
+}
