@@ -291,7 +291,7 @@ function pmSalesDecorate(){
  const main=pmNode('div','pm-grid');
  const summary=pmCard('Resumen del contrato','layers');summary.body.id='pm-summary';
  const entry=pmCard('Registrar nuevo pago','wallet');entry.body.append(fields);
- if(ocr)entry.body.append(ocr);
+ if(ocr)shell.append(ocr);
  if(total){total.style.display='none';entry.body.append(total);}
  const dist=pmNode('div','pm-distribution');dist.id='pm-distribution';dist.append(pmNode('h4','','Distribución del abono por solar'));selected.classList.add('pm-selected');dist.append(selected);entry.body.append(dist);
  if(error){error.classList.add('pm-error');entry.body.append(error);}
@@ -345,7 +345,7 @@ function pmOwnerDecorate(){
  right.body.append(fields);
  if(total){total.classList.add('pm-summary-row','pm-good');right.body.append(total);}
  const distribution=pmNode('div','pm-owner-allocations');distribution.append(refs);right.body.append(distribution);
- if(ocr)right.body.append(ocr);
+ if(ocr)shell.append(ocr);
  if(confirm)right.body.append(confirm);
  if(error){error.classList.add('pm-error');right.body.append(error);}
  main.append(left.card,right.card);shell.append(main);
