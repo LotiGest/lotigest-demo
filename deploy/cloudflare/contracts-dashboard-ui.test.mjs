@@ -14,8 +14,9 @@ function boot(){
  const documents=[{id:'D1',residenceId:'R',clientId:'C1',lotId:'L1',status:'pending-sale',format:'manual',createdAt:'2026-11-01',structured:{price:90000}},
   {id:'D2',residenceId:'R',clientId:'C2',lotId:'L2',status:'active',format:'photo+ocr',createdAt:'2026-11-02',structured:{price:110000}}];
  const sales=[{id:'S1',clientId:'C2',lotId:'L3',price:95000,date:'2026-11-03'}];
- const reports=[];
+ const reports=[],dialogs=[];
  w.db={clients,lots,sales,contractTexts:documents,residences:[{id:'R',name:'Altos del Arrayán'},{id:'R2',name:'Nueva residencial'}]};
+ w.showModal=(...args)=>dialogs.push(args);
  w.getClient=id=>clients.find(c=>c.id===id);
  w.getLot=id=>lots.find(l=>l.id===id);
  w.getSale=id=>sales.find(s=>s.id===id);
@@ -31,7 +32,7 @@ function boot(){
  w.render=()=>{w.document.body.innerHTML='<div id="app" class="lotigest-shell"><header class="lg-topbar"><div class="lg-top-title"><span>GRUPO H / LOTIGEST</span><strong>'+w.page+'</strong></div><div class="lg-top-tools"></div></header><main class="workspace-inner">'+(w.page==='contracts'?w.contractsPage():'<h1>Clientes</h1>')+'</main></div>';};
  w.document.addEventListener('change',event=>{if(event.target.matches('[data-residence-picker]')){currentResidence=event.target.value;w.render();}});
  w.eval(code);w.render();
- return {w,reports,close:()=>w.close()};
+ return {w,reports,dialogs,close:()=>w.close()};
 }
 function select(w,id,v){
  const field=w.document.getElementById(id);
@@ -105,5 +106,64 @@ test('Contratos: cabecera única mueve residencial, crear, imprimir y exportar a
   assert.equal(rows(w).length,0,'Cambiar residencial actualiza las fichas visibles');
   w.page='clients';w.render();
   assert.equal(w.document.querySelector('.ct-topbar'),null,'No altera las demás páginas');
+ }finally{close();}
+});
+
+
+test('Al tocar Anulados se filtra la lista, sin ocultarla por búsquedas anteriores',()=>{
+ const {w,close}=boot();
+ try{
+  w.db.contractTexts.push({id:'AN1',residenceId:'R',clientId:'C1',lotId:'L1',status:'voided',
+   voidedAt:'2026-11-23T18:30:00Z',voidReason:'Número incorrecto de solar',
+   structured:{date:'2026-11-20',stage:1,block:'I',number:'2',price:190000,down:20000}});
+  w.render();
+  select(w,'ct-stage','2');
+  select(w,'ct-solar','3');
+  w.document.getElementById('ct-query').value='Luis';
+  w.document.getElementById('ct-query').dispatchEvent(new w.Event('input',{bubbles:true}));
+  w.document.querySelector('[data-ct-show-voided]').click();
+  assert.equal(w.document.getElementById('ct-status').value,'voided');
+  assert.equal(w.document.querySelector('[data-ct-show-voided]').getAttribute('aria-pressed'),'true');
+  assert.equal(rows(w).length,1);
+  assert.match(rows(w)[0],/AN1/);
+  assert.match(rows(w)[0],/Solar 2/);
+  assert.match(rows(w)[0],/Revisar diferencia/);
+  assert.ok(w.document.querySelector('[data-ct-voided-view="AN1"]'));
+  assert.equal(w.document.querySelector('[data-contract-edit="AN1"]'),null);
+  w.document.querySelector('[data-ct-show-voided]').click();
+  assert.equal(w.document.getElementById('ct-status').value,'all');
+ }finally{close();}
+});
+test('Ver anulación revela motivo y ambas ubicaciones en solo lectura sin cambiar datos',()=>{
+ const {w,dialogs,close}=boot();
+ try{
+  w.db.contractTexts.push({id:'AN2',residenceId:'R',clientId:'C1',lotId:'L1',status:'voided',
+   voidedAt:'2026-11-23T18:30:00Z',voidedBy:'Administrador',
+   voidReason:'Debía ser solar 2 y quedó vinculado el solar 3',
+   structured:{stage:1,block:'I',number:'2',date:'2026-11-22',price:199000,down:30000}});
+  w.render();
+  const initial=JSON.stringify(w.db);
+  w.document.querySelector('[data-ct-show-voided]').click();
+  w.document.querySelector('[data-ct-voided-view="AN2"]').click();
+  assert.equal(dialogs.length,1);
+  assert.match(dialogs[0][0],/Consultar contrato anulado/);
+  assert.match(dialogs[0][1],/Debía ser solar 2/);
+  assert.match(dialogs[0][1],/Solar 3/);
+  assert.match(dialogs[0][1],/Solar 2/);
+  assert.match(dialogs[0][1],/no coincide/);
+  assert.doesNotMatch(dialogs[0][1],/data-contract-edit|data-contract-delete/);
+  assert.equal(JSON.stringify(w.db),initial);
+ }finally{close();}
+});
+test('No permite abrir contratos anulados de otra residencial',()=>{
+ const {w,dialogs,close}=boot();
+ try{
+  w.db.contractTexts.push({id:'AN-OTRO',residenceId:'R2',clientId:'C1',lotId:'L1',status:'voided',
+   structured:{number:'2'}});
+  w.render();
+  const button=w.document.querySelector('[data-ct-show-voided]');
+  button.click();
+  assert.equal(rows(w).length,0);
+  assert.equal(dialogs.length,0);
  }finally{close();}
 });
