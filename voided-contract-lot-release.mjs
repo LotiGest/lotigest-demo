@@ -22,7 +22,9 @@ export function auditVoidedContractSolarRelease(state,documentId,lotId,residence
   reasons.push('El terreno es privado o figura vendido en el plano original.');
  if(!['available','sold','reserved'].includes(lot.status))reasons.push('Estado del solar no reconocido; requiere revisión.');
  if(lot.mapDebtFlag)reasons.push('Hay una alerta de mora o deuda.');
- if((state.sales||[]).some(s=>s.lotId===lot.id||s.id===doc.saleId))
+ if(doc.saleId)
+  reasons.push('Esta ficha contiene una referencia de venta; debe revisarse antes de liberar.');
+ if((state.sales||[]).some(s=>s.lotId===lot.id))
   reasons.push('Existe una venta registrada; no es posible liberar este terreno.');
  const mentions=d=>d.lotId===lot.id||(d.contractLotIds||[]).includes(lot.id)||
   saleById.get(d.saleId)?.lotId===lot.id;
