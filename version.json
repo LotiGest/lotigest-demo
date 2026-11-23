@@ -1,4 +1,4 @@
 {
-  "version": "0.22.68",
-  "notes": "LOTIGEST PRO: en Terrenos y Predios permite quitar al propietario asignado por error desde la ficha del solar; libera solares marcados Comprado solo si no existen ventas, contratos, reservas ni pagos y conserva auditoría, respaldo y demás datos."
+  "version": "0.22.69",
+  "notes": "LOTIGEST PRO: solo cinco parcelas comerciales faltantes en etapa 2, basadas en el plano 'altos 2 etapa impresion.pdf' (647, 962, 970, 998, 969 m²). Conserva todos los solares previos, la calle de acceso y las carreteras, con la alineación GPS existente. Marcadas como propiedad privada mientras se confirma su clasificación comercial; no se crean ventas ni propietarios."
 }
