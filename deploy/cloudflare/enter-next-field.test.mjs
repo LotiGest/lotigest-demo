@@ -88,6 +88,21 @@ test('el botón de guardar, casillas radio y entradas técnicas no son afectadas
  assert.equal(x.key(textbox).defaultPrevented,true);
  assert.ok(x.window.lotigestEnterNext.installed);
 });
+test('inicio de sesión conserva Enter para ingresar al terminar la contraseña',()=>{
+ const x=env();x.scope.matches=sel=>sel==='#login-form';
+ const user=x.field('usuario'),pass=x.field('contrasena',{type:'password'});
+ assert.equal(x.key(user).defaultPrevented,true);
+ assert.equal(x.focus(),'contrasena');
+ assert.equal(x.key(pass).defaultPrevented,false,'La contraseña final puede enviar el login');
+});
+test('no salta a otro formulario al llegar a la última casilla',()=>{
+ const x=env(),first=x.field('primer-formulario'),other=x.field('segundo-formulario');
+ x.scope.fields=[first];
+ const secondScope={querySelectorAll:()=>[other],contains:()=>true};
+ other.closest=sel=>sel==='form'?secondScope:null;
+ assert.equal(x.key(first).defaultPrevented,true);
+ assert.equal(x.focus(),null,'No cambia a campos de otro formulario');
+});
 test('script se integra al compilador al final, después de Abonos varios y atajos',()=>{
  const md=build.indexOf("'./multi-date-abonos-ui.js'");
  const shortcuts=build.indexOf("'./shortcut-settings-ui.js'");
