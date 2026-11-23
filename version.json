@@ -1,4 +1,4 @@
 {
-  "version": "0.22.67",
-  "notes": "LOTIGEST PRO: formato global de montos al escribir con separadores de miles y dos decimales al salir, resaltados en verde. Correlativos resaltados en rojo sin separadores y conservando ceros iniciales. Aplica a contratos, primas, abonos, ventas, gastos y formularios dinámicos; los datos se guardan sin comas."
+  "version": "0.22.68",
+  "notes": "LOTIGEST PRO: en Terrenos y Predios permite quitar al propietario asignado por error desde la ficha del solar; libera solares marcados Comprado solo si no existen ventas, contratos, reservas ni pagos y conserva auditoría, respaldo y demás datos."
 }

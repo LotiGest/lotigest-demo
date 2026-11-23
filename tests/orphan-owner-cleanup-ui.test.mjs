@@ -27,3 +27,15 @@ test('Contratos diferencia solares respaldados y provisionales',()=>{
  assert.match(build,/owner-link-cleanup\.mjs/);
  assert.match(build,/orphan-owner-cleanup-ui\.js/);
 });
+
+test('ficha de Terrenos y Predios ofrece quitar propietario del solar sin tocar otros',()=>{
+ assert.match(ui,/function inlineSolarCleanup\(lotId\)/);
+ assert.match(ui,/viewLot=function\(lotId\)/);
+ assert.match(ui,/openSolarWindow=function\(lotId\)/);
+ assert.match(ui,/data-owner-cleanup-single/);
+ assert.match(ui,/Quitar persona de este solar/);
+ assert.match(ui,/const candidate=audit.candidates.find/);
+ assert.match(ui,/selected.add\(lotId\)/);
+ assert.match(ui,/owner-cleanup-reason/);
+ assert.match(ui,/ownerUnlinkHistory|removeOrphanOwnerLinks\(db,/);
+});

@@ -25,16 +25,27 @@
    '<div class="owner-cleanup-confirm"><button type="button" class="btn btn-outline" data-owner-cleanup-backup>1. Descargar respaldo JSON</button>'+
    '<label><input type="checkbox" id="owner-cleanup-backup-ok" '+(draft.confirmedBackup?'checked':'')+
    '> Confirmo que descargué y guardé el respaldo</label>'+
+   '<label>Motivo de la corrección<input id="owner-cleanup-reason" maxlength="300" placeholder="Ej.: El solar 1 se asignó por error; corresponde el solar 2" value="'+esc(draft.reason||'')+'"></label>'+
    '<label>Escribe <strong>DESVINCULAR</strong> para confirmar<input id="owner-cleanup-code" autocomplete="off" value="'+esc(draft.code||'')+'"></label>'+
    '<p id="owner-cleanup-error" role="alert"></p></div>';
   const btn=document.querySelector('[data-owner-cleanup-save]');if(btn)
-   btn.disabled=draft.busy||!draft.selected.size||draft.selected.size>20||!draft.backupDownloaded||!draft.confirmedBackup||draft.code!=='DESVINCULAR';
+   btn.disabled=draft.busy||!draft.selected.size||draft.selected.size>20||!draft.backupDownloaded||!draft.confirmedBackup||draft.code!=='DESVINCULAR'||draft.reason.trim().length<5;
  }
- function open(){
+ function open(lotId=null){
   if(!contractIntakeAdmin()){toast('Para limpiar asociaciones necesitas sesión de administrador y nube sincronizada.','error');return;}
-  draft={residenceId:residence().id,audit:auditOrphanOwnerLinks(db,residence().id),snapshot:JSON.stringify(db),
-   selected:new Set(),search:'',backupDownloaded:false,confirmedBackup:false,code:'',busy:false};
-  showModal('Revisar solares vinculados sin contrato',
+  const rid=residence().id,audit=auditOrphanOwnerLinks(db,rid),selected=new Set();
+  if(lotId){
+   const candidate=audit.candidates.find(x=>x.lotId===lotId);
+   if(!candidate){
+    const protectedLot=audit.protectedLinks.find(x=>x.lotId===lotId);
+    toast(protectedLot?'Este solar no puede liberarse: '+protectedLot.reason:'El solar no tiene una asignación provisional elegible.','error');
+    return;
+   }
+   selected.add(lotId);
+  }
+  draft={residenceId:rid,audit,snapshot:JSON.stringify(db),
+   selected,search:lotId||'',backupDownloaded:false,confirmedBackup:false,code:'',reason:'',busy:false};
+  showModal(lotId?'Quitar propietario de este solar':'Revisar solares vinculados sin contrato',
    '<p>Esta herramienta permite retirar solares asignados a clientes por registros provisionales. No borra clientes, contratos, pagos ni solares. Primero revisa la lista.</p><div id="owner-cleanup-content"></div>',
    '<button type="button" class="btn btn-soft" data-action="close-modal">Cancelar</button>'+
    '<button type="button" class="btn btn-primary" data-owner-cleanup-save disabled>Desvincular solares seleccionados</button>',true);
@@ -46,12 +57,12 @@
   try{
    if(d.selected.size>20)throw Error('Solo se permiten 20 asociaciones por operación; reduce la selección.');
    if(!contractIntakeAdmin())throw Error('Debes estar conectado como administrador y sin sincronizaciones pendientes.');
-   if(!d.backupDownloaded||!d.confirmedBackup||d.code!=='DESVINCULAR'||!d.selected.size)
+   if(!d.backupDownloaded||!d.confirmedBackup||d.code!=='DESVINCULAR'||!d.selected.size||d.reason.trim().length<5)
     throw Error('Descarga el respaldo, confirma y selecciona los solares antes de continuar.');
    if(residence().id!==d.residenceId||JSON.stringify(db)!==d.snapshot)
     throw Error('Los datos cambiaron. Vuelve a revisar y descargar el respaldo.');
-   const result=removeOrphanOwnerLinks(db,[...d.selected],d.residenceId);
-   if(!confirm('¿Quitar solo las '+result.changed+' asociaciones provisionales elegidas? No se eliminarán clientes ni solares.'))return;
+   const result=removeOrphanOwnerLinks(db,[...d.selected],d.residenceId,cloudUser?.name||'Administrador',d.reason);
+   if(!confirm('¿Desvincular '+result.changed+' solar(es) y dejarlos disponibles si aparecen como Comprado sin venta real? No se eliminarán clientes, contratos ni pagos.'))return;
    d.busy=true;
    cloudWrite(JSON.stringify(result.state));db=result.state;
    await cloudFlush();
@@ -62,6 +73,29 @@
   }catch(e){if(error)error.textContent=e.message;toast(e.message,'error');}
   finally{if(d){d.busy=false;renderPreview();}}
  }
+ function inlineSolarCleanup(lotId){
+  const lot=getLot(lotId),root=document.querySelector('#modal-root .modal-content');
+  if(!root||!lot?.ownerClientId||cloudUser?.role!=='admin'||root.querySelector('[data-owner-cleanup-single]'))return;
+  const review=auditOrphanOwnerLinks(db,lot.residenceId);
+  const eligible=review.candidates.find(x=>x.lotId===lotId);
+  const blocked=review.protectedLinks.find(x=>x.lotId===lotId);
+  const synced=contractIntakeAdmin();
+  const message=eligible?
+   (lot.status==='sold'?'Este solar figura como Comprado, pero no tiene venta ni movimientos comprobados. Al desvincularlo quedará Disponible.':
+    'Se quitará únicamente la asignación provisional de este solar. Los otros solares del cliente no cambiarán.'):
+   'Solar protegido: '+(blocked?.reason||'la asignación requiere revisión antes de liberarla');
+  root.insertAdjacentHTML('afterbegin',
+   '<section class="notice-card" style="margin:10px 0 16px;border:1px solid rgba(120,150,136,.35)">'+
+   '<strong>Corregir cliente asociado</strong><p class="sm">'+esc(message)+'</p>'+
+   '<button type="button" class="btn btn-outline btn-sm" data-owner-cleanup-single="'+esc(lotId)+'" '+
+   (!eligible||!synced?'disabled':'')+'>Quitar persona de este solar</button>'+
+   (!synced?'<p class="sm muted">Se requiere sesión de administrador con nube sincronizada.</p>':'')+
+   '</section>');
+ }
+ const cleanupViewLotBase=viewLot;
+ viewLot=function(lotId){const result=cleanupViewLotBase(lotId);inlineSolarCleanup(lotId);return result;};
+ const cleanupSolarWindowBase=openSolarWindow;
+ openSolarWindow=function(lotId){const result=cleanupSolarWindowBase(lotId);inlineSolarCleanup(lotId);return result;};
  const original=contractsPage;
  contractsPage=function(){
   const result=original();
@@ -76,9 +110,10 @@
   return section+result;
  };
  document.addEventListener('click',event=>{
-  const el=event.target.closest?.('[data-owner-cleanup-open],[data-owner-cleanup-save],[data-owner-cleanup-select-all],[data-owner-cleanup-clear],[data-owner-cleanup-backup],[data-owner-cleanup-protected]');
+  const el=event.target.closest?.('[data-owner-cleanup-single],[data-owner-cleanup-open],[data-owner-cleanup-save],[data-owner-cleanup-select-all],[data-owner-cleanup-clear],[data-owner-cleanup-backup],[data-owner-cleanup-protected]');
   if(!el)return;
   event.preventDefault();event.stopImmediatePropagation();
+  if(el.hasAttribute('data-owner-cleanup-single'))return open(el.dataset.ownerCleanupSingle);
   if(el.hasAttribute('data-owner-cleanup-open'))return open();
   const d=draft;if(!d||d.busy)return;
   if(el.hasAttribute('data-owner-cleanup-select-all')){
@@ -109,10 +144,15 @@
    const at=event.target.selectionStart;draft.search=event.target.value;renderPreview();
    const next=document.getElementById('owner-cleanup-search');if(next){next.focus();if(at!=null)next.setSelectionRange(at,at);}
   }
+  if(event.target.id==='owner-cleanup-reason'){
+   draft.reason=event.target.value;
+   const button=document.querySelector('[data-owner-cleanup-save]');
+   if(button)button.disabled=draft.busy||!draft.selected.size||draft.selected.size>20||!draft.backupDownloaded||!draft.confirmedBackup||draft.code!=='DESVINCULAR'||draft.reason.trim().length<5;
+  }
   if(event.target.id==='owner-cleanup-code'){
    draft.code=event.target.value;
    const button=document.querySelector('[data-owner-cleanup-save]');
-   if(button)button.disabled=draft.busy||!draft.selected.size||draft.selected.size>20||!draft.backupDownloaded||!draft.confirmedBackup||draft.code!=='DESVINCULAR';
+   if(button)button.disabled=draft.busy||!draft.selected.size||draft.selected.size>20||!draft.backupDownloaded||!draft.confirmedBackup||draft.code!=='DESVINCULAR'||draft.reason.trim().length<5;
   }
  },true);
 })();
