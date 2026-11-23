@@ -204,7 +204,7 @@ function pmQrOcr(form){
 }
 function pmAddOcrFooter(modal){
  const footer=modal.querySelector('.modal-footer'),panel=modal.querySelector('#pm-ocr-panel');
- if(!footer||!panel)return;
+ if(!footer||!panel||footer.querySelector('[data-pm-ocr-toggle]'))return;
  const button=pmNode('button','btn btn-outline pm-ocr-trigger');
  button.type='button';button.dataset.pmOcrToggle='true';
  button.setAttribute('aria-controls',panel.id);button.setAttribute('aria-expanded','false');
@@ -215,6 +215,17 @@ function pmAddOcrFooter(modal){
 function pmFooter(modal,formId){
  const footer=modal.querySelector('.modal-footer');if(!footer)return;
  footer.innerHTML='<button type="button" class="btn btn-soft pm-cancel" data-action="close-modal">✕ Cancelar</button><button type="submit" class="btn pm-receipt" data-pm-save-mode="receipt" form="'+formId+'">▤ Generar recibo</button><button type="submit" class="btn pm-save" data-pm-save-mode="save" form="'+formId+'">✓ Guardar pago</button>';
+ pmAddOcrFooter(modal);
+}
+// En pagos de venta el widget OCR se agrega DESPUÉS de showModal, cuando pmFooter
+// ya se ejecutó. Reubicarlo aquí garantiza el acceso inferior y elimina el bloque superior.
+function pmEnsureOcrFooter(form){
+ const modal=form?.closest('.lg-payment-modern'),shell=form?.querySelector('.pm-shell');
+ const widget=form?.querySelector('[data-paper-ocr-photo]')?.closest('fieldset');
+ if(!modal||!shell||!widget)return;
+ let panel=shell.querySelector('#pm-ocr-panel');
+ if(!panel){panel=pmQrOcr(form);if(panel)shell.append(panel);}
+ else if(!panel.contains(widget))panel.append(widget);
  pmAddOcrFooter(modal);
 }
 function pmRepaintSales(){
