@@ -343,3 +343,35 @@ body.lotigest-dark #modal-root .lg-contract-modern .lg-contract-payment-row>stro
   flex:1 1 130px;
  }
 }
+
+/* Importes destacados y editor del solar en Nuevo contrato. */
+#modal-root .lg-contract-modern .lg-contract-solar-buttons,
+#modal-root .lg-contract-modern .lg-contract-extra-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+#modal-root .lg-contract-modern .lg-contract-edit-primary{
+ display:inline-flex;align-items:center;justify-content:center;gap:4px;
+ min-height:35px;padding:6px 9px;border:1px solid #81bc9b;border-radius:9px;
+ background:#e8f7ee;color:#116b44;font-size:12px;font-weight:800;cursor:pointer
+}
+#modal-root .lg-contract-modern .lg-contract-edit-primary:hover{background:#d5f1e1}
+#modal-root .lg-contract-modern .lg-contract-edit-primary:focus-visible{
+ outline:2px solid #157f54;outline-offset:2px
+}
+#modal-root .lg-contract-modern input[data-contract-money]{
+ font-variant-numeric:tabular-nums;font-weight:800;letter-spacing:.15px;
+ color:#125e91!important;background:#edf7ff!important;border:1.5px solid #81b9da!important
+}
+#modal-root .lg-contract-modern .lg-contract-base-price>strong{color:#125e91}
+#modal-root .lg-contract-modern #contract-auto-price,
+#modal-root .lg-contract-modern #contract-auto-financed{color:#125e91}
+body.lotigest-dark #modal-root .lg-contract-modern input[data-contract-money]{
+ color:#a5ddff!important;background:#16384c!important;border-color:#4a93ba!important
+}
+body.lotigest-dark #modal-root .lg-contract-modern .lg-contract-base-price>strong,
+body.lotigest-dark #modal-root .lg-contract-modern #contract-auto-price,
+body.lotigest-dark #modal-root .lg-contract-modern #contract-auto-financed{color:#a5ddff}
+body.lotigest-dark #modal-root .lg-contract-modern .lg-contract-edit-primary{
+ color:#a7edc6;background:#214d39;border-color:#447d5d
+}
+@media(max-width:600px){
+ #modal-root .lg-contract-modern .lg-contract-edit-primary{min-height:33px;padding:6px 8px}
+}
