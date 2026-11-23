@@ -244,3 +244,35 @@ body.lotigest-dark #modal-root .lg-contract-modern .lg-contract-payment-row>stro
  html body #modal-root .lg-contract-modern .lg-contract-brand{padding-right:7px}
  html body #modal-root .lg-contract-modern .modal-header{gap:7px}
 }
+
+
+/* Nuevo contrato: papelera únicamente para retirar el solar del borrador. */
+#modal-root .lg-contract-modern .lg-contract-price-heading{
+ display:flex;align-items:center;justify-content:space-between;
+ gap:8px;min-width:0;
+}
+#modal-root .lg-contract-modern .lg-contract-price-heading>span{
+ text-align:left;min-width:0;flex:1;
+}
+#modal-root .lg-contract-modern .lg-contract-remove-primary{
+ display:inline-grid;place-items:center;flex:none;
+ width:35px;height:35px;padding:6px;margin:0;
+ border:1px solid #f3a8b1;border-radius:9px;
+ background:#fff0f2;color:#c52238;
+ box-shadow:none;cursor:pointer;
+}
+#modal-root .lg-contract-modern .lg-contract-remove-primary:hover{
+ background:#ffe1e5;border-color:#dd5468;color:#ad172d;
+}
+#modal-root .lg-contract-modern .lg-contract-remove-primary:focus-visible{
+ outline:2px solid #c52238;outline-offset:2px;
+}
+#modal-root .lg-contract-modern .lg-contract-remove-primary svg{
+ display:block;pointer-events:none;
+}
+@media(max-width:600px){
+ #modal-root .lg-contract-modern .lg-contract-price-heading{gap:7px}
+ #modal-root .lg-contract-modern .lg-contract-remove-primary{
+  width:33px;height:33px;min-width:33px;
+ }
+}
