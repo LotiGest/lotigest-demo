@@ -159,3 +159,25 @@ body.lotigest-dark #modal-root .lg-multi-date-modal .md-money-control input[data
   min-height:34px;padding:6px 8px;font-size:11px;
  }
 }
+
+
+/* Escaneo Grupo H: diagnóstico legible, miniatura fiable y reintento de OCR. */
+#modal-root .lg-multi-date-modal .md-photo-row{
+ flex-wrap:wrap;gap:8px;align-items:center;
+}
+#modal-root .lg-multi-date-modal .md-photo-preview{
+ width:46px;height:38px;object-fit:contain;
+ background:#fff;border:1px solid #bcdac3;border-radius:6px;
+}
+#modal-root .lg-multi-date-modal .md-photo-status{
+ flex:1 1 170px;min-width:0;overflow-wrap:anywhere;
+ font-size:12px;line-height:1.5;
+}
+#modal-root .lg-multi-date-modal .md-ocr-retry{
+ flex:none;border:1px solid #a6ceb4;border-radius:8px;
+ background:#f2f9f4;color:#15683d;padding:8px 9px;
+ font-size:11px;font-weight:750;cursor:pointer;
+}
+#modal-root .lg-multi-date-modal .md-ocr-retry:focus-visible{
+ outline:2px solid #188d50;outline-offset:2px;
+}

@@ -83,7 +83,7 @@
    '<label class="md-ref-label">Correlativo *<span class="md-ref-line"><span aria-hidden="true" class="md-ref-symbol">#</span><input type="text" inputmode="numeric" maxlength="80" pattern="[0-9]+" data-md-field="receiptRef" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.receiptRef)+'" placeholder="Ej. 00006159" aria-label="Escribir número correlativo manualmente" required></span></label></div>'+
    '<div class="md-photo-row"><label class="md-scan-icon" title="Escanear o seleccionar foto" aria-label="Escanear recibo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3H5a2 2 0 0 0-2 2v2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="8" width="10" height="9" rx="2"/><circle cx="12" cy="12.5" r="1.7"/></svg><input type="file" accept="image/jpeg,image/png,image/webp" data-md-photo="'+mdSafe(row.id)+'" hidden></label>'+
    (row.preview?'<img src="'+mdSafe(row.preview)+'" class="md-photo-preview" alt="Recibo de este abono">':'')+
-   '<span class="md-photo-status" data-md-photo-status="'+mdSafe(row.id)+'">'+mdSafe(row.status||(row.photo?'Recibo adjunto':'OCR opcional · escribe los datos manualmente o escanea'))+'</span></div>'+
+   '<span class="md-photo-status" data-md-photo-status="'+mdSafe(row.id)+'">'+mdSafe(row.status||(row.photo?'Recibo adjunto':'OCR opcional · escribe los datos manualmente o escanea'))+'</span>'+(row.photo?'<button type="button" class="md-ocr-retry" data-md-retry="'+mdSafe(row.id)+'" aria-label="Reintentar lectura OCR del recibo">Reintentar OCR</button>':'')+'</div>'+
    '<p class="md-ref-feedback" data-md-feedback="'+mdSafe(row.id)+'" role="status"></p></article>';
  }
  function mdShow(){
@@ -150,7 +150,7 @@
  function mdRemove(id){
   if(!mdState)return;
   if(mdState.rows.length<=1)return toast('Mantén al menos un abono.','error');
-  const row=mdById(id);if(row?.preview)URL.revokeObjectURL(row.preview);
+  const row=mdById(id);if(row?.preview&&String(row.preview).startsWith('blob:'))URL.revokeObjectURL(row.preview);
   mdState.rows=mdState.rows.filter(r=>r.id!==id);mdRenderRows();
  }
  function mdError(message){
@@ -173,41 +173,116 @@
   if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>12*1024*1024){
    input.value='';mdError('El recibo debe ser JPG, PNG o WebP de hasta 12 MB.');return;
   }
-  if(row.preview)URL.revokeObjectURL(row.preview);
+  if(row.preview&&String(row.preview).startsWith('blob:'))URL.revokeObjectURL(row.preview);
   row.scanOriginal=file;
   row.photo=await mdCompressPhoto(file);
   if(!mdState||!mdById(row.id))return;
-  row.preview=URL.createObjectURL(row.photo);row.status='Recibo cargado · leyendo OCR…';
+  row.preview=await mdReadPreview(row.photo);row.status='Recibo cargado · leyendo OCR…';
   mdRenderRows();
   await mdOcr(row);
  }
+
+ function mdOcrAngles(width,height){
+  // El talonario se fotografía con frecuencia en vertical aunque se lee acostado.
+  return height>width*1.12?[-90,90,0]:[0,-90,90];
+ }
+ function mdRotateReceipt(bitmap,angle){
+  const max=2200,scale=Math.min(1.6,max/Math.max(bitmap.width,bitmap.height));
+  const w=Math.max(1,Math.round(bitmap.width*scale)),h=Math.max(1,Math.round(bitmap.height*scale));
+  const rotated=angle!==0,canvas=document.createElement('canvas');
+  canvas.width=rotated?h:w;canvas.height=rotated?w:h;
+  const ctx=canvas.getContext('2d',{willReadFrequently:false});
+  if(!ctx)throw Error('Este navegador no pudo preparar la fotografía.');
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+  if(angle===-90){ctx.translate(0,canvas.height);ctx.rotate(-Math.PI/2);}
+  else if(angle===90){ctx.translate(canvas.width,0);ctx.rotate(Math.PI/2);}
+  ctx.drawImage(bitmap.image||bitmap,0,0,w,h);
+  return canvas;
+ }
+ async function mdReadPreview(file){
+  let bmp=null,canvas=null;
+  try{
+   bmp=typeof decodeContractIntakeImage==='function'?await decodeContractIntakeImage(file):await createImageBitmap(file);
+   const scale=Math.min(1,430/Math.max(bmp.width,bmp.height));
+   canvas=document.createElement('canvas');
+   canvas.width=Math.round(bmp.width*scale);canvas.height=Math.round(bmp.height*scale);
+   canvas.getContext('2d').drawImage(bmp.image||bmp,0,0,canvas.width,canvas.height);
+   return canvas.toDataURL('image/jpeg',.7);
+  }catch{return URL.createObjectURL(file);}
+  finally{bmp?.close();if(canvas)canvas.width=canvas.height=1;}
+ }
+ function mdOcrProgress(row,message){
+  if(!mdById(row.id))return;
+  row.status=message;
+  const el=document.querySelector('[data-md-photo-status="'+row.id+'"]');
+  if(el)el.textContent=message;
+ }
  async function mdOcr(row){
   let bitmap=null,worker=null,canvas=null;
+  if(!row?.photo||!mdById(row.id))return;
+  if(row.ocrBusy)return;
+  row.ocrBusy=true;
   try{
-   if(typeof loadContractOcr!=='function'||!window.lotigestPaperReceipt)throw Error('La lectura automática no está disponible.');
-   bitmap=await createImageBitmap(row.scanOriginal||row.photo);
-   const scale=Math.min(1,1900/Math.max(bitmap.width,bitmap.height));
-   canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
-   const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
-   const T=await loadContractOcr();
-   worker=await T.createWorker('spa',1,{workerPath:pagesContractOcr?contractOcrCdn+'worker.min.js':new URL('ocr/worker.min.js',location.href).href,corePath:pagesContractOcr?'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.0.0':new URL('ocr/core',location.href).href,langPath:pagesContractOcr?'https://tessdata.projectnaptha.com/4.0.0':new URL('ocr/lang',location.href).href});
-   const parsed=window.lotigestPaperReceipt.extractPaperReceipt((await worker.recognize(canvas,{rotateAuto:true})).data.text||'');
-   if(!mdState||!mdById(row.id))return;
+   const parser=window.lotigestPaperReceipt?.extractPaperReceipt;
+   if(typeof parser!=='function')throw Error('No se encontró el extractor de recibos de Grupo H.');
+   mdOcrProgress(row,'Cargando el lector OCR del dispositivo…');
+   bitmap=typeof decodeContractIntakeImage==='function'
+    ?await decodeContractIntakeImage(row.scanOriginal||row.photo)
+    :await createImageBitmap(row.scanOriginal||row.photo);
+   const T=typeof loadContractIntakeOcr==='function'
+    ?await loadContractIntakeOcr()
+    :await loadContractOcr();
+   if(!T?.createWorker)throw Error('El lector OCR no se inicializó.');
+   const root=location.origin+'/ocr/v5/';
+   worker=await T.createWorker('spa',1,{
+    workerPath:root+'worker.min.js',
+    workerBlobURL:false,
+    corePath:root+'core',
+    langPath:root+'lang',
+    cachePath:'lotigest-recibos-grupoh-v1',
+    logger:status=>{
+     if(status.status==='recognizing text'&&mdById(row.id))
+      mdOcrProgress(row,'Leyendo recibo: '+Math.round((status.progress||0)*100)+'%');
+    }
+   });
+   let best={date:null,amount:null,reference:null,warnings:[]},bestScore=-1;
+   const rotations=mdOcrAngles(bitmap.width,bitmap.height);
+   for(let index=0;index<rotations.length;index++){
+    mdOcrProgress(row,'Reconociendo recibo (orientación '+(index+1)+' de '+rotations.length+')…');
+    canvas=mdRotateReceipt(bitmap,rotations[index]);
+    const result=await worker.recognize(canvas);
+    const parsed=parser(result?.data?.text||'');
+    const score=(parsed.reference?4:0)+(parsed.date?3:0)+(parsed.amount!=null?3:0);
+    if(score>bestScore){best=parsed;bestScore=score;}
+    canvas.width=canvas.height=1;canvas=null;
+    if(score===10)break;
+   }
+   if(!mdById(row.id))return;
    const extracted=[];
-   if(parsed.date&&!row.dateEdited&&parsed.date<=mdToday()){
-    row.date=parsed.date;row.dateText=mdHumanDate(parsed.date);extracted.push('fecha');
+   if(best.date&&!row.dateEdited&&best.date<=mdToday()){
+    row.date=best.date;row.dateText=mdHumanDate(best.date);extracted.push('fecha: '+row.dateText);
    }
-   if(parsed.amount!=null&&!row.amountEdited){
-    row.amount=String(parsed.amount);extracted.push('monto');
+   if(best.amount!=null&&!row.amountEdited){
+    row.amount=String(best.amount);extracted.push('Por Lps.: '+mdMoneyText(row.amount));
    }
-   if(parsed.reference&&!row.refEdited){
-    row.receiptRef=String(parsed.reference);extracted.push('correlativo');
+   if(best.reference&&!row.refEdited){
+    row.receiptRef=String(best.reference);extracted.push('N.º '+row.receiptRef);
    }
-   row.status=extracted.length?'OCR completó '+extracted.join(', ')+' · revisa antes de guardar':'OCR leído · comprueba los datos manualmente';
+   row.status=extracted.length
+    ?'OCR: '+extracted.join(' · ')+(extracted.length<3?' · completa lo que falte':'')+' · revisa antes de guardar'
+    :'El OCR no pudo reconocer N.º, fecha ni Por Lps.; escribe los datos o pulsa Reintentar OCR.';
    mdRenderRows();
   }catch(e){
-   if(mdById(row.id)){row.status='Recibo cargado · introduce o revisa datos manualmente';mdRenderRows();}
-  }finally{delete row.scanOriginal;bitmap?.close();if(worker)try{await worker.terminate();}catch{}if(canvas)canvas.width=canvas.height=1;}
+   if(mdById(row.id)){
+    row.status='No se pudo leer: '+String(e?.message||'Fallo del lector OCR').slice(0,140)+'. Puedes escribir los datos o pulsar Reintentar OCR.';
+    mdRenderRows();
+   }
+  }finally{
+   row.ocrBusy=false;delete row.scanOriginal;
+   bitmap?.close();
+   if(canvas)canvas.width=canvas.height=1;
+   if(worker)try{await worker.terminate();}catch{}
+  }
  }
  function mdValidate(){
   if(!mdState||!mdState.rows.length)throw Error('Agrega al menos un abono.');
@@ -262,7 +337,7 @@
    await cloudFlush();
    const confirmed=!!cloudQueue&&!cloudBlocked&&!cloudOffline&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed;
    mdSaved={items:saved,confirmed,client:mdState.clientName,kind:mdState.kind,saleId:mdState.saleId,clientId:mdState.clientId,residenceId:mdState.residenceId};
-   for(const row of mdState.rows)if(row.preview)URL.revokeObjectURL(row.preview);
+   for(const row of mdState.rows)if(row.preview&&String(row.preview).startsWith('blob:'))URL.revokeObjectURL(row.preview);
    mdState=null;mdShowSaved();
    if(!confirmed)toast('Los abonos quedaron en este dispositivo pendientes de sincronización. No compartas comprobantes hasta confirmar el guardado en Cloudflare.','error');
    else toast(saved.length+' abonos individuales guardados en Cloudflare.');
@@ -344,7 +419,7 @@
  };
  window.lotigestMultiDate={openSale:mdStartSale,openOwner:mdStartOwner};
  document.addEventListener('click',event=>{
-  const action=event.target.closest?.('[data-md-start-sale],[data-md-start-owner],[data-md-pick-owner],[data-md-edit],[data-md-add],[data-md-remove],[data-md-one],[data-md-many],[data-md-save],[data-md-pdf],[data-md-download-all],[data-md-share-all],[data-md-another],[data-md-view-photo]');
+  const action=event.target.closest?.('[data-md-start-sale],[data-md-start-owner],[data-md-pick-owner],[data-md-edit],[data-md-add],[data-md-remove],[data-md-retry],[data-md-one],[data-md-many],[data-md-save],[data-md-pdf],[data-md-download-all],[data-md-share-all],[data-md-another],[data-md-view-photo]');
   if(!action)return;
   event.preventDefault();event.stopImmediatePropagation();
   if(action.hasAttribute('data-md-start-sale'))mdStartSale(action.dataset.mdStartSale);
@@ -357,6 +432,10 @@
   }
   else if(action.hasAttribute('data-md-add')){if(mdState.rows.length>=24)return mdError('Se admiten como máximo 24 recibos por operación.');mdState.rows.push(mdCreateEntry());mdRenderRows();}
   else if(action.hasAttribute('data-md-remove'))mdRemove(action.dataset.mdRemove);
+  else if(action.hasAttribute('data-md-retry')){
+   const row=mdById(action.dataset.mdRetry);
+   if(row?.photo&&!row.ocrBusy)mdOcr(row);
+  }
   else if(action.hasAttribute('data-md-one')){if(mdState?.kind==='sale'){const id=mdState.saleId;mdState=null;baseNewPayment(id,false);}else if(mdState?.kind==='owner'){const {clientId,residenceId}=mdState;mdState=null;openOwnerAbono(clientId,residenceId);}}
   else if(action.hasAttribute('data-md-save'))mdSave();
   else if(action.hasAttribute('data-md-pdf')){if(action.dataset.mdKind==='owner')deliverOwnerPayment(action.dataset.mdPdf,false);else deliverPaymentReceipt(action.dataset.mdPdf,false);}
