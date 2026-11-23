@@ -483,10 +483,14 @@
   if(mdRoot())return toast('Termina o cancela los abonos múltiples antes de abrir un pago individual.','error');
   if(document.querySelector('#modal-root .modal'))return toast('Cierra la ventana actual antes de abrir otro abono.','error');
   const chosen=mdLastPaymentTarget;
-  if(chosen?.kind==='sale'&&getSale(chosen.saleId)&&balance(getSale(chosen.saleId))>.01){
-   newPayment(chosen.saleId,false);return;
+  const currentResidence=typeof residence==='function'?residence()?.id:null;
+  // Un contexto de otra residencial o de otra pantalla no se reutiliza a ciegas.
+  const sale=chosen?.kind==='sale'?getSale(chosen.saleId):null;
+  const saleResidence=sale?getLot(sale.lotId)?.residenceId:null;
+  if(page==='collections'&&sale&&balance(sale)>.01&&(!currentResidence||saleResidence===currentResidence)){
+   newPayment(sale.id,false);return;
   }
-  if(chosen?.kind==='owner'&&getClient(chosen.clientId)){
+  if(page==='collections'&&chosen?.kind==='owner'&&getClient(chosen.clientId)&&(!currentResidence||chosen.residenceId===currentResidence)){
    openOwnerAbono(chosen.clientId,chosen.residenceId);return;
   }
   // Sin solar seleccionado abre el selector ordinario para elegir cliente.
