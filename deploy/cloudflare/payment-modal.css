@@ -412,3 +412,60 @@ body.lotigest-dark #modal-root .lg-payment-modern .pm-batch-receipts>small{color
  #modal-root .lg-payment-modern .modal-footer .pm-batch-continue{flex:1 1 100%;order:2}
  #modal-root .lg-payment-modern .pm-batch-row>.btn{flex:1 1 100%}
 }
+
+/* OCR de recibo Grupo H: botón compacto a la derecha de «Otro abono».
+   El formulario queda completamente libre del bloque OCR hasta que se solicite. */
+#modal-root .lg-payment-modern{position:relative}
+#modal-root .lg-payment-modern .modal-footer:has(.pm-ocr-trigger){
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;
+}
+#modal-root .lg-payment-modern .modal-footer:has(.pm-ocr-trigger)>.btn{
+ min-width:0;max-width:100%;width:100%;margin:0;flex:none;order:0;
+}
+#modal-root .lg-payment-modern .modal-footer:has(.pm-ocr-trigger) .pm-receipt{grid-column:1;grid-row:1}
+#modal-root .lg-payment-modern .modal-footer:has(.pm-ocr-trigger) .pm-save{grid-column:2;grid-row:1}
+#modal-root .lg-payment-modern .modal-footer:has(.pm-ocr-trigger) .pm-batch-continue{
+ grid-column:1;grid-row:2;order:0;min-height:50px;
+}
+#modal-root .lg-payment-modern .modal-footer:has(.pm-ocr-trigger) .pm-ocr-trigger{
+ grid-column:2;grid-row:2;order:0;min-height:50px;display:flex;align-items:center;
+ justify-content:center;gap:8px;white-space:normal;background:#effaf3;
+ border:1px solid #a5d1ae;color:#176b38;padding:8px 9px;line-height:1.15;
+}
+#modal-root .lg-payment-modern .pm-ocr-trigger svg{flex:none;width:25px;height:25px;color:#10884b}
+#modal-root .lg-payment-modern .pm-ocr-trigger span{font-size:13px;font-weight:800;white-space:normal}
+#modal-root .lg-payment-modern .pm-ocr-trigger small{display:block;color:#62816a;font-size:10px;font-weight:650;margin-top:3px}
+#modal-root .lg-payment-modern .pm-ocr-trigger[aria-expanded=true]{
+ background:#d8f4e2;border-color:#08793f;box-shadow:0 0 0 2px #2a9e5733;
+}
+#modal-root .lg-payment-modern .modal-footer:has(.pm-ocr-trigger) .pm-cancel{
+ grid-column:1/-1;grid-row:3;order:0;
+}
+#modal-root .lg-payment-modern .modal-footer:has(.pm-ocr-trigger):not(:has(.pm-batch-continue)) .pm-ocr-trigger{grid-column:1/-1}
+#modal-root .lg-payment-modern .pm-ocr-panel{
+ position:absolute;left:12px;right:12px;bottom:calc(var(--pm-ocr-footer-size, 165px) + 8px);
+ z-index:35;box-sizing:border-box;max-height:min(65dvh,calc(100% - var(--pm-ocr-footer-size, 165px) - 85px));
+ overflow-y:auto;overscroll-behavior:contain;padding:12px 15px;color:#1b3727;
+ background:#fff;border:1px solid #a7cbb1;border-radius:14px;
+ box-shadow:0 15px 45px #032d1c4a;
+}
+#modal-root .lg-payment-modern .pm-ocr-panel[hidden]{display:none!important}
+#modal-root .lg-payment-modern .pm-ocr-heading{
+ display:flex;align-items:center;justify-content:space-between;gap:10px;
+ padding:0 0 7px;border-bottom:1px solid #e2ebe5;
+}
+#modal-root .lg-payment-modern .pm-ocr-heading strong{font-size:14px;color:#145a35}
+#modal-root .lg-payment-modern .pm-ocr-close{
+ flex:none;width:34px;height:34px;min-height:34px;border-radius:9px;
+ background:#f2f8f4;border:1px solid #cdded3;color:#19452d;cursor:pointer;
+}
+#modal-root .lg-payment-modern .pm-ocr-panel fieldset{
+ margin:0!important;padding:9px 0 0!important;border:0;background:transparent;min-width:0;
+}
+#modal-root .lg-payment-modern .pm-ocr-panel legend{display:none}
+@media(max-width:560px){
+ #modal-root .lg-payment-modern .modal-footer:has(.pm-ocr-trigger){grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+ #modal-root .lg-payment-modern .pm-ocr-trigger span{font-size:12px}
+ #modal-root .lg-payment-modern .pm-ocr-trigger svg{width:23px;height:23px}
+ #modal-root .lg-payment-modern .pm-ocr-panel{left:7px;right:7px;padding:11px;max-height:calc(100% - var(--pm-ocr-footer-size, 165px) - 75px)}
+}

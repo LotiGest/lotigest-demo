@@ -188,14 +188,34 @@ function pmFields(grid,form){
  grid.remove();return fields;
 }
 function pmQrOcr(form){
+ // El OCR permanece dentro del formulario para reutilizar sus lectores y validadores.
+ // Solo se muestra cuando se pulsa el acceso del pie; nunca ocupa espacio sobre Abonos.
  const widget=form.querySelector('[data-paper-ocr-photo]')?.closest('fieldset');
  if(!widget)return null;
- const section=pmNode('div','pm-ocr pm-span-2'),details=pmNode('details'),summary=pmNode('summary','','Escanear comprobante con OCR (opcional)');
- details.append(summary,widget);section.append(details);return section;
+ const section=pmNode('section','pm-ocr pm-ocr-panel');
+ section.id='pm-ocr-panel';section.hidden=true;
+ section.setAttribute('role','region');
+ section.setAttribute('aria-label','Escanear recibo de caja · Grupo H (OCR)');
+ const heading=pmNode('div','pm-ocr-heading');
+ const label=pmNode('strong','','Escanear recibo de caja · Grupo H (OCR)');
+ const close=pmNode('button','pm-ocr-close','✕');
+ close.type='button';close.dataset.pmOcrClose='true';close.setAttribute('aria-label','Cerrar lector OCR');
+ heading.append(label,close);section.append(heading,widget);return section;
+}
+function pmAddOcrFooter(modal){
+ const footer=modal.querySelector('.modal-footer'),panel=modal.querySelector('#pm-ocr-panel');
+ if(!footer||!panel)return;
+ const button=pmNode('button','btn btn-outline pm-ocr-trigger');
+ button.type='button';button.dataset.pmOcrToggle='true';
+ button.setAttribute('aria-controls',panel.id);button.setAttribute('aria-expanded','false');
+ button.setAttribute('aria-label','Escanear recibo de caja · Grupo H (OCR)');
+ button.innerHTML='<svg aria-hidden="true" width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5a2 2 0 0 1 2-2h2M16 3h2a2 2 0 0 1 2 2v3M20 16v3a2 2 0 0 1-2 2h-2M8 21H6a2 2 0 0 1-2-2v-3"/><path d="M9 6h6l2 2v10H7V6h2zM10 11h4m-4 3h4"/></svg><span>Escanear recibo<small>Grupo H (OCR)</small></span>';
+ footer.append(button);
 }
 function pmFooter(modal,formId){
  const footer=modal.querySelector('.modal-footer');if(!footer)return;
  footer.innerHTML='<button type="button" class="btn btn-soft pm-cancel" data-action="close-modal">✕ Cancelar</button><button type="submit" class="btn pm-receipt" data-pm-save-mode="receipt" form="'+formId+'">▤ Generar recibo</button><button type="submit" class="btn pm-save" data-pm-save-mode="save" form="'+formId+'">✓ Guardar pago</button>';
+ pmAddOcrFooter(modal);
 }
 function pmRepaintSales(){
  const form=document.querySelector('#multi-payment-form');
@@ -271,7 +291,7 @@ function pmSalesDecorate(){
  const main=pmNode('div','pm-grid');
  const summary=pmCard('Resumen del contrato','layers');summary.body.id='pm-summary';
  const entry=pmCard('Registrar nuevo pago','wallet');entry.body.append(fields);
- if(ocr)entry.body.append(ocr);
+ if(ocr)shell.append(ocr);
  if(total){total.style.display='none';entry.body.append(total);}
  const dist=pmNode('div','pm-distribution');dist.id='pm-distribution';dist.append(pmNode('h4','','Distribución del abono por solar'));selected.classList.add('pm-selected');dist.append(selected);entry.body.append(dist);
  if(error){error.classList.add('pm-error');entry.body.append(error);}
@@ -325,7 +345,7 @@ function pmOwnerDecorate(){
  right.body.append(fields);
  if(total){total.classList.add('pm-summary-row','pm-good');right.body.append(total);}
  const distribution=pmNode('div','pm-owner-allocations');distribution.append(refs);right.body.append(distribution);
- if(ocr)right.body.append(ocr);
+ if(ocr)shell.append(ocr);
  if(confirm)right.body.append(confirm);
  if(error){error.classList.add('pm-error');right.body.append(error);}
  main.append(left.card,right.card);shell.append(main);
@@ -377,6 +397,20 @@ paymentReceiptPreview=function(id){if(pmSaveOnly){pmSaveOnly=false;return;}retur
 const pmOriginalOwnerPreview=ownerPaymentPreview;
 ownerPaymentPreview=function(id){if(pmSaveOnly){pmSaveOnly=false;return;}return pmOriginalOwnerPreview(id);};
 document.addEventListener('click',e=>{
+ const toggle=e.target.closest?.('[data-pm-ocr-toggle]'),close=e.target.closest?.('[data-pm-ocr-close]');
+ if(toggle||close){
+  const modal=(toggle||close).closest('.lg-payment-modern');
+  const panel=modal?.querySelector('#pm-ocr-panel'),footer=modal?.querySelector('.modal-footer');
+  if(!panel||!footer)return;
+  const opening=Boolean(toggle)&&panel.hidden;
+  modal.style.setProperty('--pm-ocr-footer-size',Math.ceil(footer.getBoundingClientRect().height)+'px');
+  panel.hidden=!opening;
+  const control=footer.querySelector('[data-pm-ocr-toggle]');
+  if(control)control.setAttribute('aria-expanded',String(opening));
+  if(opening)panel.querySelector('[data-pm-ocr-close]')?.focus();
+  else control?.focus();
+  e.preventDefault();return;
+ }
  if(e.target.closest('[data-pm-history-open]')){pmOpenPaymentHistory();return;}
  const todayButton=e.target.closest('[data-pm-use-today]');
  if(todayButton&&document.querySelector('.lg-payment-modern')){
@@ -410,3 +444,14 @@ document.addEventListener('submit',e=>{
  // Los botones ya fijaron el modo en click; Enter genera el recibo por defecto.
  setTimeout(()=>{pmSaveOnly=false;if(!document.querySelector('.lg-payment-modern'))pmActive=null;},0);
 },false);
+
+// Cierra el lector al presionar Escape; el formulario conserva su estado intacto.
+document.addEventListener('keydown',event=>{
+ if(event.key!=='Escape')return;
+ const modal=document.querySelector('#modal-root .lg-payment-modern'),panel=modal?.querySelector('#pm-ocr-panel');
+ if(!panel||panel.hidden)return;
+ panel.hidden=true;
+ const trigger=modal.querySelector('[data-pm-ocr-toggle]');
+ if(trigger){trigger.setAttribute('aria-expanded','false');trigger.focus();}
+ event.preventDefault();event.stopImmediatePropagation();
+},true);
