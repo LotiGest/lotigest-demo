@@ -10,8 +10,10 @@ export function auditVoidedContractSolarRelease(state,documentId,lotId,residence
  if(doc.residenceId!==lot.residenceId||(residenceId&&doc.residenceId!==residenceId))
   reasons.push('La ficha y el solar pertenecen a otra residencial.');
  const saleById=new Map((state.sales||[]).map(s=>[s.id,s]));
- const refs=new Set([doc.lotId,...(doc.contractLotIds||[]),saleById.get(doc.saleId)?.lotId].filter(Boolean));
- if(!refs.has(lot.id))reasons.push('El solar no corresponde a este contrato anulado.');
+ // contractLotIds indica otros solares del MISMO GRUPO, no del contrato individual.
+ // Evitar que una anulación en solar 2 libere por error solar 1.
+ if(!doc.lotId||doc.lotId!==lot.id)
+  reasons.push('Solo se puede liberar el solar principal identificado por la ficha anulada.');
  if((doc.lotReleaseHistory||[]).some(x=>x.lotId===lot.id))reasons.push('El solar ya fue liberado de esta ficha.');
  if(!doc.clientId)reasons.push('El contrato no identifica al cliente.');
  if(lot.ownerClientId&&lot.ownerClientId!==doc.clientId)reasons.push('El terreno tiene otro propietario.');
@@ -26,8 +28,7 @@ export function auditVoidedContractSolarRelease(state,documentId,lotId,residence
   reasons.push('Esta ficha contiene una referencia de venta; debe revisarse antes de liberar.');
  if((state.sales||[]).some(s=>s.lotId===lot.id))
   reasons.push('Existe una venta registrada; no es posible liberar este terreno.');
- const mentions=d=>d.lotId===lot.id||(d.contractLotIds||[]).includes(lot.id)||
-  saleById.get(d.saleId)?.lotId===lot.id;
+ const mentions=d=>d.lotId===lot.id||saleById.get(d.saleId)?.lotId===lot.id;
  if((state.contractTexts||[]).some(d=>d.id!==doc.id&&d.status!=='voided'&&mentions(d)))
   reasons.push('Hay un contrato vigente de este solar.');
  if((state.reservations||[]).some(x=>x.lotId===lot.id&&!['expired','cancelled','voided'].includes(x.status)))
