@@ -1,4 +1,4 @@
 {
-  "version": "0.22.54",
-  "notes": "LOTIGEST PRO: lapicito junto a Cliente ya registrado en Nuevo contrato. Editar nombre, DNI, teléfono, dirección, correo, RTN, estado civil y ocupación sin salir de la ventana. Guardar actualiza la ficha de Clientes en D1 y conserva solar, precio y prima del contrato."
+  "version": "0.22.55",
+  "notes": "LOTIGEST PRO: corregido el botón para desplegar la barra lateral. Pulsa el icono H para abrir y cerrar los nombres de los módulos; se conserva la preferencia y la opción de fijar. También se expande al pasar el ratón en computadoras."
 }
