@@ -260,8 +260,8 @@
    wrapper.append(date,note,button);fields.append(wrapper);
   }
   if(amount)fields.append(amount);
-  if(period){period.classList.add('pm-span-2');period.append(make('small','pm-help','El mes se completa según la fecha real del abono. Puedes corregirlo si el recibo corresponde a otra mensualidad.'));fields.append(period);}
   if(ref){ref.classList.add('pm-span-2');fields.append(ref);}
+  if(period){period.classList.add('pm-span-2');period.append(make('small','pm-help','El mes se completa según la fecha real del abono. Puedes corregirlo si el recibo corresponde a otra mensualidad.'));fields.append(period);}
   if(note){note.classList.add('pm-span-2');fields.append(note);}
   entry.body.append(fields);
   if(ocr)shell.append(ocr);
