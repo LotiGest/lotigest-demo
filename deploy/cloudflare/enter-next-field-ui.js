@@ -43,6 +43,8 @@
   // Consumir Enter incluso en la última casilla: nunca enviar un formulario
   // ni guardar un pago automáticamente por una pulsación accidental.
   const next=fields[position+1];
+  // El inicio de sesión conserva Enter para acceder después de la contraseña.
+  if(!next&&scope.matches?.('#login-form'))return false;
   if(next){
    next.focus({preventScroll:false});
    if(next.tagName?.toLowerCase()==='input'&&selectableTypes.has(String(next.type||'text').toLowerCase())){
