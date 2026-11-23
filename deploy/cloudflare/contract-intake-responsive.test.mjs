@@ -114,3 +114,27 @@ test('Limpiar reinicia solo el borrador sin alterar clientes ni solares',()=>{
  assert.equal(db.clients.length,1);
  assert.equal(db.lots.length,1);
 });
+
+
+test('Nuevo contrato permite editar precio desde tarjeta sin quitar el solar',()=>{
+ const html=view('1','A','E1A1');
+ assert.match(html,/data-contract-intake-edit-price="0"/);
+ assert.match(html,/data-contract-intake-remove-primary/);
+ assert.match(html,/name="solarPrice_0"[^>]*value="200,000"/);
+ assert.match(html,/name="down"[^>]*value="50,000"/);
+ assert.match(html,/data-contract-money="true"/);
+ assert.match(ui,/target\.scrollIntoView/);
+ assert.match(css,/input\[data-contract-money\]/);
+});
+
+test('Los separadores de miles no cambian los valores de los contratos',()=>{
+ const start=ui.indexOf('function contractIntakeMoneyDisplay(');
+ const end=ui.indexOf('function contractIntakeManualFields()',start);
+ const functions=new Function(ui.slice(start,end)+';return {display:contractIntakeMoneyDisplay,parse:contractIntakeMoneyNumber};')();
+ assert.equal(functions.display('1000000'),'1,000,000');
+ assert.equal(functions.display('1000000.50'),'1,000,000.50');
+ assert.equal(functions.display('25000.00'),'25,000.00');
+ assert.equal(functions.parse('1,000,000.50'),1000000.5);
+ assert.equal(functions.parse('25,000.00'),25000);
+ assert.ok(Number.isNaN(functions.parse('')));
+});
