@@ -80,6 +80,8 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace('function financeMovements(){', 'function baseFinanceMovements(){')
     .replace('function totals(){', 'function baseTotals(){')
     .replace('function paymentReceiptPreview(id){', 'function basePaymentReceiptPreview(id){')
+    .replace("parts.push({text:'Fecha de pago: '+fmtDate(p.date)+'   |   Método: '+(p.method||'No indicado')});",
+      "parts.push({text:'Fecha de pago: '+fmtDate(p.date)+'   |   Método: '+(p.method||'No indicado')});parts.push({text:'Correlativo de caja: '+(p.receiptReference||'Sin correlativo histórico')});")
     .replace("toast('Pagos registrados. Recibo listo para descargar o compartir.');", '')
     // Cada PDF de pago contiene un QR vectorial que apunta a la verificación pública.
     .replace("for(const part of parts){if(part.row)", "for(const part of parts){if(part.pageBreak){footer();header();continue;}if(part.row)")
