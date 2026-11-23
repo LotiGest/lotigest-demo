@@ -33,7 +33,7 @@
    '<input type="'+(key==='email'?'email':key==='phone'?'tel':'text')+'" '+
    'data-contract-client-edit-value="'+val(key)+'" value="'+val(values?.[key])+'" maxlength="'+max+'" '+
    (key==='phone'?'inputmode="tel" autocomplete="tel" ':'')+
-   (key==='name'?'required ':'')+'></label>').join('');
+   '></label>').join('');
   return '<div class="lg-contract-client-editor" id="contract-intake-client-editor" role="group" aria-label="Editar datos del cliente">'+
    '<p class="sm">Modifica los datos necesarios y guarda la ficha sin salir del contrato.</p>'+
    '<div class="lg-contract-client-edit-grid">'+inputs+'</div>'+
@@ -106,6 +106,13 @@
    draft.clientEditValues[input.dataset.contractClientEditValue]=input.value;
   }
  },true);
+ // No permitir registrar el contrato con cambios de cliente todavía sin guardar.
+ window.addEventListener('submit',event=>{
+  if(event.target?.id==='contract-intake-form'&&contractIntakeWorking?.clientEditing){
+   event.preventDefault();event.stopImmediatePropagation();
+   toast('Primero guarda o cancela los cambios de la ficha del cliente.','error');
+  }
+ },true);
  document.addEventListener('keydown',event=>{
   if(event.key!=='Enter'||!event.target.matches?.('[data-contract-client-edit-value]'))return;
   event.preventDefault();event.stopImmediatePropagation();
@@ -140,9 +147,10 @@
  // Al elegir otro cliente, el editor se reinicia para no mezclar personas.
  document.addEventListener('click',event=>{
   if(!event.target.closest?.('[data-contract-client-pick],[data-contract-client-clear]'))return;
-  if(contractIntakeWorking){
+  if(contractIntakeWorking?.clientEditing){
    contractIntakeWorking.clientEditing=false;
    contractIntakeWorking.clientEditValues=null;
+   redraw();
   }
  },true);
  window.lotigestContractClientEdit={patch:patchedCustomer};
