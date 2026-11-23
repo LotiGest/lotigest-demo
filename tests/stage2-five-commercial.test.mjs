@@ -10,7 +10,7 @@ const extract=(name)=>{
  assert.ok(match,'Falta '+name);
  return JSON.parse(match[1]);
 };
-const existing=JSON.parse(/const arrayanFeatures=(\\[[\\s\\S]*?\\]);/.exec(html)[1]);
+const existing=extract('arrayanFeatures');
 const five=extract('arrayanStage2CommercialFive');
 
 test('se conservan los 411 polígonos previos, incluidas las 11 parcelas comerciales de etapa 1',()=>{
