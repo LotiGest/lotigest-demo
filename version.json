@@ -1,4 +1,4 @@
 {
-  "version": "0.22.50",
-  "notes": "LOTIGEST PRO: cada abono nuevo y los creados con Enter presentan Fecha vacía (DD/MM/AAAA) para escribir directamente, sin borrar la fecha actual. Se conserva calendario, OCR, validación de fecha y atajos Enter/Ctrl+B."
+  "version": "0.22.51",
+  "notes": "LOTIGEST PRO: Configuración de atajos editable en Configuración; Ctrl+C Contratos, Ctrl+A Abono individual, Ctrl+B Abonos varios, Ctrl+R Residenciales y cobros, Ctrl+T Terrenos, Ctrl+P Panel; otros módulos configurables, detección de duplicados, guardado y restablecer. Atajos protegidos al escribir en formularios."
 }

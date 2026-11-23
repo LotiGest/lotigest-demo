@@ -69,10 +69,15 @@ test('dos fechas desde + guardan dos movimientos, dos folios y dos recibos separ
   assert.equal(new Set(payments.map(p=>p.groupId)).size,2,'Cada fecha posee recibo independiente');
   assert.equal(app.d.querySelectorAll('[data-md-pdf]').length,2);
   app.click('[data-action="close-modal"]');
-  const shortcut=new app.w.KeyboardEvent('keydown',{key:'b',ctrlKey:true,bubbles:true,cancelable:true});
+  const shortcut=new app.w.KeyboardEvent('keydown',{key:'a',ctrlKey:true,bubbles:true,cancelable:true});
   app.d.dispatchEvent(shortcut);
-  assert.equal(shortcut.defaultPrevented,true,'Ctrl+B tiene el atajo de abono');
-  assert.ok(app.d.querySelector('#multi-payment-form'),'Ctrl+B abre abono individual para el solar seleccionado');
+  assert.equal(shortcut.defaultPrevented,true,'Ctrl+A abre el abono individual');
+  assert.ok(app.d.querySelector('#multi-payment-form'),'Ctrl+A abre el pago de un solar seleccionado');
+  app.click('[data-action="close-modal"]');
+  const several=new app.w.KeyboardEvent('keydown',{key:'b',ctrlKey:true,bubbles:true,cancelable:true});
+  app.d.dispatchEvent(several);
+  assert.equal(several.defaultPrevented,true,'Ctrl+B abre abonos varios');
+  assert.ok(app.d.querySelector('#md-abonos-form'),'Ctrl+B abre la ventana de varios abonos');
   assert.equal(server.errors.length,0,server.errors.join('; '));
  }finally{app.close();}
 });

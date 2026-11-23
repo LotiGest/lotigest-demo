@@ -1,0 +1,113 @@
+
+/* LOTIGEST PRO | Configuración de atajos — ajustes del usuario */
+#lotigest-shortcut-settings{
+ margin:16px 0 22px;
+ border:1px solid #c5ded0;
+ border-radius:17px;
+ background:linear-gradient(160deg,#fff,#f7fcf8);
+ padding:20px;
+ box-shadow:0 7px 30px #164b2810;
+}
+#lotigest-shortcut-settings .lg-shortcut-header h2{
+ margin:0;color:#153f2a;font-size:clamp(18px,2.4vw,24px);
+}
+#lotigest-shortcut-settings .lg-shortcut-header p{
+ margin:5px 0 12px;color:#526b5d;font-size:14px;
+}
+#lotigest-shortcut-settings .lg-shortcut-note{
+ background:#edf8f0;color:#24583c;
+ border:1px solid #bedfc7;border-radius:10px;
+ padding:11px 13px;margin:0 0 17px;font-size:13px;line-height:1.5;
+}
+#lotigest-shortcut-settings h3{
+ margin:17px 0 10px;font-size:16px;color:#213c2c;
+}
+#lotigest-shortcut-settings .lg-shortcut-rows{
+ display:grid;gap:7px;
+}
+#lotigest-shortcut-settings .lg-shortcut-row{
+ min-width:0;
+ display:grid;grid-template-columns:48px minmax(115px,154px) minmax(130px,1fr) auto;
+ align-items:center;column-gap:10px;row-gap:6px;
+ border:1px solid #d1ded6;background:#fff;
+ border-radius:10px;padding:9px 11px;
+}
+#lotigest-shortcut-settings .lg-shortcut-row:focus-within{
+ border-color:#61b883;
+}
+#lotigest-shortcut-settings .lg-shortcut-move{
+ display:flex;gap:3px;
+}
+#lotigest-shortcut-settings .lg-shortcut-move button{
+ flex:1;min-width:20px;min-height:33px;
+ border:1px solid #d2e3d8;border-radius:7px;
+ background:#f7fbf8;color:#44715a;cursor:pointer;
+ font-size:15px;
+}
+#lotigest-shortcut-settings .lg-shortcut-key{
+ text-align:center;display:inline-block;white-space:nowrap;
+ border-radius:9px;background:#dff6e5;color:#086638;
+ padding:9px 6px;font-size:13px;font-weight:850;
+}
+#lotigest-shortcut-settings .lg-shortcut-name{
+ min-width:0;font-weight:750;font-size:14px;color:#1d3929;
+}
+#lotigest-shortcut-settings .lg-shortcut-edit{
+ color:#16613c!important;border-color:#a0cab1;
+ background:#f4fbf5;white-space:nowrap;min-height:36px;
+ font-size:13px;
+}
+#lotigest-shortcut-settings .lg-shortcut-capture-wrap{
+ grid-column:1/-1;display:block;background:#eef8f1;
+ border:1px dashed #8bbf9a;padding:11px;
+ border-radius:9px;color:#164f2e;
+}
+#lotigest-shortcut-settings .lg-shortcut-capture-wrap label{
+ display:block;font-size:13px;font-weight:750;
+}
+#lotigest-shortcut-settings .lg-shortcut-capture{
+ display:block;margin-top:6px;width:100%;min-height:44px;
+ box-sizing:border-box;border-radius:8px;background:white!important;
+ border:2px solid #24a15d!important;
+ color:#173f2b;font:700 14px system-ui!important;
+}
+#lotigest-shortcut-settings .lg-shortcut-capture-wrap small{
+ display:block;margin-top:6px;color:#63786a;font-size:11px;
+}
+#lotigest-shortcut-settings .lg-shortcut-more{
+ margin-top:14px;border:1px solid #d6e3da;
+ border-radius:10px;background:#fff;
+}
+#lotigest-shortcut-settings .lg-shortcut-more summary{
+ padding:12px 14px;font-weight:800;color:#20563a;cursor:pointer;
+}
+#lotigest-shortcut-settings .lg-shortcut-more .lg-shortcut-rows{padding:0 9px 11px}
+#lotigest-shortcut-settings .lg-shortcut-caution{
+ margin:13px 0;border-left:3px solid #b58d39;
+ background:#fff9e9;color:#6b571e;border-radius:7px;
+ padding:10px 12px;font-size:12px;line-height:1.55;
+}
+#lotigest-shortcut-settings .lg-shortcut-actions{
+ display:flex;justify-content:flex-end;gap:9px;flex-wrap:wrap;
+ margin:16px 0 10px;
+}
+#lotigest-shortcut-settings .lg-shortcut-actions button{min-height:43px}
+body.lotigest-dark #lotigest-shortcut-settings{background:#1a3026;border-color:#4b7258}
+body.lotigest-dark #lotigest-shortcut-settings :is(h2,h3,.lg-shortcut-name){color:#e7f7e9}
+body.lotigest-dark #lotigest-shortcut-settings .lg-shortcut-row{background:#203a2c;border-color:#42634d}
+body.lotigest-dark #lotigest-shortcut-settings .lg-shortcut-note{background:#1c4b32;color:#e7f7e9}
+@media(max-width:580px){
+ #lotigest-shortcut-settings{padding:12px;margin:12px 0 20px}
+ #lotigest-shortcut-settings .lg-shortcut-row{
+  grid-template-columns:32px minmax(87px,104px) minmax(80px,1fr);
+  padding:8px;gap:7px;
+ }
+ #lotigest-shortcut-settings .lg-shortcut-move{flex-direction:column}
+ #lotigest-shortcut-settings .lg-shortcut-move button{min-height:24px;max-height:25px}
+ #lotigest-shortcut-settings .lg-shortcut-key{font-size:11px;padding:8px 4px}
+ #lotigest-shortcut-settings .lg-shortcut-name{font-size:12px}
+ #lotigest-shortcut-settings .lg-shortcut-edit{grid-column:2/-1;justify-self:end;padding:7px 14px;min-height:33px}
+ #lotigest-shortcut-settings .lg-shortcut-capture-wrap{grid-column:1/-1}
+ #lotigest-shortcut-settings .lg-shortcut-actions{display:grid;grid-template-columns:1fr 1fr}
+ #lotigest-shortcut-settings .lg-shortcut-actions button{min-width:0;white-space:normal}
+}
