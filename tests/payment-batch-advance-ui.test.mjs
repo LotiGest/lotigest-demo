@@ -40,7 +40,7 @@ function manualScenario(){
   toast:m=>messages.push(m),money,
   openOwnerAbono:()=>{},cloudFlush:async()=>{},cloudBlocked:false,
   lotigestOwnerPayments:{createOwnerPayment:()=>{},requireReceiptCorrelativo,findReceiptCorrelativo},
-  crypto:{randomUUID:()=> 'test'},console
+  Event:class{constructor(type){this.type=type;}},crypto:{randomUUID:()=> 'test'},console
  };
  const api=new Function(...Object.keys(env),addon+
   ';return {submitMultiPayment,submitOwnerAbono,setContinue:(x)=>pmBatchContinue=x,'+
