@@ -18,7 +18,7 @@ function make(){
  const summary='<strong>Cliente ya registrado</strong><small>Datos copiados directamente de Clientes. No debes adjuntar documentos ni volver a ingresar esta información; si faltan datos puedes completarlos posteriormente en Clientes.</small>';
  const base=()=>'<form id="contract-intake-form">'+summary+'<p>Solar J 1</p></form>';
  let current=db;
- const get=()=>current.clients.find(c=>c.id==='C1');
+ const get=id=>current.clients.find(c=>c.id===id);
  const app=new Function('document','window','contractIntakeManualFields','contractIntakeWorking',
   'getClient','esc','contractIdentityFormat','db','contractIntakeAdmin','cloudWrite','cloudFlush',
   'cloudReady','cloudBlocked','cloudQueue','contractIntakeRememberExtras','contractIntakeFields','toast',
