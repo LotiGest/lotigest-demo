@@ -23,6 +23,17 @@ test('dos fechas desde + guardan dos movimientos, dos folios y dos recibos separ
   assert.ok(app.d.querySelector('.lg-multi-date-modal'),'Debe abrir la ventana de fechas múltiples');
   assert.equal(app.d.querySelectorAll('[data-md-row]').length,2);
   assert.equal(app.d.querySelectorAll('[data-md-photo]').length,2,'Escáner icono independiente por fila');
+  assert.equal(app.d.querySelectorAll('[data-md-edit]').length,2,'Cada abono debe ofrecer ingreso manual');
+  assert.ok(app.d.querySelectorAll('.md-date-control input[data-md-field="date"][type="text"]').length===2,'Fecha editable por texto');
+  assert.ok(app.d.querySelectorAll('.md-money-control input[data-md-field="amount"][type="text"]').length===2,'Monto editable por teclado');
+  assert.ok(app.d.querySelectorAll('.md-ref-line input[data-md-field="receiptRef"][type="text"]').length===2,'Correlativo editable por teclado');
+  for(const input of app.d.querySelectorAll('#md-abonos-form [data-md-field]')){
+   assert.equal(input.readOnly,false,'Los campos no deben ser de solo lectura');
+   assert.equal(input.disabled,false,'No se deshabilita el ingreso manual');
+  }
+  for(const photo of app.d.querySelectorAll('[data-md-photo]'))assert.equal(photo.required,false,'El OCR es opcional');
+  app.click('[data-md-edit]');
+  assert.equal(app.d.activeElement,app.d.querySelector('[data-md-field="date"]'),'Escribir debe enfocar la fecha manualmente');
   const fields=field=>[...app.d.querySelectorAll('[data-md-field="'+field+'"]')];
   for(const [i,values] of [{date:'21/10/2026',amount:'12,000',receiptRef:'00006159'},{date:'20 Noviembre 2026',amount:'9,000.00',receiptRef:'00006160'}].entries()){
    for(const [name,value] of Object.entries(values)){
