@@ -26,21 +26,81 @@
  }
  function locationMatch(r,key,selected){
   if(selected==='all')return true;
-  return r.lots.some(l=>key==='stage'?val(l.stage)===selected:key==='block'?val(l.block)===selected:norm(num(l))===norm(selected));
+  const linked=r.lots.some(l=>key==='stage'?val(l.stage)===selected:key==='block'?val(l.block)===selected:norm(num(l))===norm(selected));
+  if(linked)return true;
+  if(r.status!=='voided')return false;
+  const saved=contractRecordedLocation(r.doc);
+  return key==='stage'?saved.stage===selected:key==='block'?saved.block===selected:norm(saved.number)===norm(selected);
  }
  function filtered(all){return all.filter(r=>locationMatch(r,'stage',state.stage)&&locationMatch(r,'block',state.block)&&locationMatch(r,'solar',state.solar)&&
   (state.status==='all'||state.status===r.status)&&
-  (!state.query||norm([r.id,r.client?.name,r.client?.identity,r.doc?.title,...r.lots.flatMap(l=>['etapa '+l.stage,'bloque '+l.block,'solar '+num(l),l.id])].join(' ')).includes(norm(state.query))));}
+  (!state.query||norm([r.id,r.client?.name,r.client?.identity,r.doc?.title,r.doc?.voidReason,
+   r.status==='voided'?'etapa '+contractRecordedLocation(r.doc).stage+' bloque '+contractRecordedLocation(r.doc).block+' solar '+contractRecordedLocation(r.doc).number:'',
+   ...r.lots.flatMap(l=>['etapa '+l.stage,'bloque '+l.block,'solar '+num(l),l.id])].join(' ')).includes(norm(state.query))));}
+ function contractRecordedLocation(doc){
+  const s=doc?.structured||{};
+  return {stage:val(s.stage),block:val(s.block),number:val(s.number)};
+ }
+ function contractVoidMismatch(r){
+  const saved=contractRecordedLocation(r.doc),lot=r.lots[0];
+  return Boolean(lot&&(
+   (saved.stage&&norm(saved.stage)!==norm(lot.stage))||
+   (saved.block&&norm(saved.block)!==norm(lot.block))||
+   (saved.number&&norm(saved.number)!==norm(num(lot)))));
+ }
  function where(r){
-  const l=r.lots[0];if(!l)return 'Sin solar vinculado';
-  return 'Etapa '+esc(l.stage||'—')+' / Bloque '+esc(l.block||'—')+' / Solar '+esc(num(l))+
-   (r.lots.length>1?'<small class="ct-more">+'+(r.lots.length-1)+' solares adicionales</small>':'');
+  const l=r.lots[0],saved=contractRecordedLocation(r.doc);
+  const linked=l?'Etapa '+esc(l.stage||'—')+' / Bloque '+esc(l.block||'—')+' / Solar '+esc(num(l)):'Sin solar vinculado';
+  const extras=r.lots.length>1?'<small class="ct-more">+'+(r.lots.length-1)+' solares adicionales</small>':'';
+  if(r.status!=='voided')return linked+extras;
+  const recorded=saved.stage||saved.block||saved.number?
+   'Etapa '+esc(saved.stage||'—')+' / Bloque '+esc(saved.block||'—')+' / Solar '+esc(saved.number||'—'):
+   'Sin ubicación escrita en la ficha';
+  return '<span class="ct-void-location">Vinculado: '+linked+'</span>'+extras+
+   '<small class="ct-more'+(contractVoidMismatch(r)?' ct-void-mismatch':'')+'">Según ficha: '+recorded+
+   (contractVoidMismatch(r)?' · Revisar diferencia':'')+'</small>';
+ }
+ function contractVoidedView(id){
+  const d=(db.contractTexts||[]).find(x=>x.id===id&&x.status==='voided'&&x.residenceId===residence().id);
+  if(!d)return;
+  const client=getClient(d.clientId),saved=contractRecordedLocation(d);
+  const linked=relatedIds(d).map(getLot).filter(l=>l?.residenceId===d.residenceId);
+  const linkedLabel=linked.length?linked.map(l=>'Etapa '+esc(l.stage||'—')+' · Bloque '+esc(l.block||'—')+' · Solar '+esc(num(l))).join('; '):'No se encontró el solar vinculado';
+  const savedLabel=saved.stage||saved.block||saved.number?
+   'Etapa '+esc(saved.stage||'—')+' · Bloque '+esc(saved.block||'—')+' · Solar '+esc(saved.number||'—'):
+   'No registrado en la ficha';
+  const mismatch=contractVoidMismatch({doc:d,lots:linked});
+  const date=value=>/^\d{4}-\d{2}-\d{2}/.test(val(value))?fmtDate(val(value).slice(0,10)):'No registrada';
+  const cash=value=>value==null||value===''||!Number.isFinite(Number(value))?'—':money(Number(value));
+  const moneyLine=(label,value)=>'<div class="detail-line"><span>'+label+'</span><strong>'+esc(cash(value))+'</strong></div>';
+  const info=d.structured||{},sale=d.saleId?getSale(d.saleId):null;
+  const body='<div class="ct-void-detail" role="region" aria-label="Detalle de contrato anulado">'+
+   '<p class="ct-void-alert"><strong>Contrato anulado · Solo lectura.</strong> Consultar esta ficha no vuelve a activar el contrato ni modifica el solar o los pagos.</p>'+
+   '<div class="detail-line"><span>Número de ficha</span><strong>'+esc(d.id)+'</strong></div>'+
+   '<div class="detail-line"><span>Cliente</span><strong>'+esc(client?.name||info.name||'Sin nombre')+'</strong></div>'+
+   '<div class="detail-line"><span>Identidad</span><strong>'+esc(client?.identity||info.identity||'—')+'</strong></div>'+
+   '<div class="detail-line"><span>Fecha del contrato</span><strong>'+esc(date(info.date||d.createdAt))+'</strong></div>'+
+   '<div class="detail-line"><span>Fecha de anulación</span><strong>'+esc(date(d.voidedAt||d.updatedAt))+'</strong></div>'+
+   '<div class="detail-line"><span>Anulado por</span><strong>'+esc(d.voidedBy||'Sin registro')+'</strong></div>'+
+   '<div class="ct-void-section"><strong>Motivo de anulación</strong><p>'+esc(d.voidReason||'No se especificó motivo')+'</p></div>'+
+   '<div class="ct-void-section"><strong>Terreno vinculado en el inventario</strong><p>'+linkedLabel+'</p></div>'+
+   '<div class="ct-void-section"><strong>Terreno escrito en la ficha</strong><p>'+savedLabel+'</p></div>'+
+   (mismatch?'<p class="ct-void-warning"><strong>Atención:</strong> la ubicación guardada en la ficha no coincide con el terreno vinculado. Revisa etapa, bloque y solar antes de registrar una ficha nueva.</p>':'')+
+   moneyLine('Precio pactado',info.price??sale?.price)+moneyLine('Prima pactada',info.down??sale?.downPayment)+
+   moneyLine('Saldo financiado',info.financed)+
+   (d.documentKey?'<p><a class="btn btn-outline btn-sm" target="_blank" rel="noopener noreferrer" href="/api/app/file?key='+encodeURIComponent(d.documentKey)+'">Ver imagen original</a></p>':'')+
+   (sale?'<p class="sm muted">Esta ficha tiene una venta vinculada. Verifica sus pagos antes de generar otro contrato para no duplicar cobros.</p>':
+   '<p class="sm muted">Si el solar correcto era otro, registra una ficha nueva desde Nuevo contrato y selecciona etapa, bloque y número correctos. Esta anulación queda en el historial.</p>')+
+   '</div>';
+  showModal('Consultar contrato anulado',body,
+   '<button type="button" class="btn btn-outline" data-action="close-modal">Cerrar</button>',true);
  }
  function actions(r){
   if(r.type==='sale')return '<button class="btn btn-outline btn-sm" data-ct-manual="'+esc(r.clientId)+'">Ficha manual</button> '+
     '<button class="btn btn-outline btn-sm" data-action="contract-scan" data-client="'+esc(r.clientId)+'" data-id="'+esc(r.id)+'">Escanear texto</button> '+
     '<button class="btn btn-outline btn-sm" data-action="contract-preview" data-id="'+esc(r.id)+'">Plantilla</button>';
   const d=r.doc;
+  if(d.status==='voided')return '<button type="button" class="btn btn-outline btn-sm" data-ct-voided-view="'+esc(d.id)+'">Ver anulación</button>';
   return '<button class="btn btn-outline btn-sm" data-contract-ficha-view="'+esc(d.id)+'">Ver</button> '+
    (d.status!=='voided'?'<button class="btn btn-outline btn-sm" data-contract-edit="'+esc(d.id)+'">Editar</button> '+
     '<button class="btn btn-outline btn-sm" data-contract-delete="'+esc(d.id)+'">Eliminar</button> ':'')+
@@ -68,7 +128,9 @@
     '<button type="button" class="btn btn-outline" data-ct-print>'+ic('printer')+' Imprimir</button>'+
     '<button type="button" class="btn btn-outline" data-ct-export>'+ic('download')+' Exportar Excel</button>';
   const cards='<div class="ct-stats">'+[['all','▤','Fichas registradas',all.filter(r=>r.type==='doc').length],['active','✓','Activos',count('active')],['pending','◷','Por completar',count('pending')+count('missing')],['voided','×','Anulados',count('voided')]]
-    .map(([style,icon,label,n])=>'<div class="ct-stat ct-'+style+'"><span class="ct-symbol" aria-hidden="true">'+icon+'</span><div><small>'+label+'</small><strong>'+n+'</strong></div></div>').join('')+'</div>';
+    .map(([style,icon,label,n])=>style==='voided'?
+     '<button type="button" class="ct-stat ct-voided ct-stat-link" data-ct-show-voided aria-pressed="'+(state.status==='voided')+'" title="Mostrar contratos anulados"><span class="ct-symbol" aria-hidden="true">'+icon+'</span><span><small>'+label+'</small><strong>'+n+'</strong><small>Ver lista</small></span></button>':
+     '<div class="ct-stat ct-'+style+'"><span class="ct-symbol" aria-hidden="true">'+icon+'</span><div><small>'+label+'</small><strong>'+n+'</strong></div></div>').join('')+'</div>';
   const filters='<section class="card ct-filters"><div class="ct-fields">'+
     '<label>Buscar contrato<input type="search" id="ct-query" value="'+esc(state.query)+'" placeholder="Contrato, cliente, identidad o solar"></label>'+
     '<label>Etapa<select id="ct-stage">'+opt('all','Todas',state.stage)+stages.map(s=>opt(s,'Etapa '+s,state.stage)).join('')+'</select></label>'+
@@ -76,7 +138,7 @@
     '<label>Solar<select id="ct-solar">'+opt('all','Todos',state.solar)+solars.map(n=>opt(n,'Solar '+n,state.solar)).join('')+'</select></label>'+
     '<label>Estado<select id="ct-status">'+Object.entries(statuses).map(([s,t])=>opt(s,t,state.status)).join('')+'</select></label>'+
     '<button class="btn btn-outline" type="button" data-ct-clear>Limpiar</button></div></section>';
-  const table='<section class="card"><div class="panel-table-head"><h2>Registro de contratos</h2><span class="sm muted">'+list.length+' resultado(s)</span></div>'+
+  const table='<section class="card"><div class="panel-table-head"><h2>'+(state.status==='voided'?'Contratos anulados':'Registro de contratos')+'</h2><span class="sm muted">'+list.length+' resultado(s)</span></div>'+
     '<div class="table-scroll ct-scroll" role="region" aria-label="Tabla de contratos" tabindex="0"><table class="ct-table"><thead><tr>'+
     '<th>N.º contrato / ficha</th><th>Cliente</th><th>Terreno (etapa / bloque / solar)</th><th>Fecha / registro</th><th>Monto (L)</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>'+
     subset.map(r=>'<tr><td class="strong">'+(r.type==='doc'?esc(r.id):'—'+ '<small class="ct-more">Venta '+esc(r.id)+'</small>')+'</td>'+
@@ -166,9 +228,15 @@
   if(keys[e.target.id])update(keys[e.target.id],e.target.value);
  });
  document.addEventListener('click',e=>{
-  const btn=e.target.closest?.('[data-ct-manual],[data-ct-print],[data-ct-export],[data-ct-clear],[data-ct-page]');
+  const btn=e.target.closest?.('[data-ct-manual],[data-ct-print],[data-ct-export],[data-ct-clear],[data-ct-page],[data-ct-show-voided],[data-ct-voided-view]');
   if(!btn)return;
   e.preventDefault();
+  if(btn.hasAttribute('data-ct-voided-view'))return contractVoidedView(btn.dataset.ctVoidedView);
+  if(btn.hasAttribute('data-ct-show-voided')){
+   const next=state.status==='voided'?'all':'voided';
+   Object.assign(state,{query:'',stage:'all',block:'all',solar:'all',status:next,page:1});
+   render();return;
+  }
   if(btn.hasAttribute('data-ct-manual'))return contractIntakeOpen(btn.dataset.ctManual,'manual');
   if(btn.hasAttribute('data-ct-clear')){Object.assign(state,{query:'',stage:'all',block:'all',solar:'all',status:'all',page:1});render();return;}
   if(btn.hasAttribute('data-ct-page')){const n=Number(btn.dataset.ctPage);if(Number.isSafeInteger(n)&&n>=1){state.page=n;render();}return;}
