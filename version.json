@@ -1,4 +1,4 @@
 {
-  "version": "0.22.55",
-  "notes": "LOTIGEST PRO: corregido el botón para desplegar la barra lateral. Pulsa el icono H para abrir y cerrar los nombres de los módulos; se conserva la preferencia y la opción de fijar. También se expande al pasar el ratón en computadoras."
+  "version": "0.22.56",
+  "notes": "LOTIGEST PRO: fecha rápida en Abonos varios. Escribe 6 números sin plecas (ejemplo 251125 → 25 Noviembre 2025); los separadores se agregan automáticamente y los años de dos cifras como 25 se interpretan como 2025. Conserva OCR, calendario y entrada completa."
 }
