@@ -225,7 +225,7 @@
   if(!grid||!list)return;
   const date=field(form,'date'),amount=field(form,'amount'),type=field(form,'type'),method=field(form,'method'),
    ref=field(form,'receiptRef'),period=field(form,'period'),note=field(form,'note');
-  const ocr=form.querySelector('[data-paper-ocr-photo]')?.closest('fieldset')||[...form.querySelectorAll('fieldset')].find(x=>/OCR/i.test(x.textContent));
+  const ocr=pmQrOcr(form);
   const shell=make('div','pm-shell'),bar=make('div','pm-clientbar'),customer=make('div','pm-clientbox'),lots=make('div','pm-clientbox');
   customer.innerHTML=pmIcon('users')+'<div><small>Cliente</small><strong id="pm-history-name"></strong><p id="pm-history-identity"></p></div>';
   lots.innerHTML=pmIcon('pin')+'<div><small>Solar(es) seleccionados</small><div id="pm-history-lots"></div></div>';
@@ -264,11 +264,7 @@
   if(ref){ref.classList.add('pm-span-2');fields.append(ref);}
   if(note){note.classList.add('pm-span-2');fields.append(note);}
   entry.body.append(fields);
-  if(ocr){
-   const section=make('div','pm-ocr'),details=make('details');
-   details.append(make('summary','','Adjuntar o escanear comprobante (OCR opcional)'),ocr);
-   section.append(details);entry.body.append(section);
-  }
+  if(ocr)entry.body.append(ocr);
   if(review)entry.body.append(review);
   if(error){error.classList.add('pm-error');entry.body.append(error);}
   const cal=pmCard('Calendario de pagos (meses históricos)','calendar');
@@ -280,7 +276,7 @@
   form.replaceChildren(shell);
   modal.querySelector('.modal-content').replaceChildren(form);
   const footer=modal.querySelector('.modal-footer');
-  if(footer)footer.innerHTML='<button type="button" class="btn btn-soft pm-cancel" data-action="close-modal">Cancelar</button><button type="submit" class="btn pm-receipt" data-pm-save-mode="receipt" form="manual-history-form">▤ Guardar y generar recibo</button><button type="submit" class="btn pm-save" data-pm-save-mode="save" form="manual-history-form">✓ Guardar pago</button>';
+  if(footer){footer.innerHTML='<button type="button" class="btn btn-soft pm-cancel" data-action="close-modal">Cancelar</button><button type="submit" class="btn pm-receipt" data-pm-save-mode="receipt" form="manual-history-form">▤ Guardar y generar recibo</button><button type="submit" class="btn pm-save" data-pm-save-mode="save" form="manual-history-form">✓ Guardar pago</button>';pmAddOcrFooter(modal);}
   syncHistoricalPeriod(form,true);
   historySummary(form);
  }
