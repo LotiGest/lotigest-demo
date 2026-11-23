@@ -21,7 +21,7 @@
   for(const [field,label,max] of fields.slice(2)){
    const value=clean(field);
    if(value.length>max)throw Error('Revisa '+label+': excede el límite de caracteres.');
-   obj[field]=value;
+   obj[field]=field==='phone'&&window.lotigestPhone?.format?window.lotigestPhone.format(value):value;
   }
   if(obj.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(obj.email))
    throw Error('Introduce un correo electrónico válido.');
@@ -50,7 +50,11 @@
   const heading='<strong class="lg-contract-client-title">Cliente ya registrado</strong>';
   const button='<button type="button" class="lg-contract-client-pencil" data-contract-client-edit title="Editar datos del cliente" aria-label="Editar datos de '+val(customer.name)+'">'+
    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 4 4 4M4 20l4.8-1 10.9-10.9a2.7 2.7 0 0 0-3.8-3.8L5 15.2 4 20Z"/></svg></button>';
-  html=html.replace('<strong>Cliente ya registrado</strong>','<div class="lg-contract-client-heading">'+heading+button+'</div>');
+  // El contrato real muestra la tarjeta azul comenzando directamente con el nombre.
+  // No existe un <strong>Cliente ya registrado</strong> dentro de esa tarjeta;
+  // insertar el lápiz en su cabecera evita que quede invisible.
+  const cardStart='<section class="full notice-card lg-contract-customer-loaded">';
+  html=html.replace(cardStart,cardStart+'<div class="lg-contract-client-heading">'+heading+button+'</div>');
   const oldNote='<small>Datos copiados directamente de Clientes. No debes adjuntar documentos ni volver a ingresar esta información; si faltan datos puedes completarlos posteriormente en Clientes.</small>';
   html=html.replace(oldNote,'<small>Datos copiados de Clientes. Puedes completar información con el lápiz sin salir del contrato.</small>'+
     (draft.clientEditing?editorHtml(draft.clientEditValues||customer):''));
