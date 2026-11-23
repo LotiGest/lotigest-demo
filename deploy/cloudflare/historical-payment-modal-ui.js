@@ -264,7 +264,7 @@
   if(ref){ref.classList.add('pm-span-2');fields.append(ref);}
   if(note){note.classList.add('pm-span-2');fields.append(note);}
   entry.body.append(fields);
-  if(ocr)entry.body.append(ocr);
+  if(ocr)shell.append(ocr);
   if(review)entry.body.append(review);
   if(error){error.classList.add('pm-error');entry.body.append(error);}
   const cal=pmCard('Calendario de pagos (meses históricos)','calendar');
