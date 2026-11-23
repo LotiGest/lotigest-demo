@@ -20,8 +20,8 @@ export function auditVoidedContractSolarRelease(state,documentId,lotId,residence
  if(lot.clientId&&lot.clientId!==doc.clientId)reasons.push('Existe otro cliente vinculado al terreno.');
  if(lot.pendingContractId&&lot.pendingContractId!==doc.id)reasons.push('Hay otro contrato pendiente para el solar.');
  if(lot.contractId&&lot.contractId!==doc.id)reasons.push('Existe otro contrato vinculado.');
- if(lot.type==='private'||lot.status==='private'||lot.purchaseFromPlan)
-  reasons.push('El terreno es privado o figura vendido en el plano original.');
+ if(lot.type==='private'||lot.status==='private')
+  reasons.push('El terreno es una propiedad privada; no se puede liberar desde contratos.');
  if(!['available','sold','reserved'].includes(lot.status))reasons.push('Estado del solar no reconocido; requiere revisión.');
  if(lot.mapDebtFlag)reasons.push('Hay una alerta de mora o deuda.');
  if(doc.saleId)
@@ -56,7 +56,7 @@ export function auditVoidedContractSolarRelease(state,documentId,lotId,residence
  return {allowed:reasons.length===0,reasons,documentId:doc.id,lotId:lot.id,
   clientId:doc.clientId,residenceId:doc.residenceId,stage:lot.stage,
   block:lot.block,number:lot.sourceNumber||lot.number||lot.id,
-  previousStatus:lot.status,hasOwner:lot.ownerClientId===doc.clientId||lot.clientId===doc.clientId};
+  previousStatus:lot.status,planMarkedSold:Boolean(lot.purchaseFromPlan),hasOwner:lot.ownerClientId===doc.clientId||lot.clientId===doc.clientId};
 }
 export function releaseVoidedContractSolar(state,documentId,lotId,residenceId,actor,reason,at=new Date().toISOString()){
  const audit=auditVoidedContractSolarRelease(state,documentId,lotId,residenceId);
@@ -67,6 +67,8 @@ export function releaseVoidedContractSolar(state,documentId,lotId,residenceId,ac
  const next=JSON.parse(JSON.stringify(state)),doc=next.contractTexts.find(d=>d.id===documentId);
  const lot=next.lots.find(l=>l.id===lotId);
  const previousOwner=lot.ownerClientId||lot.clientId||null,previousStatus=lot.status;
+ const previousPurchaseFromPlan=Boolean(lot.purchaseFromPlan);
+ if(previousPurchaseFromPlan)lot.purchaseFromPlan=false;
  if(lot.ownerClientId===doc.clientId)delete lot.ownerClientId;
  if(lot.clientId===doc.clientId)delete lot.clientId;
  if(lot.pendingContractId===doc.id)delete lot.pendingContractId;
@@ -77,7 +79,7 @@ export function releaseVoidedContractSolar(state,documentId,lotId,residenceId,ac
   map.status='available';
  doc.lotReleaseHistory??=[];
  doc.lotReleaseHistory.push({lotId:lot.id,at,by:String(actor).trim().slice(0,120),reason:why,
-  previousOwnerClientId:previousOwner,previousStatus});
+  previousOwnerClientId:previousOwner,previousStatus,previousPurchaseFromPlan});
  doc.updatedAt=at;
  return {state:next,lotId:lot.id,documentId:doc.id,previousStatus,unlinked:!!previousOwner};
 }

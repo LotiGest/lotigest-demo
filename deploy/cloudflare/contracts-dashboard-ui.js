@@ -161,7 +161,7 @@
    (db.reservations||[]).some(x=>x.lotId===lot.id&&!['expired','cancelled','voided'].includes(x.status)))
    throw Error('El solar tiene otra asignación, venta, contrato o apartado.');
   if(d.saleId&&!getSale(d.saleId))throw Error('No se encontró la venta original. Revisa el contrato.');
-  if(lot.type==='private'||lot.status==='private'||lot.purchaseFromPlan)throw Error('El solar está protegido en el plano.');
+  if(lot.type==='private'||lot.status==='private')throw Error('El solar es una propiedad privada; no se puede activar desde contratos.');
   return d;
  }
  function activationOpen(id){
@@ -206,6 +206,7 @@
   showModal('Desbloquear solar de contrato anulado',
    '<p class="ct-void-alert"><strong>Acción administrativa:</strong> el solar quedará disponible y se retirará su vínculo con este cliente, solo si no tiene operaciones válidas.</p>'+
    '<p><strong>'+esc(client?.name||'Cliente')+'</strong> · Etapa '+esc(lot.stage)+' · Bloque '+esc(lot.block)+' · Solar '+esc(num(lot))+'</p>'+
+   (audit.planMarkedSold?'<p class="ct-void-warning"><strong>Vendido en el plano:</strong> al confirmar, también se corregirá esa marca para dejar este solar disponible. La corrección quedará en el historial.</p>':'')+
    '<p class="sm muted">No se eliminan clientes, contratos históricos, ventas ni recibos. No se modifican otros solares.</p>'+
    '<button type="button" class="btn btn-outline" data-ct-release-backup>1. Descargar respaldo completo JSON</button>'+
    '<label class="ct-void-check"><input type="checkbox" id="ct-release-confirm-backup"> Confirmo que descargué y guardé el respaldo</label>'+

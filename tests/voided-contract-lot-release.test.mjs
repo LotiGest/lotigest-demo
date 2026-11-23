@@ -37,7 +37,6 @@ test('no libera cuando existen ventas, pagos, reservas, terceros, deudas o docum
   x=>x.contractTexts[0].status='active',
   x=>x.lots[0].ownerClientId='C2',
   x=>x.lots[0].type='private',
-  x=>x.lots[0].purchaseFromPlan=true,
   x=>x.lots[0].mapDebtFlag=true,
   x=>x.lots[0].contractId='OTRO',
   x=>x.contractTexts.push({id:'D2',residenceId:'R1',clientId:'C1',lotId:'L1',status:'active'}),
@@ -85,4 +84,14 @@ test('un solar principal de contrato vigente nunca se libera aunque aparezca en 
  db.contractTexts.push({id:'D2',residenceId:'R1',clientId:'C1',lotId:'L1',
    contractLotIds:['L1','L2'],status:'active'});
  assert.equal(audit(db).allowed,false);
+});
+
+test('corrige marca vendido del plano sin venta y conserva auditoría',()=>{
+ const db=fixture();db.lots[0].purchaseFromPlan=true;
+ assert.equal(audit(db).allowed,true);assert.equal(audit(db).planMarkedSold,true);
+ const after=releaseVoidedContractSolar(db,'D1','L1','R1','ADMIN','Asignación equivocada del plano').state;
+ assert.equal(after.lots[0].purchaseFromPlan,false);assert.equal(after.lots[0].status,'available');
+ assert.equal(after.contractTexts[0].lotReleaseHistory[0].previousPurchaseFromPlan,true);
+ assert.equal(db.lots[0].purchaseFromPlan,true);
+ db.sales.push({id:'S1',lotId:'L1'});assert.equal(audit(db).allowed,false);
 });
