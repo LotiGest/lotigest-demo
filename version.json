@@ -1,4 +1,4 @@
 {
-  "version": "0.22.45",
-  "notes": "LOTIGEST PRO: botón + junto a Abonar, varios recibos por fechas individuales con correlativos exclusivos, fotos por recibo y envío en un PDF conjunto; escáner OCR compacto."
+  "version": "0.22.46",
+  "notes": "LOTIGEST PRO: Abonos múltiples con monto verde de miles separados por comas (12,000.00), fecha manual en formato 22 Noviembre 2026 y OCR para fecha, monto y correlativo de cada recibo."
 }
