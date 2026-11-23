@@ -2,7 +2,7 @@
 // Los pagos de varios solares, comprobantes OCR y validaciones de D1 utilizan el valor numérico original.
 function pmLempiraParts(raw){
  const cleaned=String(raw??'').replace(/[^\d.,]/g,'');
- const commaDecimal=/,\d{1,2}$/.test(cleaned)&&(!cleaned.includes('.')||cleaned.lastIndexOf(',')>cleaned.lastIndexOf('.'));
+ const commaDecimal=/,\d{1,2}$/.test(cleaned)&&cleaned.includes('.')&&cleaned.lastIndexOf(',')>cleaned.lastIndexOf('.');
  const decimalSeparator=commaDecimal?',':'.';
  const pos=cleaned.indexOf(decimalSeparator);
  const hasDecimal=pos!==-1&&(decimalSeparator==='.'||commaDecimal);
@@ -27,7 +27,7 @@ function pmMoneyDecorate(){
  if(!modal)return;
  const targets=[...modal.querySelectorAll('#multi-payment-form [data-payment-amount],#multi-payment-form #pm-client-total,#owner-abono-form [data-owner-statement],#manual-history-form [name="amount"]')];
  for(const native of targets){
-  if(native.dataset.pmCurrencyPrepared==='yes')continue;
+  if(native.dataset.pmCurrencyPrepared==='yes'||native.dataset.lgMoneyRaw==='yes')continue;
   native.dataset.pmCurrencyPrepared='yes';
   const form=native.closest('form'),mandatory=native.required;
   const widget=document.createElement('div');
