@@ -42,6 +42,7 @@ test('no libera cuando existen ventas, pagos, reservas, terceros, deudas o docum
   x=>x.lots[0].contractId='OTRO',
   x=>x.contractTexts.push({id:'D2',residenceId:'R1',clientId:'C1',lotId:'L1',status:'active'}),
   x=>x.sales.push({id:'S',clientId:'C1',lotId:'L1'}),
+  x=>x.contractTexts[0].saleId='VENTA-ANTIGUA',
   x=>x.reservations.push({id:'R',lotId:'L1',status:'active'}),
   x=>x.clientRequests.push({id:'REQ',lotId:'L1',status:'pending'}),
   x=>x.ownerPayments.push({id:'P',clientId:'C1',residenceId:'R1',allocations:[{references:[{lotId:'L1'}]}]}),
