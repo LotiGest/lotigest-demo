@@ -6,8 +6,42 @@
  const mdToday=()=>businessToday();
  const mdFmt=amount=>money(Number(amount)||0);
  const mdSafe=val=>esc(String(val??''));
+
+ const mdMonths=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+ function mdDateISO(raw){
+  const text=String(raw??'').trim().replace(/\s+/g,' ');
+  const clean=text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  let year,month,day,m=clean.match(/^(20\d{2})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if(m){year=+m[1];month=+m[2];day=+m[3];}
+  else if((m=clean.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](20\d{2})$/))){day=+m[1];month=+m[2];year=+m[3];}
+  else if((m=clean.match(/^(\d{1,2})\s+(?:de\s+)?([a-z]+)\.?\s+(?:de\s+)?(20\d{2})$/))){
+   const names=mdMonths.map(s=>s.toLowerCase());
+   const full=names.findIndex(n=>n===m[2]);
+   const shortened=names.findIndex(n=>n.startsWith(m[2])&&m[2].length>=3);
+   month=(full>=0?full:shortened)+1;day=+m[1];year=+m[3];
+  }else return null;
+  if(!Number.isInteger(year)||year<1990||year>2100||!Number.isInteger(month)||month<1||month>12||!Number.isInteger(day)||day<1||day>31)return null;
+  const iso=String(year)+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+  const date=new Date(iso+'T12:00:00Z');
+  return Number.isFinite(+date)&&date.toISOString().slice(0,10)===iso?iso:null;
+ }
+ function mdHumanDate(iso){
+  const m=String(iso||'').match(/^(20\d{2})-(\d{2})-(\d{2})$/);
+  if(!m||!mdDateISO(iso))return '';
+  return Number(m[3])+' '+mdMonths[Number(m[2])-1]+' '+m[1];
+ }
+ function mdMoneyInput(raw){
+  return typeof pmLempiraParts==='function'?pmLempiraParts(raw):
+   {value:String(raw??'').replace(/,/g,''),display:String(raw??'')};
+ }
+ function mdMoneyText(raw){
+  if(!raw)return '';
+  return typeof pmLempiraFormat==='function'?pmLempiraFormat(raw):
+   Number(raw).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+ }
+
  function mdCreateEntry(){
-  return {id:'MDR'+crypto.randomUUID().replace(/-/g,''),date:mdToday(),amount:'',receiptRef:'',statementId:mdState?.docs?.[0]?.id||'',photo:null,preview:null,status:'',dateEdited:false,amountEdited:false,refEdited:false};
+  return {id:'MDR'+crypto.randomUUID().replace(/-/g,''),date:mdToday(),dateText:mdHumanDate(mdToday()),amount:'',receiptRef:'',statementId:mdState?.docs?.[0]?.id||'',photo:null,preview:null,status:'',dateEdited:false,amountEdited:false,refEdited:false};
  }
  function mdStartSale(saleId){
   if(!cloudReady||cloudUser?.role!=='admin')return toast('Se requiere acceso de administrador para registrar abonos.','error');
@@ -43,8 +77,8 @@
  function mdRowMarkup(row,index){
   const options=mdState.kind==='owner'?'<label class="md-lot-choice">Ficha / solares<select data-md-field="statementId" data-md-id="'+mdSafe(row.id)+'">'+mdState.docs.map(s=>'<option value="'+mdSafe(s.id)+'" '+(s.id===row.statementId?'selected':'')+'>'+mdSafe(s.sourceName||'Ficha')+' · '+mdSafe((s.references||[]).map(r=>'B '+r.block+' / S '+r.lot).join(', ')||'Solar por confirmar')+'</option>').join('')+'</select></label>':'';
   return '<article class="md-row" data-md-row="'+mdSafe(row.id)+'"><div class="md-row-top"><strong>▤ Abono '+(index+1)+'</strong><button type="button" class="md-trash" title="Eliminar este abono" aria-label="Eliminar abono '+(index+1)+'" data-md-remove="'+mdSafe(row.id)+'">✕</button></div>'+options+
-   '<div class="md-fields"><label>Fecha *<input type="date" data-md-field="date" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.date)+'" max="'+mdSafe(mdToday())+'" required></label>'+
-   '<label>Monto (L) *<input type="number" inputmode="decimal" min=".01" step=".01" data-md-field="amount" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.amount)+'" placeholder="0.00" required></label>'+
+   '<div class="md-fields"><label class="md-date-label">Fecha *<span class="md-date-control"><input type="text" inputmode="text" autocomplete="off" spellcheck="false" data-md-field="date" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.dateText??mdHumanDate(row.date))+'" placeholder="22/11/2026" aria-label="Escribir fecha del abono, por ejemplo 22 Noviembre 2026" required><span class="md-date-calendar" aria-hidden="true">▦</span><input type="date" class="md-native-date" data-md-picker="'+mdSafe(row.id)+'" aria-label="Elegir fecha en calendario" value="'+mdSafe(row.date||'')+'" max="'+mdSafe(mdToday())+'" tabindex="0"></span></label>'+
+   '<label class="md-amount-label">Monto (L) *<span class="md-money-control"><span class="md-money-symbol" aria-hidden="true">L</span><input type="text" inputmode="decimal" autocomplete="off" data-md-field="amount" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(mdMoneyText(row.amount))+'" placeholder="12,000.00" aria-label="Monto del abono en lempiras" required></span></label>'+
    '<label class="md-ref-label">Correlativo *<span class="md-ref-line"><span aria-hidden="true" class="md-ref-symbol">#</span><input type="text" inputmode="numeric" maxlength="80" pattern="[0-9]+" data-md-field="receiptRef" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.receiptRef)+'" placeholder="00006159" required></span></label></div>'+
    '<div class="md-photo-row"><label class="md-scan-icon" title="Escanear o seleccionar foto" aria-label="Escanear recibo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3H5a2 2 0 0 0-2 2v2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="8" width="10" height="9" rx="2"/><circle cx="12" cy="12.5" r="1.7"/></svg><input type="file" accept="image/jpeg,image/png,image/webp" data-md-photo="'+mdSafe(row.id)+'" hidden></label>'+
    (row.preview?'<img src="'+mdSafe(row.preview)+'" class="md-photo-preview" alt="Recibo de este abono">':'')+
@@ -94,7 +128,19 @@
   const row=mdById(input.dataset.mdId);if(!row)return;
   const field=input.dataset.mdField;
   if(!['date','amount','receiptRef','statementId'].includes(field))return;
-  row[field]=input.value;if(field==='date')row.dateEdited=true;if(field==='amount')row.amountEdited=true;if(field==='receiptRef')row.refEdited=true;
+  if(field==='date'){
+   row.dateText=input.value;
+   row.date=mdDateISO(input.value)||'';
+   row.dateEdited=true;
+  }else if(field==='amount'){
+   const parsed=mdMoneyInput(input.value);
+   row.amount=parsed.value;
+   input.value=parsed.display;
+   row.amountEdited=true;
+  }else{
+   row[field]=input.value;
+   if(field==='receiptRef')row.refEdited=true;
+  }
   mdRefresh();
  }
  function mdRemove(id){
@@ -143,10 +189,17 @@
    worker=await T.createWorker('spa',1,{workerPath:pagesContractOcr?contractOcrCdn+'worker.min.js':new URL('ocr/worker.min.js',location.href).href,corePath:pagesContractOcr?'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.0.0':new URL('ocr/core',location.href).href,langPath:pagesContractOcr?'https://tessdata.projectnaptha.com/4.0.0':new URL('ocr/lang',location.href).href});
    const parsed=window.lotigestPaperReceipt.extractPaperReceipt((await worker.recognize(canvas,{rotateAuto:true})).data.text||'');
    if(!mdState||!mdById(row.id))return;
-   if(parsed.date&&!row.dateEdited&&parsed.date<=mdToday())row.date=parsed.date;
-   if(parsed.amount!=null&&!row.amountEdited)row.amount=String(parsed.amount);
-   if(parsed.reference&&!row.refEdited)row.receiptRef=String(parsed.reference);
-   row.status='OCR leído · revisa fecha, monto y correlativo';
+   const extracted=[];
+   if(parsed.date&&!row.dateEdited&&parsed.date<=mdToday()){
+    row.date=parsed.date;row.dateText=mdHumanDate(parsed.date);extracted.push('fecha');
+   }
+   if(parsed.amount!=null&&!row.amountEdited){
+    row.amount=String(parsed.amount);extracted.push('monto');
+   }
+   if(parsed.reference&&!row.refEdited){
+    row.receiptRef=String(parsed.reference);extracted.push('correlativo');
+   }
+   row.status=extracted.length?'OCR completó '+extracted.join(', ')+' · revisa antes de guardar':'OCR leído · comprueba los datos manualmente';
    mdRenderRows();
   }catch(e){
    if(mdById(row.id)){row.status='Recibo cargado · introduce o revisa datos manualmente';mdRenderRows();}
@@ -307,7 +360,28 @@
  document.addEventListener('change',event=>{
   if(!event.target.closest?.('#md-abonos-form'))return;
   if(event.target.matches('[data-md-photo]'))mdPhotoChanged(event.target);
+  else if(event.target.matches('[data-md-picker]')){
+   const row=mdById(event.target.dataset.mdPicker);
+   if(!row)return;
+   const iso=mdDateISO(event.target.value);
+   if(!iso)return;
+   row.date=iso;row.dateText=mdHumanDate(iso);row.dateEdited=true;
+   const visible=document.querySelector('[data-md-field="date"][data-md-id="'+row.id+'"]');
+   if(visible)visible.value=row.dateText;
+  }
   else if(event.target.matches('[data-md-field]'))mdUpdateField(event.target);
+ },true);
+ document.addEventListener('blur',event=>{
+  if(!event.target.closest?.('#md-abonos-form'))return;
+  const input=event.target,row=mdById(input.dataset?.mdId);
+  if(!row)return;
+  if(input.matches('[data-md-field="date"]')){
+   const iso=mdDateISO(input.value);
+   if(iso){row.date=iso;row.dateText=mdHumanDate(iso);input.value=row.dateText;}
+   else{row.date='';row.dateText=input.value;}
+  }else if(input.matches('[data-md-field="amount"]')){
+   input.value=mdMoneyText(row.amount);
+  }
  },true);
  document.addEventListener('submit',event=>{if(event.target.id==='md-abonos-form'){event.preventDefault();event.stopImmediatePropagation();mdSave();}},true);
 })();

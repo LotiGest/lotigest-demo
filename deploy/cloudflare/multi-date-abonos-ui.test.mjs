@@ -24,13 +24,20 @@ test('dos fechas desde + guardan dos movimientos, dos folios y dos recibos separ
   assert.equal(app.d.querySelectorAll('[data-md-row]').length,2);
   assert.equal(app.d.querySelectorAll('[data-md-photo]').length,2,'Escáner icono independiente por fila');
   const fields=field=>[...app.d.querySelectorAll('[data-md-field="'+field+'"]')];
-  for(const [i,values] of [{date:'2026-10-21',amount:'8000',receiptRef:'00006159'},{date:'2026-11-20',amount:'9000',receiptRef:'00006160'}].entries()){
+  for(const [i,values] of [{date:'21/10/2026',amount:'12,000',receiptRef:'00006159'},{date:'20 Noviembre 2026',amount:'9,000.00',receiptRef:'00006160'}].entries()){
    for(const [name,value] of Object.entries(values)){
     const control=fields(name)[i];control.value=value;
     control.dispatchEvent(new app.w.Event('input',{bubbles:true}));
+    control.dispatchEvent(new app.w.Event('blur'));
    }
   }
-  assert.match(app.d.querySelector('[data-md-total]').textContent,/17,000/);
+  assert.equal(fields('date')[0].value,'21 Octubre 2026');
+  assert.equal(fields('date')[1].value,'20 Noviembre 2026');
+  assert.equal(fields('amount')[0].value,'12,000.00');
+  assert.equal(fields('amount')[1].value,'9,000.00');
+  assert.equal(app.d.querySelectorAll('.md-money-control').length,2,'El monto debe estar dentro de un recuadro verde');
+  assert.equal(app.d.querySelectorAll('.md-date-control').length,2,'La fecha incluye escritura manual y calendario');
+  assert.match(app.d.querySelector('[data-md-total]').textContent,/21,000/);
   app.click('[data-md-save]');
   await until(()=>app.d.querySelector('[data-md-share-all]'),'resultados de abonos guardados');
   const after=(await server.read()).state;

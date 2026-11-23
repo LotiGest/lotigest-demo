@@ -33,3 +33,22 @@ test('acepta fechas antiguas y separadores hondureños',()=>{
  const receipt=extractPaperReceipt('Fecha de pago: 21/05/2024\nPor Lps.: 1.250,50\nNº 00006200');
  assert.equal(receipt.amount,1250.50);assert.equal(receipt.date,'2024-05-21');
 });
+
+test('tres campos del recibo de caja de Grupo H para abonos por fecha',()=>{
+ const receipt=extractPaperReceipt([
+  'GRUPO H',
+  'Residencial ALTOS DEL ARRAYAN',
+  'Por Lps. 12,000.00',
+  'Día Mes Año',
+  '22 11 2026',
+  'Recibí de: CLIENTE DEMOSTRACION',
+  'Saldo anterior 827,342.00',
+  'Abono de hoy: 12,000.00',
+  'Saldo actual 815,342.00',
+  'RECIBO DE CAJA CONTROL INTERNO Nº 00006159'
+ ].join('\n'));
+ assert.equal(receipt.amount,12000);
+ assert.equal(receipt.date,'2026-11-22');
+ assert.equal(receipt.reference,'00006159');
+ assert.equal(receipt.warnings.length,0);
+});
