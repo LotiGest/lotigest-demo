@@ -21,6 +21,7 @@ test('dos fechas desde + guardan dos movimientos, dos folios y dos recibos separ
   assert.ok(typeof app.w.lotigestMultiDate?.openSale==='function','Abonos múltiples disponible en Solares');
   app.w.lotigestMultiDate.openSale(sale.id);
   assert.ok(app.d.querySelector('.lg-multi-date-modal'),'Debe abrir la ventana de fechas múltiples');
+  assert.match(app.d.querySelector('[data-md-field="date"]').value,/^\d{2}\/\d{2}\/20\d{2}$/,'La fecha actual aparece como valor, no como ejemplo gris');
   assert.equal(app.d.querySelectorAll('[data-md-row]').length,2);
   assert.equal(app.d.querySelectorAll('[data-md-photo]').length,2,'Escáner icono independiente por fila');
   assert.equal(app.d.querySelectorAll('[data-md-edit]').length,2,'Cada abono debe ofrecer ingreso manual');
@@ -49,6 +50,14 @@ test('dos fechas desde + guardan dos movimientos, dos folios y dos recibos separ
   assert.equal(app.d.querySelectorAll('.md-money-control').length,2,'El monto debe estar dentro de un recuadro verde');
   assert.equal(app.d.querySelectorAll('.md-date-control').length,2,'La fecha incluye escritura manual y calendario');
   assert.match(app.d.querySelector('[data-md-total]').textContent,/21,000/);
+  function enter(input){const event=new app.w.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true});input.dispatchEvent(event);assert.equal(event.defaultPrevented,true,'Enter no debe registrar el pago');}
+  enter(fields('date')[0]);assert.equal(app.d.activeElement,fields('amount')[0],'Enter en fecha avanza al monto');
+  enter(fields('amount')[0]);assert.equal(app.d.activeElement,fields('receiptRef')[0],'Enter en monto avanza al correlativo');
+  enter(fields('receiptRef')[0]);assert.equal(app.d.activeElement,fields('date')[1],'Enter en correlativo avanza a Abono 2');
+  enter(fields('receiptRef')[1]);
+  assert.equal(app.d.querySelectorAll('[data-md-row]').length,3,'Enter en el último correlativo crea Abono 3');
+  assert.match(fields('date')[2].value,/^\d{2}\/\d{2}\/20\d{2}$/,'El nuevo abono tiene fecha automática');
+  assert.equal(app.d.activeElement,fields('date')[2],'Entra al nuevo abono con fecha seleccionada');
   app.click('[data-md-save]');
   await until(()=>app.d.querySelector('[data-md-share-all]'),'resultados de abonos guardados');
   const after=(await server.read()).state;
@@ -58,6 +67,11 @@ test('dos fechas desde + guardan dos movimientos, dos folios y dos recibos separ
   assert.deepEqual(new Set(payments.map(p=>p.date)),new Set(['2026-10-21','2026-11-20']));
   assert.equal(new Set(payments.map(p=>p.groupId)).size,2,'Cada fecha posee recibo independiente');
   assert.equal(app.d.querySelectorAll('[data-md-pdf]').length,2);
+  app.click('[data-action="close-modal"]');
+  const shortcut=new app.w.KeyboardEvent('keydown',{key:'b',ctrlKey:true,bubbles:true,cancelable:true});
+  app.d.dispatchEvent(shortcut);
+  assert.equal(shortcut.defaultPrevented,true,'Ctrl+B tiene el atajo de abono');
+  assert.ok(app.d.querySelector('#multi-payment-form'),'Ctrl+B abre abono individual para el solar seleccionado');
   assert.equal(server.errors.length,0,server.errors.join('; '));
  }finally{app.close();}
 });
