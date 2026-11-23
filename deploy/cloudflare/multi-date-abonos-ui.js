@@ -187,7 +187,7 @@
   return height>width*1.12?[-90,90,0]:[0,-90,90];
  }
  function mdRotateReceipt(bitmap,angle){
-  const max=2200,scale=Math.min(1,max/Math.max(bitmap.width,bitmap.height));
+  const max=2200,scale=Math.min(1.6,max/Math.max(bitmap.width,bitmap.height));
   const w=Math.max(1,Math.round(bitmap.width*scale)),h=Math.max(1,Math.round(bitmap.height*scale));
   const rotated=angle!==0,canvas=document.createElement('canvas');
   canvas.width=rotated?h:w;canvas.height=rotated?w:h;
@@ -198,9 +198,6 @@
   else if(angle===90){ctx.translate(canvas.width,0);ctx.rotate(Math.PI/2);}
   ctx.drawImage(bitmap.image||bitmap,0,0,w,h);
   return canvas;
- }
- function mdPreviewFallback(row){
-  return row?.preview&&String(row.preview).startsWith('data:image/')?row.preview:null;
  }
  async function mdReadPreview(file){
   let bmp=null,canvas=null;
@@ -340,7 +337,7 @@
    await cloudFlush();
    const confirmed=!!cloudQueue&&!cloudBlocked&&!cloudOffline&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed;
    mdSaved={items:saved,confirmed,client:mdState.clientName,kind:mdState.kind,saleId:mdState.saleId,clientId:mdState.clientId,residenceId:mdState.residenceId};
-   for(const row of mdState.rows)if(row.preview)URL.revokeObjectURL(row.preview);
+   for(const row of mdState.rows)if(row.preview&&String(row.preview).startsWith('blob:'))URL.revokeObjectURL(row.preview);
    mdState=null;mdShowSaved();
    if(!confirmed)toast('Los abonos quedaron en este dispositivo pendientes de sincronización. No compartas comprobantes hasta confirmar el guardado en Cloudflare.','error');
    else toast(saved.length+' abonos individuales guardados en Cloudflare.');
