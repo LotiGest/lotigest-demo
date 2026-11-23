@@ -2,7 +2,11 @@
 // No se generan nuevos lotes, no se alteran geometrias GPS manuales ni datos de cobro.
 let gpsPlanDraft=null, gpsPlanLayer=null, gpsPlanMarkerLayer=null;
 function gpsPlanSource(r){
- return [r.officialPlan?.sha256||r.pdf?.sha256||r.pdf?.name||r.builtin||'croquis',mapFeatures(r).length].join(':');
+ const features=mapFeatures(r);
+ // Los cinco locales se superponen al croquis existente sin invalidar las tres
+ // referencias de alineación GPS guardadas previamente.
+ const added=r?.builtin==='arrayan'?features.filter(f=>isArrayanStage2CommercialFive(f)).length:0;
+ return [r.officialPlan?.sha256||r.pdf?.sha256||r.pdf?.name||r.builtin||'croquis',features.length-added].join(':');
 }
 function gpsPlanSaved(){
  const r=residence(),a=r.geoConfig?.planAlignment;
