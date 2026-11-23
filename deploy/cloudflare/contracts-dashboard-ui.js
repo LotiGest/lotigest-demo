@@ -89,11 +89,72 @@
    moneyLine('Precio pactado',info.price??sale?.price)+moneyLine('Prima pactada',info.down??sale?.downPayment)+
    moneyLine('Saldo financiado',info.financed)+
    (d.documentKey?'<p><a class="btn btn-outline btn-sm" target="_blank" rel="noopener noreferrer" href="/api/app/file?key='+encodeURIComponent(d.documentKey)+'">Ver imagen original</a></p>':'')+
+   '<section class="ct-void-release"><h4>Desbloquear solares del contrato anulado</h4>'+
+   '<p class="sm muted">La liberación es por solar. El cliente y la ficha histórica se conservan. Las ventas, primas, abonos, reservas y otros contratos están protegidos.</p>'+
+   linked.map(l=>{
+    const audit=auditVoidedContractSolarRelease(db,d.id,l.id,d.residenceId);
+    const name='Etapa '+esc(l.stage||'—')+' · Bloque '+esc(l.block||'—')+' · Solar '+esc(num(l));
+    const released=(d.lotReleaseHistory||[]).some(h=>h.lotId===l.id);
+    return '<div class="ct-void-release-row"><strong>'+name+'</strong>'+
+     (released?'<span class="ct-void-released">Solar ya liberado</span>':
+     audit.allowed&&typeof contractIntakeAdmin==='function'&&contractIntakeAdmin()?
+      '<button type="button" class="btn btn-outline btn-sm" data-ct-voided-release="'+esc(d.id)+'" data-ct-voided-lot="'+esc(l.id)+'">Desbloquear y quitar del cliente</button>':
+      '<small class="ct-void-protected">'+esc(audit.reasons.join(' ')||'Se requiere administrador con la nube sincronizada.')+'</small>')+
+     '</div>';
+   }).join('')+'</section>'+
    (sale?'<p class="sm muted">Esta ficha tiene una venta vinculada. Verifica sus pagos antes de generar otro contrato para no duplicar cobros.</p>':
    '<p class="sm muted">Si el solar correcto era otro, registra una ficha nueva desde Nuevo contrato y selecciona etapa, bloque y número correctos. Esta anulación queda en el historial.</p>')+
    '</div>';
   showModal('Consultar contrato anulado',body,
    '<button type="button" class="btn btn-outline" data-action="close-modal">Cerrar</button>',true);
+ }
+ let voidedReleaseDraft=null;
+ function contractVoidedReleaseOpen(documentId,lotId){
+  if(typeof contractIntakeAdmin!=='function'||!contractIntakeAdmin()){
+   toast('Para liberar un solar necesitas administrador y nube sincronizada.','error');return;
+  }
+  const audit=auditVoidedContractSolarRelease(db,documentId,lotId,residence().id);
+  if(!audit.allowed){toast('Solar protegido: '+audit.reasons.join(' '),'error');return;}
+  const d=(db.contractTexts||[]).find(x=>x.id===documentId),lot=getLot(lotId),client=getClient(d.clientId);
+  voidedReleaseDraft={documentId,lotId,residenceId:residence().id,snapshot:JSON.stringify(db),
+   downloaded:false,checked:false,reason:'',code:'',busy:false};
+  showModal('Desbloquear solar de contrato anulado',
+   '<p class="ct-void-alert"><strong>Acción administrativa:</strong> el solar quedará disponible y se retirará su vínculo con este cliente, solo si no tiene operaciones válidas.</p>'+
+   '<p><strong>'+esc(client?.name||'Cliente')+'</strong> · Etapa '+esc(lot.stage)+' · Bloque '+esc(lot.block)+' · Solar '+esc(num(lot))+'</p>'+
+   '<p class="sm muted">No se eliminan clientes, contratos históricos, ventas ni recibos. No se modifican otros solares.</p>'+
+   '<button type="button" class="btn btn-outline" data-ct-release-backup>1. Descargar respaldo completo JSON</button>'+
+   '<label class="ct-void-check"><input type="checkbox" id="ct-release-confirm-backup"> Confirmo que descargué y guardé el respaldo</label>'+
+   '<label class="field-group">Motivo de liberación<input id="ct-release-reason" maxlength="300" placeholder="Ej.: Se vinculó el solar 1 y correspondía el 2"></label>'+
+   '<label class="field-group">Escribe LIBERAR para confirmar<input id="ct-release-code" autocomplete="off" placeholder="LIBERAR"></label>'+
+   '<p id="ct-release-error" role="alert"></p>',
+   '<button type="button" class="btn btn-outline" data-action="close-modal">Cancelar</button>'+
+   '<button type="button" class="btn btn-primary" data-ct-release-confirm disabled>Confirmar liberación</button>',true);
+ }
+ function contractVoidedReleaseToggle(){
+  const d=voidedReleaseDraft,button=document.querySelector('[data-ct-release-confirm]');
+  if(button)button.disabled=!d||d.busy||!d.downloaded||!d.checked||d.code!=='LIBERAR'||d.reason.trim().length<5;
+ }
+ async function contractVoidedReleaseSave(){
+  const d=voidedReleaseDraft;if(!d||d.busy)return;
+  const error=document.getElementById('ct-release-error');
+  try{
+   if(!contractIntakeAdmin())throw Error('Se requiere administrador y sincronización confirmada.');
+   if(!d.downloaded||!d.checked||d.code!=='LIBERAR')throw Error('Primero descarga el respaldo y confirma LIBERAR.');
+   if(d.reason.trim().length<5)throw Error('Indica el motivo de liberación.');
+   if(residence().id!==d.residenceId||JSON.stringify(db)!==d.snapshot)
+    throw Error('Los registros cambiaron. Vuelve a revisar y descargar el respaldo.');
+   const result=releaseVoidedContractSolar(db,d.documentId,d.lotId,d.residenceId,
+    cloudUser?.name||'Administrador',d.reason);
+   if(!confirm('¿Liberar este solar y desvincularlo del cliente? El contrato anulado permanecerá en el historial.'))return;
+   d.busy=true;contractVoidedReleaseToggle();
+   cloudWrite(JSON.stringify(result.state));db=result.state;
+   await cloudFlush();
+   closeModal();voidedReleaseDraft=null;render();
+   if(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed)
+    toast('Solar liberado localmente; falta confirmar la nube. No lo reasignes hasta sincronizar.','error');
+   else toast('Solar desbloqueado y retirado del cliente. Contrato anulado conservado.');
+  }catch(e){if(error)error.textContent=e.message;toast(e.message,'error');}
+  finally{if(d){d.busy=false;contractVoidedReleaseToggle();}}
  }
  function actions(r){
   if(r.type==='sale')return '<button class="btn btn-outline btn-sm" data-ct-manual="'+esc(r.clientId)+'">Ficha manual</button> '+
@@ -217,6 +278,12 @@
  };
  function update(key,val){state[key]=val;state.page=1;if(key==='stage'){state.block='all';state.solar='all';}else if(key==='block')state.solar='all';render();}
  document.addEventListener('input',e=>{
+  if(voidedReleaseDraft&&e.target.id==='ct-release-reason'){
+   voidedReleaseDraft.reason=e.target.value;contractVoidedReleaseToggle();return;
+  }
+  if(voidedReleaseDraft&&e.target.id==='ct-release-code'){
+   voidedReleaseDraft.code=e.target.value.trim().toUpperCase();contractVoidedReleaseToggle();return;
+  }
   if(e.target.id!=='ct-query')return;
   const index=typeof e.target.selectionStart==='number'?e.target.selectionStart:null;
   update('query',e.target.value);
@@ -224,13 +291,25 @@
   if(input){input.focus({preventScroll:true});if(index!==null)input.setSelectionRange(index,index);}
  });
  document.addEventListener('change',e=>{
+  if(e.target.id==='ct-release-confirm-backup'&&voidedReleaseDraft){
+   voidedReleaseDraft.checked=Boolean(e.target.checked);contractVoidedReleaseToggle();return;
+  }
   const keys={'ct-stage':'stage','ct-block':'block','ct-solar':'solar','ct-status':'status'};
   if(keys[e.target.id])update(keys[e.target.id],e.target.value);
  });
  document.addEventListener('click',e=>{
-  const btn=e.target.closest?.('[data-ct-manual],[data-ct-print],[data-ct-export],[data-ct-clear],[data-ct-page],[data-ct-show-voided],[data-ct-voided-view]');
+  const btn=e.target.closest?.('[data-ct-manual],[data-ct-print],[data-ct-export],[data-ct-clear],[data-ct-page],[data-ct-show-voided],[data-ct-voided-view],[data-ct-voided-release],[data-ct-release-backup],[data-ct-release-confirm]');
   if(!btn)return;
   e.preventDefault();
+  if(btn.hasAttribute('data-ct-voided-release'))
+   return contractVoidedReleaseOpen(btn.dataset.ctVoidedRelease,btn.dataset.ctVoidedLot);
+  if(btn.hasAttribute('data-ct-release-backup')){
+   const d=voidedReleaseDraft;if(!d||d.busy)return;
+   const stamp=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+   download('LOTIGEST_RESPALDO_LIBERACION_SOLAR_'+stamp+'.json',JSON.stringify(db,null,2),'application/json');
+   d.downloaded=true;contractVoidedReleaseToggle();return;
+  }
+  if(btn.hasAttribute('data-ct-release-confirm')){contractVoidedReleaseSave();return;}
   if(btn.hasAttribute('data-ct-voided-view'))return contractVoidedView(btn.dataset.ctVoidedView);
   if(btn.hasAttribute('data-ct-show-voided')){
    const next=state.status==='voided'?'all':'voided';
