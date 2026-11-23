@@ -14,7 +14,10 @@ export function buildPagesFiles(html, version, parser, bridge) {
   const sidebarCollapseCss = "/* El menú solamente se expande al pulsar el botón, no por el :hover persistente de Android. */\nbody .lotigest-shell .lotigest-sidebar:not(.pinned),\nbody[data-panel-theme] .lotigest-shell .lotigest-sidebar:not(.pinned),\nbody.sidebar-collapsed[data-panel-theme] .lotigest-shell .lotigest-sidebar:not(.pinned){\n width:var(--lg-side-small)!important;flex-basis:var(--lg-side-small)!important\n}\nbody .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-side-label,\nbody .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-nav .nav-btn em,\nbody .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-product small{\n display:none!important;opacity:0!important\n}\nbody .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-company{gap:0!important}\nbody .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-company-icon{\n width:29px!important;height:29px!important;flex-basis:29px!important;font-size:15px!important\n}\nbody .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-side-head{gap:2px!important}\nbody .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-nav .nav-btn{\n justify-content:center!important;padding:0!important;gap:0!important\n}\nbody .lotigest-shell .lotigest-sidebar .lg-pin{\n display:grid!important;place-items:center!important;opacity:1!important;pointer-events:auto!important;\n min-width:25px;width:25px;height:27px;padding:0!important;cursor:pointer;touch-action:manipulation;\n font-size:15px;line-height:1;flex:none!important\n}\nbody .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-pin{\n min-width:19px!important;width:19px!important;height:24px!important;font-size:12px\n}\nbody .lotigest-shell .lotigest-sidebar .lg-pin:focus-visible{outline:2px solid #baff58;outline-offset:2px}";
   const demo = html
     .replaceAll('db.residences.map(r=>', 'db.residences.filter(r=>!r.hidden).map(r=>')
-    .replace(title, '<title>LOTIGEST · GRUPO H</title>')
+    .replace(title, '<title>LOTIGEST PRO · GRUPO H</title>')
+    .replaceAll('GRUPO H / LOTIGEST','GRUPO H / LOTIGEST PRO')
+    .replaceAll('<small>LOTIGEST</small>','<small>LOTIGEST PRO</small>')
+    .replaceAll('LOTIGEST · Sistema de Gestión de Lotificaciones','LOTIGEST PRO · Sistema de Gestión de Lotificaciones')
     .replace("const STORAGE='lospinos_phase1_demo_v3'; const SESSION='lospinos_demo_session';",
       "const STORAGE='lotigest_cloudflare_demo_v1'; const SESSION='lotigest_cloudflare_session';")
     .replace(mode, "const cloudflareDemo = true;\n" + mode)
@@ -77,8 +80,11 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace('function financeMovements(){', 'function baseFinanceMovements(){')
     .replace('function totals(){', 'function baseTotals(){')
     .replace('function paymentReceiptPreview(id){', 'function basePaymentReceiptPreview(id){')
+    .replace("parts.push({text:'Fecha de pago: '+fmtDate(p.date)+'   |   Método: '+(p.method||'No indicado')});",
+      "parts.push({text:'Fecha de pago: '+fmtDate(p.date)+'   |   Método: '+(p.method||'No indicado')});parts.push({text:'Correlativo de caja: '+(p.receiptReference||'Sin correlativo histórico')});")
     .replace("toast('Pagos registrados. Recibo listo para descargar o compartir.');", '')
     // Cada PDF de pago contiene un QR vectorial que apunta a la verificación pública.
+    .replace("for(const part of parts){if(part.row)", "for(const part of parts){if(part.pageBreak){footer();header();continue;}if(part.row)")
     .replace("function receiptLetterPdf(parts,company,reference,kind='receipt'){",
       "function receiptLetterPdf(parts,company,reference,kind='receipt',qrUrl=null){")
     .replace("const footer=()=>{\n if(kind!=='quote')",

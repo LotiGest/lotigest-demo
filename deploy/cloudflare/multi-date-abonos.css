@@ -1,0 +1,55 @@
+
+/* LOTIGEST PRO — abonos individuales de varias fechas. */
+#modal-root .lg-multi-date-modal{width:min(950px,calc(100vw - 20px));max-width:950px}
+#modal-root .lg-multi-date-modal .modal-content{overflow-y:auto;overscroll-behavior:contain;padding:15px 17px;max-height:calc(100dvh - 268px)}
+#modal-root .lg-multi-date-modal .modal-footer{display:flex;flex-wrap:wrap;gap:10px;padding:12px 15px}
+#modal-root .lg-multi-date-modal .modal-footer>.btn{flex:1 1 220px;min-height:50px}
+#modal-root .lg-multi-date-modal .md-heading h3{font-size:19px;margin:0 0 9px}
+#modal-root .lg-multi-date-modal .md-choices{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#modal-root .lg-multi-date-modal .md-choices button{border:1px solid #bdcec5;border-radius:10px;background:white;color:#224b37;font-weight:800;padding:12px;cursor:pointer}
+#modal-root .lg-multi-date-modal .md-choices .selected{background:#009d4c;color:#fff;border-color:#008b48}
+#modal-root .lg-multi-date-modal .md-note{border-radius:10px;border:1px solid #b5d9b7;background:#eff9f0;color:#195334;padding:12px;font-size:13px;margin:13px 0}
+#modal-root .lg-multi-date-modal .md-client{font-weight:800;font-size:15px;margin:12px 0 10px}
+#modal-root .lg-multi-date-modal .md-client small{display:block;color:#748378;font-weight:600;font-size:12px;margin-top:3px}
+#modal-root .lg-multi-date-modal .md-row{border:1px solid #d6e4dc;border-radius:13px;padding:12px;margin:11px 0;background:#fff;box-shadow:0 3px 10px #163d1e08}
+#modal-root .lg-multi-date-modal .md-row-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;color:#173c26}
+#modal-root .lg-multi-date-modal .md-trash{width:31px;height:30px;display:grid;place-items:center;font-size:19px;background:#f3f6f4;border:1px solid #d0ddda;border-radius:7px;cursor:pointer;color:#56645e}
+#modal-root .lg-multi-date-modal .md-fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-items:end}
+#modal-root .lg-multi-date-modal .md-fields label,#modal-root .lg-multi-date-modal .md-lot-choice{min-width:0;display:block;font-size:12px;font-weight:800;color:#24372b}
+#modal-root .lg-multi-date-modal .md-fields input,#modal-root .lg-multi-date-modal .md-lot-choice select{display:block;width:100%;box-sizing:border-box;margin-top:6px;padding:11px 9px;border:1px solid #c6d5cd;border-radius:9px;font-size:14px;color:#23402c;background:white;min-height:44px}
+#modal-root .lg-multi-date-modal .md-lot-choice{margin-bottom:10px}
+#modal-root .lg-multi-date-modal .md-ref-line{display:flex;align-items:center;margin-top:6px;border:1.5px solid #d22a43;border-radius:9px;overflow:hidden;background:#fff0f2;min-height:44px}
+#modal-root .lg-multi-date-modal .md-ref-symbol{font-size:24px;font-weight:900;padding:7px 12px;background:#cd203a;color:white}
+#modal-root .lg-multi-date-modal .md-ref-line input{min-height:40px!important;margin:0!important;border:0!important;outline:none!important;background:transparent!important;font-size:16px!important;font-weight:750;flex:1;min-width:0;box-shadow:none!important;padding-left:8px!important;color:#491d27!important}
+#modal-root .lg-multi-date-modal .md-row.md-duplicate .md-ref-line{border-color:#b70020;box-shadow:0 0 0 1px #dd3245}
+#modal-root .lg-multi-date-modal .md-photo-row{display:flex;align-items:center;gap:8px;margin-top:9px;min-height:39px}
+#modal-root .lg-multi-date-modal .md-scan-icon{display:grid;place-items:center;flex:none;width:38px;height:38px;padding:0;border:1px solid #329e64;border-radius:9px;background:#e8faed;color:#117947;cursor:pointer}
+#modal-root .lg-multi-date-modal .md-photo-preview{height:36px;width:38px;object-fit:cover;border:1px solid #bcdac3;border-radius:5px}
+#modal-root .lg-multi-date-modal .md-photo-status{font-size:12px;color:#476855;font-weight:650}
+#modal-root .lg-multi-date-modal .md-ref-feedback{font-size:12px;color:#50795b;margin:6px 0 0}
+#modal-root .lg-multi-date-modal .md-ref-feedback.invalid{color:#b51d30;background:#fff2f3;border-radius:6px;padding:6px;font-weight:700}
+#modal-root .lg-multi-date-modal .md-add{width:100%;margin:9px auto 14px;display:block;border-color:#168145;color:#146637}
+#modal-root .lg-multi-date-modal .md-total{display:flex;gap:8px;justify-content:space-between;padding:13px;border:1px solid #b4d7b6;border-radius:12px;background:#eaf7ec;color:#145833}
+#modal-root .lg-multi-date-modal .md-total span{display:grid;gap:2px}
+#modal-root .lg-multi-date-modal .md-total small{font-size:12px}
+#modal-root .lg-multi-date-modal .md-total strong{font-size:20px;font-weight:850}
+#modal-root .lg-multi-date-modal .md-error{font-size:12px;color:#af2035;font-weight:750}
+#modal-root .lg-multi-date-modal .md-success{padding:12px;background:#ecf8ed;border-radius:10px;color:#175331}
+#modal-root .lg-multi-date-modal .md-success h3{margin:0 0 6px}
+#modal-root .lg-multi-date-modal .md-saved-list{display:grid;gap:9px;margin:12px 0}
+#modal-root .lg-multi-date-modal .md-saved-item{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:12px;border:1px solid #d4e4d8;border-radius:10px;font-weight:700}
+#modal-root .lg-multi-date-modal .md-saved-item small{display:block;color:#71847a}
+#modal-root .lg-multi-date-modal .md-saved-actions{display:flex;gap:6px}
+#modal-root .lg-multi-date-modal .md-saved-actions button{border:1px solid #81bf93;border-radius:7px;background:#f0f9f2;color:#175c39;padding:7px 9px;font-weight:750}
+.collection-owner-card .md-plus, .card .md-plus{background:#e5faea!important;border:1px solid #209c51!important;color:#007b39!important;font-size:21px!important;font-weight:900!important;min-width:38px;height:38px;line-height:1;display:inline-grid;place-items:center;padding:4px!important}
+body.lotigest-dark #modal-root .lg-multi-date-modal .md-row{background:#22372b;color:#f2f8f3;border-color:#41644d}
+body.lotigest-dark #modal-root .lg-multi-date-modal .md-fields label{color:#e4f3e9}
+@media(max-width:680px){
+ #modal-root .lg-multi-date-modal{width:calc(100vw - 12px)}
+ #modal-root .lg-multi-date-modal .modal-content{padding:11px;max-height:calc(100dvh - 285px)}
+ #modal-root .lg-multi-date-modal .md-fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ #modal-root .lg-multi-date-modal .md-ref-label{grid-column:1/-1}
+ #modal-root .lg-multi-date-modal .md-ref-line input{font-size:17px!important}
+ #modal-root .lg-multi-date-modal .modal-footer>.btn{flex:1 1 100%}
+ #modal-root .lg-multi-date-modal .md-saved-item{flex-wrap:wrap}
+}

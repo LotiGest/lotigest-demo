@@ -1,4 +1,4 @@
 {
-  "version": "0.22.44",
-  "notes": "Registrar Pago / Abono: nuevo campo rojo de correlativo único del recibo físico, obligatorio y validado sin ceros iniciales; alertas por duplicados, compatible con OCR, abonos consecutivos y contratos. Conserva pagos históricos."
+  "version": "0.22.45",
+  "notes": "LOTIGEST PRO: botón + junto a Abonar, varios recibos por fechas individuales con correlativos exclusivos, fotos por recibo y envío en un PDF conjunto; escáner OCR compacto."
 }
