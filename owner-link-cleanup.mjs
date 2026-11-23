@@ -33,7 +33,7 @@ export function auditOrphanOwnerLinks(state,residenceId=null){
   // Cuando un recibo solo tiene cliente y residencial, no asumir que pertenece a otro solar.
   const anyAmbiguous=['payments','ownerPayments','historicalPayments','historicalContracts',
    'receipts','cashEntries','ownershipStatements'].some(key=>(state[key]||[]).some(p=>
-    p.clientId===lot.ownerClientId&&p.residenceId===lot.residenceId&&
+    p.clientId===lot.ownerClientId&&(!p.residenceId||p.residenceId===lot.residenceId)&&
     !p.lotId&&!p.saleId&&!(p.lotIds||[]).length&&
     !(p.references||[]).length&&!(p.allocations||[]).length));
   const anyRequest=(state.clientRequests||[]).some(p=>p.lotId===lot.id&&
