@@ -125,3 +125,37 @@ body.lotigest-dark #modal-root .lg-multi-date-modal .md-money-control input[data
  #modal-root .lg-multi-date-modal .md-date-control input[data-md-field="date"]{font-size:16px!important}
  #modal-root .lg-multi-date-modal .md-money-control input[data-md-field="amount"]{font-size:26px!important}
 }
+
+
+/* Indicación explícita: fecha, monto y correlativo aceptan escritura manual sin OCR. */
+#modal-root .lg-multi-date-modal .md-manual-head{
+ display:flex;align-items:center;justify-content:space-between;gap:10px;
+ margin:3px 0 10px;color:#4c6d59;font-size:12px;line-height:1.35;
+}
+#modal-root .lg-multi-date-modal .md-manual-head>span{flex:1}
+#modal-root .lg-multi-date-modal .md-manual-focus{
+ flex:none;min-height:35px;border-radius:9px;border:1px solid #8dbca1;
+ padding:7px 11px;background:#ecf8f0;color:#11663e;
+ font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;
+}
+#modal-root .lg-multi-date-modal .md-manual-focus:focus-visible{
+ outline:2px solid #159c53;outline-offset:2px;
+}
+#modal-root .lg-multi-date-modal [data-md-field]{
+ pointer-events:auto!important;user-select:text!important;-webkit-user-select:text!important;
+ touch-action:manipulation;cursor:text;
+}
+#modal-root .lg-multi-date-modal .md-ref-line input[data-md-field="receiptRef"]{
+ font-size:19px!important;
+}
+#modal-root .lg-multi-date-modal .md-photo-status{
+ font-size:12px;line-height:1.35;
+}
+@media(max-width:480px){
+ #modal-root .lg-multi-date-modal .md-manual-head{
+  gap:7px;align-items:center;font-size:11px;
+ }
+ #modal-root .lg-multi-date-modal .md-manual-focus{
+  min-height:34px;padding:6px 8px;font-size:11px;
+ }
+}
