@@ -1,4 +1,4 @@
 {
-  "version": "0.22.66",
-  "notes": "LOTIGEST PRO: permite compartir el correlativo original entre primas de diferentes solares que corresponden a un mismo pago total del cliente, fecha, método y residencial; las partes quedan agrupadas en un recibo. Conserva los ceros iniciales y evita mezclar otros pagos."
+  "version": "0.22.67",
+  "notes": "LOTIGEST PRO: formato global de montos al escribir con separadores de miles y dos decimales al salir, resaltados en verde. Correlativos resaltados en rojo sin separadores y conservando ceros iniciales. Aplica a contratos, primas, abonos, ventas, gastos y formularios dinámicos; los datos se guardan sin comas."
 }
