@@ -66,5 +66,5 @@ test('el avance Enter despliega la siguiente fila y guardar conserva movimientos
  assert.match(js,/const row=mdCreateEntry\(\);mdState\.rows\.push\(row\);mdExpandRow\(row\.id\)/);
  assert.match(js,/findLastIndex\(mdRowHasPayment\)/,'Una última fila vacía no bloquea guardar');
  assert.match(js,/createOwnerPayment\(next/);
- assert.match(js,/next\.payments\.push/);
+ assert.match(js,/next\.payments\.unshift\(payment\)/);
 });
