@@ -1,6 +1,6 @@
 (function installLotigestMultiDateAbonos(){
  'use strict';
- let mdState=null,mdSaving=false,mdSaved=null;
+ let mdState=null,mdSaving=false,mdSaved=null,mdLastPaymentTarget=null;
  const mdById=id=>mdState?.rows.find(r=>r.id===id);
  const mdRoot=()=>document.getElementById('md-abonos-form');
  const mdToday=()=>businessToday();
@@ -40,8 +40,9 @@
    Number(raw).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
  }
 
+ function mdShortDate(iso){const m=String(iso||'').match(/^(20\d{2})-(\d{2})-(\d{2})$/);return m?m[3]+'/'+m[2]+'/'+m[1]:'';}
  function mdCreateEntry(){
-  return {id:'MDR'+crypto.randomUUID().replace(/-/g,''),date:mdToday(),dateText:mdHumanDate(mdToday()),amount:'',receiptRef:'',statementId:mdState?.docs?.[0]?.id||'',photo:null,preview:null,status:'',dateEdited:false,amountEdited:false,refEdited:false};
+  return {id:'MDR'+crypto.randomUUID().replace(/-/g,''),date:mdToday(),dateText:mdShortDate(mdToday()),amount:'',receiptRef:'',statementId:mdState?.docs?.[0]?.id||'',photo:null,preview:null,status:'',dateEdited:false,amountEdited:false,refEdited:false};
  }
  function mdStartSale(saleId){
   if(!cloudReady||cloudUser?.role!=='admin')return toast('Se requiere acceso de administrador para registrar abonos.','error');
@@ -50,6 +51,7 @@
   if(cloudBlocked||cloudBusy||cloudQueue?.pending||cloudQueue?.latest!==cloudQueue?.confirmed)return toast('Sincroniza primero los cambios pendientes antes de registrar varios pagos.','error');
   mdState={kind:'sale',saleId:sale.id,clientId:client.id,residenceId:lot.residenceId,clientName:client.name,lotLabel:'Etapa '+(lot.stage||'—')+' · Bloque '+lot.block+' · Solar '+(lot.sourceNumber||lot.id),snapshot:JSON.stringify(db),rows:[],docs:[]};
   mdState.rows.push(mdCreateEntry());mdState.rows.push(mdCreateEntry());
+  mdLastPaymentTarget={kind:'sale',saleId:sale.id};
   mdSaved=null;mdShow();
  }
  function mdStartOwner(clientId,rid){
@@ -64,6 +66,7 @@
   if(cloudBlocked||cloudBusy||cloudQueue?.pending||cloudQueue?.latest!==cloudQueue?.confirmed)return toast('Sincroniza primero los cambios pendientes antes de registrar varios pagos.','error');
   mdState={kind:'owner',clientId,residenceId:rid,clientName:client.name,lotLabel:'Fichas de propietario · '+docs.length+' documento(s)',docs,snapshot:JSON.stringify(db),rows:[]};
   mdState.rows.push(mdCreateEntry());mdState.rows.push(mdCreateEntry());
+  mdLastPaymentTarget={kind:'owner',clientId,residenceId:rid};
   mdSaved=null;mdShow();
  }
  function mdStartOwnerToken(token){
@@ -77,10 +80,10 @@
  function mdRowMarkup(row,index){
   const options=mdState.kind==='owner'?'<label class="md-lot-choice">Ficha / solares<select data-md-field="statementId" data-md-id="'+mdSafe(row.id)+'">'+mdState.docs.map(s=>'<option value="'+mdSafe(s.id)+'" '+(s.id===row.statementId?'selected':'')+'>'+mdSafe(s.sourceName||'Ficha')+' · '+mdSafe((s.references||[]).map(r=>'B '+r.block+' / S '+r.lot).join(', ')||'Solar por confirmar')+'</option>').join('')+'</select></label>':'';
   return '<article class="md-row" data-md-row="'+mdSafe(row.id)+'"><div class="md-row-top"><strong>▤ Abono '+(index+1)+'</strong><button type="button" class="md-trash" title="Eliminar este abono" aria-label="Eliminar abono '+(index+1)+'" data-md-remove="'+mdSafe(row.id)+'">✕</button></div>'+options+
-   '<div class="md-manual-head"><span>✎ Puedes llenar estos tres campos manualmente, sin escanear.</span><button type="button" class="md-manual-focus" data-md-edit="'+mdSafe(row.id)+'" aria-label="Escribir fecha, monto y correlativo del abono '+(index+1)+'">✎ Escribir</button></div>'+
-   '<div class="md-fields"><label class="md-date-label">Fecha *<span class="md-date-control"><input type="text" inputmode="text" autocomplete="off" spellcheck="false" data-md-field="date" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.dateText??mdHumanDate(row.date))+'" placeholder="22/11/2026" aria-label="Escribir fecha manualmente, por ejemplo 22 Noviembre 2026" required><span class="md-date-calendar" aria-hidden="true">▦</span><input type="date" class="md-native-date" data-md-picker="'+mdSafe(row.id)+'" aria-label="Elegir fecha en calendario" value="'+mdSafe(row.date||'')+'" max="'+mdSafe(mdToday())+'" tabindex="0"></span></label>'+
-   '<label class="md-amount-label">Monto (L) *<span class="md-money-control"><span class="md-money-symbol" aria-hidden="true">L</span><input type="text" inputmode="decimal" autocomplete="off" data-md-field="amount" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(mdMoneyText(row.amount))+'" placeholder="Ej. 12,000.00" aria-label="Escribir monto manual del abono en lempiras" required></span></label>'+
-   '<label class="md-ref-label">Correlativo *<span class="md-ref-line"><span aria-hidden="true" class="md-ref-symbol">#</span><input type="text" inputmode="numeric" maxlength="80" pattern="[0-9]+" data-md-field="receiptRef" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.receiptRef)+'" placeholder="Ej. 00006159" aria-label="Escribir número correlativo manualmente" required></span></label></div>'+
+   '<div class="md-manual-head"><span>✎ Fecha de hoy lista · Enter avanza al siguiente abono.</span><button type="button" class="md-manual-focus" data-md-edit="'+mdSafe(row.id)+'" aria-label="Escribir fecha, monto y correlativo del abono '+(index+1)+'">✎ Escribir</button></div>'+
+   '<div class="md-fields"><label class="md-date-label">Fecha *<span class="md-date-control"><input type="text" inputmode="text" autocomplete="off" spellcheck="false" data-md-field="date" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.dateText??mdHumanDate(row.date))+'" placeholder="dd/mm/aaaa" enterkeyhint="next" aria-label="Fecha de abono prellenada con la fecha actual. Al tocar se selecciona y se puede reemplazar" required><span class="md-date-calendar" aria-hidden="true">▦</span><input type="date" class="md-native-date" data-md-picker="'+mdSafe(row.id)+'" aria-label="Elegir fecha en calendario" value="'+mdSafe(row.date||'')+'" max="'+mdSafe(mdToday())+'" tabindex="0"></span></label>'+
+   '<label class="md-amount-label">Monto (L) *<span class="md-money-control"><span class="md-money-symbol" aria-hidden="true">L</span><input type="text" inputmode="decimal" autocomplete="off" data-md-field="amount" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(mdMoneyText(row.amount))+'" placeholder="Ej. 12,000.00" enterkeyhint="next" aria-label="Escribir monto manual del abono en lempiras" required></span></label>'+
+   '<label class="md-ref-label">Correlativo *<span class="md-ref-line"><span aria-hidden="true" class="md-ref-symbol">#</span><input type="text" inputmode="numeric" maxlength="80" pattern="[0-9]+" data-md-field="receiptRef" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.receiptRef)+'" placeholder="Ej. 00006159" enterkeyhint="done" aria-label="Escribir número correlativo manualmente. Enter avanza al siguiente abono" required></span></label></div>'+
    '<div class="md-photo-row"><label class="md-scan-icon" title="Escanear o seleccionar foto" aria-label="Escanear recibo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3H5a2 2 0 0 0-2 2v2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="8" width="10" height="9" rx="2"/><circle cx="12" cy="12.5" r="1.7"/></svg><input type="file" accept="image/jpeg,image/png,image/webp" data-md-photo="'+mdSafe(row.id)+'" hidden></label>'+
    (row.preview?'<img src="'+mdSafe(row.preview)+'" class="md-photo-preview" alt="Recibo de este abono">':'')+
    '<span class="md-photo-status" data-md-photo-status="'+mdSafe(row.id)+'">'+mdSafe(row.status||(row.photo?'Recibo adjunto':'OCR opcional · escribe los datos manualmente o escanea'))+'</span>'+(row.photo?'<button type="button" class="md-ocr-retry" data-md-retry="'+mdSafe(row.id)+'" aria-label="Reintentar lectura OCR del recibo">Reintentar OCR</button>':'')+'</div>'+
@@ -289,7 +292,9 @@
   if(!cloudReady||cloudUser?.role!=='admin'||cloudBlocked||cloudBusy||cloudQueue?.pending||cloudQueue?.latest!==cloudQueue?.confirmed)throw Error('Sincroniza la aplicación antes de registrar varios abonos.');
   if(JSON.stringify(db)!==mdState.snapshot)throw Error('Los datos cambiaron. Vuelve a abrir el formulario para evitar duplicaciones.');
   const existingKeys=new Set(),result=[];
-  for(const [i,row] of mdState.rows.entries()){
+  const lastFilled=mdState.rows.findLastIndex(mdRowHasPayment);
+  if(lastFilled<0)throw Error('Ingresa al menos un abono antes de guardar.');
+  for(const [i,row] of mdState.rows.slice(0,lastFilled+1).entries()){
    if(!/^\d{4}-\d{2}-\d{2}$/.test(row.date)||!Number.isFinite(+new Date(row.date+'T12:00:00Z'))||new Date(row.date+'T12:00:00Z').toISOString().slice(0,10)!==row.date||row.date>mdToday())throw Error('Revisa la fecha del abono '+(i+1)+'. No puede ser futura.');
    const val=Number(row.amount),cents=Math.round(val*100);
    if(row.amount===''||!Number.isSafeInteger(cents)||cents<=0||Math.abs(cents-val*100)>.001)throw Error('Monto inválido en el abono '+(i+1)+'.');
@@ -418,7 +423,78 @@
   return result;
  };
  window.lotigestMultiDate={openSale:mdStartSale,openOwner:mdStartOwner};
+
+ // Atajos para captura rápida. Enter no registra pagos: solo avanza entre campos
+ // y, al terminar un abono, pasa al siguiente o crea una fila vacía.
+ function mdFocusField(id,field,select=true){
+  const input=document.querySelector('[data-md-id="'+id+'"][data-md-field="'+field+'"]');
+  if(!input)return false;
+  input.focus();
+  if(select&&typeof input.select==='function')input.select();
+  if(typeof input.scrollIntoView==='function')input.scrollIntoView({block:'center',behavior:'smooth'});
+  return true;
+ }
+ function mdRowHasPayment(row){
+  return Boolean(String(row.amount||'').trim()||String(row.receiptRef||'').trim()||row.photo);
+ }
+ function mdNextRow(row){
+  if(!mdState||!row)return;
+  const index=mdState.rows.indexOf(row);
+  if(index===-1)return;
+  if(!row.date||row.date>mdToday())return mdFocusField(row.id,'date')&&toast('Revisa la fecha del abono antes de continuar.','error');
+  const amount=Number(row.amount);
+  if(!String(row.amount||'').trim()||!Number.isFinite(amount)||amount<=0)return mdFocusField(row.id,'amount')&&toast('Ingresa un monto válido antes de continuar.','error');
+  let normalized;
+  try{normalized=window.lotigestOwnerPayments.requireReceiptCorrelativo(row.receiptRef);}
+  catch(e){mdFocusField(row.id,'receiptRef');toast(e.message,'error');return;}
+  if(mdState.rows.some(other=>other!==row&&window.lotigestOwnerPayments.normalizeReceiptCorrelativo(other.receiptRef)===normalized)||
+     window.lotigestOwnerPayments.findReceiptCorrelativo(db,row.receiptRef)){
+   mdFocusField(row.id,'receiptRef');toast('El correlativo '+normalized+' ya está registrado o repetido.','error');return;
+  }
+  if(index+1>=mdState.rows.length){
+   if(mdState.rows.length>=24){toast('Máximo 24 abonos por operación. Guarda los pagos antes de continuar.','error');return;}
+   mdState.rows.push(mdCreateEntry());
+   mdRenderRows();
+  }
+  mdFocusField(mdState.rows[index+1].id,'date');
+ }
+ function mdRememberPayment(target){
+  const action=target?.closest?.('[data-action="new-payment"],[data-action="collection-owner-abono"],[data-md-start-sale],[data-md-start-owner],[data-action="view-lot"]');
+  if(!action)return;
+  if(action.hasAttribute('data-md-start-sale')||action.dataset.action==='new-payment'){
+   const id=action.dataset.mdStartSale||action.dataset.id;
+   if(getSale(id))mdLastPaymentTarget={kind:'sale',saleId:id};
+  }else if(action.dataset.action==='view-lot'){
+   const sale=(db.sales||[]).find(s=>s.lotId===action.dataset.id&&s.type==='credit'&&balance(s)>.01);
+   if(sale)mdLastPaymentTarget={kind:'sale',saleId:sale.id};
+  }else if(action.hasAttribute('data-md-start-owner')||action.dataset.action==='collection-owner-abono'){
+   try{
+    const token=action.dataset.mdStartOwner||action.dataset.id;
+    const {rid,group}=collectionGroupFromToken(token);
+    const owners=[...new Set((group?.statements||[]).map(s=>s.clientId).filter(Boolean))];
+    if(owners.length===1)mdLastPaymentTarget={kind:'owner',clientId:owners[0],residenceId:rid};
+    else mdLastPaymentTarget=null;
+   }catch{mdLastPaymentTarget=null;}
+  }
+ }
+ function mdOpenOneWithShortcut(){
+  if(!cloudReady||cloudUser?.role!=='admin')return toast('Debes iniciar sesión como administrador para registrar abonos.','error');
+  // No perder un formulario con pagos pendientes al utilizar el atajo.
+  if(mdRoot())return toast('Termina o cancela los abonos múltiples antes de abrir un pago individual.','error');
+  if(document.querySelector('#modal-root .modal'))return toast('Cierra la ventana actual antes de abrir otro abono.','error');
+  const chosen=mdLastPaymentTarget;
+  if(chosen?.kind==='sale'&&getSale(chosen.saleId)&&balance(getSale(chosen.saleId))>.01){
+   newPayment(chosen.saleId,false);return;
+  }
+  if(chosen?.kind==='owner'&&getClient(chosen.clientId)){
+   openOwnerAbono(chosen.clientId,chosen.residenceId);return;
+  }
+  // Sin solar seleccionado abre el selector ordinario para elegir cliente.
+  newPayment(null,false);
+ }
+
  document.addEventListener('click',event=>{
+  mdRememberPayment(event.target);
   const action=event.target.closest?.('[data-md-start-sale],[data-md-start-owner],[data-md-pick-owner],[data-md-edit],[data-md-add],[data-md-remove],[data-md-retry],[data-md-one],[data-md-many],[data-md-save],[data-md-pdf],[data-md-download-all],[data-md-share-all],[data-md-another],[data-md-view-photo]');
   if(!action)return;
   event.preventDefault();event.stopImmediatePropagation();
@@ -469,6 +545,42 @@
    else{row.date='';row.dateText=input.value;}
   }else if(input.matches('[data-md-field="amount"]')){
    input.value=mdMoneyText(row.amount);
+  }
+ },true);
+
+ document.addEventListener('keydown',event=>{
+  const key=String(event.key||'').toLowerCase();
+  if((event.ctrlKey||event.metaKey)&&!event.altKey&&!event.shiftKey&&key==='b'){
+   if(event.target?.closest?.('[contenteditable="true"]'))return;
+   event.preventDefault();
+   event.stopImmediatePropagation();
+   mdOpenOneWithShortcut();
+   return;
+  }
+  if(key!=='enter'||event.ctrlKey||event.altKey||event.metaKey||event.shiftKey||event.isComposing)return;
+  const input=event.target;
+  if(!input?.closest?.('#md-abonos-form')||!input.matches?.('[data-md-field]'))return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  const row=mdById(input.dataset.mdId);
+  if(!row)return;
+  const field=input.dataset.mdField;
+  if(field==='date'){
+   const iso=mdDateISO(input.value);
+   if(!iso||iso>mdToday()){mdFocusField(row.id,'date');toast('Introduce una fecha válida.','error');return;}
+   row.date=iso;row.dateText=mdHumanDate(iso);input.value=row.dateText;
+   mdFocusField(row.id,'amount');
+  }else if(field==='amount'){
+   const amount=Number(row.amount);
+   if(!String(row.amount||'').trim()||!Number.isFinite(amount)||amount<=0){
+    mdFocusField(row.id,'amount');toast('Introduce el monto del abono.','error');return;
+   }
+   input.value=mdMoneyText(row.amount);
+   mdFocusField(row.id,'receiptRef');
+  }else if(field==='receiptRef'){
+   mdNextRow(row);
+  }else if(field==='statementId'){
+   mdFocusField(row.id,'date');
   }
  },true);
  document.addEventListener('submit',event=>{if(event.target.id==='md-abonos-form'){event.preventDefault();event.stopImmediatePropagation();mdSave();}},true);
