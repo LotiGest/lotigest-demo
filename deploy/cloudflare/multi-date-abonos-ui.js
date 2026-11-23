@@ -548,6 +548,14 @@
   }
  },true);
 
+ document.addEventListener('focusin',event=>{
+  const input=event.target;
+  // Al tocar la fecha precargada, seleccionarla entera para sustituirla en
+  // una sola escritura; no se necesita borrar carácter por carácter.
+  if(input?.matches?.('#md-abonos-form [data-md-field="date"]')){
+   try{input.select();}catch{}
+  }
+ },true);
  document.addEventListener('keydown',event=>{
   const key=String(event.key||'').toLowerCase();
   if((event.ctrlKey||event.metaKey)&&!event.altKey&&!event.shiftKey&&key==='b'){
