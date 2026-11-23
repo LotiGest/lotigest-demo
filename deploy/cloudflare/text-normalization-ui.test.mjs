@@ -5,8 +5,8 @@ import {readFileSync} from 'node:fs';
 const normalizeSource=readFileSync(new URL('./text-normalization-ui.js',import.meta.url),'utf8');
 const clientSource=readFileSync(new URL('./contract-client-edit-ui.js',import.meta.url),'utf8');
 function setup(){
- const listeners={},window={};
- const document={addEventListener:(name,handler)=>(listeners[name]??=[]).push(handler)};
+ const listeners={},window={addEventListener:(name,handler)=>(listeners[name]??=[]).push(handler)};
+ const document={};
  const make=(type,name,value,extra={})=>({
   tagName:'INPUT',type,name,id:extra.id||'',value,dataset:extra.dataset||{},
   disabled:false,readOnly:false,hasAttribute:()=>false,closest:()=>false,
