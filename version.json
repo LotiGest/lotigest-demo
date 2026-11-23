@@ -1,4 +1,4 @@
 {
-  "version": "0.22.52",
-  "notes": "LOTIGEST PRO: instrucciones propias para crear residenciales y adjuntar planos PDF, con aclaración sobre trazado de calles y solares y conservación de los proyectos existentes. El enlace del mapa permanece interno."
+  "version": "0.22.53",
+  "notes": "LOTIGEST PRO: Nuevo contrato incorpora un icono rojo de papelera junto al precio base para retirar el solar del borrador sin borrar terrenos ni pagos. Conserva los demás solares y sus precios y primas al quitar el principal."
 }
