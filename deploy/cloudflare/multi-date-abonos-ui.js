@@ -40,9 +40,8 @@
    Number(raw).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
  }
 
- function mdShortDate(iso){const m=String(iso||'').match(/^(20\d{2})-(\d{2})-(\d{2})$/);return m?m[3]+'/'+m[2]+'/'+m[1]:'';}
  function mdCreateEntry(){
-  return {id:'MDR'+crypto.randomUUID().replace(/-/g,''),date:mdToday(),dateText:mdShortDate(mdToday()),amount:'',receiptRef:'',statementId:mdState?.docs?.[0]?.id||'',photo:null,preview:null,status:'',dateEdited:false,amountEdited:false,refEdited:false};
+  return {id:'MDR'+crypto.randomUUID().replace(/-/g,''),date:'',dateText:'',amount:'',receiptRef:'',statementId:mdState?.docs?.[0]?.id||'',photo:null,preview:null,status:'',dateEdited:false,amountEdited:false,refEdited:false};
  }
  function mdStartSale(saleId){
   if(!cloudReady||cloudUser?.role!=='admin')return toast('Se requiere acceso de administrador para registrar abonos.','error');
@@ -80,8 +79,8 @@
  function mdRowMarkup(row,index){
   const options=mdState.kind==='owner'?'<label class="md-lot-choice">Ficha / solares<select data-md-field="statementId" data-md-id="'+mdSafe(row.id)+'">'+mdState.docs.map(s=>'<option value="'+mdSafe(s.id)+'" '+(s.id===row.statementId?'selected':'')+'>'+mdSafe(s.sourceName||'Ficha')+' · '+mdSafe((s.references||[]).map(r=>'B '+r.block+' / S '+r.lot).join(', ')||'Solar por confirmar')+'</option>').join('')+'</select></label>':'';
   return '<article class="md-row" data-md-row="'+mdSafe(row.id)+'"><div class="md-row-top"><strong>▤ Abono '+(index+1)+'</strong><button type="button" class="md-trash" title="Eliminar este abono" aria-label="Eliminar abono '+(index+1)+'" data-md-remove="'+mdSafe(row.id)+'">✕</button></div>'+options+
-   '<div class="md-manual-head"><span>✎ Fecha de hoy lista · Enter avanza al siguiente abono.</span><button type="button" class="md-manual-focus" data-md-edit="'+mdSafe(row.id)+'" aria-label="Escribir fecha, monto y correlativo del abono '+(index+1)+'">✎ Escribir</button></div>'+
-   '<div class="md-fields"><label class="md-date-label">Fecha *<span class="md-date-control"><input type="text" inputmode="text" autocomplete="off" spellcheck="false" data-md-field="date" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.dateText??mdHumanDate(row.date))+'" placeholder="dd/mm/aaaa" enterkeyhint="next" aria-label="Fecha de abono prellenada con la fecha actual. Al tocar se selecciona y se puede reemplazar" required><span class="md-date-calendar" aria-hidden="true">▦</span><input type="date" class="md-native-date" data-md-picker="'+mdSafe(row.id)+'" aria-label="Elegir fecha en calendario" value="'+mdSafe(row.date||'')+'" max="'+mdSafe(mdToday())+'" tabindex="0"></span></label>'+
+   '<div class="md-manual-head"><span>✎ Escribe la fecha del recibo · Enter avanza al siguiente abono.</span><button type="button" class="md-manual-focus" data-md-edit="'+mdSafe(row.id)+'" aria-label="Escribir fecha, monto y correlativo del abono '+(index+1)+'">✎ Escribir</button></div>'+
+   '<div class="md-fields"><label class="md-date-label">Fecha *<span class="md-date-control"><input type="text" inputmode="text" autocomplete="off" spellcheck="false" data-md-field="date" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.dateText??mdHumanDate(row.date))+'" placeholder="DD/MM/AAAA" enterkeyhint="next" aria-label="Escribir la fecha real del recibo; el campo comienza vacío" required><span class="md-date-calendar" aria-hidden="true">▦</span><input type="date" class="md-native-date" data-md-picker="'+mdSafe(row.id)+'" aria-label="Elegir fecha en calendario" value="'+mdSafe(row.date||'')+'" max="'+mdSafe(mdToday())+'" tabindex="0"></span></label>'+
    '<label class="md-amount-label">Monto (L) *<span class="md-money-control"><span class="md-money-symbol" aria-hidden="true">L</span><input type="text" inputmode="decimal" autocomplete="off" data-md-field="amount" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(mdMoneyText(row.amount))+'" placeholder="Ej. 12,000.00" enterkeyhint="next" aria-label="Escribir monto manual del abono en lempiras" required></span></label>'+
    '<label class="md-ref-label">Correlativo *<span class="md-ref-line"><span aria-hidden="true" class="md-ref-symbol">#</span><input type="text" inputmode="numeric" maxlength="80" pattern="[0-9]+" data-md-field="receiptRef" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.receiptRef)+'" placeholder="Ej. 00006159" enterkeyhint="done" aria-label="Escribir número correlativo manualmente. Enter avanza al siguiente abono" required></span></label></div>'+
    '<div class="md-photo-row"><label class="md-scan-icon" title="Escanear o seleccionar foto" aria-label="Escanear recibo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3H5a2 2 0 0 0-2 2v2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="8" width="10" height="9" rx="2"/><circle cx="12" cy="12.5" r="1.7"/></svg><input type="file" accept="image/jpeg,image/png,image/webp" data-md-photo="'+mdSafe(row.id)+'" hidden></label>'+
@@ -554,8 +553,8 @@
 
  document.addEventListener('focusin',event=>{
   const input=event.target;
-  // Al tocar la fecha precargada, seleccionarla entera para sustituirla en
-  // una sola escritura; no se necesita borrar carácter por carácter.
+  // Si el OCR ya rellenó la fecha, seleccionarla entera para poder cambiarla.
+  // Los abonos nuevos comienzan siempre con la fecha vacía.
   if(input?.matches?.('#md-abonos-form [data-md-field="date"]')){
    try{input.select();}catch{}
   }
