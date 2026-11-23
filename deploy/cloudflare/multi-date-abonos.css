@@ -301,8 +301,8 @@ body.lotigest-dark #modal-root .lg-multi-date-modal .md-last-empty{color:#b4cdbc
 #modal-root .lg-multi-date-modal .md-last-cell:first-child{
  border-left:0;padding-left:6px;
 }
-#modal-root .lg-multi-date-modal .md-last-cell-icon{
- display:grid;place-items:center;flex:none;
+#modal-root .lg-multi-date-modal .md-last-grid .md-last-cell-icon{
+ display:grid!important;place-items:center;justify-content:center;align-items:center;flex:none;
  width:34px;height:34px;
  border:1px solid #bae5c6;border-radius:10px;
  background:#e8fff0;color:#0d9245;
