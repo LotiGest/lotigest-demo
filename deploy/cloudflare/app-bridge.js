@@ -163,8 +163,8 @@ async function cloudFlushFiles(){
  if(!window.lotigestFiles||cloudUser?.role==='sales')return;
  for(const row of await lotigestFiles.pending()){
   cloudStatus('Subiendo documento pendiente…');
-  try{await cloudApi('file?'+new URLSearchParams({key:row.key}),{method:'PUT',headers:{'Content-Type':'application/pdf'},body:row.file});}
-  catch(e){if(e.status!==401||!cloudCredential)throw e;await cloudApi('session',{method:'POST',body:JSON.stringify({credential:cloudCredential})});await cloudApi('file?'+new URLSearchParams({key:row.key}),{method:'PUT',headers:{'Content-Type':'application/pdf'},body:row.file});}
+  try{await cloudApi('file?'+new URLSearchParams({key:row.key}),{method:'PUT',headers:{'Content-Type':['application/pdf','image/png','image/jpeg','image/webp'].includes(row.file.type)?row.file.type:'application/pdf'},body:row.file});}
+  catch(e){if(e.status!==401||!cloudCredential)throw e;await cloudApi('session',{method:'POST',body:JSON.stringify({credential:cloudCredential})});await cloudApi('file?'+new URLSearchParams({key:row.key}),{method:'PUT',headers:{'Content-Type':['application/pdf','image/png','image/jpeg','image/webp'].includes(row.file.type)?row.file.type:'application/pdf'},body:row.file});}
   await lotigestFiles.complete(row.key);
  }
 }
