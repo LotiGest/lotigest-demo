@@ -1,4 +1,4 @@
 {
-  "version": "0.22.42",
-  "notes": "Respuesta de cotizaciones con formulario y vista previa, condiciones de contado o crédito, vigencia y mensaje guardados en la nube. PDF carta verde con tabla de importes, etapa, bloque y solar; compartir por WhatsApp."
+  "version": "0.22.43",
+  "notes": "Corrección del escáner de recibos Grupo H: acceso OCR compacto junto a Guardar y registrar otro abono; panel OCR oculto hasta pulsarlo. Mantiene cámara, galería y revisión manual."
 }

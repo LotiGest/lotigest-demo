@@ -31,6 +31,9 @@ baseNewPayment=function(saleId,useOcr=false){
   const block=document.createElement('div');block.innerHTML=receiptOcrWidget();
   form.prepend(block.firstElementChild);
  }
+ // La decoración del modal ocurrió antes de agregar el OCR: instalar el icono
+ // inferior ahora, cuando el fieldset y los botones ya existen.
+ if(typeof pmEnsureOcrFooter==='function')pmEnsureOcrFooter(form);
  return result;
 };
 function receiptOcrStatus(form,message){

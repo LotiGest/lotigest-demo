@@ -139,7 +139,16 @@ test('recorrido cliente, terreno, venta crédito, abono, recibo histórico y fin
  await login(app,server);app.click('[data-page=clients]');app.click('[data-action=new-client]');app.submit('#modal-form',{name:'CLIENTE AUDITORIA',identity:'0801199900001',phone:'99999999'});await saved(app);
  const client=(await server.read()).state.clients[0];app.click('[data-page=lots]');app.click('[data-action=new-lot]');app.submit('#modal-form',{id:'AUD-001',block:'AUD',areaMode:'manual',area:'250',price:'100000',status:'available'});await saved(app);assert.ok((await server.read()).state.lots.some(l=>l.id==='AUD-001'));
  app.click('[data-page=sales]');app.click('[data-action=new-sale]');app.submit('#modal-form',{clientId:client.id,lotId:'AUD-001',type:'credit',downPayment:'10000',months:'12',date:'2026-01-15'});await saved(app);let data=(await server.read()).state;assert.equal(data.sales.length,1);assert.equal(data.payments[0].amount,10000);const sale=data.sales[0];
- app.click('[data-page=payments]');app.click('[data-action=payment-options]');assert.ok(app.d.querySelector('.lg-payment-modern'));assert.ok(app.d.querySelector('#multi-payment-form'));app.click(`[data-action=multi-payment-add][data-id="${sale.id}"]`);
+ app.click('[data-page=payments]');app.click('[data-action=payment-options]');assert.ok(app.d.querySelector('.lg-payment-modern'));assert.ok(app.d.querySelector('#multi-payment-form'));
+ const ocrTrigger=app.d.querySelector('.lg-payment-modern .modal-footer [data-pm-ocr-toggle]');
+ const ocrPanel=app.d.querySelector('#multi-payment-form #pm-ocr-panel');
+ assert.ok(ocrTrigger,'El escáner OCR debe aparecer abajo, junto a los botones del abono');
+ assert.ok(ocrPanel?.hidden,'El panel OCR debe permanecer oculto mientras no se solicite');
+ assert.equal(app.d.querySelector('#multi-payment-form > fieldset'),null,'El OCR no debe ocupar espacio arriba');
+ assert.equal(ocrPanel.querySelectorAll('[data-paper-ocr-photo]').length,2,'Cámara y galería siguen disponibles');
+ app.click('[data-pm-ocr-toggle]');assert.equal(ocrPanel.hidden,false,'Al pulsar se abre el OCR');
+ app.click('[data-pm-ocr-close]');assert.equal(ocrPanel.hidden,true,'Se puede cerrar sin guardar');
+ app.click(`[data-action=multi-payment-add][data-id="${sale.id}"]`);
  const amount=app.d.querySelector('#pm-amount-slot input');assert.ok(amount);
  assert.equal(amount.dataset.pmCurrency,'true');
  app.input('#pm-amount-slot input','10000');
