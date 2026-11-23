@@ -229,6 +229,23 @@ test('prima desde contrato conserva el correlativo con ceros iniciales',async()=
 test('correlativo numérico repetido se rechaza antes de guardar dinero',async()=>{
  const x=setup();x.db().ownerPayments=[{id:'OP',receiptReference:'6159'}];
  Object.assign(x.fields,{solarPrice_0:'180000',down:'40000',primaPaid:'on',primaDate:'2026-11-02',primaMethod:'Efectivo',primaRef:'00006159'});
- const before=JSON.stringify(x.db());await assert.rejects(()=>x.save({fields:x.fields}),/ya está registrado/);
+ const before=JSON.stringify(x.db());await assert.rejects(()=>x.save({fields:x.fields}),/ya.*otro pago/);
  assert.equal(x.writes(),0);assert.equal(JSON.stringify(x.db()),before);
+});
+
+test('primas de solares distintos del mismo pago total comparten correlativo y grupo',async()=>{
+ const x=setup();x.db().sales.push({id:'PREV-SALE',clientId:'C',lotId:'L2'});
+ x.db().payments.push({id:'PREV-PAY',saleId:'PREV-SALE',date:'2026-11-02',method:'Efectivo',amount:50000,concept:'Prima',receiptReference:'00006159'});
+ Object.assign(x.fields,{solarPrice_0:'180000',down:'40000',primaPaid:'on',primaDate:'2026-11-02',primaMethod:'Efectivo',primaRef:'00006159'});
+ await x.save({fields:x.fields});
+ const payments=x.db().payments;assert.equal(payments.length,2);
+ assert.equal(payments[0].receiptReference,'00006159');assert.equal(payments[1].receiptReference,'00006159');
+ assert.ok(payments[0].groupId);assert.equal(payments[0].groupId,payments[1].groupId);
+ assert.equal(payments.reduce((n,p)=>n+p.amount,0),90000);
+});
+test('no comparte correlativo de prima entre fechas distintas',async()=>{
+ const x=setup();x.db().sales.push({id:'PREV-SALE',clientId:'C',lotId:'L2'});
+ x.db().payments.push({id:'PREV-PAY',saleId:'PREV-SALE',date:'2026-11-01',method:'Efectivo',amount:50000,concept:'Prima',receiptReference:'00006159'});
+ Object.assign(x.fields,{solarPrice_0:'180000',down:'40000',primaPaid:'on',primaDate:'2026-11-02',primaMethod:'Efectivo',primaRef:'00006159'});
+ await assert.rejects(()=>x.save({fields:x.fields}),/otro pago/);assert.equal(x.writes(),0);
 });

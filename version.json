@@ -1,4 +1,4 @@
 {
-  "version": "0.22.65",
-  "notes": "LOTIGEST PRO: solares incluidos en el abono visibles en filas individuales, sin apariencia deshabilitada. Los importes de Nuevo contrato se resaltan en verde y la prima recibida permite ingresar el correlativo original del recibo, conservando ceros y evitando correlativos numéricos repetidos."
+  "version": "0.22.66",
+  "notes": "LOTIGEST PRO: permite compartir el correlativo original entre primas de diferentes solares que corresponden a un mismo pago total del cliente, fecha, método y residencial; las partes quedan agrupadas en un recibo. Conserva los ceros iniciales y evita mezclar otros pagos."
 }

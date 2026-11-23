@@ -618,12 +618,7 @@ async function contractIntakeSave(form){
   if(!['Efectivo','Transferencia','Tarjeta'].includes(data.primaMethod))throw Error('Selecciona un método de pago.');
   if(!(Number(data.down)>0))throw Error('La prima pactada debe ser mayor que cero para registrar el cobro.');
   if(String(data.primaRef||'').length>80)throw Error('Número de recibo demasiado largo.');
-  const raw=String(data.primaRef||'').trim();
-  if(/^\d+$/.test(raw)){
-   const normalized=raw.replace(/^0+(?=\d)/,'');
-   const existing=[...(db.payments||[]),...(db.ownerPayments||[])].some(p=>[p.receiptReference,p.receiptRef,p.originalReceiptRef,p.receiptReferenceNormalized].some(ref=>/^\d+$/.test(String(ref||'').trim())&&String(ref).trim().replace(/^0+(?=\d)/,'')===normalized));
-   if(existing)throw Error('El correlativo '+raw+' ya está registrado en otro pago.');
-  }
+
  }
  if(original.mode!=='manual'&&!original.file)throw Error('Debes subir primero la foto del documento original.');
  if(original.residenceId!==residence().id)throw Error('La residencial cambió; revisa la ficha.');
@@ -647,7 +642,26 @@ async function contractIntakeSave(form){
   const client=contractIntakeFindClient(next,data);
   if(contractIdentityDigits(client.identity)!==contractIdentityDigits(data.identity))throw Error('El número de identidad no coincide con el contrato. Revisa y vuelve a guardar.');
   const groupId=planned.length>1?'CG-'+crypto.randomUUID():null;
-  const receiptGroup=received&&planned.length>1?'PG-'+crypto.randomUUID():null;
+  let receiptGroup=received&&planned.length>1?'PG-'+crypto.randomUUID():null;
+  const receiptRaw=String(data.primaRef||'').trim();
+  if(received&&/^\d+$/.test(receiptRaw)){
+   const normalize=value=>String(value??'').trim().replace(/^0+(?=\d)/,'');
+   const code=normalize(receiptRaw),matches=p=>[p.receiptReference,p.receiptRef,p.originalReceiptRef,p.receiptReferenceNormalized].some(value=>/^\d+$/.test(String(value??'').trim())&&normalize(value)===code);
+   const existing=next.payments.filter(matches);
+   if((next.ownerPayments||[]).some(matches))throw Error('El correlativo ya pertenece a otro pago; revisa su distribución.');
+   const compatible=p=>{
+    const sale=next.sales.find(s=>s.id===p.saleId),lot=sale&&next.lots.find(l=>l.id===sale.lotId);
+    return /^prima\b/i.test(String(p.concept||''))&&!p.voidedAt&&!['voided','cancelled'].includes(p.status)&&sale?.clientId===client.id&&lot?.residenceId===original.residenceId&&p.date===data.primaDate&&p.method===data.primaMethod;
+   };
+   if(existing.some(p=>!compatible(p)))throw Error('El correlativo ya está registrado en otro pago. Para compartirlo, las primas deben ser del mismo cliente, fecha, método y residencial.');
+   if(existing.length){
+    const existingIds=new Set(existing.map(p=>p.id)),groups=new Set(existing.map(p=>p.groupId).filter(Boolean));
+    if(next.payments.some(p=>groups.has(p.groupId)&&!existingIds.has(p.id)))throw Error('El recibo contiene otros movimientos; revisa su distribución antes de compartir el correlativo.');
+    receiptGroup=groups.size===1&&String([...groups][0]).startsWith('PG-')?[...groups][0]:'PG-'+crypto.randomUUID();
+    if(!receiptGroup)receiptGroup='PG-'+crypto.randomUUID();
+    for(const payment of existing)payment.groupId=receiptGroup;
+   }
+  }
   const now=new Date().toISOString();
   for(const {lot,fields} of planned){
    const target=next.lots.find(l=>l.id===lot.id);
