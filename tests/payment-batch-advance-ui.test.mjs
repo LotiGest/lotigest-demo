@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {reconcileInstallments} from '../installment-status.mjs';
+import {requireReceiptCorrelativo,findReceiptCorrelativo} from '../owner-payments.mjs';
 const addon=readFileSync(new URL('../deploy/cloudflare/payment-batch-ui.js',import.meta.url),'utf8');
 const original=readFileSync(new URL('../prueba-diseno-v08.html',import.meta.url),'utf8');
 const modern=readFileSync(new URL('../deploy/cloudflare/payment-modal-ui.js',import.meta.url),'utf8');
@@ -15,8 +16,8 @@ function manualScenario(){
  let serial=0;
  const money=n=>'L '+Number(n).toFixed(2);
  const draft={residenceId:'R',clientId:'C1',amounts:{S1:'19500'},snapshot:JSON.stringify(db),stored:null};
- const form={id:'multi-payment-form',isConnected:true,elements:{date:{value:'2026-11-20'},concept:{value:'Abono a crédito'}},
-  fakeData:{date:'2026-11-18',concept:'Adelanto noviembre',method:'Efectivo'}};
+ const form={id:'multi-payment-form',isConnected:true,elements:{date:{value:'2026-11-20'},concept:{value:'Abono a crédito'},receiptRef:{value:'00006159',dispatchEvent(){}}},
+  fakeData:{date:'2026-11-18',concept:'Adelanto noviembre',method:'Efectivo',receiptRef:'00006159'}};
  const env={
   db,paymentDraft:draft,ownerPaymentDraft:null,
   document:{addEventListener:(type,fn)=>(listeners[type]??=[]).push(fn),
@@ -38,7 +39,7 @@ function manualScenario(){
   renderPaymentSelected:()=>{},renderPaymentResults:()=>{},pmRepaintSales:()=>{},
   toast:m=>messages.push(m),money,
   openOwnerAbono:()=>{},cloudFlush:async()=>{},cloudBlocked:false,
-  lotigestOwnerPayments:{createOwnerPayment:()=>{}},
+  lotigestOwnerPayments:{createOwnerPayment:()=>{},requireReceiptCorrelativo,findReceiptCorrelativo},
   crypto:{randomUUID:()=> 'test'},console
  };
  const api=new Function(...Object.keys(env),addon+
@@ -57,11 +58,13 @@ test('sin salir, registra pagos sucesivos con fechas distintas y folios únicos'
  const first=api.getPayments()[0].id;
  api.getDraft().amounts.S1='2500';
  form.fakeData.date='2026-11-19';
+ form.fakeData.receiptRef='00006160';
  api.setContinue(true);api.submitMultiPayment(form);
  assert.equal(api.getPayments().length,2);
  assert.equal(api.getPayments()[0].date,'2026-11-19');
  assert.notEqual(api.getPayments()[0].id,first);
  assert.equal(api.receipts().length,2);
+ assert.deepEqual(api.getPayments().map(p=>p.receiptReferenceNormalized),['6160','6159']);
  assert.equal(cloudSnapshots.length,2);
  assert.equal(api.getPayments().reduce((n,p)=>n+p.amount,0),22000);
 });
