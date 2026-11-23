@@ -421,7 +421,42 @@
   }
   return result;
  };
- window.lotigestMultiDate={openSale:mdStartSale,openOwner:mdStartOwner};
+
+ function mdOpenManyWithShortcut(){
+  if(!cloudReady||cloudUser?.role!=='admin')return toast('Se requiere una cuenta administradora para registrar abonos.','error');
+  if(document.querySelector('#modal-root .modal'))return toast('Cierra la ventana actual antes de abrir abonos múltiples.','error');
+  const activeResidence=page==='collections'&&typeof residence==='function'?residence()?.id:null;
+  const target=mdLastPaymentTarget;
+  if(target?.kind==='sale'){
+   const sale=getSale(target.saleId),lot=getLot(sale?.lotId);
+   if(sale?.type==='credit'&&balance(sale)>.01&&(!activeResidence||lot?.residenceId===activeResidence))return mdStartSale(sale.id);
+  }
+  if(target?.kind==='owner'&&getClient(target.clientId)&&(!activeResidence||target.residenceId===activeResidence))return mdStartOwner(target.clientId,target.residenceId);
+  // Sin solar activo, ofrecer un selector; no se cobra un lote por suposición.
+  const sales=(db.sales||[]).filter(s=>s.type==='credit'&&balance(s)>.01&&(!activeResidence||getLot(s.lotId)?.residenceId===activeResidence));
+  if(!sales.length)return toast('No hay contratos con saldo disponibles para registrar abonos.','error');
+  showModal('Elegir solar para varios abonos','<p>Busca al cliente o solar para abrir sus abonos múltiples.</p><label>Cliente o solar<input id="md-shortcut-search" placeholder="Nombre, bloque o solar" autocomplete="off"></label><div id="md-shortcut-results" style="max-height:50dvh;overflow-y:auto"></div>','<button type="button" class="btn btn-soft" data-action="close-modal">Cancelar</button>',true);
+  function matches(query){
+   const normalized=String(query||'').trim().toLocaleLowerCase('es');
+   return sales.filter(s=>{
+    const lot=getLot(s.lotId),client=getClient(s.clientId);
+    return (client?.name||'').toLocaleLowerCase('es').includes(normalized)||
+      (String(lot?.block||'')+' '+String(lot?.sourceNumber||lot?.id||'')).toLocaleLowerCase('es').includes(normalized);
+   }).slice(0,60);
+  }
+  const results=document.getElementById('md-shortcut-results');
+  const repaint=query=>{
+   if(!results)return;
+   results.innerHTML=matches(query).map(s=>{
+    const lot=getLot(s.lotId),client=getClient(s.clientId);
+    return '<button type="button" class="btn btn-outline" data-md-shortcut-sale="'+mdSafe(s.id)+'" style="display:block;width:100%;text-align:left;margin:5px 0;white-space:normal">'+mdSafe(client?.name||'Cliente')+' · Bloque '+mdSafe(lot?.block||'—')+' · Solar '+mdSafe(lot?.sourceNumber||lot?.id||'—')+'</button>';
+   }).join('')||'<p>No se encontraron solares con saldo.</p>';
+  };
+  repaint('');
+  document.getElementById('md-shortcut-search')?.addEventListener('input',e=>repaint(e.target.value));
+ }
+ window.lotigestMultiDate={openSale:mdStartSale,openOwner:mdStartOwner,openSingle:mdOpenOneWithShortcut,openMulti:mdOpenManyWithShortcut};
+
 
  // Atajos para captura rápida. Enter no registra pagos: solo avanza entre campos
  // y, al terminar un abono, pasa al siguiente o crea una fila vacía.
@@ -498,12 +533,13 @@
 
  document.addEventListener('click',event=>{
   mdRememberPayment(event.target);
-  const action=event.target.closest?.('[data-md-start-sale],[data-md-start-owner],[data-md-pick-owner],[data-md-edit],[data-md-add],[data-md-remove],[data-md-retry],[data-md-one],[data-md-many],[data-md-save],[data-md-pdf],[data-md-download-all],[data-md-share-all],[data-md-another],[data-md-view-photo]');
+  const action=event.target.closest?.('[data-md-start-sale],[data-md-start-owner],[data-md-shortcut-sale],[data-md-pick-owner],[data-md-edit],[data-md-add],[data-md-remove],[data-md-retry],[data-md-one],[data-md-many],[data-md-save],[data-md-pdf],[data-md-download-all],[data-md-share-all],[data-md-another],[data-md-view-photo]');
   if(!action)return;
   event.preventDefault();event.stopImmediatePropagation();
   if(action.hasAttribute('data-md-start-sale'))mdStartSale(action.dataset.mdStartSale);
   else if(action.hasAttribute('data-md-start-owner'))mdStartOwnerToken(action.dataset.mdStartOwner);
   else if(action.hasAttribute('data-md-pick-owner'))mdStartOwner(action.dataset.mdPickOwner,action.dataset.mdRid);
+  else if(action.hasAttribute('data-md-shortcut-sale'))mdStartSale(action.dataset.mdShortcutSale);
   else if(action.hasAttribute('data-md-edit')){
    const id=action.dataset.mdEdit;
    const input=document.querySelector('[data-md-field="date"][data-md-id="'+id+'"]');
@@ -561,7 +597,8 @@
  },true);
  document.addEventListener('keydown',event=>{
   const key=String(event.key||'').toLowerCase();
-  if((event.ctrlKey||event.metaKey)&&!event.altKey&&!event.shiftKey&&key==='b'){
+  // La configuración central de atajos reemplaza el Ctrl+B antiguo.
+  if(!window.lotigestShortcuts?.ready&&(event.ctrlKey||event.metaKey)&&!event.altKey&&!event.shiftKey&&key==='b'){
    if(event.target?.closest?.('[contenteditable="true"]'))return;
    event.preventDefault();
    event.stopImmediatePropagation();
