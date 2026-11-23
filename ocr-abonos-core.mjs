@@ -35,14 +35,16 @@ export function matchOcrReceipt(state,receipt,rawText,residenceId){
 }
 export function receiptDuplicate(state,receipt,residenceId,clientId=null,lotIds=[]){
  const folio=normOcr(receipt.reference).replace(/ /g,'');
- const matchingFolio=x=>folio&&normOcr(x||'').replace(/ /g,'')===folio;
+ const normalizeNumeric=x=>{const s=String(x??'').trim();return /^[0-9]+$/.test(s)?s.replace(/^0+(?=\d)/,''):null;};
+ const numeric=normalizeNumeric(receipt.reference);
+ const matchingFolio=x=>numeric!==null?normalizeNumeric(x)===numeric:Boolean(folio)&&normOcr(x||'').replace(/ /g,'')===folio;
  if(folio){
-   for(const p of state.ownerPayments||[])if(p.residenceId===residenceId&&matchingFolio(p.receiptReference||p.originalReceiptRef))return {duplicate:true,reason:'El número de recibo ya está registrado como abono de propietario.'};
+   for(const p of state.ownerPayments||[])if(matchingFolio(p.receiptReference||p.originalReceiptRef))return {duplicate:true,reason:'El número de recibo ya está registrado como abono de propietario.'};
    for(const p of state.payments||[]){
      const sale=state.sales.find(s=>s.id===p.saleId),lot=state.lots.find(l=>l.id===sale?.lotId);
-     if(lot?.residenceId===residenceId&&matchingFolio(p.receiptReference))return {duplicate:true,reason:'El folio ya existe entre los pagos de ventas.'};
+     if(matchingFolio(p.receiptReference))return {duplicate:true,reason:'El folio ya existe entre los pagos de ventas.'};
    }
-   for(const p of state.historicalPayments||[])if(p.residenceId===residenceId&&matchingFolio(p.receiptReference||p.sourceRaw?.receiptRef||p.sourceRaw?.folio))return {duplicate:true,reason:'El folio ya consta en el historial importado.'};
+   for(const p of state.historicalPayments||[])if(matchingFolio(p.receiptReference||p.sourceRaw?.receiptRef||p.sourceRaw?.folio))return {duplicate:true,reason:'El folio ya consta en el historial importado.'};
  }
  if(receipt.amount!=null&&receipt.date&&clientId){
   const cents=Math.round(Number(receipt.amount)*100);
