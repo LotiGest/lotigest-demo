@@ -53,6 +53,35 @@
    Number(raw).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
  }
 
+ // Último pago por venta o por ficha, nunca por cliente completo.
+ function mdLastPaymentFor(state,data,statementId){
+  if(!state||!data)return null;
+  const owner=state.kind==='owner';
+  const source=owner?(data.ownerPayments||[]).filter(p=>p.clientId===state.clientId&&p.residenceId===state.residenceId)
+   :(data.payments||[]).filter(p=>p.saleId===state.saleId);
+  return source.map(p=>({
+   date:p.date,recordedAt:p.recordedAt,reference:p.receiptReference||p.receiptRef||p.originalReceiptRef||p.receiptReferenceNormalized||'',
+   concept:p.concept||'',amount:owner?(p.allocations||[]).filter(a=>a.statementId===statementId).reduce((n,a)=>n+Number(a.amountCents||0),0)/100:Number(p.amount),
+   voidedAt:p.voidedAt,status:p.status
+  })).filter(p=>/^\d{4}-\d{2}-\d{2}$/.test(String(p.date||''))&&p.date<=mdToday()&&Number.isFinite(p.amount)&&p.amount>0&&
+   !p.voidedAt&&!['voided','cancelled'].includes(p.status))
+  .sort((a,b)=>b.date.localeCompare(a.date)||String(b.recordedAt||'').localeCompare(String(a.recordedAt||'')))[0]||null;
+ }
+ function mdLastPaymentBody(state,data,statementId){
+  const p=mdLastPaymentFor(state,data,statementId);
+  if(!p)return '<strong class="md-last-empty">No hay pagos registrados con fecha y monto para '+(state.kind==='sale'?'este solar.':'esta ficha.')+'</strong>';
+  return '<div class="md-last-grid">'+
+   '<span><small>Fecha</small><strong>'+mdSafe(mdHumanDate(p.date)||p.date)+'</strong></span>'+
+   '<span><small>Correlativo</small><strong class="md-last-folio">'+mdSafe(p.reference||'Sin correlativo')+'</strong></span>'+
+   '<span><small>Monto '+(state.kind==='owner'?'aplicado':'pagado')+'</small><strong class="md-last-money">'+mdSafe(mdFmt(p.amount))+'</strong></span>'+
+   '</div>'+(/\bprima\b/i.test(p.concept)?'<small class="md-last-description">Prima inicial; no cuenta como cuota mensual.</small>':'');
+ }
+ function mdLastPaymentMarkup(state,data,statementId,rowId){
+  return '<aside class="md-last-payment" role="status" '+(rowId?'data-md-last-payment-row="'+mdSafe(rowId)+'"':'data-md-last-payment')+'>'+
+   '<div class="md-last-heading">◷ <strong>Último pago '+(state.kind==='owner'?'de esta ficha':'registrado')+'</strong></div>'+
+   '<div class="md-last-content">'+mdLastPaymentBody(state,data,statementId)+'</div></aside>';
+ }
+
  function mdCreateEntry(){
   return {id:'MDR'+crypto.randomUUID().replace(/-/g,''),date:'',dateText:'',amount:'',receiptRef:'',statementId:mdState?.docs?.[0]?.id||'',photo:null,preview:null,status:'',dateEdited:false,amountEdited:false,refEdited:false};
  }
@@ -92,6 +121,7 @@
  function mdRowMarkup(row,index){
   const options=mdState.kind==='owner'?'<label class="md-lot-choice">Ficha / solares<select data-md-field="statementId" data-md-id="'+mdSafe(row.id)+'">'+mdState.docs.map(s=>'<option value="'+mdSafe(s.id)+'" '+(s.id===row.statementId?'selected':'')+'>'+mdSafe(s.sourceName||'Ficha')+' · '+mdSafe((s.references||[]).map(r=>'B '+r.block+' / S '+r.lot).join(', ')||'Solar por confirmar')+'</option>').join('')+'</select></label>':'';
   return '<article class="md-row" data-md-row="'+mdSafe(row.id)+'"><div class="md-row-top"><strong>▤ Abono '+(index+1)+'</strong><button type="button" class="md-trash" title="Eliminar este abono" aria-label="Eliminar abono '+(index+1)+'" data-md-remove="'+mdSafe(row.id)+'">✕</button></div>'+options+
+    (mdState.kind==='owner'&&mdState.docs.length>1?mdLastPaymentMarkup(mdState,db,row.statementId,row.id):'')+
    '<div class="md-manual-head"><span>✎ Escribe la fecha del recibo · Enter avanza al siguiente abono.</span><button type="button" class="md-manual-focus" data-md-edit="'+mdSafe(row.id)+'" aria-label="Escribir fecha, monto y correlativo del abono '+(index+1)+'">✎ Escribir</button></div>'+
    '<div class="md-fields"><label class="md-date-label">Fecha *<span class="md-date-control"><input type="text" inputmode="numeric" autocomplete="off" spellcheck="false" data-md-field="date" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.dateText??mdHumanDate(row.date))+'" placeholder="DD/MM/AA · sin /" enterkeyhint="next" aria-label="Escribe los seis números de la fecha sin plecas; ejemplo 251125 es 25 de noviembre de 2025" required><span class="md-date-calendar" aria-hidden="true">▦</span><input type="date" class="md-native-date" data-md-picker="'+mdSafe(row.id)+'" aria-label="Elegir fecha en calendario" value="'+mdSafe(row.date||'')+'" max="'+mdSafe(mdToday())+'" tabindex="0"></span></label>'+
    '<label class="md-amount-label">Monto (L) *<span class="md-money-control"><span class="md-money-symbol" aria-hidden="true">L</span><input type="text" inputmode="decimal" autocomplete="off" data-md-field="amount" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(mdMoneyText(row.amount))+'" placeholder="Ej. 12,000.00" enterkeyhint="next" aria-label="Escribir monto manual del abono en lempiras" required></span></label>'+
@@ -105,6 +135,8 @@
   const header='<div class="md-heading"><h3>¿Cómo deseas abonar?</h3><div class="md-choices"><button type="button" data-md-one>1 mes</button><button type="button" class="selected" aria-pressed="true" data-md-many>✓ Varios</button></div></div>'+
     '<p class="md-note">Cada fecha se guardará como un pago individual con su propio correlativo y recibo. Los ceros iniciales no cuentan para detectar repetidos.</p>'+
     '<p class="md-client">'+mdSafe(mdState.clientName)+'<small>'+mdSafe(mdState.lotLabel)+'</small></p>'+
+    (mdState.kind==='sale'||mdState.docs.length===1?mdLastPaymentMarkup(mdState,db,mdState.docs?.[0]?.id):'')+
+    (mdState.kind==='owner'&&mdState.docs.length>1?'<p class="md-last-instruction">Consulta el último pago de cada ficha junto a sus abonos.</p>':'')+
     '<form id="md-abonos-form"><div id="md-abonos-list"></div><button type="button" class="btn btn-outline md-add" data-md-add>+ Agregar otra fecha</button>'+
     '<div class="md-total"><span><small>Total a registrar</small><strong data-md-total>L 0.00</strong></span><span><small>Recibos separados</small><strong data-md-count>2</strong></span></div><p class="md-error" data-md-error role="alert"></p></form>';
   showModal('Registrar Pago / Abono',header,'<button class="btn btn-outline" type="button" data-md-save>✓ Guardar abonos</button><button class="btn btn-soft" type="button" data-action="close-modal">Cancelar</button>',true);
@@ -165,6 +197,10 @@
   }else{
    row[field]=input.value;
    if(field==='receiptRef')row.refEdited=true;
+   if(field==='statementId'&&mdState.kind==='owner'){
+    const summary=document.querySelector('[data-md-last-payment-row="'+row.id+'"] .md-last-content');
+    if(summary)summary.innerHTML=mdLastPaymentBody(mdState,db,row.statementId);
+   }
   }
   mdRefresh();
  }

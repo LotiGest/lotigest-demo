@@ -181,3 +181,52 @@ body.lotigest-dark #modal-root .lg-multi-date-modal .md-money-control input[data
 #modal-root .lg-multi-date-modal .md-ocr-retry:focus-visible{
  outline:2px solid #188d50;outline-offset:2px;
 }
+
+
+/* Último pago real del solar: visible al abrir Abonos varios, antes del ingreso. */
+#modal-root .lg-multi-date-modal .md-last-payment{
+ margin:8px 0 14px;padding:12px 14px;border:1px solid #c4d9cc;
+ border-radius:11px;background:#f7faf8;color:#274637;
+}
+#modal-root .lg-multi-date-modal .md-last-heading{
+ display:flex;align-items:center;gap:6px;margin-bottom:9px;
+ color:#18452b;font-size:14px;font-weight:800;
+}
+#modal-root .lg-multi-date-modal .md-last-grid{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;
+}
+#modal-root .lg-multi-date-modal .md-last-grid span{
+ min-width:0;display:flex;flex-direction:column;gap:3px;
+}
+#modal-root .lg-multi-date-modal .md-last-grid small{
+ color:#587165;font-size:11px;font-weight:650;
+}
+#modal-root .lg-multi-date-modal .md-last-grid strong{
+ color:#183a28;font-size:14px;font-weight:850;overflow-wrap:anywhere;
+}
+#modal-root .lg-multi-date-modal .md-last-grid .md-last-money{color:#146537}
+#modal-root .lg-multi-date-modal .md-last-empty,
+#modal-root .lg-multi-date-modal .md-last-description{
+ color:#52675b;font-size:12px;font-weight:650;line-height:1.5;
+}
+#modal-root .lg-multi-date-modal .md-last-description{display:block;margin-top:9px}
+#modal-root .lg-multi-date-modal .md-last-instruction{
+ margin:9px 0;font-size:12px;color:#557263;
+}
+#modal-root .lg-multi-date-modal .md-row .md-last-payment{
+ margin:3px 0 12px;padding:9px 11px;
+}
+body.lotigest-dark #modal-root .lg-multi-date-modal .md-last-payment{
+ background:#24382b;color:#e6f6e9;border-color:#537360;
+}
+body.lotigest-dark #modal-root .lg-multi-date-modal .md-last-heading,
+body.lotigest-dark #modal-root .lg-multi-date-modal .md-last-grid strong{color:#e6f6e9}
+body.lotigest-dark #modal-root .lg-multi-date-modal .md-last-grid small,
+body.lotigest-dark #modal-root .lg-multi-date-modal .md-last-empty{color:#b4cdbc}
+@media(max-width:560px){
+ #modal-root .lg-multi-date-modal .md-last-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;
+ }
+ #modal-root .lg-multi-date-modal .md-last-grid span:last-child{grid-column:1/-1}
+ #modal-root .lg-multi-date-modal .md-last-payment{padding:11px 12px}
+}

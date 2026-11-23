@@ -1,4 +1,4 @@
 {
-  "version": "0.22.57",
-  "notes": "LOTIGEST PRO: lápiz visible en Cliente ya registrado dentro de Nuevo contrato para editar datos sin salir. Teléfonos de Honduras se muestran +504 9803-5773 y de Estados Unidos +1 (305) 555-0199 al completar el campo. Los textos nuevos se escriben y guardan en mayúsculas; correos, contraseñas, enlaces y códigos técnicos conservan su formato."
+  "version": "0.22.58",
+  "notes": "LOTIGEST PRO: Abonos varios muestra el último pago registrado del solar o de la ficha elegida, con fecha, correlativo y monto. Identifica primas por separado, conserva los ceros iniciales del folio y muestra un aviso si aún no hay pagos verificables."
 }
