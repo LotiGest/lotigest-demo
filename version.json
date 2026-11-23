@@ -1,4 +1,4 @@
 {
-  "version": "0.22.62",
-  "notes": "LOTIGEST PRO: el libro diario digital en PDF adopta el diseño aprobado con tabla de movimientos, correlativo original del recibo con ceros iniciales, saldo inicial, totales de ingresos y egresos, resultado del mes, saldo final, firmas y páginas numeradas. Excel usa también la columna Correlativo; no sustituye datos faltantes por identificadores internos."
+  "version": "0.22.63",
+  "notes": "LOTIGEST PRO: cabecera de Contratos corregida. El título permanece en la fila superior y el selector de residencial y los botones en una fila independiente, evitando superposiciones en computadora y celular."
 }
