@@ -343,3 +343,10 @@ body.lotigest-dark #modal-root .lg-contract-modern .lg-contract-payment-row>stro
   flex:1 1 130px;
  }
 }
+
+/* Importes y correlativo del dinero recibido desde Contratos. */
+#modal-root .lg-contract-modern input:is([name="down"],[name^="solarPrice_"],[name^="solarDown_"]){
+ background:#e9f8e7!important;color:#17632c!important;border:1px solid #8fc994!important;font-weight:750;font-variant-numeric:tabular-nums
+}
+#modal-root .lg-contract-modern input:is([name="down"],[name^="solarPrice_"],[name^="solarDown_"]):focus{outline:2px solid #46a65d;outline-offset:1px}
+#modal-root .lg-contract-modern input[name="primaRef"]{color:#b51f35;font-weight:750;font-variant-numeric:tabular-nums}

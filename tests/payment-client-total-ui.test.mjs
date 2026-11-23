@@ -19,6 +19,14 @@ test('abono normal incluye los 2 solares, un total y ningún botón Agregar',()=
   api.pmRepaintSales();assert.equal(document.querySelectorAll('.pm-tag').length,2);assert.equal(document.querySelectorAll('.pm-tag button').length,0);
   const total=document.getElementById('pm-client-total');assert.ok(total);total.value='30000';total.dispatchEvent(new dom.window.Event('input'));
   assert.equal(paymentDraft.amounts.S1,'10000');assert.equal(paymentDraft.amounts.S2,'20000');assert.equal(JSON.stringify(db),before);
+  db.lots.push({id:'L3',residenceId:'R',stage:1,block:'Comerciales',sourceNumber:'3'});
+  db.sales.push({id:'S3',clientId:'C',lotId:'L3',type:'credit',price:100000,downPayment:10000,months:12,openingPaid:10000});
+  api.pmIncludeClientSales();api.pmRepaintSales();
+  assert.deepEqual(Object.keys(paymentDraft.amounts).sort(),['S1','S2','S3']);
+  assert.deepEqual([...document.querySelectorAll('[data-pm-assigned-lot]')].map(t=>t.dataset.pmAssignedLot),['L1','L2','L3']);
+  const total3=document.getElementById('pm-client-total');total3.value='40000';total3.dispatchEvent(new dom.window.Event('input'));
+  assert.equal(paymentDraft.amounts.S1,'10000');assert.equal(paymentDraft.amounts.S2,'20000');assert.equal(paymentDraft.amounts.S3,'10000');
+  total3.value='9999999';total3.dispatchEvent(new dom.window.Event('input'));
   total.value='9999999';total.dispatchEvent(new dom.window.Event('input'));assert.match(document.getElementById('multi-payment-error').textContent,/supera/);assert.equal(paymentDraft.amounts.S1,'');
  }finally{dom.window.close();}
 });

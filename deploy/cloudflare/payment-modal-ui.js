@@ -245,7 +245,8 @@ function pmRenderAssignedLots(tags,clientId){
  tags.replaceChildren();
  for(const sale of pmAssignedSales(clientId)){
   const lot=getLot(sale.lotId);
-  tags.append(pmBadge('Etapa '+(lot?.stage||'por confirmar')+' · Bloque '+(lot?.block||'—')+' · Solar '+(lot?.sourceNumber||lot?.number||lot?.id||'—')));
+  const tag=pmBadge('Etapa '+(lot?.stage||'por confirmar')+' · Bloque '+(lot?.block||'—')+' · Solar '+(lot?.sourceNumber||lot?.number||lot?.id||'—'));
+  tag.dataset.pmAssignedLot=sale.lotId;tag.setAttribute('aria-label','Solar incluido en el abono');tags.append(tag);
  }
 }
 function pmIncludeClientSales(){

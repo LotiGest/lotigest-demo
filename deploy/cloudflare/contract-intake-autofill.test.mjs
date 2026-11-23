@@ -219,3 +219,16 @@ test('un cliente nuevo sigue exigiendo identidad válida y no se puede suplantar
  await assert.rejects(y.save({fields:y.fields}),/cliente seleccionado cambió/);
  assert.equal(y.writes(),0);
 });
+
+test('prima desde contrato conserva el correlativo con ceros iniciales',async()=>{
+ const x=setup();Object.assign(x.fields,{solarPrice_0:'180000',down:'40000',primaPaid:'on',primaDate:'2026-11-02',primaMethod:'Efectivo',primaRef:'00006159'});
+ await x.save({fields:x.fields});
+ assert.equal(x.db().payments[0].receiptReference,'00006159');
+ assert.equal(x.db().payments[0].receiptReferenceNormalized,'6159');
+});
+test('correlativo numérico repetido se rechaza antes de guardar dinero',async()=>{
+ const x=setup();x.db().ownerPayments=[{id:'OP',receiptReference:'6159'}];
+ Object.assign(x.fields,{solarPrice_0:'180000',down:'40000',primaPaid:'on',primaDate:'2026-11-02',primaMethod:'Efectivo',primaRef:'00006159'});
+ const before=JSON.stringify(x.db());await assert.rejects(()=>x.save({fields:x.fields}),/ya está registrado/);
+ assert.equal(x.writes(),0);assert.equal(JSON.stringify(x.db()),before);
+});

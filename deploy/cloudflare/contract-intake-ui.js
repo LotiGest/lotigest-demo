@@ -203,7 +203,7 @@ function contractIntakeManualFields(){
   '<div class="form-grid">'+field('Fecha real del pago','primaDate','date')+
   '<label class="field-group"><span>Método</span><select name="primaMethod">'+
   ['Efectivo','Transferencia','Tarjeta'].map(m=>'<option '+((v.primaMethod||'Efectivo')===m?'selected':'')+'>'+m+'</option>').join('')+
-  '</select></label>'+field('Referencia (opcional)','primaRef')+'</div></details>';
+  '</select></label>'+'<label class="field-group"><span>Correlativo del recibo</span><input name="primaRef" inputmode="numeric" maxlength="80" autocomplete="off" placeholder="Ej. 00006159" value="'+val(v.primaRef||'')+'"><small>Escribe el correlativo del dinero recibido; se conservan los ceros iniciales.</small></label>'+'</div></details>';
  return '<form id="contract-intake-form" class="lg-contract-form"><p class="lg-contract-lead">Encuentra al cliente, asígnale su solar y revisa el precio. Solo cambia los datos necesarios.</p>'+
   '<section class="lg-contract-step" aria-labelledby="lg-contract-step-client"><h3 id="lg-contract-step-client" class="lg-contract-step-heading"><span>1</span> Buscar cliente</h3>'+
   '<div class="lg-contract-client-layout"><div class="lg-contract-client-search field-group"><label for="contract-intake-client-search">Identidad o nombre del cliente</label>'+
@@ -383,7 +383,7 @@ function contractIntakeFields(){
   '<label><input type="checkbox" name="primaPaid" value="on" '+(c.primaPaid==='on'?'checked':'')+'> Ya recibí la prima pactada y deseo guardar este cobro</label></div>'+
   '<label class="field-group"><span>Fecha real del pago de prima</span><input type="date" name="primaDate" value="'+esc(c.primaDate||'')+'"></label>'+
   '<label class="field-group"><span>Método de pago</span><select name="primaMethod">'+['Efectivo','Transferencia','Tarjeta'].map(m=>'<option value="'+m+'" '+((c.primaMethod||'Efectivo')===m?'selected':'')+'>'+m+'</option>').join('')+'</select></label>'+
-  '<label class="field-group full"><span>Número de recibo o referencia (opcional)</span><input name="primaRef" maxlength="80" value="'+esc(c.primaRef||'')+'"></label>':'';
+  '<label class="field-group full"><span>Correlativo del recibo</span><input name="primaRef" inputmode="numeric" placeholder="Ej. 00006159" maxlength="80" value="'+esc(c.primaRef||'')+'"></label>':'';
  const areaWarnings=matched.length===1&&Number(matched[0].area)>0&&Number(c.areaM2)>0&&Math.abs(Number(matched[0].area)-Number(c.areaM2))>.02?
  '<p style="color:#965a18"><strong>Medidas distintas:</strong> inventario '+esc(matched[0].area)+' m², documento '+esc(c.areaM2)+' m². Se conservará la medida original; revisa la discrepancia.</p>':'';
  const warning=(!stageChosen?'':matched.length>1?
@@ -618,6 +618,12 @@ async function contractIntakeSave(form){
   if(!['Efectivo','Transferencia','Tarjeta'].includes(data.primaMethod))throw Error('Selecciona un método de pago.');
   if(!(Number(data.down)>0))throw Error('La prima pactada debe ser mayor que cero para registrar el cobro.');
   if(String(data.primaRef||'').length>80)throw Error('Número de recibo demasiado largo.');
+  const raw=String(data.primaRef||'').trim();
+  if(/^\d+$/.test(raw)){
+   const normalized=raw.replace(/^0+(?=\d)/,'');
+   const existing=[...(db.payments||[]),...(db.ownerPayments||[])].some(p=>[p.receiptReference,p.receiptRef,p.originalReceiptRef,p.receiptReferenceNormalized].some(ref=>/^\d+$/.test(String(ref||'').trim())&&String(ref).trim().replace(/^0+(?=\d)/,'')===normalized));
+   if(existing)throw Error('El correlativo '+raw+' ya está registrado en otro pago.');
+  }
  }
  if(original.mode!=='manual'&&!original.file)throw Error('Debes subir primero la foto del documento original.');
  if(original.residenceId!==residence().id)throw Error('La residencial cambió; revisa la ficha.');
@@ -666,7 +672,7 @@ async function contractIntakeSave(form){
      openingPaid:0,importedPaidInstallments:0,historical:false,source:'contract-manual',documentId:record.id};
     const payment={id:'P-'+crypto.randomUUID(),saleId:sale.id,date:data.primaDate,amount:fields.down,
      concept:'Prima',method:data.primaMethod,recordedAt:now,
-     ...(data.primaRef?{receiptReference:String(data.primaRef).trim()}:{}),
+     ...(data.primaRef?{receiptReference:String(data.primaRef).trim(),...(/^\d+$/.test(String(data.primaRef).trim())?{receiptReferenceNormalized:String(data.primaRef).trim().replace(/^0+(?=\d)/,'')}:{} )}:{}),
      ...(receiptGroup?{groupId:receiptGroup}:{})};
     next.sales.unshift(sale);next.payments.unshift(payment);record.saleId=sale.id;
     target.status='sold';target.mapDebtFlag=false;delete target.pendingContractId;

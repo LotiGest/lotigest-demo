@@ -1,4 +1,4 @@
 {
-  "version": "0.22.63",
-  "notes": "LOTIGEST PRO: cabecera de Contratos corregida. El título permanece en la fila superior y el selector de residencial y los botones en una fila independiente, evitando superposiciones en computadora y celular."
+  "version": "0.22.65",
+  "notes": "LOTIGEST PRO: solares incluidos en el abono visibles en filas individuales, sin apariencia deshabilitada. Los importes de Nuevo contrato se resaltan en verde y la prima recibida permite ingresar el correlativo original del recibo, conservando ceros y evitando correlativos numéricos repetidos."
 }
