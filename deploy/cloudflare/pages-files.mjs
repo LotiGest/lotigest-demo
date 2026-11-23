@@ -21,7 +21,6 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace("const STORAGE='lospinos_phase1_demo_v3'; const SESSION='lospinos_demo_session';",
       "const STORAGE='lotigest_cloudflare_demo_v1'; const SESSION='lotigest_cloudflare_session';")
     .replace(mode, "const cloudflareDemo = true;\n" + mode)
-    .replace("const clientMapOrigin = 'https://henriquez-mapa-clientes.julyip97.chatgpt.site';", "const clientMapOrigin = location.origin;")
     .replace(/const pagesContractOcr = [^;\n]+;/, 'const pagesContractOcr = true;')
     .replace("document.head.append(adaptiveStyle);","if(adaptiveStyle) document.head.append(adaptiveStyle);")
     .replace('</head>', '<style>.lotigest-demo-banner{padding:.55rem 1rem;background:#164532;color:white;text-align:center;font:600 .875rem system-ui}@media print{.lotigest-demo-banner{display:none!important}}</style></head>')
