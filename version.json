@@ -1,4 +1,4 @@
 {
-  "version": "0.22.63",
-  "notes": "LOTIGEST PRO: cabecera de Contratos corregida. El título permanece en la fila superior y el selector de residencial y los botones en una fila independiente, evitando superposiciones en computadora y celular."
+  "version": "0.22.64",
+  "notes": "LOTIGEST PRO: Nuevo contrato permite Editar junto a Quitar en cada solar antes de guardar. Cada ficha muestra el número real de su solar y los adicionales sin elegir indican Sin seleccionar. Los selectores evitan repetir el mismo solar en el contrato; editar no guarda ni modifica el inventario."
 }
