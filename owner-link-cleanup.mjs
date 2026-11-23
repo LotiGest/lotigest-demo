@@ -16,7 +16,7 @@ export function auditOrphanOwnerLinks(state,residenceId=null){
   p.lotId===lotId||(p.lotIds||[]).includes(lotId)||
   (p.saleId&&salesById.get(p.saleId)?.lotId===lotId)||
   (p.references||[]).some(x=>x.lotId===lotId)||
-  (p.allocations||[]).some(a=>a.lotId===lotId||(a.references||[]).some(x=>x.lotId===lotId))));
+  (p.allocations||[]).some(a=>a.lotId===lotId||(a.references||[]).some(x=>x.lotId===lotId)));
  for(const lot of state.lots||[]){
   if(!lot.ownerClientId||(residenceId&&lot.residenceId!==residenceId))continue;
   const owner=clients.get(lot.ownerClientId);
