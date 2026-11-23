@@ -1,4 +1,4 @@
 {
-  "version": "0.22.47",
-  "notes": "LOTIGEST PRO: botón Escribir por abono para ingresar manualmente fecha, monto en lempiras y correlativo. OCR y fotografía opcionales. Ejemplos señalados como ejemplos en los campos."
+  "version": "0.22.48",
+  "notes": "LOTIGEST PRO: OCR de recibos Grupo H mediante lector local y rotación de fotografías; rellena Nº correlativo, fecha y Por Lps. Reintentar OCR y mensajes de error precisos. Escáner compacto y entrada manual conservados."
 }
