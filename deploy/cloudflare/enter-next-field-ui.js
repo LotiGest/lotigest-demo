@@ -22,7 +22,7 @@
   if(typeof element.getClientRects==='function'&&!element.getClientRects().length)return false;
   if(typeof window.getComputedStyle==='function'){
    const style=window.getComputedStyle(element);
-   if(style&&(style.display==='none'||style.visibility==='hidden'||Number(style.opacity)<.1))return false;
+   if(style&&(style.display==='none'||style.visibility==='hidden'||(style.opacity!==''&&Number(style.opacity)<.1)))return false;
   }
   return true;
  }
