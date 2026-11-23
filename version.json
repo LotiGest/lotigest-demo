@@ -1,4 +1,4 @@
 {
-  "version": "0.22.59",
-  "notes": "LOTIGEST PRO: nuevo diseño de Abonos varios con tarjeta verde menta del último pago, correlativo y número destacados en rojo, monto en verde, campos de pago ordenados y tarjetas de abonos desplegables (el primero abierto). Conserva OCR pequeño, fechas rápidas, Enter, correlativos únicos y recibos por separado."
+  "version": "0.22.60",
+  "notes": "LOTIGEST PRO: al pulsar Enter en formularios, avanza a la siguiente casilla visible sin guardar automáticamente; funciona en captura de clientes, contratos, terrenos, pagos y otros módulos. Shift+Enter conserva salto de línea en observaciones. Se respetan Enter de búsqueda, Abonos varios, desplegables e inicio de sesión; se explica en Configuración de atajos."
 }
