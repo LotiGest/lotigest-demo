@@ -21,7 +21,7 @@
    el.getAttribute?.('inputmode'),...Object.entries(el.dataset||{}).flat()]
    .filter(Boolean).join(' ').toLowerCase();
  }
- const skipText=/(email|correo|pass|contras|credential|usuario|username|token|secret|api.?key|url|uri|enlace|href|link|http|path|archivo|file|json|html|css|sql|script|code|c[oó]digo|date|fecha|time|hora|phone|tel[eé]?fono|mobile|celular|whatsapp|identity|identidad|dni|rtn|receiptref|correlativo|uuid|latitud|longitud|latitude|longitude|coordenad|geohash|gps)/i;
+ const skipText=/(email|correo|pass|contras|credential|usuario|username|token|secret|api.?key|url|uri|enlace|href|link|http|path|archivo|file|json|html|css|sql|(?:^|[_\s-])(?:script|code|c[oó]digo)(?:$|[_\s-])|date|fecha|time|hora|phone|tel[eé]?fono|mobile|celular|whatsapp|identity|identidad|dni|rtn|receiptref|correlativo|uuid|latitud|longitud|latitude|longitude|coordenad|geohash|gps)/i;
  function isPhone(el){
   if(!el||el.tagName!=='INPUT'||el.disabled||el.readOnly)return false;
   if(el.type==='tel')return true;
