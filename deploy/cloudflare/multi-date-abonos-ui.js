@@ -8,17 +8,30 @@
  const mdSafe=val=>esc(String(val??''));
 
  const mdMonths=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+ // Escritura rápida: 251125 → 25/11/2025. No se requieren plecas;
+ // un año de dos cifras siempre significa 20xx (25 = 2025).
+ function mdDateAutoSlash(raw,caret){
+  const text=String(raw??'');
+  if(!/^[0-9\s/.\-]*$/.test(text)||/^\d{4}-\d{1,2}-\d{1,2}$/.test(text))
+   return {display:text,caret:caret??text.length};
+  const digits=text.replace(/\D/g,'').slice(0,8);
+  const prefix=text.slice(0,caret??text.length).replace(/\D/g,'').length;
+  const show=d=>d.slice(0,2)+(d.length>2?'/'+d.slice(2,4):'')+(d.length>4?'/'+d.slice(4):'');
+  return {display:show(digits),caret:show(digits.slice(0,prefix)).length};
+ }
  function mdDateISO(raw){
   const text=String(raw??'').trim().replace(/\s+/g,' ');
   const clean=text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  let year,month,day,m=clean.match(/^(20\d{2})[-/](\d{1,2})[-/](\d{1,2})$/);
+  const fullYear=y=>String(y).length===2?2000+Number(y):Number(y);
+  let year,month,day,m=clean.match(/^((?:19|20)\d{2})[-/](\d{1,2})[-/](\d{1,2})$/);
   if(m){year=+m[1];month=+m[2];day=+m[3];}
-  else if((m=clean.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](20\d{2})$/))){day=+m[1];month=+m[2];year=+m[3];}
-  else if((m=clean.match(/^(\d{1,2})\s+(?:de\s+)?([a-z]+)\.?\s+(?:de\s+)?(20\d{2})$/))){
+  else if((m=clean.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2}|(?:19|20)\d{2})$/))){day=+m[1];month=+m[2];year=fullYear(m[3]);}
+  else if((m=clean.match(/^(\d{2})(\d{2})(\d{2}|(?:19|20)\d{2})$/))){day=+m[1];month=+m[2];year=fullYear(m[3]);}
+  else if((m=clean.match(/^(\d{1,2})\s+(?:de\s+)?([a-z]+)\.?\s+(?:de\s+)?(\d{2}|(?:19|20)\d{2})$/))){
    const names=mdMonths.map(s=>s.toLowerCase());
    const full=names.findIndex(n=>n===m[2]);
    const shortened=names.findIndex(n=>n.startsWith(m[2])&&m[2].length>=3);
-   month=(full>=0?full:shortened)+1;day=+m[1];year=+m[3];
+   month=(full>=0?full:shortened)+1;day=+m[1];year=fullYear(m[3]);
   }else return null;
   if(!Number.isInteger(year)||year<1990||year>2100||!Number.isInteger(month)||month<1||month>12||!Number.isInteger(day)||day<1||day>31)return null;
   const iso=String(year)+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
@@ -80,7 +93,7 @@
   const options=mdState.kind==='owner'?'<label class="md-lot-choice">Ficha / solares<select data-md-field="statementId" data-md-id="'+mdSafe(row.id)+'">'+mdState.docs.map(s=>'<option value="'+mdSafe(s.id)+'" '+(s.id===row.statementId?'selected':'')+'>'+mdSafe(s.sourceName||'Ficha')+' · '+mdSafe((s.references||[]).map(r=>'B '+r.block+' / S '+r.lot).join(', ')||'Solar por confirmar')+'</option>').join('')+'</select></label>':'';
   return '<article class="md-row" data-md-row="'+mdSafe(row.id)+'"><div class="md-row-top"><strong>▤ Abono '+(index+1)+'</strong><button type="button" class="md-trash" title="Eliminar este abono" aria-label="Eliminar abono '+(index+1)+'" data-md-remove="'+mdSafe(row.id)+'">✕</button></div>'+options+
    '<div class="md-manual-head"><span>✎ Escribe la fecha del recibo · Enter avanza al siguiente abono.</span><button type="button" class="md-manual-focus" data-md-edit="'+mdSafe(row.id)+'" aria-label="Escribir fecha, monto y correlativo del abono '+(index+1)+'">✎ Escribir</button></div>'+
-   '<div class="md-fields"><label class="md-date-label">Fecha *<span class="md-date-control"><input type="text" inputmode="text" autocomplete="off" spellcheck="false" data-md-field="date" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.dateText??mdHumanDate(row.date))+'" placeholder="DD/MM/AAAA" enterkeyhint="next" aria-label="Escribir la fecha real del recibo; el campo comienza vacío" required><span class="md-date-calendar" aria-hidden="true">▦</span><input type="date" class="md-native-date" data-md-picker="'+mdSafe(row.id)+'" aria-label="Elegir fecha en calendario" value="'+mdSafe(row.date||'')+'" max="'+mdSafe(mdToday())+'" tabindex="0"></span></label>'+
+   '<div class="md-fields"><label class="md-date-label">Fecha *<span class="md-date-control"><input type="text" inputmode="numeric" autocomplete="off" spellcheck="false" data-md-field="date" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.dateText??mdHumanDate(row.date))+'" placeholder="DD/MM/AA · sin /" enterkeyhint="next" aria-label="Escribe los seis números de la fecha sin plecas; ejemplo 251125 es 25 de noviembre de 2025" required><span class="md-date-calendar" aria-hidden="true">▦</span><input type="date" class="md-native-date" data-md-picker="'+mdSafe(row.id)+'" aria-label="Elegir fecha en calendario" value="'+mdSafe(row.date||'')+'" max="'+mdSafe(mdToday())+'" tabindex="0"></span></label>'+
    '<label class="md-amount-label">Monto (L) *<span class="md-money-control"><span class="md-money-symbol" aria-hidden="true">L</span><input type="text" inputmode="decimal" autocomplete="off" data-md-field="amount" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(mdMoneyText(row.amount))+'" placeholder="Ej. 12,000.00" enterkeyhint="next" aria-label="Escribir monto manual del abono en lempiras" required></span></label>'+
    '<label class="md-ref-label">Correlativo *<span class="md-ref-line"><span aria-hidden="true" class="md-ref-symbol">#</span><input type="text" inputmode="numeric" maxlength="80" pattern="[0-9]+" data-md-field="receiptRef" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.receiptRef)+'" placeholder="Ej. 00006159" enterkeyhint="done" aria-label="Escribir número correlativo manualmente. Enter avanza al siguiente abono" required></span></label></div>'+
    '<div class="md-photo-row"><label class="md-scan-icon" title="Escanear o seleccionar foto" aria-label="Escanear recibo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3H5a2 2 0 0 0-2 2v2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="8" width="10" height="9" rx="2"/><circle cx="12" cy="12.5" r="1.7"/></svg><input type="file" accept="image/jpeg,image/png,image/webp" data-md-photo="'+mdSafe(row.id)+'" hidden></label>'+
@@ -132,6 +145,12 @@
   const field=input.dataset.mdField;
   if(!['date','amount','receiptRef','statementId'].includes(field))return;
   if(field==='date'){
+   const old=input.value,caret=input.selectionStart??old.length;
+   const formatted=mdDateAutoSlash(old,caret);
+   if(formatted.display!==old){
+    input.value=formatted.display;
+    try{input.setSelectionRange(formatted.caret,formatted.caret);}catch{}
+   }
    row.dateText=input.value;
    row.date=mdDateISO(input.value)||'';
    row.dateEdited=true;

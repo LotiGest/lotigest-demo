@@ -22,7 +22,8 @@ test('dos fechas desde + guardan dos movimientos, dos folios y dos recibos separ
   app.w.lotigestMultiDate.openSale(sale.id);
   assert.ok(app.d.querySelector('.lg-multi-date-modal'),'Debe abrir la ventana de fechas múltiples');
   assert.equal(app.d.querySelector('[data-md-field="date"]').value,'','El abono nuevo debe tener fecha vacía');
-  assert.equal(app.d.querySelector('[data-md-field="date"]').placeholder,'DD/MM/AAAA','La fecha muestra un ejemplo, no un valor');
+  assert.equal(app.d.querySelector('[data-md-field="date"]').placeholder,'DD/MM/AA · sin /','La fecha vacía muestra cómo ingresar números sin plecas');
+  assert.equal(app.d.querySelector('[data-md-field="date"]').inputMode,'numeric','Se abre el teclado numérico en celular');
   assert.equal(app.d.querySelectorAll('[data-md-row]').length,2);
   assert.equal(app.d.querySelectorAll('[data-md-photo]').length,2,'Escáner icono independiente por fila');
   assert.equal(app.d.querySelectorAll('[data-md-edit]').length,2,'Cada abono debe ofrecer ingreso manual');
@@ -37,10 +38,11 @@ test('dos fechas desde + guardan dos movimientos, dos folios y dos recibos separ
   app.click('[data-md-edit]');
   assert.equal(app.d.activeElement,app.d.querySelector('[data-md-field="date"]'),'Escribir debe enfocar la fecha manualmente');
   const fields=field=>[...app.d.querySelectorAll('[data-md-field="'+field+'"]')];
-  for(const [i,values] of [{date:'21/10/2026',amount:'12,000',receiptRef:'00006159'},{date:'20 Noviembre 2026',amount:'9,000.00',receiptRef:'00006160'}].entries()){
+  for(const [i,values] of [{date:'211026',amount:'12,000',receiptRef:'00006159'},{date:'20 Noviembre 2026',amount:'9,000.00',receiptRef:'00006160'}].entries()){
    for(const [name,value] of Object.entries(values)){
     const control=fields(name)[i];control.value=value;
     control.dispatchEvent(new app.w.Event('input',{bubbles:true}));
+    if(name==='date'&&i===0)assert.equal(control.value,'21/10/26','Los seis dígitos agregan las plecas automáticamente');
     control.dispatchEvent(new app.w.Event('blur'));
    }
   }
