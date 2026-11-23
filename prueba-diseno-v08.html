@@ -882,7 +882,7 @@ function render(){
   const dark=localStorage.getItem('lotigest-v08-theme')==='dark';
   document.body.classList.toggle('lotigest-dark',dark);
   $('#app').innerHTML=`<div class="shell lotigest-shell"><aside class="sidebar lotigest-sidebar ${pinned?'pinned':''} ${mobileOpen?'open':''}" id="lgSidebar">
-   <div class="lg-side-head"><div class="lg-company"><div class="lg-company-icon">H</div><div class="lg-side-label">GRUPO <b>H</b><small>Gestión de lotificaciones</small></div></div><button class="lg-pin" data-lg-action="pin" title="${pinned?'Desfijar barra lateral':'Fijar barra lateral'}" aria-label="Fijar barra lateral">${pinned?'◆':'♧'}</button></div>
+   <div class="lg-side-head"><div class="lg-company"><button type="button" class="lg-company-icon lg-sidebar-launcher" data-lg-action="pin" aria-controls="lgSidebar" aria-expanded="${pinned}" aria-label="${pinned?'Contraer barra lateral':'Expandir barra lateral'}" title="${pinned?'Contraer barra lateral':'Expandir barra lateral'}">H</button><div class="lg-side-label">GRUPO <b>H</b><small>Gestión de lotificaciones</small></div></div><button type="button" class="lg-pin" data-lg-action="pin" aria-controls="lgSidebar" aria-expanded="${pinned}" title="${pinned?'Contraer barra lateral':'Mantener barra lateral abierta'}" aria-label="${pinned?'Contraer barra lateral':'Fijar barra lateral'}">${pinned?'◆':'›'}</button></div>
    <div class="lg-side-divider"></div><nav class="nav-links lg-nav">${nav}</nav><div class="sidebar-spacer"></div>
    <div class="lg-side-bottom"><div class="lg-product"><img src="${document.querySelector('link[rel=icon]')?.href||''}" alt="Icono LOTIGEST"><small>LOTIGEST</small></div></div>
    </aside>${mobileOpen?'<div class="mobile-backdrop" data-action="close-menu"></div>':''}
@@ -1873,10 +1873,11 @@ body .lotigest-shell .lg-popup,body .lotigest-shell .lg-search-results{z-index:4
 /* Presentation-only actions; original data-page and data-action events remain unchanged. */
 (function(){
  const byId=id=>document.getElementById(id);
+ document.addEventListener('pointerleave',function(e){if(e.target?.id==='lgSidebar')e.target.classList.remove('lg-sidebar-just-closed');},true);
  document.addEventListener('click',function(e){
    const btn=e.target.closest('[data-lg-action]');
    if(btn){const action=btn.dataset.lgAction;
-      if(action==='pin'){const next=localStorage.getItem('lotigest-v08-pin')!=='true';localStorage.setItem('lotigest-v08-pin',String(next));byId('lgSidebar')?.classList.toggle('pinned',next);btn.textContent=next?'◆':'♧';}
+      if(action==='pin'){const bar=byId('lgSidebar');const next=!bar?.classList.contains('pinned');try{localStorage.setItem('lotigest-v08-pin',String(next));}catch{}bar?.classList.toggle('pinned',next);bar?.classList.toggle('lg-sidebar-just-closed',!next);bar?.querySelectorAll('[data-lg-action="pin"]').forEach(toggle=>{const isBrand=toggle.classList.contains('lg-sidebar-launcher');toggle.setAttribute('aria-expanded',String(next));toggle.setAttribute('aria-label',next?'Contraer barra lateral':isBrand?'Expandir barra lateral':'Fijar barra lateral');toggle.title=next?'Contraer barra lateral':isBrand?'Expandir barra lateral':'Fijar barra lateral';if(!isBrand)toggle.textContent=next?'◆':'›';});}
       if(action==='theme'){const next=!document.body.classList.contains('lotigest-dark');document.body.classList.toggle('lotigest-dark',next);localStorage.setItem('lotigest-v08-theme',next?'dark':'light');btn.textContent=next?'☀':'◐';}
       if(action==='notifications'||action==='user'){
         const target=byId(action==='notifications'?'lgNotifications':'lgUserPopup');const other=byId(action==='notifications'?'lgUserPopup':'lgNotifications');if(other)other.hidden=true;if(target)target.hidden=!target.hidden;
