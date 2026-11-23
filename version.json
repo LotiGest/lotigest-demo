@@ -1,4 +1,4 @@
 {
-  "version": "0.22.56",
-  "notes": "LOTIGEST PRO: fecha rápida en Abonos varios. Escribe 6 números sin plecas (ejemplo 251125 → 25 Noviembre 2025); los separadores se agregan automáticamente y los años de dos cifras como 25 se interpretan como 2025. Conserva OCR, calendario y entrada completa."
+  "version": "0.22.57",
+  "notes": "LOTIGEST PRO: lápiz visible en Cliente ya registrado dentro de Nuevo contrato para editar datos sin salir. Teléfonos de Honduras se muestran +504 9803-5773 y de Estados Unidos +1 (305) 555-0199 al completar el campo. Los textos nuevos se escriben y guardan en mayúsculas; correos, contraseñas, enlaces y códigos técnicos conservan su formato."
 }
