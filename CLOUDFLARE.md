@@ -1,8 +1,9 @@
 # LOTIGEST: publicación oficial
 
 - Repositorio: https://github.com/LotiGest/lotigest-demo
-- Programa: https://lotigest-demo.pages.dev/
-- Cloudflare Pages: `lotigest-demo`, rama de producción `main`.
+- Programa principal **LOTIGEST PRO**: https://lotigestpro.pages.dev/
+- Enlace anterior conservado (QR y dispositivos antiguos): https://lotigest-demo.pages.dev/
+- Cloudflare Pages: `lotigestpro` y `lotigest-demo`, ambos desde `main` y vinculados a la misma base `LOTIGEST_DB`.
 - Compilación: `node deploy/cloudflare/build.mjs`, salida `cloudflare-pages`.
 - Binding: `LOTIGEST_DB`, base existente `lotigest-pruebas`.
 - El antiguo Sites está archivado y restringido al propietario.
@@ -13,7 +14,7 @@ El artefacto conecta los formularios originales a `/api/app/state`. Conserva tod
 
 El aviso inferior distingue pendiente, guardando, guardado confirmado y error. La copia pendiente local se conserva hasta recibir confirmación del servidor. Se reintenta al recuperar conexión o pulsar Reintentar. Un conflicto bloquea nuevas modificaciones; se ofrece descargar la copia pendiente y cargar el estado actual de D1. No fusiona cobros concurrentes automáticamente. El almacenamiento local no sustituye al servidor y no garantiza trabajo offline si nunca se cargó la aplicación en ese equipo.
 
-El estado admite hasta 4 MiB por solicitud y rechaza modificaciones demasiado grandes sin alterar D1. Las fotografías usadas por el OCR no se archivan. Los planos PDF se guardan separadamente en D1, hasta 8 MiB por documento. Los PDF retirados se archivan conservando el contenido para evitar romper referencias de una revisión anterior.
+El estado admite hasta 4 MiB por solicitud y rechaza modificaciones demasiado grandes sin alterar D1. Las fotografías del OCR ordinario no se archivan automáticamente. **Excepción:** al guardar varios abonos desde el botón +, cada fotografía adjunta se conserva por separado y se vincula a su pago individual mediante `receiptImageKey`. Las imágenes y PDF se almacenan por separado en D1 (límite de la API: 12 MiB por archivo). Los PDF retirados se archivan conservando el contenido para evitar romper referencias de una revisión anterior.
 
 Las rutas antiguas de clientes y operaciones redirigen al programa principal. Sus tablas anteriores se conservan; no hay migración automática entre los esquemas. Al activar este despliegue, esas tablas estaban vacías. Los datos anteriores del navegador se conservan en su clave original: al iniciar el servidor vacío se ofrece descargarlos. La importación se realiza explícitamente desde Respaldo, previa revisión y validación. No se importan datos ficticios automáticamente. El inventario base del plano integrado se conserva.
 
@@ -71,3 +72,9 @@ En **Mapa de solares** (croquis interno `#arrayan-scroll`), hacer un gesto de pe
 Siguen funcionando los botones **+ Acercar**, **− Alejar** y **Vista general**. En escritorio puede usarse Ctrl + rueda del ratón o gesto equivalente en el trackpad. Es un cambio exclusivamente de interfaz, sin alterar geometrías, estado de ventas, clientes, contratos ni pagos. El zoom no se guarda en D1.
 
 Archivo: `deploy/cloudflare/solar-touch-zoom.js`. Pruebas: `deploy/cloudflare/solar-touch-zoom.test.mjs`. Validar en un Android real la distancia de dos dedos, arrastre de un dedo y que tocar un solar disponible abre su ficha sin seleccionar accidentalmente otro.
+
+## LOTIGEST PRO 0.22.45 — Abonos múltiples
+
+Desde Residenciales / Solares y Cobros, el botón `+` junto a `Abonar` abre una ventana de varios abonos con fecha, monto, correlativo numérico y escáner compacto por cada fila. Los registros y QR se crean por separado; se pueden generar PDFs individuales o un PDF conjunto con cada recibo en su propia página. Las fotografías se optimizan y almacenan como imágenes por recibo. Al compartir varios, el navegador presenta su hoja de compartir (por ejemplo, WhatsApp); no se envían mensajes automáticamente.
+
+El subdominio PRO comparte la misma base D1 que el anterior, no es una copia ni una migración destructiva. Las sesiones y el almacenamiento offline son por origen: antes de cambiar de enlace debe comprobarse que no quedan abonos pendientes de sincronizar en el sitio anterior. Los QR que ya apuntan al enlace anterior continúan funcionando.
