@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
 
 const code=readFileSync(new URL('./contracts-dashboard-ui.js',import.meta.url),'utf8');
+const releaseCore=readFileSync(new URL('../../voided-contract-lot-release.mjs',import.meta.url),'utf8').replace(/export /g,'');
 function boot(){
  const dom=new JSDOM('<!doctype html><html><body></body></html>',{url:'https://lotigest.test',runScripts:'outside-only'});
  const w=dom.window;
@@ -31,7 +32,7 @@ function boot(){
  w.page='contracts';
  w.render=()=>{w.document.body.innerHTML='<div id="app" class="lotigest-shell"><header class="lg-topbar"><div class="lg-top-title"><span>GRUPO H / LOTIGEST</span><strong>'+w.page+'</strong></div><div class="lg-top-tools"></div></header><main class="workspace-inner">'+(w.page==='contracts'?w.contractsPage():'<h1>Clientes</h1>')+'</main></div>';};
  w.document.addEventListener('change',event=>{if(event.target.matches('[data-residence-picker]')){currentResidence=event.target.value;w.render();}});
- w.eval(code);w.render();
+ w.eval(releaseCore);w.eval(code);w.render();
  return {w,reports,dialogs,close:()=>w.close()};
 }
 function select(w,id,v){
@@ -165,5 +166,26 @@ test('No permite abrir contratos anulados de otra residencial',()=>{
   button.click();
   assert.equal(rows(w).length,0);
   assert.equal(dialogs.length,0);
+ }finally{close();}
+});
+
+
+test('La ficha anulada propone liberar por solar con permisos, pero bloquea los vendidos',()=>{
+ const {w,dialogs,close}=boot();
+ try{
+  w.db.contractTexts.push({id:'AN-LIB',residenceId:'R',clientId:'C1',lotId:'L1',
+   status:'voided',structured:{number:'2'}});
+  w.db.contractTexts=w.db.contractTexts.filter(d=>d.id!=='D1');
+  w.db.lots[0].status='sold';
+  w.contractIntakeAdmin=()=>true;
+  w.render();w.document.querySelector('[data-ct-show-voided]').click();
+  w.document.querySelector('[data-ct-voided-view="AN-LIB"]').click();
+  assert.match(dialogs[0][1],/data-ct-voided-release="AN-LIB"/);
+  assert.match(dialogs[0][1],/Desbloquear y quitar del cliente/);
+  assert.doesNotMatch(dialogs[0][1],/data-contract-edit/);
+  w.db.sales.push({id:'NEW',clientId:'C1',lotId:'L1',price:200000});
+  w.document.querySelector('[data-ct-voided-view="AN-LIB"]')?.click();
+  assert.doesNotMatch(dialogs[1][1],/data-ct-voided-release="AN-LIB"/);
+  assert.match(dialogs[1][1],/venta registrada/);
  }finally{close();}
 });
