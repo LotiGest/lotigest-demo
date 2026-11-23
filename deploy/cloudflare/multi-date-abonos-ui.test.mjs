@@ -21,7 +21,8 @@ test('dos fechas desde + guardan dos movimientos, dos folios y dos recibos separ
   assert.ok(typeof app.w.lotigestMultiDate?.openSale==='function','Abonos múltiples disponible en Solares');
   app.w.lotigestMultiDate.openSale(sale.id);
   assert.ok(app.d.querySelector('.lg-multi-date-modal'),'Debe abrir la ventana de fechas múltiples');
-  assert.match(app.d.querySelector('[data-md-field="date"]').value,/^\d{2}\/\d{2}\/20\d{2}$/,'La fecha actual aparece como valor, no como ejemplo gris');
+  assert.equal(app.d.querySelector('[data-md-field="date"]').value,'','El abono nuevo debe tener fecha vacía');
+  assert.equal(app.d.querySelector('[data-md-field="date"]').placeholder,'DD/MM/AAAA','La fecha muestra un ejemplo, no un valor');
   assert.equal(app.d.querySelectorAll('[data-md-row]').length,2);
   assert.equal(app.d.querySelectorAll('[data-md-photo]').length,2,'Escáner icono independiente por fila');
   assert.equal(app.d.querySelectorAll('[data-md-edit]').length,2,'Cada abono debe ofrecer ingreso manual');
@@ -56,7 +57,7 @@ test('dos fechas desde + guardan dos movimientos, dos folios y dos recibos separ
   enter(fields('receiptRef')[0]);assert.equal(app.d.activeElement,fields('date')[1],'Enter en correlativo avanza a Abono 2');
   enter(fields('receiptRef')[1]);
   assert.equal(app.d.querySelectorAll('[data-md-row]').length,3,'Enter en el último correlativo crea Abono 3');
-  assert.match(fields('date')[2].value,/^\d{2}\/\d{2}\/20\d{2}$/,'El nuevo abono tiene fecha automática');
+  assert.equal(fields('date')[2].value,'','Enter crea otro abono con fecha vacía');
   assert.equal(app.d.activeElement,fields('date')[2],'Entra al nuevo abono con fecha seleccionada');
   app.click('[data-md-save]');
   await until(()=>app.d.querySelector('[data-md-share-all]'),'resultados de abonos guardados');
