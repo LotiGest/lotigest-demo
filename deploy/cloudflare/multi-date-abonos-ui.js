@@ -285,6 +285,7 @@
   }
   return result;
  };
+ window.lotigestMultiDate={openSale:mdStartSale,openOwner:mdStartOwner};
  document.addEventListener('click',event=>{
   const action=event.target.closest?.('[data-md-start-sale],[data-md-start-owner],[data-md-pick-owner],[data-md-add],[data-md-remove],[data-md-one],[data-md-many],[data-md-save],[data-md-pdf],[data-md-download-all],[data-md-share-all],[data-md-another],[data-md-view-photo]');
   if(!action)return;
