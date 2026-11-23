@@ -52,3 +52,30 @@ test('tres campos del recibo de caja de Grupo H para abonos por fecha',()=>{
  assert.equal(receipt.reference,'00006159');
  assert.equal(receipt.warnings.length,0);
 });
+
+
+test('foto girada del talonario Grupo H: nunca sustituye Por Lps. por los saldos',()=>{
+ const data=[
+  'GRUPO H - RESIDENCIAL ALTOS DEL ARRAYAN',
+  'Por Lps. 10,000.00',
+  'Día | Mes | Año',
+  '21 10 2026',
+  'Recibí de: CLIENTE DEMOSTRACION',
+  'Saldo Anterior: 827,342.00',
+  'Abono de hoy 10,000.00',
+  'Saldo Actual: 817,342.00',
+  'RECIBO DE CAJA CONTROL INTERNO',
+  'Nº 00006159'
+ ].join('\n');
+ const parsed=extractPaperReceipt(data);
+ assert.equal(parsed.amount,10000);
+ assert.equal(parsed.date,'2026-10-21');
+ assert.equal(parsed.reference,'00006159');
+ assert.deepEqual(parsed.warnings,[]);
+});
+test('tolera confusiones OCR en cifras de la etiqueta Nº sin tocar el correlativo original legible',()=>{
+ const parsed=extractPaperReceipt('Por Lps. 10,OOO.OO\nDia Mes Año\n21 10 2026\nN° 000O6I59');
+ assert.equal(parsed.amount,10000);
+ assert.equal(parsed.reference,'00006159');
+ assert.equal(parsed.date,'2026-10-21');
+});
