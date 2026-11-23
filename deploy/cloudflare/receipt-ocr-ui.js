@@ -15,7 +15,7 @@ function receiptMethodField(){
  return `<label>Método de pago<select name="method" required><option value="Efectivo" selected>Efectivo</option><option value="Transferencia">Transferencia</option><option value="Tarjeta">Tarjeta</option></select></label>`;
 }
 function receiptReferenceField(){
- return `<label>Número / folio del recibo (opcional)<input name="receiptRef" maxlength="80" autocomplete="off" placeholder="Ej. 00006159"></label>`;
+ return `<label class="pm-correlativo-field pm-span-2"><span class="pm-correlativo-label">Correlativo de pago *</span><span class="pm-correlativo-control"><span class="pm-correlativo-hash" aria-hidden="true">#</span><input name="receiptRef" inputmode="numeric" pattern="[0-9]+" maxlength="80" autocomplete="off" placeholder="Ej. 00006159" required aria-describedby="pm-correlativo-help"><span class="pm-correlativo-check" aria-hidden="true">✓</span></span><small id="pm-correlativo-help" class="pm-correlativo-help">Correlativo único del recibo de caja. Los ceros a la izquierda no se toman en cuenta.</small><small data-correlativo-message class="pm-correlativo-message" role="alert" aria-live="polite"></small></label>`;
 }
 const legacyBaseNewPayment=baseNewPayment;
 baseNewPayment=function(saleId,useOcr=false){
@@ -24,8 +24,14 @@ baseNewPayment=function(saleId,useOcr=false){
  const old=form.elements.method;
  if(old){const slot=document.createElement('span');slot.innerHTML=receiptMethodField();old.closest('label')?.replaceWith(slot.firstElementChild);}
  if(!form.elements.receiptRef){
-  const ref=document.createElement('div');ref.innerHTML=receiptReferenceField();form.querySelector('.form-grid')?.append(ref.firstElementChild);
+  const ref=document.createElement('div');ref.innerHTML=receiptReferenceField();
+  const slot=form.querySelector('#pm-amount-slot');
+  if(slot)slot.after(ref.firstElementChild);
+  else form.querySelector('.form-grid')?.append(ref.firstElementChild);
  }
+ // El modal de ventas se crea antes de añadir el campo: conservarlo al lado del monto.
+ const amountSlot=form.querySelector('#pm-amount-slot'),referenceField=form.elements.receiptRef?.closest('label');
+ if(amountSlot&&referenceField)amountSlot.after(referenceField);
  if(useOcr)form.querySelector('#payment-ocr-photo')?.closest('fieldset')?.remove();
  if(!form.querySelector('[data-paper-ocr-photo]')){
   const block=document.createElement('div');block.innerHTML=receiptOcrWidget();
@@ -36,6 +42,29 @@ baseNewPayment=function(saleId,useOcr=false){
  if(typeof pmEnsureOcrFooter==='function')pmEnsureOcrFooter(form);
  return result;
 };
+// El campo rojo valida al escribir; el guardado también se revisa en Cloudflare.
+function receiptCorrelativoFeedback(input){
+ if(!input||!input.closest('#multi-payment-form,#owner-abono-form,#manual-history-form'))return;
+ const raw=input.value.trim(),label=input.closest('.pm-correlativo-field')||input.closest('label');
+ const message=label?.querySelector('[data-correlativo-message]');
+ const api=window.lotigestOwnerPayments;
+ let error='',normalized=api?.normalizeReceiptCorrelativo(raw);
+ if(!raw)error='Debes ingresar el correlativo del pago.';
+ else if(raw.length>80||normalized===null)error='El correlativo debe contener solamente números.';
+ else if(typeof db!=='undefined'&&api?.findReceiptCorrelativo(db,raw))
+  error='El correlativo '+normalized+' ya está registrado en otro pago.';
+ if(input.setCustomValidity)input.setCustomValidity(error);
+ input.setAttribute('aria-invalid',String(Boolean(error)));
+ if(label){label.classList.toggle('pm-correlativo-duplicate',Boolean(error));label.classList.toggle('pm-correlativo-valid',Boolean(raw&&!error));}
+ if(message)message.textContent=error||raw?'': '';
+ if(message)message.textContent=error||(raw&&normalized!==null?'Correlativo para validar: '+normalized:'');
+}
+document.addEventListener('input',event=>{
+ if(event.target.matches?.('[name="receiptRef"]'))receiptCorrelativoFeedback(event.target);
+});
+document.addEventListener('change',event=>{
+ if(event.target.matches?.('[name="receiptRef"]'))receiptCorrelativoFeedback(event.target);
+});
 function receiptOcrStatus(form,message){
  const el=form?.querySelector('[data-paper-ocr-status]');if(el)el.textContent=message;
 }
@@ -88,7 +117,7 @@ function receiptApplyOcr(button){
   form.elements.date.value=fields.date&&fields.date<=businessToday()?fields.date:'';
   if(fields.date&&fields.date>businessToday())notes.push('La fecha leída es futura y debe corregirse.');
  }
- if(form.elements.receiptRef&&fields.reference)form.elements.receiptRef.value=fields.reference;
+ if(form.elements.receiptRef&&fields.reference){form.elements.receiptRef.value=fields.reference;form.elements.receiptRef.dispatchEvent(new Event('input',{bubbles:true}));}
  if(fields.amount!=null){
   if(form.id==='manual-history-form'){form.elements.amount.value=String(fields.amount);form.elements.amount.dispatchEvent(new Event('input',{bubbles:true}));}
   else if(form.id==='owner-abono-form'){
