@@ -61,3 +61,29 @@ export function validateNewMonthlyPayments(before,after){
   working.ownerPayments=working.ownerPayments.filter(x=>x.id!==p.id).concat(p);
  }
 }
+
+// Reparte un único recibo por el peso de las cuotas; todos los cálculos son en centavos.
+export function splitClientPayment(state,saleIds,totalCents,date=null){
+ const ids=[...new Set(saleIds)];
+ if(!ids.length||!Number.isSafeInteger(totalCents)||totalCents<=0)throw Error('Ingresa un total de abono válido.');
+ const rows=ids.map(id=>{
+  const sale=state.sales.find(s=>s.id===id),lot=state.lots.find(l=>l.id===sale?.lotId);
+  if(!sale||!lot||sale.type!=='credit')throw Error('Contrato de crédito no válido.');
+  const terms=monthlyLotTerms(state,lot.id);
+  if(!terms?.monthlyCents)throw Error('Revisa la cuota mensual de cada solar.');
+  const paid=Math.round(Number(sale.openingPaid||0)*100)+(state.payments||[]).filter(p=>p.saleId===id&&!p.voidedAt&&!['voided','cancelled'].includes(p.status)).reduce((n,p)=>n+Math.round(Number(p.amount)*100),0);
+  return {saleId:id,clientId:sale.clientId,residenceId:lot.residenceId,date:sale.date,weight:terms.monthlyCents,remaining:Math.max(0,Math.round(Number(sale.price)*100)-paid),cents:0};
+ });
+ if(new Set(rows.map(r=>r.clientId)).size!==1||new Set(rows.map(r=>r.residenceId)).size!==1)throw Error('El abono debe pertenecer a un cliente y una residencial.');
+ if(totalCents>rows.reduce((n,r)=>n+r.remaining,0))throw Error('El total supera el saldo pendiente de los solares.');
+ let rest=totalCents;
+ while(rest>0){
+  const active=rows.filter(r=>r.remaining>r.cents),weight=active.reduce((n,r)=>n+r.weight,0),budget=rest;
+  for(const r of active){const part=Math.min(r.remaining-r.cents,Number(BigInt(budget)*BigInt(r.weight)/BigInt(weight)));r.cents+=part;rest-=part;}
+  const ranked=active.filter(r=>r.remaining>r.cents).sort((a,b)=>{const ar=BigInt(budget)*BigInt(a.weight)%BigInt(weight),br=BigInt(budget)*BigInt(b.weight)%BigInt(weight);return ar===br?a.saleId.localeCompare(b.saleId):ar>br?-1:1;});
+  for(const r of ranked){if(!rest)break;r.cents++;rest--;}
+ }
+ const allocated=rows.filter(r=>r.cents>0);
+ if(date&&allocated.some(r=>date<r.date))throw Error('La fecha del abono es anterior a uno de los contratos.');
+ return allocated.map(r=>({saleId:r.saleId,amount:r.cents/100,cents:r.cents}));
+}

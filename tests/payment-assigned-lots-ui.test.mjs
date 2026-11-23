@@ -20,10 +20,9 @@ test('asignados muestra ambos solares aunque solo uno esté seleccionado y no ca
   const tags=document.getElementById('tags'),before=JSON.stringify(paymentDraft);
   pmRenderAssignedLots(tags,'DELMI');assert.equal(tags.children.length,2);
   assert.match(tags.children[0].textContent,/Solar 1/);assert.match(tags.children[1].textContent,/Solar 2/);
-  assert.equal(tags.querySelector('[data-id="S1"]').dataset.action,'multi-payment-add');
-  assert.equal(tags.querySelector('[data-id="S2"]').dataset.action,'multi-payment-remove');
+  assert.equal(tags.querySelectorAll('button').length,0,'Solares incluidos sin botones Agregar');
   assert.equal(JSON.stringify(paymentDraft),before);
   delete paymentDraft.amounts.S2;pmRenderAssignedLots(tags,'DELMI');
-  assert.equal(tags.children.length,2);assert.equal(tags.querySelectorAll('[data-action="multi-payment-add"]').length,2);
+  assert.equal(tags.children.length,2);assert.equal(tags.querySelectorAll('button').length,0);
  }finally{dom.window.close();}
 });

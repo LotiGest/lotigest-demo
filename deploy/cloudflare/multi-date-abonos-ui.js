@@ -58,8 +58,14 @@
   if(!state||!data)return null;
   const owner=state.kind==='owner';
   const source=owner?(data.ownerPayments||[]).filter(p=>p.clientId===state.clientId&&p.residenceId===state.residenceId)
-   :(data.payments||[]).filter(p=>p.saleId===state.saleId);
-  return source.map(p=>({
+   :(data.payments||[]).filter(p=>(state.saleIds||[state.saleId]).includes(p.saleId));
+  const grouped=[];
+  for(const p of source){
+   if(p.voidedAt||['voided','cancelled'].includes(p.status))continue;
+   if(!owner&&p.groupId){const found=grouped.find(x=>x.groupId===p.groupId);if(found){found.amount=Number(found.amount)+Number(p.amount);continue;}}
+   grouped.push({...p});
+  }
+  return grouped.map(p=>({
    date:p.date,recordedAt:p.recordedAt,reference:p.receiptReference||p.receiptRef||p.originalReceiptRef||p.receiptReferenceNormalized||'',
    concept:p.concept||'',amount:owner?(p.allocations||[]).filter(a=>a.statementId===statementId).reduce((n,a)=>n+Number(a.amountCents||0),0)/100:Number(p.amount),
    voidedAt:p.voidedAt,status:p.status
@@ -90,7 +96,8 @@
   const sale=getSale(saleId),lot=getLot(sale?.lotId),client=getClient(sale?.clientId);
   if(!sale||!lot||!client||sale.type!=='credit'||balance(sale)<.01)return toast('Selecciona un solar con crédito y saldo pendiente.','error');
   if(cloudBlocked||cloudBusy||cloudQueue?.pending||cloudQueue?.latest!==cloudQueue?.confirmed)return toast('Sincroniza primero los cambios pendientes antes de registrar varios pagos.','error');
-  mdState={kind:'sale',saleId:sale.id,clientId:client.id,residenceId:lot.residenceId,clientName:client.name,lotLabel:'Etapa '+(lot.stage||'—')+' · Bloque '+lot.block+' · Solar '+(lot.sourceNumber||lot.id),snapshot:JSON.stringify(db),rows:[],docs:[]};
+  const clientSales=db.sales.filter(x=>x.clientId===client.id&&x.type==='credit'&&getLot(x.lotId)?.residenceId===lot.residenceId&&balance(x)>.009);
+  mdState={kind:'sale',saleId:sale.id,saleIds:clientSales.map(x=>x.id),clientId:client.id,residenceId:lot.residenceId,clientName:client.name,lotLabel:clientSales.map(x=>{const l=getLot(x.lotId);return 'Etapa '+(l.stage||'—')+' · Bloque '+l.block+' · Solar '+(l.sourceNumber||l.id);}).join(' / ')+' · Abono total repartido según las cuotas',snapshot:JSON.stringify(db),rows:[],docs:[]};
   mdState.rows.push(mdCreateEntry());mdState.rows.push(mdCreateEntry());
   mdState.rows[0].expanded=true;
   mdLastPaymentTarget={kind:'sale',saleId:sale.id};
@@ -390,19 +397,20 @@
    const sale=mdState.kind==='sale'?next.sales.find(s=>s.id===mdState.saleId):null;
    const lot=sale?next.lots.find(l=>l.id===sale.lotId):null;
    if(sale&&(!lot||sale.type!=='credit'))throw Error('El contrato o solar cambió.');
-   let previousPaid=sale?(Number(sale.openingPaid)||0)+next.payments.filter(p=>p.saleId===sale.id).reduce((n,p)=>n+Number(p.amount||0),0):0;
-   let remaining=sale?Math.round((Number(sale.price)-previousPaid)*100):null;
    for(const row of ordered){
     let id;
     const photoKey=row.photo?'AbonoFoto_'+crypto.randomUUID().replace(/-/g,''):null;
     if(mdState.kind==='sale'){
-     if(row.date<sale.date)throw Error('La fecha '+row.date+' es anterior al contrato.');
-     if(remaining<row.cents)throw Error('La suma de abonos supera el saldo pendiente del solar.');
-     if(typeof assertMonthlyPayment==='function')assertMonthlyPayment(next,[lot.id],row.cents);
+     const allocations=splitClientPayment(next,mdState.saleIds||[sale.id],row.cents,row.date);
      const groupId=uid('RC');
-     const payment={id:groupId+'-1',groupId,saleId:sale.id,date:row.date,amount:row.amount,concept:'Abono mensual · Registro por fechas',method:'Efectivo',receiptReference:row.raw,receiptReferenceNormalized:row.normalized,recordedAt:new Date().toISOString(),...(photoKey?{receiptImageKey:photoKey}:{}),verifyToken:Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('')};
-     payment.receiptInfo=buildReceiptInfo(payment,previousPaid);
-     next.payments.unshift(payment);previousPaid+=row.amount;remaining-=row.cents;id=payment.id;
+     for(const [index,allocation] of allocations.entries()){
+      const target=next.sales.find(s=>s.id===allocation.saleId);
+      if(typeof assertMonthlyPayment==='function')assertMonthlyPayment(next,[target.lotId],allocation.cents);
+      const priorPaid=(Number(target.openingPaid)||0)+next.payments.filter(p=>p.saleId===target.id).reduce((n,p)=>n+Number(p.amount||0),0);
+      const payment={id:groupId+'-'+(index+1),groupId,saleId:target.id,date:row.date,amount:allocation.amount,concept:'Abono mensual · Registro por fechas',method:'Efectivo',receiptReference:row.raw,receiptReferenceNormalized:row.normalized,recordedAt:new Date().toISOString(),...(photoKey?{receiptImageKey:photoKey}:{}),verifyToken:Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('')};
+      payment.receiptInfo=buildReceiptInfo(payment,priorPaid);next.payments.unshift(payment);
+      if(index===0)id=payment.id;
+     }
     }else{
      const outcome=window.lotigestOwnerPayments.createOwnerPayment(next,{id:'OP-'+crypto.randomUUID(),clientId:mdState.clientId,residenceId:mdState.residenceId,date:row.date,method:'Efectivo',concept:'Abono mensual · Registro por fechas',receiptRef:row.raw,reviewed:true,allocations:[{statementId:row.statementId,referenceIndex:null,amount:row.amount}]});
      next=outcome.state;id=outcome.receipt.id;
@@ -450,13 +458,13 @@
     for(const a of p.allocations||[])parts.push({text:(a.references||[]).map(r=>'Bloque '+r.block+' · Solar '+r.solar).join(', ')});
     parts.push({text:'TOTAL RECIBIDO: '+mdFmt(p.amountCents/100),size:15,bold:true,gap:16});
    }else{
-    const info=receiptInfo(p);
+    const receiptPayments=paymentReceiptRows(p.id),info=receiptInfo(p);
     parts.push({text:'Cliente: '+info.clientName});
-    parts.push({text:'Residencial: '+info.residence+' · Bloque '+info.block+' · Solar '+info.solar});
+    for(const part of receiptPayments){const detail=receiptInfo(part);parts.push({text:'Residencial: '+detail.residence+' · Bloque '+detail.block+' · Solar '+detail.solar+' · Abono '+mdFmt(part.amount)});}
     for(const a of info.allocations||[])parts.push({text:a.label+' · '+mdFmt(a.amount)});
-    parts.push({text:'Deuda anterior: '+mdFmt(info.before)});
-    parts.push({text:'TOTAL RECIBIDO: '+mdFmt(p.amount),size:15,bold:true,gap:16});
-    parts.push({text:'DEUDA PENDIENTE: '+mdFmt(info.after),bold:true});
+    parts.push({text:'Deuda anterior: '+mdFmt(receiptPayments.reduce((n,p)=>n+Number(receiptInfo(p).before),0))});
+    parts.push({text:'TOTAL RECIBIDO: '+mdFmt(receiptPayments.reduce((n,p)=>n+Number(p.amount),0)),size:15,bold:true,gap:16});
+    parts.push({text:'DEUDA PENDIENTE: '+mdFmt(receiptPayments.reduce((n,p)=>n+Number(receiptInfo(p).after),0)),bold:true});
    }
    parts.push({text:'Recibo independiente. Para verificar el código QR, consulta su PDF individual.',size:9});
   }
@@ -511,21 +519,22 @@
   // Sin solar activo, ofrecer un selector; no se cobra un lote por suposición.
   const sales=(db.sales||[]).filter(s=>s.type==='credit'&&balance(s)>.01&&(!activeResidence||getLot(s.lotId)?.residenceId===activeResidence));
   if(!sales.length)return toast('No hay contratos con saldo disponibles para registrar abonos.','error');
-  showModal('Elegir solar para varios abonos','<p>Busca al cliente o solar para abrir sus abonos múltiples.</p><label>Cliente o solar<input id="md-shortcut-search" placeholder="Nombre, bloque o solar" autocomplete="off"></label><div id="md-shortcut-results" style="max-height:50dvh;overflow-y:auto"></div>','<button type="button" class="btn btn-soft" data-action="close-modal">Cancelar</button>',true);
+  showModal('Elegir cliente para varios abonos','<p>Elige al cliente e ingresa el total de cada abono. Se repartirá según la cuota de sus solares.</p><label>Cliente<input id="md-shortcut-search" placeholder="Nombre, bloque o solar" autocomplete="off"></label><div id="md-shortcut-results" style="max-height:50dvh;overflow-y:auto"></div>','<button type="button" class="btn btn-soft" data-action="close-modal">Cancelar</button>',true);
   function matches(query){
    const normalized=String(query||'').trim().toLocaleLowerCase('es');
+   const seen=new Set();
    return sales.filter(s=>{
     const lot=getLot(s.lotId),client=getClient(s.clientId);
     return (client?.name||'').toLocaleLowerCase('es').includes(normalized)||
       (String(lot?.block||'')+' '+String(lot?.sourceNumber||lot?.id||'')).toLocaleLowerCase('es').includes(normalized);
-   }).slice(0,60);
+   }).filter(s=>{const key=s.clientId+'|'+getLot(s.lotId)?.residenceId;if(seen.has(key))return false;seen.add(key);return true;}).slice(0,60);
   }
   const results=document.getElementById('md-shortcut-results');
   const repaint=query=>{
    if(!results)return;
    results.innerHTML=matches(query).map(s=>{
     const lot=getLot(s.lotId),client=getClient(s.clientId);
-    return '<button type="button" class="btn btn-outline" data-md-shortcut-sale="'+mdSafe(s.id)+'" style="display:block;width:100%;text-align:left;margin:5px 0;white-space:normal">'+mdSafe(client?.name||'Cliente')+' · Bloque '+mdSafe(lot?.block||'—')+' · Solar '+mdSafe(lot?.sourceNumber||lot?.id||'—')+'</button>';
+    return '<button type="button" class="btn btn-outline" data-md-shortcut-sale="'+mdSafe(s.id)+'" style="display:block;width:100%;text-align:left;margin:5px 0;white-space:normal">'+mdSafe(client?.name||'Cliente')+(!activeResidence?' · '+mdSafe(db.residences.find(r=>r.id===lot?.residenceId)?.name||'Residencial'):'')+'</button>';
    }).join('')||'<p>No se encontraron solares con saldo.</p>';
   };
   repaint('');
