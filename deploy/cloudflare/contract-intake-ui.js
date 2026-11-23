@@ -96,6 +96,20 @@ function contractIntakeManualCash(number){
  const n=Number(number);
  return Number.isFinite(n)?n.toLocaleString('es-HN',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
 }
+// Miles en pantalla, importes numéricos en cálculos y almacenamiento.
+function contractIntakeMoneyDisplay(value){
+ const text=String(value??'').replace(/,/g,'').replace(/[^0-9.]/g,'');
+ const dot=text.indexOf('.');
+ const clean=dot<0?text:text.slice(0,dot+1)+text.slice(dot+1).replace(/\./g,'').slice(0,2);
+ if(!clean)return '';
+ const parts=clean.split('.');
+ const whole=(parts[0].replace(/^0+(?=\d)/,'')||'0').replace(/\B(?=(\d{3})+(?!\d))/g,',');
+ return dot<0?whole:whole+'.'+(parts[1]||'');
+}
+function contractIntakeMoneyNumber(value){
+ const raw=String(value??'').replace(/,/g,'').trim();
+ return raw!==''&&/^\d+(?:\.\d{0,2})?$/.test(raw)?Number(raw):NaN;
+}
 function contractIntakeManualFields(){
  const draft=contractIntakeWorking, v=draft?.values||{},rid=residence().id;
  const customer=draft?.preferredClientId?getClient(draft.preferredClientId):null;
@@ -109,10 +123,12 @@ function contractIntakeManualFields(){
  const multi=extra.length>0;
  const val=(value)=>esc(value??'');
  const hidden=(key,value)=>'<input type="hidden" name="'+key+'" value="'+val(value)+'">';
- const field=(label,key,type='text',required=false,readOnly=false,value=v[key])=>
-  '<label class="field-group"><span>'+label+'</span><input type="'+type+'" name="'+key+'" value="'+val(value)+'" '+
-  (type==='number'?'min="0" step="'+(key==='months'?'1':'0.01')+'" ':'')+
-  (required?'required ':'')+(readOnly?'readonly ':'')+'style="width:100%;min-width:0"></label>';
+ const field=(label,key,type='text',required=false,readOnly=false,value=v[key])=>{
+  const money=type==='number'&&key!=='months';
+  return '<label class="field-group"><span>'+label+'</span><input type="'+(money?'text':type)+'" name="'+key+'" value="'+val(money?contractIntakeMoneyDisplay(value):value)+'" '+
+   (money?'inputmode="decimal" data-contract-money="true" autocomplete="off" ':type==='number'?'min="0" step="1" ':'')+
+   (required?'required ':'')+(readOnly?'readonly ':'')+'style="width:100%;min-width:0"></label>';
+ };
  const info=['name','identity','phone','address','rtn','maritalStatus','occupation'];
  const person=customer?'<section class="full notice-card lg-contract-customer-loaded">'+
   '<strong>'+val(customer.name)+'</strong>'+
@@ -165,8 +181,9 @@ function contractIntakeManualFields(){
   ' &nbsp; <b>Izquierdo:</b> '+val(selected.dimensions?.left||'—')+' &nbsp; <b>Derecho:</b> '+val(selected.dimensions?.right||'—')+'</p>'+
   '<small>Medidas automáticas y protegidas; no se modifican al guardar el contrato.</small></div>'+
   '<aside class="lg-contract-base-price"><div class="lg-contract-price-heading"><span>Precio base del solar</span>'+
+   '<div class="lg-contract-solar-buttons"><button type="button" class="lg-contract-edit-primary" data-contract-intake-edit-price="0" title="Editar precio pactado de este solar" aria-label="Editar precio pactado de este solar">✎ Editar</button>'+
    '<button type="button" class="lg-contract-remove-primary" data-contract-intake-remove-primary title="Quitar solar de este contrato" aria-label="Quitar este solar del contrato en preparación">'+
-   '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 10v6M14 10v6"/></svg></button></div>'+
+   '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 10v6M14 10v6"/></svg></button></div></div>'+
    '<strong>'+(Number(selected.price)>0?'L '+contractIntakeManualCash(selected.price):'Sin precio')+'</strong></aside></div>':
   '<div class="lg-contract-solar-info lg-contract-empty">Selecciona la etapa, el bloque y el número de solar para ver sus medidas y precio registrados.</div>';
  const more=extra.map((row,i)=>{
@@ -179,7 +196,8 @@ function contractIntakeManualFields(){
    field('Precio acordado de este solar (L)','solarPrice_'+idx,'number',true,false,v['solarPrice_'+idx]??row.price??l?.price??'')+
    field('Prima pactada de este solar (L)','solarDown_'+idx,'number',true,false,v['solarDown_'+idx]??row.down??'')+
    '<div class="field-group"><span>Precio registrado en Predios</span><strong>'+ (l&&Number(l.price)>0?'L '+contractIntakeManualCash(l.price):'Sin precio registrado')+'</strong></div></div>'+
-   '<button type="button" class="btn btn-outline btn-sm" data-contract-intake-remove="'+i+'">Quitar solar</button></fieldset>';
+   '<div class="lg-contract-extra-actions"><button type="button" class="btn btn-outline btn-sm" data-contract-intake-edit-price="'+idx+'">✎ Editar precio</button>'+
+   '<button type="button" class="btn btn-outline btn-sm" data-contract-intake-remove="'+i+'">Quitar solar</button></div></fieldset>';
  }).join('');
  const inventoryTotal=all.every(Boolean)&&all.every(l=>Number(l.price)>0)?all.reduce((n,l)=>n+Number(l.price),0):null;
  const priceLabel=total===null?'Completa el precio acordado':'L '+contractIntakeManualCash(total);
@@ -230,10 +248,10 @@ function contractIntakeManualRecalculate(form){
  const n=Number(get('months')),count=contractIntakeWorking.extraLots?.length||0;
  const entries=[primary,...Array.from({length:count},(_,i)=>getLot(get('extraLotId_'+i)))];
  const prices=entries.map((l,i)=>l?get('solarPrice_'+i):'');
- const price=entries.every(Boolean)&&prices.every(v=>v!==''&&Number.isFinite(Number(v))&&Number(v)>0)?
-  Math.round(prices.reduce((t,v)=>t+Number(v),0)*100)/100:null;
+ const price=entries.every(Boolean)&&prices.every(v=>v!==''&&Number.isFinite(contractIntakeMoneyNumber(v))&&contractIntakeMoneyNumber(v)>0)?
+  Math.round(prices.reduce((t,v)=>t+contractIntakeMoneyNumber(v),0)*100)/100:null;
  const downs=count?[get('solarDown_0'),...Array.from({length:count},(_,i)=>get('solarDown_'+(i+1)))]:[get('down')];
- const down=downs.every(x=>x!==''&&Number.isFinite(Number(x)))?Math.round(downs.reduce((t,x)=>t+Number(x),0)*100)/100:null;
+ const down=downs.every(x=>x!==''&&Number.isFinite(contractIntakeMoneyNumber(x)))?Math.round(downs.reduce((t,x)=>t+contractIntakeMoneyNumber(x),0)*100)/100:null;
  const financed=price!==null&&down!==null?Math.round((price-down)*100)/100:null;
  const monthly=financed!==null&&Number.isInteger(n)&&n>0?Math.round(financed/n*100)/100:null;
  const put=(k,value)=>{const el=form.elements.namedItem(k);if(el)el.value=value??'';};
@@ -246,6 +264,19 @@ function contractIntakeManualRecalculate(form){
  putText('contract-auto-financed',financed===null?'—':'L '+contractIntakeManualCash(financed));
  putText('contract-auto-monthly',monthly===null?'—':'L '+contractIntakeManualCash(monthly));
 }
+// Editar desde la tarjeta del solar lleva directamente al precio pactado, no cambia Predios.
+document.addEventListener('click',event=>{
+ const button=event.target.closest?.('[data-contract-intake-edit-price]');
+ if(!button||contractIntakeWorking?.mode!=='manual')return;
+ event.preventDefault();event.stopImmediatePropagation();
+ const idx=Number(button.dataset.contractIntakeEditPrice);
+ if(!Number.isInteger(idx)||idx<0)return;
+ const target=document.querySelector('#contract-intake-form [name="solarPrice_'+idx+'"]');
+ if(!target)return;
+ target.scrollIntoView?.({block:'center',behavior:'smooth'});
+ target.focus({preventScroll:true});
+ target.select?.();
+},true);
 // Consultar refresca el solar seleccionado, sin modificar datos del inventario.
 document.addEventListener('click',event=>{
  const button=event.target.closest?.('[data-contract-intake-consult]');
@@ -293,6 +324,20 @@ document.addEventListener('input',event=>{
  }
  const form=event.target.closest?.('#contract-intake-form');
  if(!form)return;
+ if(event.target.matches?.('[data-contract-money]')){
+  const input=event.target,original=input.value,position=input.selectionStart??original.length;
+  const significant=(original.slice(0,position).match(/[0-9.]/g)||[]).length;
+  const formatted=contractIntakeMoneyDisplay(original);
+  if(formatted!==original){
+   input.value=formatted;
+   let to=0,seen=0;
+   while(to<formatted.length&&seen<significant){
+    if(/[0-9.]/.test(formatted[to]))seen++;
+    to++;
+   }
+   input.setSelectionRange?.(to,to);
+  }
+ }
  if(['down','months','solarPrice_0'].includes(event.target.name)||/^(?:solarPrice_|solarDown_)/.test(event.target.name))
   contractIntakeManualRecalculate(form);
 },true);
@@ -521,6 +566,12 @@ async function contractIntakeRead(file){
 function contractIntakeData(form){
  const values=Object.fromEntries(new FormData(form));
  values.identity=contractIdentityFormat(values.identity);
+ for(const key of Object.keys(values)){
+  if(/^solar(?:Price|Down)_\d+$/.test(key))
+   values[key]=values[key]===''?'':contractIntakeMoneyNumber(values[key]);
+ }
+ if(contractIntakeWorking?.mode==='manual'&&values.down!==undefined&&values.down!=='')
+  values.down=contractIntakeMoneyNumber(values.down);
  for(const key of ['areaVaras','areaM2','price','down','financed','monthly','months','pricePerVara']){
   values[key]=values[key]===undefined||values[key]===''?null:Number(values[key]);
  }
