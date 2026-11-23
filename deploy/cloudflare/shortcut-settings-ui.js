@@ -79,6 +79,7 @@
   return '<section class="card card-padding lg-shortcut-settings" id="lotigest-shortcut-settings" aria-labelledby="lg-shortcut-title">'+
    '<div class="lg-shortcut-header"><div><h2 id="lg-shortcut-title">⌨ Configuración de atajos</h2><p>Personaliza las combinaciones del teclado para abrir módulos y registrar abonos.</p></div></div>'+
    '<div class="lg-shortcut-note">✎ Pulsa <b>Cambiar</b> para asignar otras teclas. Puedes mover las filas con ↑ y ↓ o arrastrarlas en computadora.</div>'+
+   '<div class="lg-shortcut-note">↵ <b>Enter:</b> avanza automáticamente a la siguiente casilla del formulario. <b>Shift + Enter:</b> agrega una nueva línea en observaciones. Enter no guarda abonos ni contratos por accidente; las búsquedas y formularios especiales conservan sus acciones.</div>'+
    '<h3>Atajos principales</h3><div class="lg-shortcut-rows">'+primary.map(scRow).join('')+'</div>'+
    '<details class="lg-shortcut-more" '+(moreOpen||extra.includes(captureId)?'open':'')+'><summary>Otros módulos del sistema ('+extra.length+')</summary><div class="lg-shortcut-rows">'+extra.map(scRow).join('')+'</div></details>'+
    '<p class="lg-shortcut-caution">'+safe(caution)+'</p>'+
