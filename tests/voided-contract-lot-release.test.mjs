@@ -64,3 +64,25 @@ test('otra residencial, solar ajeno y doble liberación quedan bloqueados',()=>{
  const state=releaseVoidedContractSolar(db,'D1','L1','R1','ADMIN','Error revisado').state;
  assert.equal(audit(state).allowed,false);
 });
+
+
+test('grupo de dos solares: anulación del solar 1 no libera el solar 2 vigente',()=>{
+ const db=fixture();
+ db.contractTexts[0].contractLotIds=['L1','L2'];
+ db.contractTexts.push({id:'D2',residenceId:'R1',clientId:'C1',lotId:'L2',
+   contractLotIds:['L1','L2'],status:'active'});
+ assert.equal(audit(db).allowed,true,'Otro solar activo del grupo no bloquea al principal');
+ assert.equal(auditVoidedContractSolarRelease(db,'D1','L2','R1').allowed,false);
+ const after=releaseVoidedContractSolar(db,'D1','L1','R1','ADMIN','Contrato del solar equivocado').state;
+ assert.equal(after.lots[0].status,'available');
+ assert.equal(after.lots[1].status,'available');
+ assert.equal(after.contractTexts[1].status,'active');
+ assert.equal(after.lots[1].ownerClientId,undefined);
+});
+test('un solar principal de contrato vigente nunca se libera aunque aparezca en grupo anulado',()=>{
+ const db=fixture();
+ db.contractTexts[0].contractLotIds=['L1','L2'];
+ db.contractTexts.push({id:'D2',residenceId:'R1',clientId:'C1',lotId:'L1',
+   contractLotIds:['L1','L2'],status:'active'});
+ assert.equal(audit(db).allowed,false);
+});
