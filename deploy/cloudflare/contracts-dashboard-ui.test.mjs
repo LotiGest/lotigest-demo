@@ -237,6 +237,7 @@ test('Reactivación: PIN solo administrador, valida entrada, conserva pagos y ro
   w.toast=()=>{};w.cloudWrite=()=>{};w.cloudFlush=async()=>{};
   w.cloudBlocked=false;w.cloudOffline=false;w.cloudQueue={latest:1,confirmed:1};w.closeModal=()=>{};
   w.db.contractTexts[0].status='voided';w.db.contractTexts[0].voidReason='Prueba';
+  w.db.lots[0].purchaseFromPlan=true;
   w.db.payments=[{id:'P1',amount:100}];
   w.render();
   const pin=w.document.querySelector('[data-ct-pin-value]').textContent;
@@ -252,6 +253,7 @@ test('Reactivación: PIN solo administrador, valida entrada, conserva pagos y ro
   await new Promise(resolve=>setTimeout(resolve,0));
   assert.equal(w.db.contractTexts[0].status,'pending-sale');
   assert.equal(w.db.lots[0].pendingContractId,'D1');
+  assert.equal(w.db.lots[0].purchaseFromPlan,true,'Reactivar conserva la marca de vendido del plano');
   assert.equal(w.db.contractTexts[0].reactivationHistory[0].by,'Admin');
   assert.equal(w.db.contractTexts[0].voidReason,'Prueba');
   assert.deepEqual(JSON.parse(JSON.stringify(w.db.payments)),[{id:'P1',amount:100}]);
