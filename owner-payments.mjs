@@ -28,7 +28,19 @@ export function findReceiptCorrelativo(state,raw){
 // Solo valida los recibos NUEVOS para no alterar legados sin correlativo.
 // Los pagos de una misma operación (varios solares) comparten un único correlativo.
 export function validateNewReceiptCorrelativos(previous,next){
- const oldSales=new Set((previous.payments||[]).map(x=>x.id));
+ const previousSales=new Map((previous.payments||[]).map(x=>[x.id,x]));
+ // Las correcciones de folio también deben respetar los ceros equivalentes
+ // y la unicidad del recibo, aunque el identificador de pago no cambie.
+ for(const p of next.payments||[]){
+  const old=previousSales.get(p.id);
+  if(!old||old.receiptReference===p.receiptReference&&old.receiptReferenceNormalized===p.receiptReferenceNormalized)continue;
+  const key=requireReceiptCorrelativo(p.receiptReference);
+  if(p.receiptReferenceNormalized!==key)throw Error('El correlativo normalizado del pago no coincide con el recibo.');
+  const same=x=>p.groupId?x.groupId===p.groupId:x.id===p.id;
+  if((next.payments||[]).some(x=>same(x)&&normalizeReceiptCorrelativo(x.receiptReference)!==key))throw Error('Todos los solares del recibo deben compartir el correlativo.');
+  if(findReceiptCorrelativo({...next,payments:(next.payments||[]).filter(x=>!same(x))},p.receiptReference))throw Error('El correlativo ya está registrado en otro pago.');
+ }
+ const oldSales=new Set(previousSales.keys());
  const oldOwners=new Set((previous.ownerPayments||[]).map(x=>x.id));
  const fresh=[];
  for(const p of next.payments||[])if(!oldSales.has(p.id)&&String(p.groupId||'').startsWith('RC-')&&!p.historicalImportId)
