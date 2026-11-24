@@ -712,7 +712,7 @@ function pmOpenStatement(trigger){
   const actions=pmNode('div','pm-report-buttons');
   const downloadBtn=pmNode('button','btn btn-outline','Descargar PDF'),shareBtn=pmNode('button','btn btn-primary','Enviar por WhatsApp');
   for(const b of [downloadBtn,shareBtn])b.type='button';
-  actions.append(downloadBtn,shareBtn);controls.append(actions);content.append(controls,preview);dialog.append(header,content);layer.append(shade,dialog);
+  actions.append(downloadBtn,shareBtn);content.append(controls,preview);dialog.append(header,content,actions);layer.append(shade,dialog);
   let model=null;
   const fresh=()=>{
    if(!cloudReady||cloudBlocked||cloudOffline||!cloudQueue||cloudQueue.pending||cloudQueue.latest!==cloudQueue.confirmed)throw Error('Sincroniza los cambios antes de emitir el estado de cuenta.');
