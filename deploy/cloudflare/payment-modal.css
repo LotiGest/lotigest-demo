@@ -643,3 +643,14 @@ html body #modal-root .lg-payment-modern :is(.modal-header,.modal-footer){flex-s
  #modal-root .lg-payment-modern.pm-sales-wide .pm-progress{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
  #modal-root .lg-payment-modern.pm-sales-wide .pm-card-body{padding:9px}
 }
+
+/* Último recibo: monto verde, correlativo rojo, sin ensanchar la cabecera. */
+#modal-root .lg-payment-modern .pm-last-payment-details{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;min-width:0}
+#modal-root .lg-payment-modern .pm-last-payment-amount{color:#137b39!important;font-size:16px;font-weight:850;overflow-wrap:anywhere}
+#modal-root .lg-payment-modern .pm-last-payment-reference{color:#b42332!important;font-size:12px;font-weight:800;overflow-wrap:anywhere}
+#modal-root .lg-payment-modern .pm-last-payment-solar-detail{display:grid;gap:2px;justify-items:end;min-width:0;text-align:right}
+#modal-root .lg-payment-modern .pm-last-payment-solar-detail .pm-last-payment-details{justify-content:flex-end}
+#modal-root .lg-payment-modern .pm-last-payment-solar-detail .pm-last-payment-amount{font-size:12px}
+#modal-root .lg-payment-modern .pm-last-payment-solar-detail .pm-last-payment-reference{font-size:11px}
+body.lotigest-dark #modal-root .lg-payment-modern .pm-last-payment-amount{color:#7ee6a0!important}
+body.lotigest-dark #modal-root .lg-payment-modern .pm-last-payment-reference{color:#ff9ca7!important}

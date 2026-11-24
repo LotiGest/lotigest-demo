@@ -84,3 +84,27 @@ test('conecta ficha y ventas al panel sin alterar abonos ni calendario',()=>{
  assert.match(style,/@media\(max-width:650px\)/);
  assert.match(style,/body\.lotigest-dark[^\n]+\.pm-last-payment/);
 });
+
+test('último recibo conjunto suma solo los solares del cliente y conserva el correlativo original',()=>{
+ const {db,pmLatestClientPayments,pmUpdateLastPayment,root}=mock();
+ db.payments.unshift(
+ {id:'g1',groupId:'G',saleId:'s1',date:'2026-11-05',amount:20000,receiptReference:'003556',recordedAt:'2026-11-05T20:00:00Z'},
+ {id:'g2',groupId:'G',saleId:'s2',date:'2026-11-05',amount:30000,receiptReference:'003556',recordedAt:'2026-11-05T20:00:00Z'},
+ {id:'old',saleId:'s1',date:'2026-11-05',amount:5000,receiptReference:'3555',recordedAt:'2026-11-05T19:00:00Z'},
+ {id:'cancel',saleId:'s1',date:'2026-11-06',amount:1000,status:'cancelled'});
+ const {latest,bySolar}=pmLatestClientPayments('c1','R1');
+ assert.equal(latest.amountCents,5000000);assert.equal(latest.reference,'003556');
+ assert.deepEqual(bySolar.map(x=>x.amountCents),[2000000,3000000]);
+ pmUpdateLastPayment('c1','R1');
+ const details=root.children[0].children[2];
+ assert.equal(details.children[0].textContent,'L 50,000.00');
+ assert.equal(details.children[1].textContent,'Correlativo: 003556');
+});
+test('abono conjunto de ficha sin desglose no duplica el monto por solar',()=>{
+ const {db,pmLatestClientPayments}=mock();
+ db.ownerPayments.push({id:'OP',clientId:'c1',residenceId:'R1',date:'2026-11-20',amountCents:600000,receiptReference:'0009',
+ allocations:[{amountCents:600000,references:[{lotId:'a'},{lotId:'b'}]}]});
+ const result=pmLatestClientPayments('c1','R1');
+ assert.equal(result.latest.amountCents,600000);
+ assert.ok(result.bySolar.every(x=>x.amountCents===null));
+});
