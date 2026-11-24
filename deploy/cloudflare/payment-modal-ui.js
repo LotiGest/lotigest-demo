@@ -354,9 +354,9 @@ function pmSalesDecorate(){
  person.append(a,b);shell.append(person);
  const last=pmNode('section','pm-last-payment');last.id='pm-last-payment';last.setAttribute('role','status');last.setAttribute('aria-live','polite');shell.append(last);
  const historyBar=pmNode('div','pm-history-toolbar');
- const historyBtn=pmNode('button','btn btn-outline pm-history-launch','Historial de pagos por fecha');
- historyBtn.type='button';historyBtn.dataset.pmHistoryOpen='true';
- historyBar.append(historyBtn);if(typeof pmAmortizationActions==='function')historyBar.append(pmAmortizationActions());shell.append(historyBar);
+ const historyBtn=pmNode('button','btn btn-outline pm-history-launch','Reportes');
+ historyBtn.type='button';historyBtn.dataset.pmReportsOpen='true';historyBtn.setAttribute('aria-haspopup','dialog');
+ historyBar.append(historyBtn);shell.append(historyBar);
  const main=pmNode('div','pm-grid');
  const summary=pmCard('Resumen del contrato','layers');summary.body.id='pm-summary';
  const entry=pmCard('Registrar nuevo pago','wallet');entry.body.append(fields);
@@ -388,8 +388,8 @@ function pmOwnerDecorate(){
  person.append(a,b);shell.append(person);
  const last=pmNode('section','pm-last-payment');last.id='pm-last-payment';last.setAttribute('role','status');last.setAttribute('aria-live','polite');shell.append(last);
  const historyBar=pmNode('div','pm-history-toolbar');
- const historyBtn=pmNode('button','btn btn-outline pm-history-launch','Historial de pagos por fecha');
- historyBtn.type='button';historyBtn.dataset.pmHistoryOpen='true';
+ const historyBtn=pmNode('button','btn btn-outline pm-history-launch','Reportes');
+ historyBtn.type='button';historyBtn.dataset.pmReportsOpen='true';historyBtn.setAttribute('aria-haspopup','dialog');
  historyBar.append(historyBtn);shell.append(historyBar);
  const main=pmNode('div','pm-grid'),left=pmCard('Resumen de fichas','layers'),right=pmCard('Registrar nuevo pago','wallet');
  let count=0,totalDocumented=0,allKnown=true;
@@ -492,6 +492,7 @@ document.addEventListener('click',e=>{
   else control?.focus();
   e.preventDefault();return;
  }
+ if(e.target.closest('[data-pm-reports-open]')){pmOpenReports(e.target.closest('[data-pm-reports-open]'));return;}
  if(e.target.closest('[data-pm-history-open]')){pmOpenPaymentHistory();return;}
  const todayButton=e.target.closest('[data-pm-use-today]');
  if(todayButton&&document.querySelector('.lg-payment-modern')){
