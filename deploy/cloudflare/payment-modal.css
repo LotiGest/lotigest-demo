@@ -525,3 +525,8 @@ body.lotigest-dark #modal-root .lg-payment-modern .pm-correlativo-control input[
 /* Todos los solares elegibles se incluyen y se muestran uno debajo del otro. */
 #modal-root .lg-payment-modern #pm-lot-tags{display:flex;flex-direction:column;align-items:flex-start;gap:5px}
 #modal-root .lg-payment-modern #pm-lot-tags .pm-tag{opacity:1;background:#ddf2e3;color:#185a30;margin:0}
+
+/* Mes sin depósito directo pero cubierto por excedentes verificados. */
+#modal-root .lg-payment-modern .pm-month.excess-covered{background:#e4efff!important;color:#194f9d!important;border-color:#6e9dde!important}
+#modal-root .lg-payment-modern .pm-month.excess-covered :is(.pm-due-day,.pm-today-day){color:#194f9d!important}
+#modal-root .lg-payment-modern .pm-dot.excess-covered{background:#367ac6!important}
