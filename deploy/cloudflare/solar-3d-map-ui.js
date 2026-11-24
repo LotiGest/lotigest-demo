@@ -58,7 +58,7 @@
  function node(tag,attrs){const el=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))el.setAttribute(k,String(v));return el;}
  function roofColor(plot){
   let status;try{const f=residenceFeatures().find(f=>f.key===plot.dataset.id);if(f)status=arrayanRecord(f).status;}catch(_){}
-  const palette={available:'#efc94c',sold:'#268d54',debt:'#d7474b',reserved:'#9660c5',private:'#9aa6aa',contracted:'#a3e635','prima-paid':'#16a34a'};
+  const palette={unregistered:'#171717',available:'#efc94c',sold:'#268d54',debt:'#d7474b',reserved:'#9660c5',private:'#9aa6aa',contracted:'#a3e635','prima-paid':'#16a34a'};
   return {status:status||'reference',color:palette[status]||plot.querySelector('polygon:not(.lg-solar-depth)')?.getAttribute('fill')||'#efc94c'};
  }
  function addHouses(svg){
