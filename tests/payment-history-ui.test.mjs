@@ -122,3 +122,25 @@ test('editar tipo de pago distingue prima atrasada de cuota y no cambia el total
  ctx.state.payments.push({id:'P',saleId:'S',amount:300,concept:'Prima',date:'2024-01-01'});
  plan=run();assert.equal(plan.state.payments[0].concept,'Abono mensual');assert.equal(plan.state.payments[0].receiptInfo.allocations[0].number,1);
 });
+
+test('amortización de 72 cuotas conserva vencidas, futuras, folios y saldo en PDF multipágina',async()=>{
+ const ctx=model();
+ ctx.Blob=Blob;
+ vm.runInContext(readFileSync(new URL('../contract-collections-scope.mjs',import.meta.url),'utf8').replace(/export /g,''),ctx);
+ vm.runInContext(readFileSync(new URL('../installment-status.mjs',import.meta.url),'utf8').replace(/export /g,''),ctx);
+ ctx.state={company:{name:'GRUPO H'},residences:[{id:'R',name:'Prueba'}],clients:[{id:'C',name:'Cliente prueba'}],
+ lots:[{id:'L',residenceId:'R',stage:1,block:'A',sourceNumber:'4'}],
+ sales:[{id:'S',lotId:'L',clientId:'C',type:'credit',price:73000,downPayment:1000,date:'2024-01-01',firstDueDate:'2024-02-05',months:72}],
+ contractTexts:[{id:'D',lotId:'L',clientId:'C',saleId:'S',status:'active',residenceId:'R'}],
+ payments:[{id:'P',saleId:'S',date:'2024-02-10',amount:2000,receiptReference:'0001',receiptInfo:{allocations:[{label:'Prima inicial',amount:1000},{number:1,month:'2024-02',amount:1000}]}}]};
+ const snapshot=JSON.stringify(ctx.state);
+ const report=vm.runInContext("pmAmortizationModel(state,'C','R','2024-03-10',reconcileInstallments,()=>100000,(d,i)=>{const x=new Date(d+'T12:00:00Z');x.setUTCMonth(x.getUTCMonth()+i);return x.toISOString().slice(0,10)})",ctx);
+ assert.equal(report.count,72);assert.equal(report.covered,1);assert.equal(report.latePaid,1);assert.equal(report.overdueCount,1);assert.equal(report.balance,7100000);
+ assert.equal(report.details[0].rows.at(-1).number,72);
+ ctx.report=report;
+ const pdf=vm.runInContext('pmAmortizationPdf(report)',ctx);
+ const raw=Buffer.from(await pdf.arrayBuffer()).toString('latin1');
+ assert.match(raw,/^%PDF-1.4/);assert.match(raw,/\(72\)/);assert.match(raw,/\(Pagada atrasada\)/);assert.match(raw,/\(0001\)/);
+ assert.ok((raw.match(/\/Type \/Page\b/g)||[]).length>1);
+ assert.equal(JSON.stringify(ctx.state),snapshot);
+});
