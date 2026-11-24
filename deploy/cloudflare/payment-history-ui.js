@@ -376,7 +376,7 @@ function pmAmortizationPdf(model){
  const section=s=>{ensure(42);rect(32,y-20,548,23,green);txt(s,40,y-12,11,true,'1 1 1');y-=32;};
  const tiles=items=>{for(let i=0;i<items.length;i+=3){ensure(49);items.slice(i,i+3).forEach(([label,value],j)=>{const x=32+j*184;rect(x,y-41,178,42,light);txt(label,x+7,y-12,8,false,green);txt(value,x+7,y-29,11,true);});y-=47;}};
  const table=(title,headers,widths,data)=>{
-  const heading=()=>{ensure(75);section(title);let x=32;rect(32,y-17,548,20,light);headers.forEach((h,i)=>{txt(h,x+4,y-10,8,true,green);x+=widths[i];});y-=19;};
+  const heading=()=>{ensure(75);section(title.length>78?title.slice(0,75)+'...':title);let x=32;rect(32,y-17,548,20,light);headers.forEach((h,i)=>{txt(h,x+4,y-10,8,true,green);x+=widths[i];});y-=19;};
   heading();
   for(let i=0;i<data.length;i++){
    const row=data[i],cells=row.cells.map((v,j)=>wrap(v,Math.max(4,Math.floor((widths[j]-8)/4.7)))),max=Math.max(...cells.map(x=>x.length));
@@ -392,7 +392,7 @@ function pmAmortizationPdf(model){
  start();section('Datos del cliente y del contrato');line('Cliente: '+model.client,13,true);line('Residencial: '+model.residence);line('Contratos incluidos: '+model.details.length+' · Corte: '+date(model.asOf));
  for(const d of model.details)line('Etapa '+(d.lot.stage||'—')+' · Bloque '+(d.lot.block||'—')+' · Solar '+(d.lot.sourceNumber||d.lot.number||d.lot.id)+' | Contrato: '+date(d.sale.date)+' | '+(d.sale.type==='credit'?d.sale.months+' cuotas':'Contado'),9);
  section('Resumen del contrato');
- tiles([['Precio total',cash(model.price)],['Prima acordada',cash(model.agreed)],['Prima aplicada',cash(model.prima)],['Saldo inicial a financiar',cash(model.price-model.agreed)],['Abonos sobre prima',cash(model.abonos)],['Saldo restante',cash(model.balance)],['Cuotas cubiertas',model.covered+' / '+model.count],['Cuotas vencidas pendientes',String(model.overdueCount)],['Monto vencido pendiente',cash(model.overdueAmount)]]);
+ tiles([['Precio total',cash(model.price)],['Prima acordada',cash(model.agreed)],['Prima aplicada',cash(model.prima)],['Saldo inicial a financiar',cash(model.price-model.agreed)],['Abonos sobre prima',cash(model.abonos)],['Saldo restante',cash(model.balance)],['Cuotas cubiertas',model.covered+' / '+model.count],['Cuotas vencidas pendientes',String(model.overdueCount)],['Monto vencido pendiente',cash(model.overdueAmount)],['Prima pendiente',cash(model.agreed-model.prima)],['Total contabilizado',cash(model.paid)],['Interés contractual','0%']]);
  ensure(110);section('Progreso del pago');
  const pct=model.price?Math.max(0,Math.min(100,100*model.paid/model.price)):0;
  txt(pct.toFixed(1)+'% pagado',32,y,15,true,green);txt('Total contabilizado: '+cash(model.paid),280,y,11,true);y-=18;rect(32,y-7,548,10,'0.88 0.90 0.88');rect(32,y-7,548*pct/100,10,green);y-=22;
