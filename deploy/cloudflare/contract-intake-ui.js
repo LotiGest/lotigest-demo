@@ -219,10 +219,13 @@ function contractIntakeManualFields(){
   '<input type="hidden" name="price" value="'+val(total??'')+'">'+
   '<input type="hidden" name="financed" value="'+val(financed??'')+'">'+
   '<input type="hidden" name="monthly" value="'+val(monthly??'')+'">';
- const payment='<details class="full"><summary>¿Ya recibió la prima? (opcional)</summary>'+
+ const payment='<details class="full" '+(v.primaPaid==='on'||v.primaReceivedTotal!=null&&v.primaReceivedTotal!==''?'open':'')+'><summary>¿Ya recibió la prima? (opcional)</summary>'+
   '<p class="sm muted">Solo marca la casilla si ya recibiste el dinero; el monto pactado por sí solo no es un cobro.</p>'+
   '<label><input type="checkbox" name="primaPaid" value="on" '+(v.primaPaid==='on'?'checked':'')+'> Registrar prima realmente pagada</label>'+
-  '<div class="form-grid">'+field('Fecha real del pago','primaDate','date')+
+  '<div class="form-grid">'+field('Monto total de prima recibida (L)','primaReceivedTotal','number',false,false,v.primaReceivedTotal??'')+
+  '<div class="full notice-card" aria-live="polite"><strong>Distribución según las primas pactadas</strong>'+
+  '<div id="contract-prima-distribution" style="white-space:pre-line;overflow-wrap:anywhere">'+val(contractIntakePrimaPreview(all,downs,v.primaReceivedTotal))+'</div></div>'+
+  field('Fecha real del pago','primaDate','date')+
   '<label class="field-group"><span>Método</span><select name="primaMethod">'+
   ['Efectivo','Transferencia','Tarjeta'].map(m=>'<option '+((v.primaMethod||'Efectivo')===m?'selected':'')+'>'+m+'</option>').join('')+
   '</select></label>'+'<label class="field-group"><span>Correlativo del recibo</span><input name="primaRef" inputmode="numeric" maxlength="80" autocomplete="off" placeholder="Ej. 00006159" value="'+val(v.primaRef||'')+'"><small>Escribe el correlativo del dinero recibido; se conservan los ceros iniciales.</small></label>'+'</div></details>';
@@ -244,6 +247,17 @@ function contractIntakeManualFields(){
   '<div class="lg-contract-date-fields">'+field('Fecha del contrato','date','date',true)+field('Fecha de primera cuota','firstDueDate','date')+'</div>'+
   payment+'<details class="lg-contract-notes"><summary>Observaciones (opcional)</summary><textarea name="observations" rows="2" style="width:100%">'+val(v.observations||'')+'</textarea></details></section>'+
   '<div id="contract-intake-alert" role="alert" class="lg-contract-alert"></div></form>';
+}
+function contractIntakePrimaPreview(lots,downs,amount){
+ const valid=lots.every(Boolean)&&downs.every(x=>x!==''&&x!=null&&Number.isFinite(Number(x))&&Number(x)>=0);
+ if(!valid)return 'Selecciona los solares y completa la prima de cada uno.';
+ const total=downs.reduce((sum,x)=>sum+Math.round(Number(x)*100),0);
+ const lines=lots.map((lot,i)=>'Etapa '+lot.stage+' · Bloque '+lot.block+' · Solar '+(lot.sourceNumber||lot.number||lot.id)+': L '+contractIntakeManualCash(Number(downs[i])));
+ lines.push('Total pactado: L '+contractIntakeManualCash(total/100));
+ if(amount==null||amount==='')lines.push('Ingresa el total realmente recibido.');
+ else if(Number(amount)>0&&Math.round(Number(amount)*100)===total)lines.push('El monto coincide. Se registrará la prima de cada solar con el mismo correlativo.');
+ else lines.push('El monto recibido no coincide con las primas pactadas. Revisa los importes antes de guardar.');
+ return lines.join('\n');
 }
 function contractIntakeManualRecalculate(form){
  if(!form||contractIntakeWorking?.mode!=='manual')return;
@@ -267,6 +281,7 @@ function contractIntakeManualRecalculate(form){
  putText('contract-auto-price',price===null?(count&&entries.some(l=>!l)?'Selecciona los solares adicionales':'Ingresa el precio acordado'):'L '+contractIntakeManualCash(price));
  putText('contract-auto-financed',financed===null?'—':'L '+contractIntakeManualCash(financed));
  putText('contract-auto-monthly',monthly===null?'—':'L '+contractIntakeManualCash(monthly));
+ putText('contract-prima-distribution',contractIntakePrimaPreview(entries,downs,get('primaReceivedTotal')));
 }
 // Consultar refresca el solar seleccionado, sin modificar datos del inventario.
 document.addEventListener('click',event=>{
@@ -315,7 +330,7 @@ document.addEventListener('input',event=>{
  }
  const form=event.target.closest?.('#contract-intake-form');
  if(!form)return;
- if(['down','months','solarPrice_0'].includes(event.target.name)||/^(?:solarPrice_|solarDown_)/.test(event.target.name))
+ if(['down','months','solarPrice_0','primaReceivedTotal'].includes(event.target.name)||/^(?:solarPrice_|solarDown_)/.test(event.target.name))
   contractIntakeManualRecalculate(form);
 },true);
 document.addEventListener('click',event=>{
@@ -540,6 +555,8 @@ async function contractIntakeRead(file){
   if(scan===contractIntakeWorking){scan.busy=false;if(retryBtn){retryBtn.hidden=false;retryBtn.disabled=false;}}
  }
 }
+// El cobro total nunca se registra como pago de cada solar. Debe coincidir
+// exactamente con la suma de las primas pactadas antes de crear movimientos.
 function contractIntakeData(form){
  const values=Object.fromEntries(new FormData(form));
  values.identity=contractIdentityFormat(values.identity);
@@ -550,6 +567,14 @@ function contractIntakeData(form){
   values.lots=[{lotId:values.lotId,stage:values.stage,price:values.solarPrice_0,down:values.solarDown_0},...Object.keys(values).filter(key=>/^extraLotId_/.test(key)).map(key=>{const i=key.split('_')[1];return {lotId:values[key],stage:values['extraStage_'+i],price:values['solarPrice_'+(Number(i)+1)],down:values['solarDown_'+(Number(i)+1)]};})];
  }
  return values;
+}
+function contractIntakeValidatePrimaReceived(raw,expected){
+ if(raw===undefined)return; // Compatibilidad con formularios anteriores sin este campo.
+ const amount=Number(raw),cents=Math.round(amount*100);
+ if(raw===null||String(raw).trim()===''||!Number.isFinite(amount)||amount<=0||!Number.isSafeInteger(cents)||cents/100!==amount)
+  throw Error('Ingresa el monto total de prima realmente recibido, con máximo dos decimales.');
+ if(cents!==Math.round(Number(expected)*100))
+  throw Error('El monto total recibido no coincide con la suma de las primas pactadas por solar. Revisa la distribución antes de guardar.');
 }
 function contractIntakeFindClient(state,data){
  const identity=normalizeClientLookup(data.identity),normalizedName=normalizeClientLookup(data.name);
@@ -639,6 +664,7 @@ async function contractIntakeSave(form){
   if(!data.primaDate||buyerDate(data.primaDate,'fecha del pago de prima')<data.date||data.primaDate>businessToday())throw Error('Comprueba la fecha real de la prima. Debe ser posterior al contrato y no futura.');
   if(!['Efectivo','Transferencia','Tarjeta'].includes(data.primaMethod))throw Error('Selecciona un método de pago.');
   if(!(Number(data.down)>0))throw Error('La prima pactada debe ser mayor que cero para registrar el cobro.');
+  contractIntakeValidatePrimaReceived(data.primaReceivedTotal,data.down);
   if(String(data.primaRef||'').length>80)throw Error('Número de recibo demasiado largo.');
 
  }
@@ -690,7 +716,7 @@ async function contractIntakeSave(form){
    if(target.ownerClientId&&target.ownerClientId!==client.id)throw Error('Un solar ya está asignado a otro cliente; verifica la identidad.');
    const {rawText:sourceOCR,...structuredFields}=fields;
    // Las claves auxiliares del formulario no forman parte de la descripción.
-   for(const k of Object.keys(structuredFields))if(/^(?:extra|solarPrice_|solarDown_|primaPaid$|primaDate$|primaMethod$|primaRef$|existingClientVerified$)/.test(k))delete structuredFields[k];
+   for(const k of Object.keys(structuredFields))if(/^(?:extra|solarPrice_|solarDown_|primaPaid$|primaDate$|primaMethod$|primaRef$|primaReceivedTotal$|existingClientVerified$)/.test(k))delete structuredFields[k];
    const record={id:(original.mode==='manual'?'CM-':'OCR-')+crypto.randomUUID(),clientId:client.id,lotId:lot.id,saleId:'',residenceId:original.residenceId,
     title:'FICHA CONTRACTUAL DE '+String(client.name).slice(0,85),pages:original.mode==='manual'?[]:[{number:1,text:String(data.rawText||'').slice(0,50000),confidence:original.values._confidence??null}],
     structured:{...structuredFields,identity:contractIdentityFormat(client.identity),lotId:lot.id,stage:lot.stage??null,
