@@ -45,7 +45,7 @@ test('conservar las calles, la franja de 8 metros y la alineación GPS previa',(
  // Los dos extremos finales llegan a la geometría de la calle del plano anterior.
  const start=html.indexOf('const arrayanRoadMarkup='),finish=html.indexOf('const arrayan',start+10);
  const roadText=html.slice(start,finish);
- const samples=[...roadText.matchAll(/(-?\\d+(?:\\.\\d+)?),(-?\\d+(?:\\.\\d+)?)/g)]
+ const samples=[...roadText.matchAll(/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g)]
   .map(m=>[Number(m[1]),Number(m[2])]);
  for(const edge of [street[3],street[4]]){
   assert.ok(samples.some(p=>Math.hypot(p[0]-edge[0],p[1]-edge[1])<0.03),
