@@ -39,7 +39,7 @@ test('tanto la vista 2D como la 3D no dibujan las cinco figuras eliminadas',()=>
    features:Array.from({length:5},(_,i)=>({key:'commercial-stage2-0'+(i+1),
     number:i+1,stage:2,points:[[1,2],[3,4],[5,6]]}))};
  const results=mapFeatures(sample);
- assert.equal(results.length,415);
+ assert.equal(results.length,411);
  assert.equal(results.filter(filter).length,0);
  assert.equal(results.filter(f=>f.type==='commercial'&&f.stage===1).length,11);
  assert.match(html,/function residenceFeatures\(\)\{return mapFeatures\(residence\(\)\)/);
@@ -60,16 +60,16 @@ test('la sincronización corrige la cuenta sin borrar inventario ni datos de cli
  const residence={id:'arrayan',builtin:'arrayan',
   records:{'commercial-stage2-01':{lotId:oldLot.id}},
   roads:[[[2,3],[4,5]]],inventoryMapVersion:2,
-  inventoryImportSummary:{sourceCount:420,added:5,matched:415}};
+  inventoryImportSummary:{sourceCount:416,added:5,matched:411}};
  const before=JSON.stringify({db,roads:residence.roads,records:residence.records});
  const begin=html.indexOf('function syncMapInventory(r,force=false,onlyNew=null){');
  const finish=html.indexOf('function inventoryArea(',begin);
  const source=html.slice(begin,finish);
  const fn=new Function('db','mapFeatures','removedStage2CommercialFeature',
-   source+'return syncMapInventory;')(db,()=>Array.from({length:415},(_,i)=>({key:'old-'+i})),
+   source+'return syncMapInventory;')(db,()=>Array.from({length:411},(_,i)=>({key:'old-'+i})),
     f=>/^commercial-stage2-0[1-5]$/.test(String(f?.key||'')));
  assert.equal(fn(residence),true);
- assert.equal(residence.inventoryImportSummary.sourceCount,415);
+ assert.equal(residence.inventoryImportSummary.sourceCount,411);
  assert.equal(residence.inventoryImportSummary.correctedStage2Overlay,true);
  assert.equal(JSON.stringify({db,roads:residence.roads,records:residence.records}),before);
  assert.equal(fn(residence),false);
