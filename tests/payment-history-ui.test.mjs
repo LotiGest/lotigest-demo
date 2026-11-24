@@ -59,3 +59,28 @@ test('ventana de historial accesible por fecha y con botón de recibo en abonos 
  assert.match(css,/pm-history-window/);
  assert.match(buildSource,/payment-history-ui\.js/);
 });
+
+test('anular un recibo repartido archiva ambas partes y recalcula los recibos posteriores',()=>{
+ const ctx=model();
+ const state={sales:[{id:'S1',lotId:'L1',clientId:'C',type:'credit',openingPaid:0},
+  {id:'S2',lotId:'L2',clientId:'C',type:'credit',openingPaid:0}],
+  lots:[{id:'L1',residenceId:'R'},{id:'L2',residenceId:'R'}],
+  payments:[{id:'N',saleId:'S1',amount:50,receiptInfo:{allocations:[]}},
+   {id:'A1',saleId:'S1',groupId:'G',amount:100,receiptReference:'00035'},
+   {id:'A2',saleId:'S2',groupId:'G',amount:200,receiptReference:'00035'},
+   {id:'P',saleId:'S1',amount:500}]};
+ const before=JSON.stringify(state);
+ ctx.state=state;
+ const result=vm.runInContext("pmHistoryVoidPlan(state,'A1','ADMIN','Pago duplicado',(p,prior)=>({allocations:[{amount:p.amount}],prior}))",ctx);
+ assert.equal(result.count,2);assert.equal(result.total,30000);
+ assert.equal(result.state.payments.length,2);
+ assert.equal(result.state.payments[0].receiptInfo.prior,500);
+ assert.equal(result.state.paymentVoidHistory[0].payments.length,2);
+ assert.equal(result.state.paymentVoidHistory[0].reference,'00035');
+ assert.equal(result.state.paymentVoidHistory[0].corrected.length,1);
+ assert.equal(JSON.stringify(state),before);
+ state.sales[0].type='cash';
+ assert.throws(()=>vm.runInContext("pmHistoryVoidPlan(state,'A1','ADMIN','Pago duplicado',()=>null)",ctx),/crédito/);
+ state.sales[0].type='credit';state.historicalPayments=[{postedPaymentId:'A1'}];
+ assert.throws(()=>vm.runInContext("pmHistoryVoidPlan(state,'A1','ADMIN','Pago duplicado',()=>null)",ctx),/histórico/);
+});
