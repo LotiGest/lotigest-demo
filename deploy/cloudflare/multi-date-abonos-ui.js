@@ -403,11 +403,13 @@
     if(mdState.kind==='sale'){
      const allocations=splitClientPayment(next,mdState.saleIds||[sale.id],row.cents,row.date);
      const groupId=uid('RC');
+     // Un recibo por fecha: todas sus distribuciones deben compartir el QR.
+     const verifyToken=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
      for(const [index,allocation] of allocations.entries()){
       const target=next.sales.find(s=>s.id===allocation.saleId);
       if(typeof assertMonthlyPayment==='function')assertMonthlyPayment(next,[target.lotId],allocation.cents);
       const priorPaid=(Number(target.openingPaid)||0)+next.payments.filter(p=>p.saleId===target.id).reduce((n,p)=>n+Number(p.amount||0),0);
-      const payment={id:groupId+'-'+(index+1),groupId,saleId:target.id,date:row.date,amount:allocation.amount,concept:'Abono mensual · Registro por fechas',method:'Efectivo',receiptReference:row.raw,receiptReferenceNormalized:row.normalized,recordedAt:new Date().toISOString(),...(photoKey?{receiptImageKey:photoKey}:{}),verifyToken:Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('')};
+      const payment={id:groupId+'-'+(index+1),groupId,saleId:target.id,date:row.date,amount:allocation.amount,concept:'Abono mensual · Registro por fechas',method:'Efectivo',receiptReference:row.raw,receiptReferenceNormalized:row.normalized,recordedAt:new Date().toISOString(),...(photoKey?{receiptImageKey:photoKey}:{}),verifyToken};
       payment.receiptInfo=buildReceiptInfo(payment,priorPaid);next.payments.unshift(payment);
       if(index===0)id=payment.id;
      }
@@ -426,7 +428,10 @@
    const confirmed=!!cloudQueue&&!cloudBlocked&&!cloudOffline&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed;
    mdSaved={items:saved,confirmed,client:mdState.clientName,kind:mdState.kind,saleId:mdState.saleId,clientId:mdState.clientId,residenceId:mdState.residenceId};
    for(const row of mdState.rows)if(row.preview&&String(row.preview).startsWith('blob:'))URL.revokeObjectURL(row.preview);
-   mdState=null;mdShowSaved();
+   mdState=null;
+   // Actualizar tarjetas y saldo antes de volver a presentar los recibos.
+   if(confirmed&&typeof render==='function')render();
+   mdShowSaved();
    if(!confirmed)toast('Los abonos quedaron en este dispositivo pendientes de sincronización. No compartas comprobantes hasta confirmar el guardado en Cloudflare.','error');
    else toast(saved.length+' abonos individuales guardados en Cloudflare.');
   }catch(e){mdError(e.message||'No se pudieron guardar los abonos.');}
