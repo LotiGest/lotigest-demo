@@ -157,7 +157,18 @@ function pmHistoryEditPlan(state,receiptId,changes,actor,reason,rebuild,receiptR
   if(changedAmounts.has(p.id))dirty.add(p.saleId);
   if(dirty.has(p.saleId)){
    const old=oldIndex.get(p.id);
-   if(p.historicalImportId||!old.receiptInfo||!Array.isArray(old.receiptInfo.allocations)||(state.historicalPayments||[]).some(h=>h.postedPaymentId===p.id))throw Error('Hay recibos sin detalle verificable. Requiere conciliación.');
+   // Las primas iniciales guardadas desde Nuevo contrato no traían receiptInfo.
+   // Reconstruir únicamente ese caso comprobable, nunca un abono ambiguo.
+   const verifiedInitialPrima=ids.has(p.id)&&!old.receiptInfo&&
+    sale.source==='contract-manual'&&!sale.historical&&before===0&&
+    /^prima$/i.test(String(old.concept||'').trim())&&
+    Math.round(Number(old.amount)*100)===Math.round(Number(sale.downPayment)*100)&&
+    Number(sale.downPayment)>0&&
+    (state.contractTexts||[]).some(d=>d.id===sale.documentId&&d.saleId===sale.id&&
+      d.lotId===sale.lotId&&d.clientId===sale.clientId&&d.status==='active'&&
+      d.format==='manual'&&d.structured?.downPaymentReceived===true&&
+      Math.round(Number(d.structured.down)*100)===Math.round(Number(sale.downPayment)*100));
+   if(p.historicalImportId||(!verifiedInitialPrima&&!Array.isArray(old.receiptInfo?.allocations))||(state.historicalPayments||[]).some(h=>h.postedPaymentId===p.id))throw Error('Hay recibos sin detalle verificable. Requiere conciliación.');
    const newInfo=rebuild(p,before/100);
    if(!newInfo||!Array.isArray(newInfo.allocations))throw Error('No fue posible recalcular las cuotas.');
    const primaCents=newInfo.allocations.filter(a=>!a.number&&/prima/i.test(String(a.label||''))).reduce((n,a)=>n+Math.round(Number(a.amount||0)*100),0);
