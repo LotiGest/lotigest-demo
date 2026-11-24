@@ -84,3 +84,24 @@ test('anular un recibo repartido archiva ambas partes y recalcula los recibos po
  state.sales[0].type='credit';state.historicalPayments=[{postedPaymentId:'A1'}];
  assert.throws(()=>vm.runInContext("pmHistoryVoidPlan(state,'A1','ADMIN','Pago duplicado',()=>null)",ctx),/histórico/);
 });
+
+test('editar recibo de varios solares conserva IDs, distribuciones y registro de auditoría',()=>{
+ const ctx=model();
+ ctx.state={sales:[{id:'S1',lotId:'L1',clientId:'C',type:'credit',price:1000,date:'2024-01-01'},
+ {id:'S2',lotId:'L2',clientId:'C',type:'credit',price:1000,date:'2024-01-01'}],
+ lots:[{id:'L1',residenceId:'R'},{id:'L2',residenceId:'R'}],
+ payments:[{id:'N',saleId:'S1',amount:50,receiptInfo:{allocations:[]}},
+ {id:'A',groupId:'G',saleId:'S1',amount:100,receiptReference:'001',receiptInfo:{allocations:[]}},
+ {id:'B',groupId:'G',saleId:'S2',amount:200,receiptReference:'001',receiptInfo:{allocations:[]}}]};
+ ctx.changes={date:'2024-02-02',method:'Efectivo',reference:'0002',amounts:{A:'150.00',B:'200'}};
+ ctx.rules={requireReceiptCorrelativo:x=>x.replace(/^0+/,''),findReceiptCorrelativo:(s,r)=>s.payments.find(p=>p.receiptReference===r)};
+ const original=JSON.stringify(ctx.state);
+ const run=()=>vm.runInContext("pmHistoryEditPlan(state,'A',changes,'Admin','Corregir monto',(p,prior)=>({allocations:[],prior}),rules,'2026-11-24')",ctx);
+ const plan=run();
+ assert.equal(plan.total,35000);assert.equal(plan.state.payments.length,3);
+ assert.equal(plan.state.payments[0].receiptInfo.prior,150);
+ assert.equal(plan.state.payments[2].receiptReference,'0002');
+ assert.equal(plan.state.paymentEditHistory.length,1);assert.equal(JSON.stringify(ctx.state),original);
+ ctx.changes.date='2027-01-01';assert.throws(run,/fecha/);
+ ctx.changes.date='2024-02-02';ctx.changes.amounts.A='1001';assert.throws(run,/saldo/);
+});
