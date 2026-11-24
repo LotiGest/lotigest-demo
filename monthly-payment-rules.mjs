@@ -38,6 +38,13 @@ export function assertMonthlyPayment(state,lotIds,amountCents,{prima=false}={}){
  if(monthlyAmount<minimum)throw Error('El abono mensual mínimo es L '+(minimum/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+(pending?' más la prima pendiente.':'.')+' Puedes abonar ese monto o uno mayor.');
  return info;
 }
+export function assertPrimaPayment(state,lotId,amountCents){
+ const info=monthlyPaymentInfo(state,[lotId]);
+ if(!info.known||info.primaRemainingCents==null)throw Error('No se pudo verificar la prima pendiente del solar.');
+ if(!Number.isSafeInteger(amountCents)||amountCents<=0||amountCents>info.primaRemainingCents)
+  throw Error('El importe supera la prima pendiente del solar. Revisa la distribución.');
+ return info;
+}
 export function validateNewMonthlyPayments(before,after){
  if(!before)return; // Carga inicial/restauración: no invalidar recibos anteriores.
  const oldSales=new Map((before.payments||[]).map(p=>[p.id,p]));
@@ -50,7 +57,7 @@ export function validateNewMonthlyPayments(before,after){
   const importedContract=posted&&(after.historicalContracts||[]).find(c=>c.id===posted.contractId&&c.saleId===p.saleId);
   if(recorded&&posted&&importedContract){working.payments=working.payments.filter(x=>x.id!==p.id).concat(p);continue;}
   const sale=(after.sales||[]).find(s=>s.id===p.saleId);
-  if(sale){const test={...working,payments:working.payments.filter(x=>x.id!==p.id)};assertMonthlyPayment(test,[sale.lotId],monthlyCents(p.amount));}
+  if(sale){const test={...working,payments:working.payments.filter(x=>x.id!==p.id)};if(!prior&&p.paymentApplication==='prima')assertPrimaPayment(test,sale.lotId,monthlyCents(p.amount));else assertMonthlyPayment(test,[sale.lotId],monthlyCents(p.amount));}
   working.payments=working.payments.filter(x=>x.id!==p.id).concat(p);
  }
  const oldOwners=new Map((before.ownerPayments||[]).map(p=>[p.id,p]));
@@ -63,7 +70,7 @@ export function validateNewMonthlyPayments(before,after){
 }
 
 // Reparte un único recibo por el peso de las cuotas; todos los cálculos son en centavos.
-export function splitClientPayment(state,saleIds,totalCents,date=null){
+export function splitClientPayment(state,saleIds,totalCents,date=null,application='auto'){
  const ids=[...new Set(saleIds)];
  if(!ids.length||!Number.isSafeInteger(totalCents)||totalCents<=0)throw Error('Ingresa un total de abono válido.');
  const rows=ids.map(id=>{
@@ -72,9 +79,16 @@ export function splitClientPayment(state,saleIds,totalCents,date=null){
   const terms=monthlyLotTerms(state,lot.id);
   if(!terms?.monthlyCents)throw Error('Revisa la cuota mensual de cada solar.');
   const paid=Math.round(Number(sale.openingPaid||0)*100)+(state.payments||[]).filter(p=>p.saleId===id&&!p.voidedAt&&!['voided','cancelled'].includes(p.status)).reduce((n,p)=>n+Math.round(Number(p.amount)*100),0);
-  return {saleId:id,clientId:sale.clientId,residenceId:lot.residenceId,date:sale.date,weight:terms.monthlyCents,remaining:Math.max(0,Math.round(Number(sale.price)*100)-paid),cents:0};
+  return {saleId:id,clientId:sale.clientId,residenceId:lot.residenceId,date:sale.date,weight:terms.monthlyCents,primaRemaining:Math.max(0,terms.downCents-paid),remaining:Math.max(0,Math.round(Number(sale.price)*100)-paid),cents:0};
  });
  if(new Set(rows.map(r=>r.clientId)).size!==1||new Set(rows.map(r=>r.residenceId)).size!==1)throw Error('El abono debe pertenecer a un cliente y una residencial.');
+ const primaTotal=rows.reduce((n,r)=>n+r.primaRemaining,0);
+ // No distribuir una prima por el peso de las mensualidades: cada solar
+ // recibe solamente lo que aún le falta de prima, en centavos.
+ if(application==='prima'||(application==='auto'&&totalCents<=primaTotal)){
+  if(totalCents>primaTotal)throw Error('El monto supera la prima pendiente. Prima pendiente total: L '+(primaTotal/100).toFixed(2));
+  for(const row of rows){row.remaining=row.primaRemaining;row.weight=row.primaRemaining;}
+ }
  if(totalCents>rows.reduce((n,r)=>n+r.remaining,0))throw Error('El total supera el saldo pendiente de los solares.');
  let rest=totalCents;
  while(rest>0){

@@ -21,7 +21,19 @@ function monthlyRefresh(){
  if(info.known&&ids.length>1)for(const id of ids){const l=getLot(id),t=monthlyLotTerms(db,id),row=document.createElement('p');row.className='sm';row.textContent='Etapa '+(l?.stage||'—')+' · Bloque '+(l?.block||'—')+' · Solar '+(l?.sourceNumber||l?.number||id)+': '+money(t.monthlyCents/100)+' al mes';banner.append(row);}
 }
 const monthlyBasePlanPayment=planMultiPayment;
-planMultiPayment=function(draft,data){const rows=monthlyBasePlanPayment(draft,data);for(const r of rows)assertMonthlyPayment(db,[getSale(r.saleId).lotId],Math.round(r.amount*100));return rows;};
+planMultiPayment=function(draft,data){
+ const application=data.paymentApplication||'auto';
+ const entries=Object.entries(draft?.amounts||{});
+ const positive=entries.filter(([id,v])=>String(v??'').trim()!==''&&Number(v)!==0);
+ const effective=entries.length>1?{...draft,amounts:Object.fromEntries(positive)}:draft;
+ const rows=monthlyBasePlanPayment(effective,data);
+ for(const r of rows){
+  const lotId=getSale(r.saleId).lotId,cents=Math.round(r.amount*100);
+  if(application==='prima'){assertPrimaPayment(db,lotId,cents);r.paymentApplication='prima';}
+  else assertMonthlyPayment(db,[lotId],cents);
+ }
+ return rows;
+};
 const monthlyBaseShowModal=showModal;
 showModal=function(...args){const result=monthlyBaseShowModal(...args);monthlyRefresh();return result;};
 const monthlyBaseSelected=renderPaymentSelected;
