@@ -365,6 +365,8 @@ function pmSalesDecorate(){
  historyBar.append(historyBtn);person.append(historyBar);
  const main=pmNode('div','pm-grid pm-sales-grid');
  const summary=pmCard('Resumen del contrato','layers');summary.body.id='pm-summary';
+ const statement=pmNode('button','btn pm-statement-launch','Estado de cuenta');statement.type='button';statement.setAttribute('aria-haspopup','dialog');statement.setAttribute('aria-label','Descargar o enviar estado de cuenta');statement.addEventListener('click',()=>pmOpenStatement(statement));summary.card.querySelector('h3').append(statement);
+
  const entry=pmCard('Registrar nuevo pago','wallet');entry.body.append(fields);
  if(ocr)shell.append(ocr);
  if(total){total.style.display='none';entry.body.append(total);}
