@@ -127,6 +127,8 @@ function pmHistoryEditPlan(state,receiptId,changes,actor,reason,rebuild,receiptR
  const parsed=new Date(date+'T12:00:00Z');
  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(+parsed)||parsed.toISOString().slice(0,10)!==date||date>today||linked.some(s=>date<s.date))throw Error('La fecha debe ser válida, no futura ni anterior al contrato.');
  if(!method||method.length>80)throw Error('Indica un método de pago válido.');
+ const paymentType=String(changes.paymentType||'keep');
+ if(!['keep','prima','abono'].includes(paymentType))throw Error('Selecciona un tipo de pago válido.');
  const reference=String(changes.reference||'').trim();
  const normalized=receiptRules.requireReceiptCorrelativo(reference);
  const without={...state,payments:original.filter(p=>!ids.has(p.id))};
@@ -136,7 +138,14 @@ function pmHistoryEditPlan(state,receiptId,changes,actor,reason,rebuild,receiptR
   const old=original.find(x=>x.id===p.id),raw=String(changes.amounts?.[p.id]??'').replace(/,/g,'').trim();
   if(!/^\d+(?:\.\d{1,2})?$/.test(raw)||!Number.isSafeInteger(Math.round(Number(raw)*100))||Number(raw)<=0)throw Error('Ingresa un monto positivo con hasta dos decimales para cada solar.');
   p.amount=Number(raw);p.date=date;p.method=method;p.receiptReference=reference;p.receiptReferenceNormalized=normalized;
-  if(p.amount!==Number(old.amount))changedAmounts.add(p.id);
+  if(paymentType!=='keep'){
+   p.concept=paymentType==='prima'?'Prima atrasada':'Abono mensual';
+   p.paymentApplication=paymentType;
+   // Evitar que una clasificación anterior como prima o abono prevalezca.
+   if(/^(?:prima|abono|installment)$/i.test(String(p.kind||'')))p.kind=paymentType==='prima'?'prima':'installment';
+   if(/^(?:prima|abono|installment)$/i.test(String(p.type||'')))p.type=paymentType==='prima'?'prima':'installment';
+  }
+  if(p.amount!==Number(old.amount)||paymentType!=='keep')changedAmounts.add(p.id);
  }
  const oldIndex=new Map(original.map(p=>[p.id,p]));
  for(const p of [...next.payments].reverse()){
@@ -151,6 +160,11 @@ function pmHistoryEditPlan(state,receiptId,changes,actor,reason,rebuild,receiptR
    if(p.historicalImportId||!old.receiptInfo||!Array.isArray(old.receiptInfo.allocations)||(state.historicalPayments||[]).some(h=>h.postedPaymentId===p.id))throw Error('Hay recibos sin detalle verificable. Requiere conciliación.');
    const newInfo=rebuild(p,before/100);
    if(!newInfo||!Array.isArray(newInfo.allocations))throw Error('No fue posible recalcular las cuotas.');
+   const primaCents=newInfo.allocations.filter(a=>!a.number&&/prima/i.test(String(a.label||''))).reduce((n,a)=>n+Math.round(Number(a.amount||0)*100),0);
+   const installmentCents=newInfo.allocations.filter(a=>Number(a.number)>0).reduce((n,a)=>n+Math.round(Number(a.amount||0)*100),0);
+   const amountCents=Math.round(Number(p.amount)*100);
+   if(p.paymentApplication==='prima'&&primaCents!==amountCents)throw Error('El monto de prima atrasada supera la prima pendiente del solar en ese recibo. Revisa los pagos previos o corrige el importe.');
+   if(p.paymentApplication==='abono'&&installmentCents!==amountCents)throw Error('El abono no puede aplicarse íntegramente a cuotas porque todavía hay prima pendiente. Registra primero la prima correspondiente.');
    if(/\bprima\b/i.test(String(p.concept||''))&&newInfo.allocations.some(a=>a.number))throw Error('Una prima no puede convertirse en cuota mediante edición.');
    if(!ids.has(p.id))corrected.push({id:p.id,previousReceiptInfo:old.receiptInfo});
    p.receiptInfo={...old.receiptInfo,...newInfo};
@@ -174,6 +188,12 @@ function pmHistoryEditForm(row,item){
  const date=field('Fecha de pago',selected.date,'date');date.max=businessToday();
  const reference=field('Correlativo',pmHistoryReference(selected));reference.inputMode='numeric';reference.maxLength=80;reference.style.color='#b42332';
  const method=field('Método de pago',selected.method);method.maxLength=80;
+ const typeLabel=pmNode('label','','Tipo de pago'),paymentType=pmNode('select');
+ for(const [value,label] of [['keep','Conservar tipo actual'],['prima','Prima atrasada (no es cuota)'],['abono','Abono mensual']]){
+  const option=pmNode('option','',label);option.value=value;paymentType.append(option);
+ }
+ paymentType.value='keep';typeLabel.append(paymentType);form.append(typeLabel);
+ form.append(pmNode('small','pm-help','Tipo actual: '+(selected.concept||'Pago')+'. La prima atrasada cubre únicamente prima pendiente; el abono cubre cuotas una vez completada la prima.'));
  const inputs=new Map(),total=pmNode('strong','','');
  const update=()=>{total.textContent='Total del recibo: '+money([...inputs.values()].reduce((n,x)=>n+(Number(x.value.replace(/,/g,''))||0),0));};
  for(const p of group){
@@ -192,7 +212,7 @@ function pmHistoryEditForm(row,item){
   try{
    if(typeof contractIntakeAdmin!=='function'||!contractIntakeAdmin()||typeof window.lotigestConfirmAdminPin!=='function')throw Error('Se requiere administrador con la nube sincronizada.');
    if(JSON.stringify(db)!==snapshot)throw Error('Los datos cambiaron. Cierra y vuelve a abrir el historial.');
-   const plan=pmHistoryEditPlan(db,row.receiptId,{date:date.value,reference:reference.value,method:method.value,amounts:Object.fromEntries([...inputs].map(([id,input])=>[id,input.value]))},cloudUser.name,why.value,buildReceiptInfo,window.lotigestOwnerPayments,businessToday());
+   const plan=pmHistoryEditPlan(db,row.receiptId,{date:date.value,reference:reference.value,method:method.value,paymentType:paymentType.value,amounts:Object.fromEntries([...inputs].map(([id,input])=>[id,input.value]))},cloudUser.name,why.value,buildReceiptInfo,window.lotigestOwnerPayments,businessToday());
    window.lotigestConfirmAdminPin(pin.value);pin.value='';save.disabled=true;cancel.disabled=true;
    cloudWrite(JSON.stringify(plan.state));db=plan.state;await cloudFlush();
    const confirmed=cloudReady&&!cloudBlocked&&!cloudOffline&&cloudQueue&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed;
