@@ -1,5 +1,5 @@
 // Historial de abonos por fecha; las anulaciones exigen confirmación administrativa.
-let pmHistoryLayer=null;
+let pmHistoryLayer=null,pmReportsReturnFocus=null;
 function pmHistoryReference(p){
  // El folio original es texto: no convertir a Number ni usar el ID interno.
  return String(p.receiptReference||p.receiptRef||p.originalReceiptRef||p.receiptReferenceNormalized||'').trim();
@@ -268,12 +268,13 @@ function pmHistoryVoidForm(row,item){
  });
  item.append(form);pin.focus();
 }
-function pmClosePaymentHistory(){
+function pmClosePaymentHistory(restore=true){
  if(pmHistoryLayer){pmHistoryLayer.remove();pmHistoryLayer=null;}
+ if(restore){const target=pmReportsReturnFocus;pmReportsReturnFocus=null;if(target?.isConnected)target.focus();}
 }
-function pmOpenPaymentHistory(){
+function pmOpenPaymentHistory(fromReports=false){
  const rows=pmHistoryRows();
- pmClosePaymentHistory();
+ pmClosePaymentHistory(false);
  const layer=pmNode('div','pm-history-layer'),shade=pmNode('div','pm-history-shade');
  const dialog=pmNode('section','pm-history-window');
  dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');
@@ -284,7 +285,9 @@ function pmOpenPaymentHistory(){
  heading.append(title,pmNode('p','pm-help','Recibos ordenados del más reciente al más antiguo. Cada fecha muestra el pago recibido, el solar y las cuotas aplicadas.'));
  const close=pmNode('button','btn btn-soft pm-history-close','Cerrar ×');
  close.type='button';close.dataset.pmHistoryClose='true';
- header.append(heading,close);
+ header.append(heading);
+ if(fromReports){const back=pmNode('button','btn btn-outline btn-sm','‹ Reportes');back.type='button';back.addEventListener('click',()=>pmOpenReports(pmReportsReturnFocus));header.append(back);}
+ header.append(close);
  const filters=pmNode('div','pm-history-filters');
  const start=pmNode('label','','Desde'),from=pmNode('input');
  from.type='date';from.id='pm-history-from';start.append(from);
@@ -335,13 +338,13 @@ function pmOpenPaymentHistory(){
  from.addEventListener('change',render);to.addEventListener('change',render);
  text.addEventListener('input',render);
  clear.addEventListener('click',()=>{from.value='';to.value='';text.value='';render();});
- layer.append(shade,dialog);dialog.append(header);if(pmActive==='sale')dialog.append(pmAmortizationActions());dialog.append(filters,count,list);
+ layer.append(shade,dialog);dialog.append(header,filters,count,list);
  layer.addEventListener('click',e=>{
   if(e.target===shade||e.target.closest('[data-pm-history-close]')){pmClosePaymentHistory();return;}
   if(e.target.closest('[data-action="receipt-preview"],[data-action="owner-payment-receipt"]'))
    pmClosePaymentHistory(); // deja que el manejador de recibos del programa abra el PDF
  });
- layer.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();pmClosePaymentHistory();}});
+ pmReportsKeyboard(layer,dialog);
  document.body.append(layer);pmHistoryLayer=layer;render();close.focus();
 }
 
@@ -580,29 +583,47 @@ function pmAmortizationChoices(state,clientId,rid){
   return {id:s.lotId,label:'Etapa '+(l.stage||'—')+' · Bloque '+(l.block||'—')+' · Solar '+(l.sourceNumber||l.number||l.id)};
  }).sort((a,b)=>a.label.localeCompare(b.label,'es',{numeric:true}));
 }
-function pmAmortizationActions(){
- const actions=pmNode('div','pm-history-toolbar'),open=pmNode('button','btn btn-outline btn-sm','Amortización PDF');
- open.type='button';open.setAttribute('aria-expanded','false');
- const panel=pmNode('div','pm-history-item-body');panel.hidden=true;
- const label=pmNode('label','','Elige los solares del reporte'),select=pmNode('select');select.setAttribute('aria-label','Alcance de amortización');
- label.append(select);panel.append(label);
- const note=pmNode('p','pm-help','El reporte individual incluye solo los importes asignados a ese solar.');
- panel.append(note);let client=null;
- for(const [title,share] of [['Descargar PDF',false],['Compartir PDF',true]]){
-  const b=pmNode('button','btn btn-outline btn-sm',title);b.type='button';
-  b.addEventListener('click',()=>pmDeliverAmortization(share,select.value||null,client));panel.append(b);
- }
- open.addEventListener('click',()=>{
-  if(!panel.hidden){panel.hidden=true;open.setAttribute('aria-expanded','false');return;}
-  try{
-   const clients=new Set(pmSales().map(s=>s.clientId));if(clients.size!==1)throw Error('Selecciona un solo cliente.');
-   client=[...clients][0];const choices=pmAmortizationChoices(db,client,residence().id);
-   if(!choices.length)throw Error('No hay contratos vigentes para este cliente.');
-   select.replaceChildren();
-   const all=pmNode('option','','Todos los solares ('+choices.length+') · Consolidado');all.value='';select.append(all);
-   for(const choice of choices){const option=pmNode('option','',choice.label);option.value=choice.id;select.append(option);}
-   panel.hidden=false;open.setAttribute('aria-expanded','true');select.focus();
-  }catch(e){toast(e.message,'error');}
+function pmReportsKeyboard(layer,dialog){
+ layer.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){e.preventDefault();e.stopPropagation();pmClosePaymentHistory();return;}
+  if(e.key!=='Tab')return;
+  const controls=[...dialog.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex="0"]')].filter(el=>el.getClientRects().length);
+  if(!controls.length)return;
+  const first=controls[0],last=controls.at(-1);
+  if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+  else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
  });
- actions.append(open,panel);return actions;
+}
+function pmOpenReports(trigger=null){
+ if(!['sale','owner'].includes(pmActive))return;
+ pmClosePaymentHistory(false);if(trigger?.isConnected)pmReportsReturnFocus=trigger;
+ const layer=pmNode('div','pm-history-layer pm-reports-layer'),shade=pmNode('div','pm-history-shade');
+ const dialog=pmNode('section','pm-history-window pm-reports-window');
+ dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-labelledby','pm-reports-title');
+ const header=pmNode('div','pm-history-head'),heading=pmNode('div'),title=pmNode('h2','','Reportes de pagos');
+ title.id='pm-reports-title';heading.append(title,pmNode('p','','Selecciona el reporte que deseas consultar o compartir.'));
+ const close=pmNode('button','btn btn-soft','Cerrar ×');close.type='button';close.addEventListener('click',()=>pmClosePaymentHistory());header.append(heading,close);
+ const content=pmNode('div','pm-reports-content');
+ const history=pmNode('section','pm-report-option');
+ history.append(pmNode('h3','','Historial de pagos por fecha'),pmNode('p','','Consulta los depósitos reales, correlativos y recibos registrados.'));
+ const open=pmNode('button','btn btn-outline','Abrir historial');open.type='button';open.addEventListener('click',()=>pmOpenPaymentHistory(true));history.append(open);content.append(history);
+ if(pmActive==='sale'){
+  const clients=new Set(pmSales().map(s=>s.clientId));
+  const client=clients.size===1?[...clients][0]:null;
+  const choices=client?pmAmortizationChoices(db,client,residence().id):[];
+  const report=pmNode('section','pm-report-option');
+  report.append(pmNode('h3','','Amortización PDF'),pmNode('p','','Reporte individual por solar o consolidado de todos los terrenos.'));
+  const label=pmNode('label','','Seleccionar solares'),select=pmNode('select');select.setAttribute('aria-label','Solares del reporte');label.append(select);report.append(label);
+  const all=pmNode('option','','Todos los solares ('+choices.length+') · Consolidado');all.value='';select.append(all);
+  for(const choice of choices){const option=pmNode('option','',choice.label);option.value=choice.id;select.append(option);}
+  select.disabled=!choices.length;
+  const buttons=pmNode('div','pm-report-buttons');
+  for(const [name,share] of [['Descargar PDF',false],['Compartir PDF',true]]){
+   const b=pmNode('button',share?'btn btn-outline':'btn btn-primary',name);b.type='button';b.disabled=!choices.length;
+   b.addEventListener('click',()=>pmDeliverAmortization(share,select.value||null,client));buttons.append(b);
+  }
+  report.append(buttons);if(!choices.length)report.append(pmNode('p','','Selecciona un cliente con contrato vigente para emitir el PDF.'));content.append(report);
+ }
+ dialog.append(header,content);layer.append(shade,dialog);shade.addEventListener('click',()=>pmClosePaymentHistory());pmReportsKeyboard(layer,dialog);
+ document.body.append(layer);pmHistoryLayer=layer;close.focus();
 }

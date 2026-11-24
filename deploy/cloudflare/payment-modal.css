@@ -530,3 +530,32 @@ body.lotigest-dark #modal-root .lg-payment-modern .pm-correlativo-control input[
 #modal-root .lg-payment-modern .pm-month.excess-covered{background:#e4efff!important;color:#194f9d!important;border-color:#6e9dde!important}
 #modal-root .lg-payment-modern .pm-month.excess-covered :is(.pm-due-day,.pm-today-day){color:#194f9d!important}
 #modal-root .lg-payment-modern .pm-dot.excess-covered{background:#367ac6!important}
+
+/* Abonos: aprovechar casi toda la pantalla sin expandir controles de reportes. */
+#modal-root .lg-payment-modern .pm-history-toolbar{display:flex;justify-content:flex-end;align-items:center;gap:6px;min-height:0}
+#modal-root .lg-payment-modern .pm-history-launch{flex:0 0 auto;min-height:35px;padding:7px 20px;white-space:nowrap}
+@media(min-width:761px){
+ #modal-root .modal-cover:has(.lg-payment-modern){padding:6px}
+ #modal-root .lg-payment-modern{width:min(1600px,calc(100vw - 12px))!important;max-width:1600px!important;height:calc(100dvh - 12px)!important;max-height:calc(100dvh - 12px)!important;border-radius:17px}
+ #modal-root .lg-payment-modern .modal-header{padding:11px 20px}
+ #modal-root .lg-payment-modern .modal-header>div:before{width:40px;height:40px;font-size:21px}
+ #modal-root .lg-payment-modern .modal-header>div{padding-left:53px}
+ #modal-root .lg-payment-modern .modal-header p{margin-top:2px}
+ #modal-root .lg-payment-modern .modal-content{padding:10px 14px}
+ #modal-root .lg-payment-modern .modal-footer{padding:8px 14px;gap:7px}
+ #modal-root .lg-payment-modern .modal-footer>.btn{min-height:39px}
+ .pm-history-window{width:min(1440px,100%);height:calc(100dvh - 30px);max-height:calc(100dvh - 30px)}
+ .pm-history-list{flex:1;align-content:start}
+ .pm-history-window.pm-reports-window{height:auto;max-width:900px}
+}
+.pm-history-layer .pm-reports-content{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;overflow:auto;min-height:0;padding:3px}
+.pm-history-layer .pm-report-option{border:1px solid #d5e4db;background:#f7fbf8;border-radius:12px;padding:17px;display:flex;flex-direction:column;align-items:stretch;gap:10px;min-width:0}
+.pm-history-layer .pm-report-option h3{color:#174c32;font-size:17px;margin:0}
+.pm-history-layer .pm-report-option p{font-size:13px;color:#50695a;margin:0}
+.pm-history-layer .pm-report-option label{display:grid;gap:6px;font-weight:700;font-size:13px}
+.pm-history-layer .pm-report-option select{width:100%;min-width:0;min-height:40px;border:1px solid #a5c6b1;border-radius:8px;background:white;color:#173e2a;padding:7px;box-sizing:border-box}
+.pm-history-layer .pm-report-buttons{display:flex;flex-wrap:wrap;gap:8px}
+.pm-history-layer .pm-report-buttons .btn{flex:1;min-height:40px;white-space:normal}
+.pm-history-layer .pm-report-option>.btn{margin-top:auto}
+.pm-history-layer .pm-history-head>div{flex:1;min-width:0}
+@media(max-width:760px){.pm-history-layer .pm-reports-content{grid-template-columns:1fr}.pm-history-layer .pm-history-head{flex-wrap:wrap}}
