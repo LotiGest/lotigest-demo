@@ -349,11 +349,51 @@ function pmOpenPaymentHistory(){
 
  // Consolidación por mes calendario, no por cantidad de solares. Las
  // aplicaciones se toman de recibos conciliados, sin mover dinero entre solares.
+
+ // Proyección de presentación: mensualidad verificada del recibo al mes del
+ // depósito, luego deuda anterior más antigua, y finalmente meses futuros.
+ // No escribe pagos ni utiliza la prima como mensualidad.
+function pmReportCurrentMonthFirst(originalRows,payments,asOf){
+ const rows=originalRows.map(r=>({...r,appliedCents:0,confirmedCents:0,advanceCents:0,remainingCents:r.dueCents,receipts:[],lastPaidAt:null}));
+ const verified=new Map();
+ for(const r of originalRows)for(const p of r.receipts){
+  const prior=verified.get(p.paymentId)||{saleId:r.saleId,cents:0};
+  if(prior.saleId!==r.saleId)throw Error('Recibo aplicado a otro solar.');
+  prior.cents+=p.amountCents;verified.set(p.paymentId,prior);
+ }
+ for(const p of [...payments].sort((a,b)=>a.date.localeCompare(b.date)||String(a.recordedAt||'').localeCompare(String(b.recordedAt||''))||a.id.localeCompare(b.id))){
+  const v=verified.get(p.id);if(!v)continue;
+  let remaining=v.cents;
+  if(v.saleId!==p.saleId||remaining>Math.round(Number(p.amount)*100))throw Error('La aplicación verificada supera el recibo.');
+  const month=p.date.slice(0,7),available=rows.filter(r=>r.saleId===p.saleId&&r.remainingCents>0).sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
+  const sequence=[...available.filter(r=>r.dueDate.slice(0,7)===month),...available.filter(r=>r.dueDate.slice(0,7)<month),...available.filter(r=>r.dueDate.slice(0,7)>month)];
+  for(const row of sequence){
+   if(!remaining)break;
+   const value=Math.min(remaining,row.remainingCents),target=row.dueDate.slice(0,7),advance=month<target;
+   remaining-=value;row.remainingCents-=value;row.appliedCents+=value;
+   if(advance)row.advanceCents+=value;else row.confirmedCents+=value;
+   row.receipts.push({paymentId:p.id,date:p.date,amountCents:value,groupId:p.groupId||p.id,method:p.method||'',advance});
+  }
+  if(remaining)throw Error('No se pudo aplicar el importe mensual verificado.');
+ }
+ for(const row of rows){
+  row.lastPaidAt=row.receipts.map(r=>r.date).sort().at(-1)||null;
+  row.coveredByAdvance=row.dueCents>0&&!row.remainingCents&&row.advanceCents>0;
+  row.status=row.dueCents>0&&!row.remainingCents?(row.coveredByAdvance?'advance-covered':row.lastPaidAt>row.dueDate?'paid-late':'paid'):row.dueDate<asOf?'late':row.appliedCents?'partial':'pending';
+ }
+ return rows;
+}
+function pmReportPaymentStatus(row,asOf){
+ if(!row.dueCents)return 'Sin cuota';
+ if(!row.remainingCents)return 'Pagada';
+ if(row.appliedCents)return row.receipts.some(r=>r.date.slice(0,7)!==row.dueDate.slice(0,7))?'Abono con excedente':'Abono parcial';
+ return row.dueDate<asOf?'Pendiente vencida':'Pendiente';
+}
 function pmConsolidatedMonths(rows,payments,asOf){
- const months=new Map(),groups=new Map(),byPayment=new Map();
+ const months=new Map(),groups=new Map(),byPayment=new Map(),paymentIndex=new Map(payments.map(p=>[p.id,p]));
  const cash=p=>Math.round(Number(p.amount)*100);
  const monthFor=key=>{
-  if(!months.has(key))months.set(key,{month:key,due:0,applied:0,pending:0,overdue:0,received:0,monthlyReceived:0,priorApplied:0,currentApplied:0,futureApplied:0,rows:[],sourceMonths:new Set()});
+  if(!months.has(key))months.set(key,{month:key,due:0,applied:0,pending:0,overdue:0,received:0,monthlyReceived:0,priorApplied:0,currentApplied:0,futureApplied:0,rows:[],sourceMonths:new Set(),sources:new Map(),excessApplied:0});
   return months.get(key);
  };
  for(const row of rows){
@@ -361,6 +401,8 @@ function pmConsolidatedMonths(rows,payments,asOf){
   if(row.dueDate<asOf)m.overdue+=row.remainingCents;
   for(const receipt of row.receipts){
    const key=receipt.date.slice(0,7);m.sourceMonths.add(key);
+   const p=paymentIndex.get(receipt.paymentId),ref=p?(pmHistoryReference(p)||'Sin folio'):'Sin folio',sourceKey=key+' / '+ref;
+   if(key!==m.month){m.excessApplied+=receipt.amountCents;m.sources.set(sourceKey,(m.sources.get(sourceKey)||0)+receipt.amountCents);}
    if(!byPayment.has(receipt.paymentId))byPayment.set(receipt.paymentId,[]);
    byPayment.get(receipt.paymentId).push({month:m.month,amount:receipt.amountCents});
   }
@@ -393,7 +435,7 @@ function pmConsolidatedMonths(rows,payments,asOf){
   const late=covered&&m.rows.some(r=>r.lastPaidAt>r.dueDate),early=covered&&m.rows.every(r=>r.lastPaidAt&&r.lastPaidAt<r.dueDate);
   const noDeposit=m.month<=cutoff&&m.received===0;
   const status=!due?'Sin cuota programada':covered?(late?'Pagada atrasada':early?'Pagada adelantada':'Pagada'):m.overdue?(m.applied?'Vencida parcial':'Vencida sin pagar'):m.applied?'Parcial':'Pendiente';
-  return {...m,sourceMonths:[...m.sourceMonths].sort(),covered,late,noDeposit,closed,status,excess:m.monthlyReceived-m.due};
+  return {...m,sourceMonths:[...m.sourceMonths].sort(),sources:[...m.sources.entries()].sort((a,b)=>a[0].localeCompare(b[0])),covered,late,noDeposit,closed,status,reportStatus:!due?'Sin cuota':covered?'Pagada':m.applied?(m.excessApplied?'Abono con excedente':'Abono parcial'):m.overdue?'Pendiente vencida':'Pendiente',excess:m.monthlyReceived-m.due};
  });
  const receipts=[...groups.values()].sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id)).map(g=>{
   const base=months.get(g.date.slice(0,7))?.due||0;
@@ -413,17 +455,17 @@ function pmAmortizationModel(state,clientId,rid,asOf,reconcile,dueCents,addMonth
  if(all.some(p=>p.historicalImportId||posted.has(p.id)))throw Error('Concilia los cobros importados contabilizados antes de emitir el reporte.');
  const cents=x=>Math.round(Number(x||0)*100),sum=(arr,fn)=>arr.reduce((n,x)=>n+fn(x),0);
  if(all.some(p=>!p.date||!Number.isSafeInteger(cents(p.amount))||cents(p.amount)<=0))throw Error('Hay pagos sin fecha o importe válido.');
- const payments=all.filter(p=>p.date<=asOf),ledger=reconcile(sales,payments,asOf,dueCents,addMonth);
+ const payments=all.filter(p=>p.date<=asOf),ledger=reconcile(sales,payments,asOf,dueCents,addMonth),projected=pmReportCurrentMonthFirst(ledger.rows,payments,asOf);
  const status=x=>!x.dueCents?'Sin importe':!x.remainingCents?(x.lastPaidAt>x.dueDate?'Pagada atrasada':x.lastPaidAt<x.dueDate?'Pagada adelantada':'Pagada'):x.dueDate<asOf?(x.appliedCents?'Vencida parcial':'Vencida sin pagar'):x.appliedCents?'Parcial':'Pendiente';
  const details=sales.map(s=>{
-  const lot=scope.lots.find(l=>l.id===s.lotId),rows=ledger.rows.filter(x=>x.saleId===s.id).map(x=>({...x,displayStatus:status(x)}));
+  const lot=scope.lots.find(l=>l.id===s.lotId),rows=projected.filter(x=>x.saleId===s.id).map(x=>({...x,displayStatus:status(x),reportStatus:pmReportPaymentStatus(x,asOf)}));
   if(s.type==='credit'&&rows.length!==Number(s.months))throw Error('Calendario incompleto: revisa fechas y plazo.');
   const list=payments.filter(p=>p.saleId===s.id).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
   const price=cents(s.price),agreed=cents(s.downPayment),opening=cents(s.openingPaid),paid=opening+sum(list,p=>cents(p.amount));
   let balance=price-opening;
   const history=list.map(p=>{
    balance-=cents(p.amount);
-   const app=rows.filter(x=>x.receipts.some(a=>a.paymentId===p.id)).map(x=>'C'+x.number+' '+x.dueDate.slice(0,7)+(p.date>x.dueDate?' atrasada':p.date<x.dueDate?' adelanto':''));
+   const app=ledger.rows.filter(x=>x.saleId===s.id&&x.receipts.some(a=>a.paymentId===p.id)).map(x=>'C'+x.number+' '+x.dueDate.slice(0,7));
    const prima=sum((p.receiptInfo?.allocations||[]).filter(a=>!a.number&&/prima/i.test(String(a.label||''))),a=>cents(a.amount));
    if(prima)app.unshift('Prima L '+(prima/100).toFixed(2));
    return {date:p.date,reference:pmHistoryReference(p)||'Sin folio',concept:p.concept||'Pago',amount:cents(p.amount),balance,application:app.join('; ')||'Aplicación por verificar'};
@@ -433,7 +475,7 @@ function pmAmortizationModel(state,clientId,rid,asOf,reconcile,dueCents,addMonth
  const price=sum(details,x=>x.price),paid=sum(details,x=>x.paid),agreed=sum(details,x=>x.agreed),prima=sum(details,x=>x.primaApplied);
  const rows=details.flatMap(x=>x.rows),pending=rows.filter(x=>x.remainingCents>0).sort((a,b)=>a.dueDate.localeCompare(b.dueDate)),overdue=pending.filter(x=>x.dueDate<asOf);
  const consolidated=pmConsolidatedMonths(rows,payments,asOf);
- return {consolidated,individual:lotId!==null,client:client.name,residence:state.residences?.find(x=>x.id===rid)?.name||'Residencial',company:state.company?.name||'GRUPO H',asOf,details,price,paid,agreed,prima,balance:price-paid,opening:sum(details,x=>x.opening),abonos:Math.max(0,paid-prima),count:rows.length,covered:rows.filter(x=>x.dueCents>0&&!x.remainingCents).length,latePaid:rows.filter(x=>x.displayStatus==='Pagada atrasada').length,overdueCount:overdue.length,overdueAmount:sum(overdue,x=>x.remainingCents),next:pending[0]||null,last:payments.map(p=>p.date).sort().at(-1)||null,unmatched:ledger.unmatched.length};
+ return {consolidated,policy:'current-month-first',individual:lotId!==null,client:client.name,residence:state.residences?.find(x=>x.id===rid)?.name||'Residencial',company:state.company?.name||'GRUPO H',asOf,details,price,paid,agreed,prima,balance:price-paid,opening:sum(details,x=>x.opening),abonos:Math.max(0,paid-prima),count:rows.length,covered:rows.filter(x=>x.dueCents>0&&!x.remainingCents).length,latePaid:rows.filter(x=>x.displayStatus==='Pagada atrasada').length,overdueCount:overdue.length,overdueAmount:sum(overdue,x=>x.remainingCents),next:pending[0]||null,last:payments.map(p=>p.date).sort().at(-1)||null,unmatched:ledger.unmatched.length};
 }
 function pmAmortizationPdf(model){
  const green='0.045 0.30 0.17',light='0.90 0.96 0.89',ink='0.10 0.18 0.15',red='0.70 0.12 0.16',orange='0.70 0.34 0.08',blue='0.12 0.35 0.62',gray='0.38 0.43 0.40';
