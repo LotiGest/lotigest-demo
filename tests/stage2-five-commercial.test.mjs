@@ -51,7 +51,8 @@ test('conservar las calles, la franja de 8 metros y la alineación GPS previa',(
   assert.ok(samples.some(p=>Math.hypot(p[0]-edge[0],p[1]-edge[1])<0.03),
    'La calle única debe empalmar con el pavimento existente');
  }
- assert.match(html,/arrayanRoadMarkup\\+arrayanStage2CommercialStreetSvg\\(\\)/);
+ assert.ok(html.includes('arrayanRoadMarkup+arrayanStage2CommercialStreetSvg()'));
+
  assert.match(gps,/arrayanStage2CommercialStreetPoints/);
  assert.match(gps,/features\.length-added/);
  assert.match(gps,/isArrayanStage2CommercialFive/);
