@@ -8,8 +8,8 @@ const buildSource=readFileSync(new URL('../deploy/cloudflare/build.mjs',import.m
 const css=readFileSync(new URL('../deploy/cloudflare/payment-modal.css',import.meta.url),'utf8');
 function model(extra={}){
  const payments=[
-  {id:'P-1',groupId:'RC-7',saleId:'S-1',date:'2026-04-20',amount:1000,method:'Efectivo',concept:'Abono',receiptInfo:{allocations:[{number:3,month:'2026-05',amount:1000}]}},
-  {id:'P-2',groupId:'RC-7',saleId:'S-2',date:'2026-04-20',amount:2000,method:'Efectivo',concept:'Abono',receiptInfo:{allocations:[{number:3,month:'2026-05',amount:2000}]}},
+  {id:'P-1',groupId:'RC-7',receiptReference:'00006159',saleId:'S-1',date:'2026-04-20',amount:1000,method:'Efectivo',concept:'Abono',receiptInfo:{allocations:[{number:3,month:'2026-05',amount:1000}]}},
+  {id:'P-2',groupId:'RC-7',receiptReference:'00006159',saleId:'S-2',date:'2026-04-20',amount:2000,method:'Efectivo',concept:'Abono',receiptInfo:{allocations:[{number:3,month:'2026-05',amount:2000}]}},
   {id:'PR-1',saleId:'S-1',date:'2026-01-20',amount:30000,concept:'Prima',receiptInfo:{allocations:[{label:'Prima inicial',amount:30000}]}}
  ];
  const ctx={pmActive:'sale',pmSales:()=>[{id:'S-1',lotId:'L-1'},{id:'S-2',lotId:'L-2'}],
@@ -26,6 +26,11 @@ test('recibo compartido entre dos solares se agrupa una sola vez y ordena por fe
  assert.equal(rows[0].amountCents,300000);
  assert.equal(rows[0].lots.size,2);
  assert.equal(rows[0].receiptId,'P-1');
+ assert.equal(rows[0].reference,'00006159');
+ assert.equal(rows[1].reference,'');
+ assert.equal(vm.runInContext("pmHistoryMatches(pmHistoryRows()[0],'6159')",ctx),true);
+ assert.equal(vm.runInContext("pmHistoryMatches(pmHistoryRows()[0],'00006159')",ctx),true);
+ assert.equal(vm.runInContext("pmHistoryMatches(pmHistoryRows()[1],'6159')",ctx),false);
  assert.ok(rows[0].parts.join(' ').includes('adelantada'));
  assert.equal(rows[1].amountCents,3000000);
  assert.equal(rows[1].date,'2026-01-20');
