@@ -292,6 +292,11 @@ function pmRepaintSales(){
    summary.append(pmSummaryRow('Adelantos aplicados a meses futuros',money(advances/100)));
    summary.append(pmSummaryRow('Total contabilizado (prima y demás pagos)',money(paid)));
    summary.append(pmSummaryRow('Saldo restante actual',money(remaining),'pm-good'));
+   const regular=sales.filter(s=>s.type==='credit'&&Number(s.months)>0).map(s=>({sale:s,cents:installmentDueCents(s,1)}));
+   const amount=regular.reduce((n,s)=>n+s.cents,0);
+   for(const item of regular){const lot=getLot(item.sale.lotId);summary.append(pmSummaryRow('Cuota base · Solar '+(lot?.sourceNumber||lot?.number||lot?.id||'—'),money(item.cents/100),'pm-base-monthly'));}
+   if(regular.length)summary.append(pmSummaryRow('Cuota mensual base total ('+regular.length+' solar'+(regular.length===1?'':'es')+')',money(amount/100),'pm-monthly-total'));
+
    if(ledger.unmatched.length||sales.some(s=>Number(s.openingPaid)>0))
     summary.append(pmNode('p','pm-help','Hay movimientos históricos o saldos iniciales sin mes comprobado: se conservan en el saldo financiero, pero NO suman cuotas pagadas.'));
   }
@@ -345,27 +350,29 @@ function pmSalesDecorate(){
  const modal=pmModal('Registrar Pago / Abono','Registra un nuevo pago, abono o prima del cliente.');
  const grid=form.querySelector('.form-grid'),searchInput=form.querySelector('#multi-payment-search'),searchLabel=form.querySelector('label[for="multi-payment-search"]'),results=form.querySelector('#multi-payment-results'),selected=form.querySelector('#multi-payment-selected'),total=form.querySelector('#multi-payment-total'),error=form.querySelector('#multi-payment-error');
  if(!modal||!grid||!searchInput||!selected||!results)return;
+ modal.classList.add('pm-sales-wide');
  const ocr=pmQrOcr(form),fields=pmFields(grid,form);
- const shell=pmNode('div','pm-shell');
+ const shell=pmNode('div','pm-shell pm-sales-shell');
  const search=pmNode('section','pm-searchbox');search.id='pm-searchbox';if(searchLabel)search.append(searchLabel);search.append(searchInput,results);shell.append(search);
  const person=pmNode('div','pm-clientbar');
  const a=pmNode('div','pm-clientbox');a.innerHTML=pmIcon('users')+'<div><small>Cliente</small><strong id="pm-client-name"></strong><p id="pm-client-id"></p></div>';
  const b=pmNode('div','pm-clientbox');b.innerHTML=pmIcon('pin')+'<div><small>Solar(es) asignado(s)</small><div id="pm-lot-tags"></div></div>';
  person.append(a,b);shell.append(person);
- const last=pmNode('section','pm-last-payment');last.id='pm-last-payment';last.setAttribute('role','status');last.setAttribute('aria-live','polite');shell.append(last);
+ const last=pmNode('section','pm-last-payment');last.id='pm-last-payment';last.setAttribute('role','status');last.setAttribute('aria-live','polite');person.append(last);
  const historyBar=pmNode('div','pm-history-toolbar');
  const historyBtn=pmNode('button','btn btn-outline pm-history-launch','Reportes');
  historyBtn.type='button';historyBtn.dataset.pmReportsOpen='true';historyBtn.setAttribute('aria-haspopup','dialog');
- historyBar.append(historyBtn);shell.append(historyBar);
- const main=pmNode('div','pm-grid');
+ historyBar.append(historyBtn);person.append(historyBar);
+ const main=pmNode('div','pm-grid pm-sales-grid');
  const summary=pmCard('Resumen del contrato','layers');summary.body.id='pm-summary';
  const entry=pmCard('Registrar nuevo pago','wallet');entry.body.append(fields);
  if(ocr)shell.append(ocr);
  if(total){total.style.display='none';entry.body.append(total);}
  const dist=pmNode('div','pm-distribution');dist.id='pm-distribution';dist.append(pmNode('h4','','Distribución del abono por solar'));selected.classList.add('pm-selected');dist.append(selected);entry.body.append(dist);
  if(error){error.classList.add('pm-error');entry.body.append(error);}
- main.append(summary.card,entry.card);shell.append(main);
- const cal=pmCalendarCard([]);cal.querySelector('.pm-calendar-body').id='pm-calendar-body';shell.append(cal);
+ summary.card.classList.add('pm-contract-column');entry.card.classList.add('pm-entry-column');
+ const cal=pmCalendarCard([]);cal.querySelector('.pm-calendar-body').id='pm-calendar-body';
+ main.append(summary.card,cal,entry.card);shell.append(main);
  form.replaceChildren(shell);pmFooter(modal,'multi-payment-form');
  pmRepaintSales();
 }
