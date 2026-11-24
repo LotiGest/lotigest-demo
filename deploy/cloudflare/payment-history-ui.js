@@ -110,8 +110,100 @@ function pmHistoryCanVoid(row){
  return (db.payments||[]).filter(p=>selected.groupId?p.groupId===selected.groupId:p.id===selected.id)
   .every(p=>(db.sales||[]).some(s=>s.id===p.saleId&&s.type==='credit')&&!p.historicalImportId);
 }
+// Editar un recibo sin crear otro ni cambiar el cliente/solar.
+function pmHistoryEditPlan(state,receiptId,changes,actor,reason,rebuild,receiptRules,today){
+ const original=state.payments||[],selected=original.find(p=>p.id===receiptId);
+ if(!selected)throw Error('El recibo ya no existe.');
+ const group=original.filter(p=>selected.groupId?p.groupId===selected.groupId:p.id===selected.id);
+ const ids=new Set(group.map(p=>p.id)),sales=new Map((state.sales||[]).map(s=>[s.id,s])),lots=new Map((state.lots||[]).map(l=>[l.id,l]));
+ const linked=group.map(p=>sales.get(p.saleId));
+ if(linked.some(s=>!s||s.type!=='credit'||!lots.has(s.lotId))||new Set(linked.map(s=>s?.clientId)).size!==1||new Set(linked.map(s=>lots.get(s?.lotId)?.residenceId)).size!==1)
+  throw Error('Solo se pueden editar recibos de crédito del mismo cliente y residencial.');
+ if(group.some(p=>p.historicalImportId||p.voidedAt||p.deletedAt||['voided','cancelled'].includes(p.status))||
+  (state.historicalPayments||[]).some(p=>ids.has(p.postedPaymentId)))throw Error('Recibo histórico o anulado: requiere conciliación.');
+ if([...(state.cashEntries||[]),...(state.receipts||[])].some(p=>ids.has(p.paymentId)||(p.groupId&&p.groupId===selected.groupId)))throw Error('Revisa los movimientos vinculados en Caja antes de editar.');
+ const why=String(reason||'').trim(),date=String(changes.date||''),method=String(changes.method||'').trim();
+ if(why.length<5||why.length>300)throw Error('Escribe un motivo de 5 a 300 caracteres.');
+ const parsed=new Date(date+'T12:00:00Z');
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(+parsed)||parsed.toISOString().slice(0,10)!==date||date>today||linked.some(s=>date<s.date))throw Error('La fecha debe ser válida, no futura ni anterior al contrato.');
+ if(!method||method.length>80)throw Error('Indica un método de pago válido.');
+ const reference=String(changes.reference||'').trim();
+ const normalized=receiptRules.requireReceiptCorrelativo(reference);
+ const without={...state,payments:original.filter(p=>!ids.has(p.id))};
+ if(receiptRules.findReceiptCorrelativo(without,reference))throw Error('El correlativo ya corresponde a otro pago.');
+ const next=JSON.parse(JSON.stringify(state)),changedAmounts=new Set(),affected=new Set(linked.map(s=>s.id)),prior=new Map(),dirty=new Set(),corrected=[];
+ for(const p of next.payments.filter(p=>ids.has(p.id))){
+  const old=original.find(x=>x.id===p.id),raw=String(changes.amounts?.[p.id]??'').replace(/,/g,'').trim();
+  if(!/^\d+(?:\.\d{1,2})?$/.test(raw)||!Number.isSafeInteger(Math.round(Number(raw)*100))||Number(raw)<=0)throw Error('Ingresa un monto positivo con hasta dos decimales para cada solar.');
+  p.amount=Number(raw);p.date=date;p.method=method;p.receiptReference=reference;p.receiptReferenceNormalized=normalized;
+  if(p.amount!==Number(old.amount))changedAmounts.add(p.id);
+ }
+ const oldIndex=new Map(original.map(p=>[p.id,p]));
+ for(const p of [...next.payments].reverse()){
+  if(!affected.has(p.saleId))continue;
+  const sale=sales.get(p.saleId),before=prior.has(p.saleId)?prior.get(p.saleId):Math.round(Number(sale.openingPaid||0)*100);
+  if(p.voidedAt||p.deletedAt||['voided','cancelled'].includes(p.status))throw Error('Hay pagos anulados que requieren conciliación.');
+  const after=before+Math.round(Number(p.amount)*100);
+  if(after>Math.round(Number(sale.price)*100))throw Error('El importe supera el saldo del solar.');
+  if(changedAmounts.has(p.id))dirty.add(p.saleId);
+  if(dirty.has(p.saleId)){
+   const old=oldIndex.get(p.id);
+   if(p.historicalImportId||!old.receiptInfo||!Array.isArray(old.receiptInfo.allocations)||(state.historicalPayments||[]).some(h=>h.postedPaymentId===p.id))throw Error('Hay recibos sin detalle verificable. Requiere conciliación.');
+   const newInfo=rebuild(p,before/100);
+   if(!newInfo||!Array.isArray(newInfo.allocations))throw Error('No fue posible recalcular las cuotas.');
+   if(/\bprima\b/i.test(String(p.concept||''))&&newInfo.allocations.some(a=>a.number))throw Error('Una prima no puede convertirse en cuota mediante edición.');
+   if(!ids.has(p.id))corrected.push({id:p.id,previousReceiptInfo:old.receiptInfo});
+   p.receiptInfo={...old.receiptInfo,...newInfo};
+  }
+  prior.set(p.saleId,after);
+ }
+ next.paymentEditHistory??=[];
+ next.paymentEditHistory.push({at:new Date().toISOString(),by:String(actor||'Administrador'),reason:why,receiptId:selected.groupId||selected.id,
+  before:group,after:next.payments.filter(p=>ids.has(p.id)),corrected});
+ return {state:next,count:group.length,total:next.payments.filter(p=>ids.has(p.id)).reduce((n,p)=>n+Math.round(p.amount*100),0)};
+}
+function pmHistoryEditForm(row,item){
+ if(item.querySelector('[data-pm-edit-form],[data-pm-void-form]'))return;
+ const selected=(db.payments||[]).find(p=>p.id===row.receiptId);if(!selected)return;
+ const group=db.payments.filter(p=>selected.groupId?p.groupId===selected.groupId:p.id===selected.id),snapshot=JSON.stringify(db);
+ const form=pmNode('form','pm-history-item-body');form.dataset.pmEditForm='true';
+ const field=(label,value,type='text')=>{
+  const wrap=pmNode('label','',label),input=pmNode('input');input.type=type;input.value=String(value??'');input.required=true;wrap.append(input);form.append(wrap);return input;
+ };
+ form.append(pmNode('strong','','Editar recibo completo'),pmNode('p','','Conserva los solares y el mismo recibo. Confirma los montos de cada solar, el motivo y el PIN vigente de Contratos.'));
+ const date=field('Fecha de pago',selected.date,'date');date.max=businessToday();
+ const reference=field('Correlativo',pmHistoryReference(selected));reference.inputMode='numeric';reference.maxLength=80;reference.style.color='#b42332';
+ const method=field('Método de pago',selected.method);method.maxLength=80;
+ const inputs=new Map(),total=pmNode('strong','','');
+ const update=()=>{total.textContent='Total del recibo: '+money([...inputs.values()].reduce((n,x)=>n+(Number(x.value.replace(/,/g,''))||0),0));};
+ for(const p of group){
+  const sale=getSale(p.saleId),lot=getLot(sale?.lotId),input=field('Etapa '+(lot?.stage||'—')+' · Bloque '+(lot?.block||'—')+' · Solar '+(lot?.sourceNumber||lot?.id||'—')+' (L)',Number(p.amount).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}));
+  input.inputMode='decimal';input.style.color='#176c34';input.addEventListener('input',update);inputs.set(p.id,input);
+ }
+ form.append(total);update();
+ const why=field('Motivo de edición','');why.minLength=5;why.maxLength=300;
+ const pin=field('PIN del administrador','','password');pin.inputMode='numeric';pin.maxLength=4;pin.autocomplete='off';
+ const message=pmNode('p','pm-help');message.setAttribute('role','alert');
+ const cancel=pmNode('button','btn btn-outline btn-sm','Cancelar');cancel.type='button';cancel.addEventListener('click',()=>form.remove());
+ const save=pmNode('button','btn btn-outline btn-sm','Guardar cambios');save.type='submit';save.style.color='#176c34';
+ form.append(message,cancel,save);
+ form.addEventListener('submit',async e=>{
+  e.preventDefault();e.stopImmediatePropagation();if(save.disabled)return;
+  try{
+   if(typeof contractIntakeAdmin!=='function'||!contractIntakeAdmin()||typeof window.lotigestConfirmAdminPin!=='function')throw Error('Se requiere administrador con la nube sincronizada.');
+   if(JSON.stringify(db)!==snapshot)throw Error('Los datos cambiaron. Cierra y vuelve a abrir el historial.');
+   const plan=pmHistoryEditPlan(db,row.receiptId,{date:date.value,reference:reference.value,method:method.value,amounts:Object.fromEntries([...inputs].map(([id,input])=>[id,input.value]))},cloudUser.name,why.value,buildReceiptInfo,window.lotigestOwnerPayments,businessToday());
+   window.lotigestConfirmAdminPin(pin.value);pin.value='';save.disabled=true;cancel.disabled=true;
+   cloudWrite(JSON.stringify(plan.state));db=plan.state;await cloudFlush();
+   const confirmed=cloudReady&&!cloudBlocked&&!cloudOffline&&cloudQueue&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed;
+   pmClosePaymentHistory();closeModal();render();
+   toast(confirmed?'Pago actualizado. Saldo y cuotas recalculados.':'Edición pendiente de sincronización. No repitas la operación.',confirmed?'success':'error');
+  }catch(err){message.textContent=err.message;pin.value='';save.disabled=false;cancel.disabled=false;}
+ });
+ item.append(form);date.focus();
+}
 function pmHistoryVoidForm(row,item){
- if(item.querySelector('[data-pm-void-form]'))return;
+ if(item.querySelector('[data-pm-void-form],[data-pm-edit-form]'))return;
  const form=pmNode('form','pm-history-item-body');form.dataset.pmVoidForm='true';
  const selected=(db.payments||[]).find(p=>p.id===row.receiptId);
  if(!selected)return;
@@ -196,6 +288,8 @@ function pmOpenPaymentHistory(){
     button.type='button';button.dataset.action=p.action;button.dataset.id=p.receiptId;
     item.append(button);
     if(pmHistoryCanVoid(p)){
+     const edit=pmNode('button','btn btn-outline btn-sm','Editar pago');edit.type='button';edit.style.color='#176c34';edit.style.marginLeft='8px';
+     edit.addEventListener('click',()=>pmHistoryEditForm(p,item));item.append(edit);
      const remove=pmNode('button','btn btn-outline btn-sm','Eliminar pago');remove.type='button';remove.style.color='#b42332';remove.style.marginLeft='8px';
      remove.addEventListener('click',()=>pmHistoryVoidForm(p,item));item.append(remove);
     }
