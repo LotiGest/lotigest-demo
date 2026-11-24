@@ -55,7 +55,7 @@ function pmLatestClientPayments(clientId,residenceId){
  rows.sort((a,b)=>b.date.localeCompare(a.date)||b.recordedAt.localeCompare(a.recordedAt));
  const bySolar=new Map();
  for(const row of rows)for(const label of row.labels){
-  if(label&&!bySolar.has(label))bySolar.set(label,{label,date:row.date,reference:row.reference,amountCents:row.parts.get(label)??null});
+  if(label&&!bySolar.has(label))bySolar.set(label,{label,date:row.date,reference:row.reference,amountCents:row.parts.get(label)??null,sameReceipt:row===rows[0]});
  }
  return {latest:rows[0]||null,bySolar:[...bySolar.values()]};
 }
@@ -75,7 +75,7 @@ function pmUpdateLastPayment(clientId,residenceId){
   pmNode('strong','',latest?pmReadableDate(latest.date):clientId?'Sin pagos registrados':'Selecciona un cliente'));
  if(latest)heading.append(pmLastPaymentDetails(latest));
  heading.append(pmNode('p','',latest?
-  'Fecha real del recibo de prima o abono; no es necesariamente el mes de cuota que se pagó.':
+  'Fecha del recibo, no de la cuota.':
   clientId?'Este cliente todavía no tiene un pago confirmado en esta residencial.':
   'La fecha aparecerá al seleccionar al cliente.'));
  root.append(heading);
@@ -84,8 +84,15 @@ function pmUpdateLastPayment(clientId,residenceId){
   list.append(pmNode('small','','Último pago por solar:'));
   for(const item of bySolar){
    const line=pmNode('div','pm-last-payment-solar');
-   const detail=pmNode('div','pm-last-payment-solar-detail');detail.append(pmNode('strong','',pmReadableDate(item.date)),pmLastPaymentDetails(item));
-   line.append(pmNode('span','',item.label),detail);
+   const label=pmNode('span','',item.label),detail=pmNode('div','pm-last-payment-solar-detail');
+   detail.append(pmNode('strong','pm-last-payment-amount',pmLastPaymentMoney(item.amountCents)));
+   if(!item.sameReceipt){
+    const other=pmNode('span','pm-last-payment-other','Otro recibo');
+    if(item.date!==latest.date)other.append(pmNode('span','',' · '+pmReadableDate(item.date)));
+    other.append(pmNode('span','pm-last-payment-reference',' · #'+(item.reference||'Sin registrar')));
+    detail.append(other);
+   }
+   line.append(label,detail);
    list.append(line);
   }
   root.append(list);
