@@ -195,7 +195,7 @@ function pmHistoryEditForm(row,item){
  const field=(label,value,type='text')=>{
   const wrap=pmNode('label','',label),input=pmNode('input');input.type=type;input.value=String(value??'');input.required=true;wrap.append(input);form.append(wrap);return input;
  };
- form.append(pmNode('strong','','Editar recibo completo'),pmNode('p','','Conserva los solares y el mismo recibo. Confirma los montos de cada solar, el motivo y el PIN vigente de Contratos.'));
+ form.append(pmNode('strong','','Editar recibo completo'),pmNode('p','','Conserva los solares y el mismo recibo. Confirma los montos de cada solar, el motivo y el PIN vigente de Contratos en este equipo o en tu celular con la misma cuenta.'));
  const date=field('Fecha de pago',selected.date,'date');date.max=businessToday();
  const reference=field('Correlativo',pmHistoryReference(selected));reference.inputMode='numeric';reference.maxLength=80;reference.style.color='#b42332';
  const method=field('Método de pago',selected.method);method.maxLength=80;
@@ -224,7 +224,9 @@ function pmHistoryEditForm(row,item){
    if(typeof contractIntakeAdmin!=='function'||!contractIntakeAdmin()||typeof window.lotigestConfirmAdminPin!=='function')throw Error('Se requiere administrador con la nube sincronizada.');
    if(JSON.stringify(db)!==snapshot)throw Error('Los datos cambiaron. Cierra y vuelve a abrir el historial.');
    const plan=pmHistoryEditPlan(db,row.receiptId,{date:date.value,reference:reference.value,method:method.value,paymentType:paymentType.value,amounts:Object.fromEntries([...inputs].map(([id,input])=>[id,input.value]))},cloudUser.name,why.value,buildReceiptInfo,window.lotigestOwnerPayments,businessToday());
-   window.lotigestConfirmAdminPin(pin.value);pin.value='';save.disabled=true;cancel.disabled=true;
+   save.disabled=true;cancel.disabled=true;
+   await window.lotigestConfirmAdminPin(pin.value);pin.value='';
+   if(JSON.stringify(db)!==snapshot)throw Error('Los datos cambiaron. Cierra y vuelve a abrir el historial.');
    cloudWrite(JSON.stringify(plan.state));db=plan.state;await cloudFlush();
    const confirmed=cloudReady&&!cloudBlocked&&!cloudOffline&&cloudQueue&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed;
    pmClosePaymentHistory();closeModal();render();
@@ -241,7 +243,7 @@ function pmHistoryVoidForm(row,item){
  const group=db.payments.filter(p=>selected.groupId?p.groupId===selected.groupId:p.id===selected.id);
  const snapshot=JSON.stringify(db);
  form.append(pmNode('strong','','Anular recibo completo · '+money(group.reduce((n,p)=>n+Number(p.amount),0))),
-  pmNode('p','','Incluye '+group.length+' movimiento(s). El saldo y las cuotas se recalcularán; los originales quedarán en auditoría. Introduce el PIN vigente del panel Contratos.'));
+  pmNode('p','','Incluye '+group.length+' movimiento(s). El saldo y las cuotas se recalcularán; los originales quedarán en auditoría. Introduce el PIN vigente del panel Contratos (puedes consultarlo desde tu celular con la misma cuenta).'));
  const pinLabel=pmNode('label','','PIN del administrador'),pin=pmNode('input');pin.type='password';pin.inputMode='numeric';pin.maxLength=4;pin.required=true;pin.autocomplete='off';pinLabel.append(pin);
  const whyLabel=pmNode('label','','Motivo de anulación'),why=pmNode('input');why.required=true;why.minLength=5;why.maxLength=300;whyLabel.append(why);
  const message=pmNode('p','pm-help');message.setAttribute('role','alert');
@@ -255,7 +257,9 @@ function pmHistoryVoidForm(row,item){
    if(typeof contractIntakeAdmin!=='function'||!contractIntakeAdmin()||typeof window.lotigestConfirmAdminPin!=='function')throw Error('Se requiere administrador con la nube sincronizada.');
    if(JSON.stringify(db)!==snapshot)throw Error('Los datos cambiaron. Cierra y vuelve a abrir el historial.');
    const plan=pmHistoryVoidPlan(db,row.receiptId,cloudUser.name,why.value,buildReceiptInfo);
-   window.lotigestConfirmAdminPin(pin.value);pin.value='';save.disabled=true;cancel.disabled=true;
+   save.disabled=true;cancel.disabled=true;
+   await window.lotigestConfirmAdminPin(pin.value);pin.value='';
+   if(JSON.stringify(db)!==snapshot)throw Error('Los datos cambiaron. Cierra y vuelve a abrir el historial.');
    cloudWrite(JSON.stringify(plan.state));db=plan.state;await cloudFlush();
    const confirmed=cloudReady&&!cloudBlocked&&!cloudOffline&&cloudQueue&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed;
    pmClosePaymentHistory();closeModal();render();
