@@ -1,5 +1,13 @@
 // Historial modal de abonos por fecha. Solo lee datos reales; no modifica la contabilidad.
 let pmHistoryLayer=null;
+function pmHistoryReference(p){
+ // El folio original es texto: no convertir a Number ni usar el ID interno.
+ return String(p.receiptReference||p.receiptRef||p.originalReceiptRef||p.receiptReferenceNormalized||'').trim();
+}
+function pmHistoryMatches(p,q){
+ return !q||[p.id,p.reference,p.concept,p.kind,...(p.parts||[]),...(p.lots||[])].join(' ').toLowerCase().includes(q)||
+  (/^\d+$/.test(q)&&String(p.reference||'').replace(/^0+(?=\d)/,'')===q.replace(/^0+(?=\d)/,''));
+}
 function pmHistoryRows(){
  const out=[];
  if(pmActive==='sale'){
@@ -9,8 +17,11 @@ function pmHistoryRows(){
    if(!byId.has(p.saleId)||p.voidedAt||p.deletedAt)continue;
    const key=String(p.groupId||p.id);
    if(!groups.has(key))groups.set(key,{id:key,date:p.date||'',amountCents:0,parts:[],lots:new Set(),
-    method:p.method||'',concept:p.concept||'',receiptId:p.id,action:'receipt-preview',kind:'Recibo registrado'});
+    method:p.method||'',concept:p.concept||'',reference:pmHistoryReference(p),receiptId:p.id,action:'receipt-preview',kind:'Recibo registrado'});
    const entry=groups.get(key),sale=byId.get(p.saleId),lot=getLot(sale.lotId);
+   const reference=pmHistoryReference(p);
+   if(reference&&!entry.reference)entry.reference=reference;
+   else if(reference&&entry.reference!==reference&&!entry.reference.split(' / ').includes(reference))entry.reference+=' / '+reference;
    entry.amountCents+=Math.round(Number(p.amount||0)*100);
    if(lot)entry.lots.add('Etapa '+(lot.stage||'—')+' · Bloque '+(lot.block||'—')+' · Solar '+(lot.sourceNumber||lot.id));
    const allocations=p.receiptInfo?.allocations;
@@ -33,7 +44,7 @@ function pmHistoryRows(){
    const lots=new Set();
    for(const a of p.allocations||[])for(const ref of a.references||[])
     lots.add('Etapa '+(ref.stage||'—')+' · Bloque '+(ref.block||'—')+' · Solar '+(ref.solar||ref.lot||'—'));
-   out.push({id:p.id,date:p.date||'',amountCents:Number(p.amountCents||0),method:p.method||'',concept:p.concept||'',
+   out.push({id:p.id,date:p.date||'',amountCents:Number(p.amountCents||0),method:p.method||'',concept:p.concept||'',reference:pmHistoryReference(p),
     kind:/\bprima\b/i.test(String(p.concept||''))?'Prima registrada':'Abono en ficha',
     parts:[String(p.concept||'')||'Abono del propietario; consultar asignación'],
     lots,receiptId:p.id,action:'owner-payment-receipt'});
@@ -42,7 +53,7 @@ function pmHistoryRows(){
   for(const p of db.historicalPayments||[]){
    if(p.clientId!==clientId||p.residenceId!==rid||p.postedPaymentId||p.voidedAt||p.deletedAt)continue;
    out.push({id:p.id,date:p.date||'',amountCents:p.amountCents==null?null:Number(p.amountCents),
-    method:p.method||'',concept:p.concept||'',kind:'Historial importado por revisar',
+    method:p.method||'',concept:p.concept||'',reference:pmHistoryReference(p),kind:'Historial importado por revisar',
     parts:['Movimiento documental: no confirma cuota mensual hasta su conciliación'],
     lots:new Set([('Bloque '+(p.block||'—')+' · Solar '+(p.lot||p.solar||'—'))]),
     action:null,receiptId:null});
@@ -74,7 +85,7 @@ function pmOpenPaymentHistory(){
  to.type='date';to.id='pm-history-to';end.append(to);
  const clear=pmNode('button','btn btn-outline btn-sm','Todas las fechas');clear.type='button';
  const search=pmNode('label','','Filtrar concepto / recibo'),text=pmNode('input');
- text.type='search';text.placeholder='Número de recibo, cuota o solar';search.append(text);
+ text.type='search';text.placeholder='Correlativo, cuota o solar';search.append(text);
  filters.append(start,end,search,clear);
  const count=pmNode('p','pm-history-count');
  const list=pmNode('div','pm-history-list');
@@ -82,14 +93,18 @@ function pmOpenPaymentHistory(){
   list.replaceChildren();
   const q=String(text.value||'').trim().toLowerCase();
   const visible=rows.filter(p=>(!from.value||p.date>=from.value)&&(!to.value||p.date<=to.value)&&
-    (!q||[p.id,p.concept,p.kind,...(p.parts||[]),...(p.lots||[])].join(' ').toLowerCase().includes(q)));
+    pmHistoryMatches(p,q));
   count.textContent=visible.length+' registro(s) por fecha'+(visible.length?' · Último movimiento: '+(visible[0].date||'Por verificar'):'');
   if(!visible.length){list.append(pmNode('p','pm-help','No hay movimientos para estas fechas o el cliente/solar seleccionado.'));return;}
   for(const p of visible){
    const item=pmNode('article','pm-history-item');
    const row=pmNode('div','pm-history-item-head');
    row.append(pmNode('strong','',p.date||'Fecha por verificar'),pmNode('strong','',p.amountCents===null?'Importe por verificar':money(p.amountCents/100)));
-   item.append(row,pmNode('span','pm-history-tag',p.kind+' · '+p.id));
+   item.append(row);
+   const folio=pmNode('strong','pm-history-folio','Correlativo: '+(p.reference||'Sin correlativo registrado'));
+   folio.style.cssText='display:block;font-weight:700;color:#b42332;overflow-wrap:anywhere;margin:6px 0';
+   if(p.reference)folio.style.cssText+=';background:#fff1f2;border-radius:6px;padding:4px 8px;width:fit-content';
+   item.append(folio,pmNode('span','pm-history-tag',p.kind+' · '+p.id));
    const body=pmNode('div','pm-history-item-body');
    body.append(pmNode('p','',p.method?'Método: '+p.method:'Método no indicado'));
    if(p.concept)body.append(pmNode('p','',p.concept));
