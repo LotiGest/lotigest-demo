@@ -617,3 +617,29 @@ body.lotigest-dark #modal-root .lg-payment-modern .pm-correlativo-control input[
  #modal-root .lg-payment-modern.pm-sales-wide .pm-entry-column{order:1}
  #modal-root .lg-payment-modern.pm-sales-wide .pm-calendar{order:2}
 }
+
+/* Registrar abono: ocupar toda el área de la aplicación, incluso si el
+   Chromebook usa escala de pantalla o zoom. El ancho no depende del breakpoint. */
+html body #modal-root .modal-cover:has(.lg-payment-modern){
+ position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;
+ padding:0!important;align-items:stretch!important;justify-content:stretch!important;box-sizing:border-box!important;
+}
+html body #modal-root .modal-cover>.lg-payment-modern{
+ width:100%!important;max-width:none!important;min-width:0!important;
+ height:100%!important;max-height:none!important;min-height:0!important;
+ flex:1 1 auto!important;margin:0!important;border-radius:0!important;box-sizing:border-box!important;
+}
+html body #modal-root .lg-payment-modern .modal-content{
+ flex:1 1 auto!important;min-height:0!important;max-height:none!important;overflow:auto!important;
+}
+html body #modal-root .lg-payment-modern :is(.modal-header,.modal-footer){flex-shrink:0!important}
+@media(min-width:900px){
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-sales-grid{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr) minmax(0,1.2fr);gap:8px}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-contract-column{grid-column:1;grid-row:1}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-calendar{grid-column:2;grid-row:1}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-entry-column{grid-column:3;grid-row:1}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-months{grid-template-columns:repeat(4,minmax(0,1fr))}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-summary-row strong{white-space:normal;overflow-wrap:anywhere}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-progress{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-card-body{padding:9px}
+}
