@@ -9,6 +9,33 @@
   currentScope=db;
   try{return fn();}finally{db=original;currentScope=null;}
  };
+ // Los detalles de Abonos se abren después de renderizar el panel. Mantener
+ // allí el mismo alcance de contratos, sin tocar la base ni los recibos.
+ const withContractPaymentView=(rid,fn)=>{
+  const original=db,scope=contractCollectionsScope(original,rid);
+  const posted=new Set((original.historicalPayments||[]).map(p=>p.postedPaymentId).filter(Boolean));
+  scope.payments=scope.payments.filter(p=>!p.historicalImportId&&!posted.has(p.id));
+  db=scope;
+  try{return fn();}finally{db=original;}
+ };
+ if(typeof pmHistoryRows==='function'){
+  const prior=pmHistoryRows;
+  pmHistoryRows=function(...args){
+   return withContractPaymentView(residence().id,()=>prior(...args));
+  };
+ }
+ if(typeof pmLatestClientPayments==='function'){
+  const prior=pmLatestClientPayments;
+  pmLatestClientPayments=function(clientId,rid){
+   return withContractPaymentView(rid,()=>prior(clientId,rid));
+  };
+ }
+ if(typeof lotigestPrimaStatus==='function'){
+  const prior=lotigestPrimaStatus;
+  lotigestPrimaStatus=function(clientId,rid,selectedLotIds){
+   return withContractPaymentView(rid,()=>prior(clientId,rid,selectedLotIds));
+  };
+ }
  const previousPage=collectionPage;
  collectionPage=function(){
   return withScope(()=>{
