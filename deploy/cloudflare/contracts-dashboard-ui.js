@@ -307,9 +307,15 @@
     '<button class="btn btn-outline" data-page="residences">Administrar residenciales</button></div>'+
     (typeof annexPlansMarkup==='function'?annexPlansMarkup(residence()):'')+    '<details style="margin:12px 0"><summary>Solares asignados a clientes ('+assignments.length+')</summary>'+    '<div class="table-scroll"><table><thead><tr><th>Cliente</th><th>Etapa</th><th>Bloque</th><th>Solar</th></tr></thead><tbody>'+    assignments.slice(0,70).map(l=>'<tr><td>'+esc(getClient(l.ownerClientId).name)+'</td><td>'+esc(l.stage||'—')+'</td><td>'+esc(l.block||'—')+'</td><td>'+esc(num(l))+'</td></tr>').join('')+'</tbody></table></div>'+    (assignments.length>70?'<p class="sm muted">Se muestran 70 registros; el resto continúa disponible en Clientes.</p>':'')+'</details>'+
     '<p class="sm muted">Registrar una ficha no significa cobrar la prima. El crédito y los abonos se activan por separado.</p></details>';
+  const releaseTools=typeof cloudUser!=='undefined'&&cloudUser?.role==='admin'?
+    '<section class="card card-padding"><h3>Liberar solares sin contrato</h3>'+
+    '<p class="sm muted">Revisa las asignaciones y compras antiguas sin contrato ni movimientos protegidos. Los contratos vigentes seguirán bloqueando su solar para cualquier otro cliente.</p>'+
+    '<div class="ct-tool-actions"><button type="button" class="btn btn-outline" data-owner-cleanup-open>Desbloquear asignaciones provisionales</button>'+
+    '<button type="button" class="btn btn-outline" data-lot-uncontracted-open>Revisar compras sin contrato</button></div>'+
+    '<p class="sm muted">Requiere revisar la selección, descargar respaldo y confirmar. No elimina solares, medidas ni contratos vigentes.</p></section>':'';
   return '<div class="ct-module">'+
     header('Contratos','Gestión de fichas, documentos y terrenos vinculados.',toolbar)+
-    activationPinMarkup()+cards+filters+table+tools+'</div>';
+    activationPinMarkup()+cards+releaseTools+filters+table+tools+'</div>';
  };
  // En Contratos, aprovechar la barra superior del sistema en lugar de repetir
  // cabecera, selector de residencial y botones dentro del área de trabajo.
