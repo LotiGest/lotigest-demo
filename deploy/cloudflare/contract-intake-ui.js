@@ -201,8 +201,13 @@ function contractIntakeManualFields(){
  const inventoryTotal=all.every(Boolean)&&all.every(l=>Number(l.price)>0)?all.reduce((n,l)=>n+Number(l.price),0):null;
  const priceLabel=total===null?(multi&&all.some(l=>!l)?'Selecciona los solares adicionales':'Completa el precio acordado'):'L '+contractIntakeManualCash(total);
  const finText=financed===null?'—':'L '+contractIntakeManualCash(financed),monthlyText=monthly===null?'—':'L '+contractIntakeManualCash(monthly);
- const finances='<div class="lg-contract-terms-grid"><div class="lg-contract-term-fields">'+
-  field('Precio de venta (L) · Editable','solarPrice_0','number',true,false,v.solarPrice_0??selected?.price??'')+
+ // Identificación de solo lectura: siempre deriva de los solares seleccionados.
+ const termsLots='<div class="notice-card" aria-label="Solares de este contrato" style="margin-bottom:14px;padding:12px;display:grid;gap:8px;overflow-wrap:anywhere">'+
+  all.map((lot,i)=>'<div><strong>Solar '+(i+1)+(i===0&&multi?' · Principal':'')+'</strong><div>'+
+   (lot?'Etapa '+val(lot.stage)+' · Bloque '+val(lot.block||'—')+' · Solar '+val(lot.sourceNumber||lot.number||lot.id):
+    'Pendiente de seleccionar')+'</div></div>').join('')+'</div>';
+ const finances=termsLots+'<div class="lg-contract-terms-grid"><div class="lg-contract-term-fields">'+
+  field(multi?'Precio de venta del primer solar (L) · Editable':'Precio de venta (L) · Editable','solarPrice_0','number',true,false,v.solarPrice_0??selected?.price??'')+
   (multi?field('Prima del primer solar (L)','solarDown_0','number',true,false,v.solarDown_0??v.down??'')+
     hidden('down',prima??''):field('Prima (L) · Editable','down','number',true,false,v.down??selected?.defaultDownPayment??selected?.downPayment??selected?.prima??''))+
   '<label class="field-group"><span>Plazo (meses)</span><input type="number" name="months" min="1" max="360" step="1" required value="'+val(v.months??'')+'"></label></div>'+
