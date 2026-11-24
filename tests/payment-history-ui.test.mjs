@@ -243,3 +243,21 @@ test('la proyección usa solo mensualidades verificadas, nunca prima ni pago sin
  assert.equal(rows[0].appliedCents,0);assert.equal(rows[1].appliedCents,2000);
  assert.equal(rows[1].remainingCents,8000);
 });
+
+test('estado de cuenta muestra únicamente meses exigibles, cuota parcial y total sin duplicar solares',async()=>{
+ const ctx=model({Blob,atob});
+ const rows=Array.from({length:7},(_,i)=>({dueDate:'2026-'+String(i+5).padStart(2,'0')+'-15',dueCents:662600,appliedCents:i===0?662600:0,remainingCents:i===0?0:662600}));
+ const details=[1,2].map(i=>({sale:{type:'credit'},lot:{stage:1,block:'E',sourceNumber:String(i)},rows:structuredClone(rows),paid:662600,agreed:0}));
+ ctx.report={unmatched:0,details,consolidated:{calendar:rows.map((r,i)=>({month:r.dueDate.slice(0,7),due:1325200,covered:!r.remainingCents,rows:details.map(d=>d.rows[i])}))},asOf:'2026-10-31',client:'CLIENTE PRUEBA',residence:'Residencial Altos del Arrayán',agreed:0,prima:0};
+ const make=()=>vm.runInContext('pmStatementModel(report)',ctx);
+ const statement=make();
+ assert.equal(statement.total,6626000);assert.equal(statement.pending.length,5);assert.equal(statement.lastCovered,'Mayo de 2026');
+ ctx.statement=statement;
+ const pdf=vm.runInContext('pmStatementPdf(statement)',ctx);
+ const raw=Buffer.from(await pdf.arrayBuffer()).toString('latin1');
+ assert.match(raw,/^%PDF-1.4/);assert.match(raw,/66,260.00/);assert.match(raw,/\/Subtype \/Image/);assert.doesNotMatch(raw,/Noviembre de 2026/);
+ details[0].paid+=100000;details[0].rows[1].appliedCents+=100000;details[0].rows[1].remainingCents-=100000;
+ assert.equal(make().total,6526000);
+ ctx.report.unmatched=1;assert.throws(make,/conciliar/);ctx.report.unmatched=0;
+ details[0].paid+=1;assert.throws(make,/no coincide/);
+});
