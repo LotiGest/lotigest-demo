@@ -349,11 +349,51 @@ function pmOpenPaymentHistory(){
 
  // Consolidación por mes calendario, no por cantidad de solares. Las
  // aplicaciones se toman de recibos conciliados, sin mover dinero entre solares.
+
+ // Proyección de presentación: mensualidad verificada del recibo al mes del
+ // depósito, luego deuda anterior más antigua, y finalmente meses futuros.
+ // No escribe pagos ni utiliza la prima como mensualidad.
+function pmReportCurrentMonthFirst(originalRows,payments,asOf){
+ const rows=originalRows.map(r=>({...r,appliedCents:0,confirmedCents:0,advanceCents:0,remainingCents:r.dueCents,receipts:[],lastPaidAt:null}));
+ const verified=new Map();
+ for(const r of originalRows)for(const p of r.receipts){
+  const prior=verified.get(p.paymentId)||{saleId:r.saleId,cents:0};
+  if(prior.saleId!==r.saleId)throw Error('Recibo aplicado a otro solar.');
+  prior.cents+=p.amountCents;verified.set(p.paymentId,prior);
+ }
+ for(const p of [...payments].sort((a,b)=>a.date.localeCompare(b.date)||String(a.recordedAt||'').localeCompare(String(b.recordedAt||''))||a.id.localeCompare(b.id))){
+  const v=verified.get(p.id);if(!v)continue;
+  let remaining=v.cents;
+  if(v.saleId!==p.saleId||remaining>Math.round(Number(p.amount)*100))throw Error('La aplicación verificada supera el recibo.');
+  const month=p.date.slice(0,7),available=rows.filter(r=>r.saleId===p.saleId&&r.remainingCents>0).sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
+  const sequence=[...available.filter(r=>r.dueDate.slice(0,7)===month),...available.filter(r=>r.dueDate.slice(0,7)<month),...available.filter(r=>r.dueDate.slice(0,7)>month)];
+  for(const row of sequence){
+   if(!remaining)break;
+   const value=Math.min(remaining,row.remainingCents),target=row.dueDate.slice(0,7),advance=month<target;
+   remaining-=value;row.remainingCents-=value;row.appliedCents+=value;
+   if(advance)row.advanceCents+=value;else row.confirmedCents+=value;
+   row.receipts.push({paymentId:p.id,date:p.date,amountCents:value,groupId:p.groupId||p.id,method:p.method||'',advance});
+  }
+  if(remaining)throw Error('No se pudo aplicar el importe mensual verificado.');
+ }
+ for(const row of rows){
+  row.lastPaidAt=row.receipts.map(r=>r.date).sort().at(-1)||null;
+  row.coveredByAdvance=row.dueCents>0&&!row.remainingCents&&row.advanceCents>0;
+  row.status=row.dueCents>0&&!row.remainingCents?(row.coveredByAdvance?'advance-covered':row.lastPaidAt>row.dueDate?'paid-late':'paid'):row.dueDate<asOf?'late':row.appliedCents?'partial':'pending';
+ }
+ return rows;
+}
+function pmReportPaymentStatus(row,asOf){
+ if(!row.dueCents)return 'Sin cuota';
+ if(!row.remainingCents)return 'Pagada';
+ if(row.appliedCents)return row.receipts.some(r=>r.date.slice(0,7)!==row.dueDate.slice(0,7))?'Abono con excedente':'Abono parcial';
+ return row.dueDate<asOf?'Pendiente vencida':'Pendiente';
+}
 function pmConsolidatedMonths(rows,payments,asOf){
- const months=new Map(),groups=new Map(),byPayment=new Map();
+ const months=new Map(),groups=new Map(),byPayment=new Map(),paymentIndex=new Map(payments.map(p=>[p.id,p]));
  const cash=p=>Math.round(Number(p.amount)*100);
  const monthFor=key=>{
-  if(!months.has(key))months.set(key,{month:key,due:0,applied:0,pending:0,overdue:0,received:0,monthlyReceived:0,priorApplied:0,currentApplied:0,futureApplied:0,rows:[],sourceMonths:new Set()});
+  if(!months.has(key))months.set(key,{month:key,due:0,applied:0,pending:0,overdue:0,received:0,monthlyReceived:0,priorApplied:0,currentApplied:0,futureApplied:0,rows:[],sourceMonths:new Set(),sources:new Map(),excessApplied:0});
   return months.get(key);
  };
  for(const row of rows){
@@ -361,6 +401,8 @@ function pmConsolidatedMonths(rows,payments,asOf){
   if(row.dueDate<asOf)m.overdue+=row.remainingCents;
   for(const receipt of row.receipts){
    const key=receipt.date.slice(0,7);m.sourceMonths.add(key);
+   const p=paymentIndex.get(receipt.paymentId),ref=p?(pmHistoryReference(p)||'Sin folio'):'Sin folio',sourceKey=key+' / '+ref;
+   if(key!==m.month){m.excessApplied+=receipt.amountCents;m.sources.set(sourceKey,(m.sources.get(sourceKey)||0)+receipt.amountCents);}
    if(!byPayment.has(receipt.paymentId))byPayment.set(receipt.paymentId,[]);
    byPayment.get(receipt.paymentId).push({month:m.month,amount:receipt.amountCents});
   }
@@ -393,7 +435,7 @@ function pmConsolidatedMonths(rows,payments,asOf){
   const late=covered&&m.rows.some(r=>r.lastPaidAt>r.dueDate),early=covered&&m.rows.every(r=>r.lastPaidAt&&r.lastPaidAt<r.dueDate);
   const noDeposit=m.month<=cutoff&&m.received===0;
   const status=!due?'Sin cuota programada':covered?(late?'Pagada atrasada':early?'Pagada adelantada':'Pagada'):m.overdue?(m.applied?'Vencida parcial':'Vencida sin pagar'):m.applied?'Parcial':'Pendiente';
-  return {...m,sourceMonths:[...m.sourceMonths].sort(),covered,late,noDeposit,closed,status,excess:m.monthlyReceived-m.due};
+  return {...m,sourceMonths:[...m.sourceMonths].sort(),sources:[...m.sources.entries()].sort((a,b)=>a[0].localeCompare(b[0])),covered,late,noDeposit,closed,status,reportStatus:!due?'Sin cuota':covered?'Pagada':m.applied?(m.excessApplied?'Abono con excedente':'Abono parcial'):m.overdue?'Pendiente vencida':'Pendiente',excess:m.monthlyReceived-m.due};
  });
  const receipts=[...groups.values()].sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id)).map(g=>{
   const base=months.get(g.date.slice(0,7))?.due||0;
@@ -413,17 +455,17 @@ function pmAmortizationModel(state,clientId,rid,asOf,reconcile,dueCents,addMonth
  if(all.some(p=>p.historicalImportId||posted.has(p.id)))throw Error('Concilia los cobros importados contabilizados antes de emitir el reporte.');
  const cents=x=>Math.round(Number(x||0)*100),sum=(arr,fn)=>arr.reduce((n,x)=>n+fn(x),0);
  if(all.some(p=>!p.date||!Number.isSafeInteger(cents(p.amount))||cents(p.amount)<=0))throw Error('Hay pagos sin fecha o importe válido.');
- const payments=all.filter(p=>p.date<=asOf),ledger=reconcile(sales,payments,asOf,dueCents,addMonth);
+ const payments=all.filter(p=>p.date<=asOf),ledger=reconcile(sales,payments,asOf,dueCents,addMonth),projected=pmReportCurrentMonthFirst(ledger.rows,payments,asOf);
  const status=x=>!x.dueCents?'Sin importe':!x.remainingCents?(x.lastPaidAt>x.dueDate?'Pagada atrasada':x.lastPaidAt<x.dueDate?'Pagada adelantada':'Pagada'):x.dueDate<asOf?(x.appliedCents?'Vencida parcial':'Vencida sin pagar'):x.appliedCents?'Parcial':'Pendiente';
  const details=sales.map(s=>{
-  const lot=scope.lots.find(l=>l.id===s.lotId),rows=ledger.rows.filter(x=>x.saleId===s.id).map(x=>({...x,displayStatus:status(x)}));
+  const lot=scope.lots.find(l=>l.id===s.lotId),rows=projected.filter(x=>x.saleId===s.id).map(x=>({...x,displayStatus:status(x),reportStatus:pmReportPaymentStatus(x,asOf)}));
   if(s.type==='credit'&&rows.length!==Number(s.months))throw Error('Calendario incompleto: revisa fechas y plazo.');
   const list=payments.filter(p=>p.saleId===s.id).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
   const price=cents(s.price),agreed=cents(s.downPayment),opening=cents(s.openingPaid),paid=opening+sum(list,p=>cents(p.amount));
   let balance=price-opening;
   const history=list.map(p=>{
    balance-=cents(p.amount);
-   const app=rows.filter(x=>x.receipts.some(a=>a.paymentId===p.id)).map(x=>'C'+x.number+' '+x.dueDate.slice(0,7)+(p.date>x.dueDate?' atrasada':p.date<x.dueDate?' adelanto':''));
+   const app=ledger.rows.filter(x=>x.saleId===s.id&&x.receipts.some(a=>a.paymentId===p.id)).map(x=>'C'+x.number+' '+x.dueDate.slice(0,7));
    const prima=sum((p.receiptInfo?.allocations||[]).filter(a=>!a.number&&/prima/i.test(String(a.label||''))),a=>cents(a.amount));
    if(prima)app.unshift('Prima L '+(prima/100).toFixed(2));
    return {date:p.date,reference:pmHistoryReference(p)||'Sin folio',concept:p.concept||'Pago',amount:cents(p.amount),balance,application:app.join('; ')||'Aplicación por verificar'};
@@ -433,7 +475,7 @@ function pmAmortizationModel(state,clientId,rid,asOf,reconcile,dueCents,addMonth
  const price=sum(details,x=>x.price),paid=sum(details,x=>x.paid),agreed=sum(details,x=>x.agreed),prima=sum(details,x=>x.primaApplied);
  const rows=details.flatMap(x=>x.rows),pending=rows.filter(x=>x.remainingCents>0).sort((a,b)=>a.dueDate.localeCompare(b.dueDate)),overdue=pending.filter(x=>x.dueDate<asOf);
  const consolidated=pmConsolidatedMonths(rows,payments,asOf);
- return {consolidated,individual:lotId!==null,client:client.name,residence:state.residences?.find(x=>x.id===rid)?.name||'Residencial',company:state.company?.name||'GRUPO H',asOf,details,price,paid,agreed,prima,balance:price-paid,opening:sum(details,x=>x.opening),abonos:Math.max(0,paid-prima),count:rows.length,covered:rows.filter(x=>x.dueCents>0&&!x.remainingCents).length,latePaid:rows.filter(x=>x.displayStatus==='Pagada atrasada').length,overdueCount:overdue.length,overdueAmount:sum(overdue,x=>x.remainingCents),next:pending[0]||null,last:payments.map(p=>p.date).sort().at(-1)||null,unmatched:ledger.unmatched.length};
+ return {consolidated,policy:'current-month-first',individual:lotId!==null,client:client.name,residence:state.residences?.find(x=>x.id===rid)?.name||'Residencial',company:state.company?.name||'GRUPO H',asOf,details,price,paid,agreed,prima,balance:price-paid,opening:sum(details,x=>x.opening),abonos:Math.max(0,paid-prima),count:rows.length,covered:rows.filter(x=>x.dueCents>0&&!x.remainingCents).length,latePaid:rows.filter(x=>x.displayStatus==='Pagada atrasada').length,overdueCount:overdue.length,overdueAmount:sum(overdue,x=>x.remainingCents),next:pending[0]||null,last:payments.map(p=>p.date).sort().at(-1)||null,unmatched:ledger.unmatched.length};
 }
 function pmAmortizationPdf(model){
  const green='0.045 0.30 0.17',light='0.90 0.96 0.89',ink='0.10 0.18 0.15',red='0.70 0.12 0.16',orange='0.70 0.34 0.08',blue='0.12 0.35 0.62',gray='0.38 0.43 0.40';
@@ -445,49 +487,49 @@ function pmAmortizationPdf(model){
  const cash=c=>'L '+(Number(c)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
  const date=s=>s?String(s).split('-').reverse().join('/'):'—';
  const footer=()=>{rect(32,40,548,1,green);txt('Documento generado por LOTIGEST PRO · '+model.company,32,26,8,false,gray);txt('Página '+(pages.length+1),526,26,8,false,gray);pages.push(cmds.join('\n'));cmds=[];};
- const start=()=>{rect(0,780,612,12,green);rect(32,741,548,2,green);txt('LOTIGEST PRO',32,757,24,true,green);txt(model.individual?'Amortización por solar':'Amortización del cliente',330,758,15,true);txt('Corte: '+date(model.asOf),32,725,9,false,gray);txt('Estado de cuenta',330,725,9,false,gray);y=706;};
+ const start=()=>{rect(0,780,612,12,green);rect(32,741,548,2,green);txt('LOTIGEST PRO',32,757,24,true,green);txt(model.individual?'Amortización por solar':'Amortización consolidada',330,758,15,true);txt('Corte: '+date(model.asOf),32,725,9,false,gray);txt(String(model.company).slice(0,37)+' · Estado de cuenta',330,725,9,false,gray);y=706;};
  const ensure=h=>{if(y-h<54){footer();start();}};
  const line=(s,size=10,bold=false,color=ink)=>{for(const l of wrap(s,Math.floor(548/(size*.58)))){ensure(size+5);txt(l,32,y,size,bold,color);y-=size+5;}};
  const section=s=>{ensure(42);rect(32,y-20,548,23,green);txt(s,40,y-12,11,true,'1 1 1');y-=32;};
- const tiles=items=>{for(let i=0;i<items.length;i+=3){ensure(49);items.slice(i,i+3).forEach(([label,value],j)=>{const x=32+j*184;rect(x,y-41,178,42,light);txt(label,x+7,y-12,8,false,green);txt(value,x+7,y-29,11,true);});y-=47;}};
+ const tiles=items=>{for(let i=0;i<items.length;i+=3){ensure(49);items.slice(i,i+3).forEach(([label,value,tone],j)=>{const x=32+j*184;rect(x,y-41,178,42,tone===red?'0.99 0.91 0.91':tone===blue?'0.90 0.95 0.99':light);rect(x,y-41,178,2,tone||green);txt(label,x+7,y-12,8,false,tone||green);txt(value,x+7,y-29,11,true,tone||ink);});y-=47;}};
  const table=(title,headers,widths,data)=>{
-  const heading=()=>{ensure(75);section(title.length>78?title.slice(0,75)+'...':title);let x=32;rect(32,y-17,548,20,light);headers.forEach((h,i)=>{txt(h,x+4,y-10,8,true,green);x+=widths[i];});y-=19;};
+  const heading=()=>{ensure(75);section(title.length>78?title.slice(0,75)+'...':title);let x=32;rect(32,y-17,548,20,green);headers.forEach((h,i)=>{txt(h,x+4,y-10,8,true,'1 1 1');x+=widths[i];});y-=19;};
   heading();
   for(let i=0;i<data.length;i++){
    const row=data[i],cells=row.cells.map((v,j)=>wrap(v,Math.max(4,Math.floor((widths[j]-8)/4.7)))),max=Math.max(...cells.map(x=>x.length));
    for(let offset=0;offset<max;){
     if(y-17<54){footer();start();heading();}
     const take=Math.min(max-offset,Math.max(1,Math.floor((y-60)/11))),h=take*11+6;
-    rect(32,y-h,548,h,i%2?'0.96 0.98 0.96':'1 1 1');let x=32;
+    rect(32,y-h,548,h,i%2?'0.96 0.98 0.96':'1 1 1');if(row.color)rect(580-widths.at(-1),y-h,widths.at(-1),h,row.color===red?'0.99 0.90 0.90':row.color===blue?'0.89 0.94 0.99':row.color===green?'0.89 0.96 0.89':'0.95 0.96 0.96');let x=32;
     cells.forEach((ls,j)=>{ls.slice(offset,offset+take).forEach((s,k)=>txt(s,x+4,y-10-k*11,8,j===cells.length-1&&!!row.color,j===cells.length-1&&row.color?row.color:ink));x+=widths[j];});
     rect(32,y-h,548,.4,'0.83 0.88 0.84');y-=h;offset+=take;
    }
   }y-=9;
  };
- start();section('Datos del cliente y del contrato');line('Cliente: '+model.client,13,true);line('Residencial: '+model.residence);line((model.individual?'Reporte individual de un solar':'Reporte consolidado · Contratos incluidos: '+model.details.length)+' · Corte: '+date(model.asOf));
- for(const d of model.details)line('Etapa '+(d.lot.stage||'—')+' · Bloque '+(d.lot.block||'—')+' · Solar '+(d.lot.sourceNumber||d.lot.number||d.lot.id)+' | Contrato: '+date(d.sale.date)+' | '+(d.sale.type==='credit'?d.sale.months+' cuotas':'Contado'),9);
- section('Resumen del contrato');
- tiles([['Precio total',cash(model.price)],['Prima acordada',cash(model.agreed)],['Prima aplicada',cash(model.prima)],['Saldo inicial a financiar',cash(model.price-model.agreed)],['Abonos sobre prima',cash(model.abonos)],['Saldo restante',cash(model.balance)],['Meses cubiertos',model.consolidated.monthsCovered+' / '+model.consolidated.monthCount],['Meses vencidos pendientes',String(model.consolidated.monthsOverdue)],['Monto vencido pendiente',cash(model.consolidated.overdueAmount)],['Prima pendiente',cash(model.agreed-model.prima)],['Total contabilizado',cash(model.paid)],['Interés contractual','0%']]);
- ensure(110);section('Progreso del pago');
- const pct=model.price?Math.max(0,Math.min(100,100*model.paid/model.price)):0;
- txt(pct.toFixed(1)+'% pagado',32,y,15,true,green);txt('Total contabilizado: '+cash(model.paid),280,y,11,true);y-=18;rect(32,y-7,548,10,'0.88 0.90 0.88');rect(32,y-7,548*pct/100,10,green);y-=22;
- line('Último pago: '+date(model.last)+' | Meses pagados con atraso: '+model.consolidated.monthsLate);
- line('Primera cuota pendiente: '+(model.next?date(model.next.dueDate)+' · '+cash(model.next.remainingCents):'Sin cuotas pendientes'),10,true);
- if(model.opening)line('Saldo inicial abonado sin recibo individual: '+cash(model.opening),9,false,gray);
- if(model.unmatched)line('Aviso: '+model.unmatched+' movimiento(s) requieren verificar su aplicación mensual. El saldo incluye los pagos registrados.',9,true,orange);
- line('Verde: pagada · Naranja: pagada atrasada · Azul: adelanto · Rojo: vencida pendiente.',9,false,gray);
 
  const con=model.consolidated,monthLabel=k=>k?String(k).split('-').reverse().join('/'):'—';
  const signed=n=>(n<0?'-':n>0?'+':'')+cash(Math.abs(n));
- const shade=m=>m.status.startsWith('Vencida')?red:m.late?orange:m.status==='Pagada adelantada'?blue:m.covered?green:gray;
- section(model.individual?'Amortización mensual del solar':'Amortización mensual consolidada');
- if(con.currentMonth)line('Cuota total del mes de corte: '+cash(con.currentMonth.due),12,true,green);
- else if(con.nextMonth)line('Cuota total de '+monthLabel(con.nextMonth.month)+': '+cash(con.nextMonth.due),12,true,green);
- line('Meses cubiertos: '+con.monthsCovered+' de '+con.monthCount+' | Meses cerrados sin depósito: '+con.monthsNoDeposit+' | Meses vencidos pendientes: '+con.monthsOverdue,10,true);
- line(model.individual?'Depositado es únicamente la parte de cada recibo asignada a este solar (incluye prima), no el total del recibo compartido. Aplicado indica la mensualidad cubierta.':'Depositado es el dinero recibido en el mes (incluye prima); aplicado es lo que cubre esa mensualidad, aunque venga de otro mes. Los meses futuros no se marcan sin depósito.',9,false,gray);
- if(con.calendar.length)table(model.individual?'Control mensual · solar seleccionado':'Control mensual · todos los solares',['Mes','Cuota total','Depositado','Aplicado','Pendiente','Estado / origen'],[48,86,86,86,86,156],con.calendar.map(m=>({cells:[monthLabel(m.month),cash(m.due),m.month>model.asOf.slice(0,7)?'—':cash(m.received),cash(m.applied),cash(m.pending),m.status+(m.noDeposit?' · Sin depósito'+(m.closed?'':' al corte'):'')+(m.sourceMonths.length?' · Recibos: '+m.sourceMonths.map(monthLabel).join(', '):'')],color:shade(m)})));
+ const shade=m=>m.covered?green:m.excessApplied>0?blue:m.overdue>0?red:gray;
+ const latest=con.receipts.at(-1),quota=con.currentMonth?.due??con.nextMonth?.due??0;
+ start();section('Datos del cliente y del contrato');
+ line('Cliente: '+model.client,13,true);line('Residencial: '+model.residence+' · '+(model.individual?'Reporte individual':model.details.length+' solar(es) incluidos'));
+ for(const d of model.details)line('Etapa '+(d.lot.stage||'—')+' · Bloque '+(d.lot.block||'—')+' · Solar '+(d.lot.sourceNumber||d.lot.number||d.lot.id)+' | '+(d.sale.type==='credit'?d.sale.months+' cuotas':'Contado'),9);
+ tiles([['Cuota mensual del corte',cash(quota),green],['Último depósito',cash(latest?.received||0),green],['Excedente del último recibo',cash((latest?.prior||0)+(latest?.future||0)),blue],['Meses cubiertos',String(con.monthsCovered),green],['Meses vencidos pendientes',String(con.monthsOverdue),red],['Monto en mora',cash(con.overdueAmount),red]]);
+ line('Distribución de este estado de cuenta: primero el mes del depósito, luego las cuotas anteriores más antiguas y después las futuras. Se usan solo mensualidades verificadas; los recibos originales no cambian.',9,false,gray);
+ if(model.unmatched)line('Aviso: '+model.unmatched+' movimiento(s) requieren conciliar su aplicación. No se imputan a cuotas sin respaldo.',9,true,orange);
+ if(model.opening)line('Saldo inicial sin recibo individual: '+cash(model.opening),9,false,gray);
+ if(con.calendar.length)table(model.individual?'Control mensual · solar seleccionado':'Amortización mensual consolidada',['Mes','Depositado','Cuota total','Aplicado','Excedente*','Saldo','Estado / origen'],[47,82,82,82,82,82,91],con.calendar.map(m=>({cells:[monthLabel(m.month),m.month>model.asOf.slice(0,7)?'—':cash(m.received),cash(m.due),cash(m.applied),cash(m.excessApplied),cash(m.pending),m.reportStatus+(m.noDeposit?' · Sin depósito':'')+(m.sources.length?' · '+m.sources.map(([k,v])=>k+': '+cash(v)).join('; '):'')],color:shade(m)})));
+ line('* Excedente aplicado a la cuota desde recibos de otros meses. Una cuota solo aparece Pagada cuando su saldo es cero.',9,false,gray);
+ if(latest){
+  section('Distribución del último pago · correlativo '+latest.reference);
+  tiles([['Recibido',cash(latest.received),green],['Cuota programada del mes',cash(latest.base)],['Aplicado a meses anteriores',cash(latest.prior),blue],['Aplicado al mes del depósito',cash(latest.current),green],['Aplicado a meses futuros',cash(latest.future),blue],['Prima u otro importe no aplicado',cash(latest.nonMonthly)]]);
+  if(latest.targets.length)table('Aplicación del último recibo',['Mes','Aplicación del recibo','Saldo del mes al corte','Estado'],[85,145,145,173],latest.targets.map(([key,v])=>{const m=con.calendar.find(x=>x.month===key);return {cells:[monthLabel(key),cash(v),cash(m?.pending||0),m?.reportStatus||'Sin cuota'],color:m?shade(m):gray};}));
+ }
+ section('Información del contrato');
+ tiles([['Precio total',cash(model.price)],['Prima acordada',cash(model.agreed)],['Prima aplicada',cash(model.prima)],['Saldo inicial a financiar',cash(model.price-model.agreed)],['Prima pendiente',cash(model.agreed-model.prima)],['Saldo restante',cash(model.balance)],['Abonos sobre prima',cash(model.abonos)],['Total contabilizado',cash(model.paid)],['Meses sin depósito (cerrados)',String(con.monthsNoDeposit)]]);
+ line('Verde: pagada. Azul: abono con excedente, aún con saldo. Rojo: saldo vencido pendiente.',9,false,gray);
  if(con.receipts.length)table(model.individual?'Depósitos asignados a este solar':'Depósitos reales · recibos agrupados',['Fecha / folio','Recibido','Cuota del mes','Diferencia*','Aplicación a cuotas'],[87,89,89,89,194],con.receipts.map(g=>({cells:[date(g.date)+' / '+g.reference,cash(g.received),cash(g.base),signed(g.excess),'Cuotas: '+cash(g.monthly)+' · Anteriores '+cash(g.prior)+' · Del mes '+cash(g.current)+' · Futuras '+cash(g.future)+(g.nonMonthly?' · Prima u otro no aplicado: '+cash(g.nonMonthly):'')+(g.targets.length?' · '+g.targets.map(([k,v])=>monthLabel(k)+': '+cash(v)).join('; '):'')]})));
- line('* Diferencia: parte del recibo aplicada a cuotas menos cuota programada de su mes. No equivale necesariamente a adelanto: puede cubrir mora. El destino real se indica en la última columna.',9,false,gray);
+ line('* Diferencia: importe mensual verificado menos cuota del mes. El destino de los excedentes se detalla por correlativo.',9,false,gray);
  if(con.unpaid.length){
   table('Meses vencidos con saldo pendiente',['Mes','Cuota total','Aplicado','Mora al corte'],[90,150,150,158],con.unpaid.map(m=>({cells:[monthLabel(m.month),cash(m.due),cash(m.applied),cash(m.overdue)],color:red})));
  }else line('No hay mensualidades vencidas pendientes al corte.',10,true,green);
@@ -506,9 +548,9 @@ function pmAmortizationPdf(model){
   const lot='Etapa '+(d.lot.stage||'—')+' / Bloque '+(d.lot.block||'—')+' / Solar '+(d.lot.sourceNumber||d.lot.number||d.lot.id);
   ensure(110);section(lot);line('Precio: '+cash(d.price)+' | Prima pactada: '+cash(d.agreed)+' | Saldo actual: '+cash(d.balance),10,true);
   line('Prima aplicada contablemente: '+cash(d.primaApplied)+' | Prima pendiente: '+cash(d.agreed-d.primaApplied),9);
-  if(d.rows.length)table('Cuotas · '+lot,['No.','Vence','Últ. pago','Cuota','Aplicado','Pendiente','Estado'],[28,68,68,91,91,91,111],d.rows.map(r=>({cells:[r.number,date(r.dueDate),date(r.lastPaidAt),cash(r.dueCents),cash(r.appliedCents),cash(r.remainingCents),r.displayStatus],color:r.displayStatus.startsWith('Vencida')?red:r.displayStatus==='Pagada atrasada'?orange:r.displayStatus==='Pagada adelantada'?blue:r.displayStatus==='Pagada'?green:gray})));
+  if(d.rows.length)table('Cuotas · '+lot,['No.','Vence','Últ. pago','Cuota','Aplicado','Pendiente','Estado'],[28,68,68,91,91,91,111],d.rows.map(r=>({cells:[r.number,date(r.dueDate),date(r.lastPaidAt),cash(r.dueCents),cash(r.appliedCents),cash(r.remainingCents),r.reportStatus],color:r.reportStatus==='Pagada'?green:r.reportStatus==='Abono con excedente'?blue:r.remainingCents>0&&r.dueDate<model.asOf?red:gray})));
   else line('Venta al contado: no tiene mensualidades.');
-  if(d.history.length)table('Recibos · '+lot,['Fecha','Correlativo','Concepto / cuotas','Recibido','Saldo'],[65,90,205,94,94],d.history.map(p=>({cells:[date(p.date),p.reference,p.concept+' · '+p.application,cash(p.amount),cash(p.balance)]})));
+  if(d.history.length)table('Recibos originales · '+lot,['Fecha','Correlativo','Aplicación guardada','Recibido','Saldo'],[65,90,205,94,94],d.history.map(p=>({cells:[date(p.date),p.reference,p.concept+' · '+p.application,cash(p.amount),cash(p.balance)]})));
   else line('Sin recibos registrados a la fecha de corte.');
  }
  footer();

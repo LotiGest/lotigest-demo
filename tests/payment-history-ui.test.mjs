@@ -140,7 +140,7 @@ test('amortización de 72 cuotas conserva vencidas, futuras, folios y saldo en P
  ctx.report=report;
  const pdf=vm.runInContext('pmAmortizationPdf(report)',ctx);
  const raw=Buffer.from(await pdf.arrayBuffer()).toString('latin1');
- assert.match(raw,/^%PDF-1.4/);assert.match(raw,/\(72\)/);assert.match(raw,/\(Pagada atrasada\)/);assert.match(raw,/\(0001\)/);
+ assert.match(raw,/^%PDF-1.4/);assert.match(raw,/\(72\)/);assert.match(raw,/\(Pagada\)/);assert.doesNotMatch(raw,/Pagada atrasada|Pagada adelantada/);assert.match(raw,/\(0001\)/);
  assert.ok((raw.match(/\/Type \/Page\b/g)||[]).length>1);
  assert.equal(JSON.stringify(ctx.state),snapshot);
 });
@@ -209,4 +209,37 @@ test('amortización individual y consolidada separan las partes de un recibo com
  assert.equal(both.consolidated.monthCount,6);assert.equal(one.balance+two.balance,both.balance);
  assert.equal(vm.runInContext("pmAmortizationChoices(state,'C','R').length",ctx),2);
  assert.throws(()=>run('L3'),/no pertenece/);assert.equal(JSON.stringify(ctx.state),snapshot);
+});
+
+test('reporte: cuota del mes primero, excedente a deuda anterior sin cambiar el recibo original',()=>{
+ const ctx=model();ctx.Blob=Blob;
+ vm.runInContext(readFileSync(new URL('../contract-collections-scope.mjs',import.meta.url),'utf8').replace(/export /g,''),ctx);
+ vm.runInContext(readFileSync(new URL('../installment-status.mjs',import.meta.url),'utf8').replace(/export /g,''),ctx);
+ ctx.state={company:{name:'GRUPO H'},residences:[{id:'R',name:'Prueba'}],clients:[{id:'C',name:'Cliente prueba'}],
+ lots:[1,2].map(i=>({id:'L'+i,residenceId:'R',stage:1,block:'Comercial',sourceNumber:String(i)})),
+ sales:[1,2].map(i=>({id:'S'+i,lotId:'L'+i,clientId:'C',type:'credit',price:500000,downPayment:0,date:'2024-02-01',firstDueDate:'2024-03-05',months:24})),
+ contractTexts:[1,2].map(i=>({id:'D'+i,saleId:'S'+i,lotId:'L'+i,clientId:'C',residenceId:'R',status:'active'})),
+ payments:[1,2].map(i=>({id:'P'+i,saleId:'S'+i,groupId:'G',date:'2024-06-20',amount:25000,receiptReference:'003556',receiptInfo:{allocations:[{number:1,amount:i===1?20833.33:20833.34},{number:2,amount:i===1?4166.67:4166.66}]}}))};
+ const snapshot=JSON.stringify(ctx.state);
+ const run=lot=>{ctx.lot=lot;return vm.runInContext("pmAmortizationModel(state,'C','R','2024-06-30',reconcileInstallments,s=>s.id==='S1'?2083333:2083334,(d,i)=>{const x=new Date(d+'T12:00:00Z');x.setUTCMonth(x.getUTCMonth()+i);return x.toISOString().slice(0,10)},lot)",ctx);};
+ const report=run(null),g=report.consolidated;
+ assert.equal(g.monthsCovered,1);assert.equal(g.monthsOverdue,3);assert.equal(g.overdueAmount,11666668);
+ assert.equal(g.calendar[0].reportStatus,'Abono con excedente');assert.equal(g.calendar[0].pending,3333334);
+ assert.equal(g.calendar[0].received,0);assert.equal(g.calendar[3].reportStatus,'Pagada');
+ assert.equal(g.receipts[0].received,5000000);assert.equal(g.receipts[0].prior,833333);
+ assert.equal(g.receipts[0].current,4166667);assert.equal(g.receipts[0].future,0);
+ assert.equal(run('L1').consolidated.receipts[0].received,2500000);
+ assert.equal(run('L1').consolidated.receipts[0].prior,416667);
+ assert.match(report.details[0].history[0].application,/C1 2024-03/);
+ assert.equal(JSON.stringify(ctx.state),snapshot);
+});
+test('la proyección usa solo mensualidades verificadas, nunca prima ni pago sin respaldo',()=>{
+ const ctx=model();
+ ctx.rows=[{saleId:'S',dueDate:'2024-03-05',dueCents:10000,receipts:[{paymentId:'P',amountCents:2000,date:'2024-04-08'}]},
+ {saleId:'S',dueDate:'2024-04-05',dueCents:10000,receipts:[]}];
+ ctx.payments=[{id:'P',saleId:'S',date:'2024-04-08',amount:500,concept:'Prima y abono'},
+ {id:'X',saleId:'S',date:'2024-04-09',amount:1000,concept:'Abono ambiguo'}];
+ const rows=vm.runInContext("pmReportCurrentMonthFirst(rows,payments,'2024-04-30')",ctx);
+ assert.equal(rows[0].appliedCents,0);assert.equal(rows[1].appliedCents,2000);
+ assert.equal(rows[1].remainingCents,8000);
 });
