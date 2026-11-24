@@ -87,3 +87,23 @@ test('no liberar solar si existen abonos, recibos, deudas, solicitudes o referen
   assert.throws(()=>removeOrphanOwnerLinks(data,['EXCEL'],'ARRAYAN'),/no es seguro/,kind);
  }
 });
+
+test('modo importaciones libera únicamente vínculos documentales sin contabilizar',()=>{
+ const data=state();
+ Object.assign(data.lots.find(l=>l.id==='L9'),{mapDebtFlag:true,historyRequiresReview:true,status:'sold'});
+ const audit=auditOrphanOwnerLinks(data,'ARRAYAN',true);
+ assert.ok(audit.candidates.some(x=>x.lotId==='L9'&&x.importedOnly));
+ for(const id of ['L1','L3','L5','L6','L7','L10','L11','L12'])
+  assert.ok(audit.protectedLinks.some(x=>x.lotId===id));
+ const result=removeOrphanOwnerLinks(data,['L9'],'ARRAYAN','ADMIN','Corregir importación',undefined,true).state;
+ const released=result.lots.find(l=>l.id==='L9');
+ assert.equal(released.ownerClientId,undefined);
+ assert.equal(released.status,'available');
+ assert.equal(released.mapDebtFlag,false);
+ assert.equal(released.historyRequiresReview,false);
+ assert.deepEqual(result.historicalPayments,data.historicalPayments);
+ assert.deepEqual(result.clients,data.clients);
+ assert.deepEqual(result.contractTexts,data.contractTexts);
+ data.historicalPayments[0].postedPaymentId='REAL';
+ assert.ok(auditOrphanOwnerLinks(data,'ARRAYAN',true).protectedLinks.some(x=>x.lotId==='L9'));
+});
