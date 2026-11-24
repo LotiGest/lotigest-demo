@@ -269,3 +269,31 @@ test('agregar otro solar conserva precio negociado, prima vigente y datos del pr
  assert.equal(draft.values.solarDown_0,'30000');
  assert.equal(draft.extraLots[0].price,250000);
 });
+
+test('prima total recibida se distribuye según cada solar con un único correlativo',async()=>{
+ const x=setup();
+ Object.assign(x.fields,{solarPrice_0:'200000',solarDown_0:'30000',down:'50000',
+  extraLotId_0:'L2',extraStage_0:'2',solarPrice_1:'250000',solarDown_1:'20000',
+  primaPaid:'on',primaReceivedTotal:'50000',primaDate:'2026-11-02',primaMethod:'Efectivo',primaRef:'00006159'});
+ await x.save({fields:x.fields});
+ const db=x.db(),payments=db.payments;
+ assert.equal(payments.length,2);
+ assert.equal(payments.reduce((sum,p)=>sum+p.amount,0),50000);
+ for(const [lotId,amount] of [['L1',30000],['L2',20000]]){
+  const sale=db.sales.find(s=>s.lotId===lotId);
+  const payment=payments.find(p=>p.saleId===sale.id);
+  assert.equal(payment.amount,amount);
+  assert.equal(payment.receiptReference,'00006159');
+ }
+ assert.ok(payments[0].groupId);
+ assert.equal(payments[0].groupId,payments[1].groupId);
+});
+test('prima total distinta de lo pactado no registra contratos ni cobros',async()=>{
+ const x=setup();
+ Object.assign(x.fields,{solarPrice_0:'200000',solarDown_0:'30000',down:'50000',
+  extraLotId_0:'L2',extraStage_0:'2',solarPrice_1:'250000',solarDown_1:'20000',
+  primaPaid:'on',primaReceivedTotal:'40000',primaDate:'2026-11-02',primaMethod:'Efectivo'});
+ const before=JSON.stringify(x.db());
+ await assert.rejects(x.save({fields:x.fields}),/no coincide con la suma/);
+ assert.equal(x.writes(),0);assert.equal(JSON.stringify(x.db()),before);
+});
