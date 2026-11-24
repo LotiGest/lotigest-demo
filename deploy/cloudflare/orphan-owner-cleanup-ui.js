@@ -10,7 +10,7 @@
   const visible=candidates.filter(x=>[x.clientName,x.stage,x.block,x.number,x.lotId].join(' ')
    .normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(q));
   host.innerHTML='<p class="sm"><strong>'+candidates.length+' asociaciones provisionales sin contrato</strong> · '+
-   protectedLinks.length+' vínculos protegidos (no se borrarán). Las ventas, apartados, recibos y fichas históricas están excluidos.</p>'+
+   protectedLinks.length+' vínculos protegidos (no se borrarán). Las ventas, contratos vigentes, apartados y cobros reales están protegidos. Las importaciones sin contabilizar podrán desvincularse sin borrar su historial.</p>'+
    '<label class="field-group">Buscar cliente, bloque o solar<input id="owner-cleanup-search" type="search" autocomplete="off" placeholder="Nombre, bloque o número de solar" value="'+esc(draft.search||'')+'"></label>'+
    '<div class="owner-cleanup-list">'+(visible.length?visible.slice(0,300).map(x=>
     '<label class="owner-cleanup-item"><input type="checkbox" data-owner-cleanup-id="'+esc(x.lotId)+'" '+(draft.selected.has(x.lotId)?'checked':'')+'>'+
@@ -18,7 +18,7 @@
     ' · Bloque '+esc(x.block||'—')+' · Solar '+esc(x.number)+'</small><small>'+esc(x.reason)+'</small></span></label>').join(''):
     '<p class="sm muted">No hay solares sin contrato elegibles para desvincular con este filtro.</p>')+'</div>'+
    (visible.length>300?'<p class="sm muted">Mostrando 300 resultados; busca el cliente para encontrar sus solares.</p>':'')+
-   '<p class="sm"><strong>'+draft.selected.size+' solares seleccionados</strong> (máximo 20 por operación). Solo desaparecerá la asociación provisional con el cliente. La medida, precio, etapa y geometría permanecerán.</p>'+
+   '<p class="sm"><strong>'+draft.selected.size+' solares seleccionados</strong> (máximo 20 por operación). Se quitará la asignación provisional y la marca importada de deuda, cuando corresponda. Los datos de PDF o Excel se conservarán como historial. La medida, precio, etapa y geometría permanecerán.</p>'+
    '<div class="owner-cleanup-actions"><button type="button" class="btn btn-outline btn-sm" data-owner-cleanup-select-all>Seleccionar los visibles</button>'+
    '<button type="button" class="btn btn-outline btn-sm" data-owner-cleanup-clear>Quitar selección</button>'+
    '<button type="button" class="btn btn-outline btn-sm" data-owner-cleanup-protected>Ver vínculos protegidos ('+protectedLinks.length+')</button></div>'+
@@ -33,7 +33,7 @@
  }
  function open(lotId=null){
   if(!contractIntakeAdmin()){toast('Para limpiar asociaciones necesitas sesión de administrador y nube sincronizada.','error');return;}
-  const rid=residence().id,audit=auditOrphanOwnerLinks(db,rid),selected=new Set();
+  const rid=residence().id,audit=auditOrphanOwnerLinks(db,rid,true),selected=new Set();
   if(lotId){
    const candidate=audit.candidates.find(x=>x.lotId===lotId);
    if(!candidate){
@@ -46,7 +46,7 @@
   draft={residenceId:rid,audit,snapshot:JSON.stringify(db),
    selected,search:lotId||'',backupDownloaded:false,confirmedBackup:false,code:'',reason:'',busy:false};
   showModal(lotId?'Quitar propietario de este solar':'Revisar solares vinculados sin contrato',
-   '<p>Esta herramienta permite retirar solares asignados a clientes por registros provisionales. No borra clientes, contratos, pagos ni solares. Primero revisa la lista.</p><div id="owner-cleanup-content"></div>',
+   '<p>Esta herramienta permite liberar solares asignados por registros provisionales o importaciones sin contabilizar. No borra clientes, contratos, pagos ni solares. Verifica el cliente correcto antes de reasignar.</p><div id="owner-cleanup-content"></div>',
    '<button type="button" class="btn btn-soft" data-action="close-modal">Cancelar</button>'+
    '<button type="button" class="btn btn-primary" data-owner-cleanup-save disabled>Desvincular solares seleccionados</button>',true);
   renderPreview();
@@ -61,8 +61,8 @@
     throw Error('Descarga el respaldo, confirma y selecciona los solares antes de continuar.');
    if(residence().id!==d.residenceId||JSON.stringify(db)!==d.snapshot)
     throw Error('Los datos cambiaron. Vuelve a revisar y descargar el respaldo.');
-   const result=removeOrphanOwnerLinks(db,[...d.selected],d.residenceId,cloudUser?.name||'Administrador',d.reason);
-   if(!confirm('¿Desvincular '+result.changed+' solar(es) y dejarlos disponibles si aparecen como Comprado sin venta real? No se eliminarán clientes, contratos ni pagos.'))return;
+   const result=removeOrphanOwnerLinks(db,[...d.selected],d.residenceId,cloudUser?.name||'Administrador',d.reason,undefined,true);
+   if(!confirm('¿Desvincular '+result.changed+' solar(es) sin contrato ni cobro real? Las asociaciones importadas quedarán en el historial; verifica el contrato físico antes de reasignar.'))return;
    d.busy=true;
    cloudWrite(JSON.stringify(result.state));db=result.state;
    await cloudFlush();
@@ -76,12 +76,12 @@
  function inlineSolarCleanup(lotId){
   const lot=getLot(lotId),root=document.querySelector('#modal-root .modal-content');
   if(!root||!lot?.ownerClientId||cloudUser?.role!=='admin'||root.querySelector('[data-owner-cleanup-single]'))return;
-  const review=auditOrphanOwnerLinks(db,lot.residenceId);
+  const review=auditOrphanOwnerLinks(db,lot.residenceId,true);
   const eligible=review.candidates.find(x=>x.lotId===lotId);
   const blocked=review.protectedLinks.find(x=>x.lotId===lotId);
   const synced=contractIntakeAdmin();
   const message=eligible?
-   (lot.status==='sold'?'Este solar figura como Comprado, pero no tiene venta ni movimientos comprobados. Al desvincularlo quedará Disponible.':
+   (eligible.importedOnly?'Asignación importada sin contabilizar. Se conserva el historial y se libera la asociación actual.':lot.status==='sold'?'Este solar figura como Comprado, pero no tiene venta ni movimientos comprobados. Al desvincularlo quedará Disponible.':
     'Se quitará únicamente la asignación provisional de este solar. Los otros solares del cliente no cambiarán.'):
    'Solar protegido: '+(blocked?.reason||'la asignación requiere revisión antes de liberarla');
   root.insertAdjacentHTML('afterbegin',
@@ -100,7 +100,7 @@
  contractsPage=function(){
   const result=original();
   if(cloudUser?.role!=='admin')return result;
-  const audit=auditOrphanOwnerLinks(db,residence().id);
+  const audit=auditOrphanOwnerLinks(db,residence().id,true);
   const section='<section class="card owner-cleanup-card">'+
    '<h3>Revisar solares sin contrato</h3>'+
    '<p class="sm">Contratos es la referencia para identificar los solares correctos. Hay <b>'+audit.candidates.length+
