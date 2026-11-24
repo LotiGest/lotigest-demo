@@ -559,3 +559,61 @@ body.lotigest-dark #modal-root .lg-payment-modern .pm-correlativo-control input[
 .pm-history-layer .pm-report-option>.btn{margin-top:auto}
 .pm-history-layer .pm-history-head>div{flex:1;min-width:0}
 @media(max-width:760px){.pm-history-layer .pm-reports-content{grid-template-columns:1fr}.pm-history-layer .pm-history-head{flex-wrap:wrap}}
+
+/* Vista de trabajo aprobada: resumen | cronograma | nuevo pago. */
+#modal-root .lg-payment-modern.pm-sales-wide .pm-sales-grid{align-items:start}
+#modal-root .lg-payment-modern.pm-sales-wide .pm-monthly-total{background:#07553b!important;color:white!important;border:0;border-radius:10px;padding:12px 10px;margin-top:8px}
+#modal-root .lg-payment-modern.pm-sales-wide .pm-base-monthly{background:#e7f4eb;color:#175b36;border-radius:8px;margin-top:5px}
+#modal-root .lg-payment-modern.pm-sales-wide .pm-card h3{background:linear-gradient(100deg,#064c36,#08734d);color:#fff;border:0}
+#modal-root .lg-payment-modern.pm-sales-wide .pm-card h3 svg{color:#fff}
+#modal-root .lg-payment-modern.pm-sales-wide .pm-calendar-top{background:linear-gradient(100deg,#064c36,#08734d);color:#fff}
+#modal-root .lg-payment-modern.pm-sales-wide .pm-calendar-top h3{background:transparent!important;color:#fff}
+#modal-root .lg-payment-modern.pm-sales-wide .pm-calendar-top .pm-legend{color:#fff}
+#modal-root .lg-payment-modern.pm-sales-wide .modal-header{background:linear-gradient(110deg,#063e2d,#07573d)!important;color:#fff!important}
+#modal-root .lg-payment-modern.pm-sales-wide .modal-header :is(h2,p){color:#fff!important}
+@media(min-width:1050px){
+ #modal-root .modal-cover:has(.pm-sales-wide){padding:3px!important}
+ #modal-root .lg-payment-modern.pm-sales-wide{width:calc(100vw - 6px)!important;max-width:none!important;height:calc(100dvh - 6px)!important;max-height:calc(100dvh - 6px)!important;border-radius:12px}
+ #modal-root .lg-payment-modern.pm-sales-wide .modal-content{padding:8px 10px}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-sales-shell{gap:9px}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-clientbar{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr) minmax(0,1.35fr) auto;align-items:stretch;gap:8px}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-clientbox{min-height:65px;padding:8px 10px;gap:8px}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-last-payment{display:flex;min-width:0;margin:0;padding:8px 10px;align-items:center;gap:5px;flex-wrap:wrap}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-last-payment-main{flex:1 1 100px}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-last-payment-main>strong{font-size:14px;line-height:1.25}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-last-payment-solares{flex:1 1 100%;padding:4px 0 0;border:0;margin:0;min-width:0}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-history-toolbar{align-items:center;justify-content:center}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-sales-grid{grid-template-columns:minmax(0,0.85fr) minmax(0,1.15fr) minmax(0,1.2fr);gap:10px}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-card{margin:0;min-width:0}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-card-body{padding:9px 10px}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-card h3{padding:10px 12px;font-size:15px}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-summary-row{padding:7px 4px;gap:6px;font-size:12px}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-summary-row strong{font-size:13px;white-space:normal;overflow-wrap:anywhere}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-calendar-top{padding:9px 10px;gap:6px}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-calendar-top h3{padding:0;font-size:15px}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-progress{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding:8px;gap:6px}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-progress span{font-size:11px;line-height:1.2}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-progress strong{font-size:13px}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-months{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-month{min-height:59px}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-fields{gap:7px;grid-template-columns:repeat(2,minmax(0,1fr))}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-method-buttons{gap:4px}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-method-buttons button{min-height:44px;font-size:11px;gap:3px}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-correlativo-control{padding:4px 7px;gap:7px}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-correlativo-hash{width:35px;height:36px;font-size:23px}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-correlativo-control input[name=receiptRef]{height:36px;min-height:36px!important;font-size:23px!important}
+ #modal-root .lg-payment-modern.pm-sales-wide .modal-footer{display:flex!important;flex-wrap:wrap;gap:7px;padding:8px 10px}
+ #modal-root .lg-payment-modern.pm-sales-wide .modal-footer>.btn{flex:1 1 140px;min-width:0;margin:0}
+ #modal-root .lg-payment-modern.pm-sales-wide .modal-footer>.pm-cancel{flex:0 1 auto;min-width:75px}
+}
+@media(min-width:761px) and (max-width:1049px){
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-sales-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-contract-column{grid-column:1;grid-row:1}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-entry-column{grid-column:2;grid-row:1}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-calendar{grid-column:1/-1}
+}
+@media(max-width:760px){
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-sales-grid{display:flex;flex-direction:column;align-items:stretch}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-entry-column{order:1}
+ #modal-root .lg-payment-modern.pm-sales-wide .pm-calendar{order:2}
+}
