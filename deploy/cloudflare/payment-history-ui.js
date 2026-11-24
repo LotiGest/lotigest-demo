@@ -320,7 +320,7 @@ function pmOpenPaymentHistory(){
  from.addEventListener('change',render);to.addEventListener('change',render);
  text.addEventListener('input',render);
  clear.addEventListener('click',()=>{from.value='';to.value='';text.value='';render();});
- layer.append(shade,dialog);dialog.append(header,filters,count,list);
+ layer.append(shade,dialog);dialog.append(header);if(pmActive==='sale')dialog.append(pmAmortizationActions());dialog.append(filters,count,list);
  layer.addEventListener('click',e=>{
   if(e.target===shade||e.target.closest('[data-pm-history-close]')){pmClosePaymentHistory();return;}
   if(e.target.closest('[data-action="receipt-preview"],[data-action="owner-payment-receipt"]'))
@@ -328,4 +328,107 @@ function pmOpenPaymentHistory(){
  });
  layer.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();pmClosePaymentHistory();}});
  document.body.append(layer);pmHistoryLayer=layer;render();close.focus();
+}
+
+// Reporte de solo lectura. Todos los contratos del cliente en la residencial actual.
+function pmAmortizationModel(state,clientId,rid,asOf,reconcile,dueCents,addMonth){
+ const scope=contractCollectionsScope(state,rid),client=scope.clients.find(x=>x.id===clientId),sales=scope.sales.filter(x=>x.clientId===clientId);
+ if(!client||!sales.length)throw Error('Selecciona un cliente con contrato registrado.');
+ const ids=new Set(sales.map(s=>s.id)),posted=new Set((state.historicalPayments||[]).map(p=>p.postedPaymentId).filter(Boolean));
+ const all=scope.payments.filter(p=>ids.has(p.saleId)&&!['voided','cancelled'].includes(p.status));
+ if(all.some(p=>p.historicalImportId||posted.has(p.id)))throw Error('Concilia los cobros importados contabilizados antes de emitir el reporte.');
+ const cents=x=>Math.round(Number(x||0)*100),sum=(arr,fn)=>arr.reduce((n,x)=>n+fn(x),0);
+ if(all.some(p=>!p.date||!Number.isSafeInteger(cents(p.amount))||cents(p.amount)<=0))throw Error('Hay pagos sin fecha o importe válido.');
+ const payments=all.filter(p=>p.date<=asOf),ledger=reconcile(sales,payments,asOf,dueCents,addMonth);
+ const status=x=>!x.dueCents?'Sin importe':!x.remainingCents?(x.lastPaidAt>x.dueDate?'Pagada atrasada':x.lastPaidAt<x.dueDate?'Pagada adelantada':'Pagada'):x.dueDate<asOf?(x.appliedCents?'Vencida parcial':'Vencida sin pagar'):x.appliedCents?'Parcial':'Pendiente';
+ const details=sales.map(s=>{
+  const lot=scope.lots.find(l=>l.id===s.lotId),rows=ledger.rows.filter(x=>x.saleId===s.id).map(x=>({...x,displayStatus:status(x)}));
+  if(s.type==='credit'&&rows.length!==Number(s.months))throw Error('Calendario incompleto: revisa fechas y plazo.');
+  const list=payments.filter(p=>p.saleId===s.id).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
+  const price=cents(s.price),agreed=cents(s.downPayment),opening=cents(s.openingPaid),paid=opening+sum(list,p=>cents(p.amount));
+  let balance=price-opening;
+  const history=list.map(p=>{
+   balance-=cents(p.amount);
+   const app=rows.filter(x=>x.receipts.some(a=>a.paymentId===p.id)).map(x=>'C'+x.number+' '+x.dueDate.slice(0,7)+(p.date>x.dueDate?' atrasada':p.date<x.dueDate?' adelanto':''));
+   const prima=sum((p.receiptInfo?.allocations||[]).filter(a=>!a.number&&/prima/i.test(String(a.label||''))),a=>cents(a.amount));
+   if(prima)app.unshift('Prima L '+(prima/100).toFixed(2));
+   return {date:p.date,reference:pmHistoryReference(p)||'Sin folio',concept:p.concept||'Pago',amount:cents(p.amount),balance,application:app.join('; ')||'Aplicación por verificar'};
+  });
+  return {sale:s,lot,rows,history,price,agreed,opening,paid,primaApplied:Math.min(agreed,paid),balance:price-paid};
+ });
+ const price=sum(details,x=>x.price),paid=sum(details,x=>x.paid),agreed=sum(details,x=>x.agreed),prima=sum(details,x=>x.primaApplied);
+ const rows=details.flatMap(x=>x.rows),pending=rows.filter(x=>x.remainingCents>0).sort((a,b)=>a.dueDate.localeCompare(b.dueDate)),overdue=pending.filter(x=>x.dueDate<asOf);
+ return {client:client.name,residence:state.residences?.find(x=>x.id===rid)?.name||'Residencial',company:state.company?.name||'GRUPO H',asOf,details,price,paid,agreed,prima,balance:price-paid,opening:sum(details,x=>x.opening),abonos:Math.max(0,paid-prima),count:rows.length,covered:rows.filter(x=>x.dueCents>0&&!x.remainingCents).length,latePaid:rows.filter(x=>x.displayStatus==='Pagada atrasada').length,overdueCount:overdue.length,overdueAmount:sum(overdue,x=>x.remainingCents),next:pending[0]||null,last:payments.map(p=>p.date).sort().at(-1)||null,unmatched:ledger.unmatched.length};
+}
+function pmAmortizationPdf(model){
+ const green='0.045 0.30 0.17',light='0.90 0.96 0.89',ink='0.10 0.18 0.15',red='0.70 0.12 0.16',orange='0.70 0.34 0.08',blue='0.12 0.35 0.62',gray='0.38 0.43 0.40';
+ const pages=[];let cmds=[],y=0;
+ const escape=s=>String(s??'').replace(/[^\x20-\xFF]/g,c=>({'—':'-','–':'-','’':"'"}[c]||' ')).replace(/([\\()])/g,'\\$1');
+ const rect=(x,b,w,h,color)=>cmds.push(color+' rg '+[x,b,w,h].join(' ')+' re f');
+ const txt=(s,x,b,size=10,bold=false,color=ink)=>cmds.push(color+' rg BT /'+(bold?'F2':'F1')+' '+size+' Tf 1 0 0 1 '+x+' '+b+' Tm ('+escape(s)+') Tj ET');
+ const wrap=(s,n)=>{const out=[];let line='';for(const token of String(s??'').split(/\s+/)){if(line&&line.length+token.length+1>n){out.push(line);line='';}if(token.length>n){if(line){out.push(line);line='';}for(let i=0;i<token.length;i+=n)out.push(token.slice(i,i+n));}else line+=(line?' ':'')+token;}if(line)out.push(line);return out.length?out:[''];};
+ const cash=c=>'L '+(Number(c)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+ const date=s=>s?String(s).split('-').reverse().join('/'):'—';
+ const footer=()=>{rect(32,40,548,1,green);txt('Documento generado por LOTIGEST PRO · '+model.company,32,26,8,false,gray);txt('Página '+(pages.length+1),526,26,8,false,gray);pages.push(cmds.join('\n'));cmds=[];};
+ const start=()=>{rect(0,780,612,12,green);rect(32,741,548,2,green);txt('LOTIGEST PRO',32,757,24,true,green);txt('Amortización del cliente',330,758,15,true);txt('Corte: '+date(model.asOf),32,725,9,false,gray);txt('Estado de cuenta',330,725,9,false,gray);y=706;};
+ const ensure=h=>{if(y-h<54){footer();start();}};
+ const line=(s,size=10,bold=false,color=ink)=>{for(const l of wrap(s,Math.floor(548/(size*.58)))){ensure(size+5);txt(l,32,y,size,bold,color);y-=size+5;}};
+ const section=s=>{ensure(42);rect(32,y-20,548,23,green);txt(s,40,y-12,11,true,'1 1 1');y-=32;};
+ const tiles=items=>{for(let i=0;i<items.length;i+=3){ensure(49);items.slice(i,i+3).forEach(([label,value],j)=>{const x=32+j*184;rect(x,y-41,178,42,light);txt(label,x+7,y-12,8,false,green);txt(value,x+7,y-29,11,true);});y-=47;}};
+ const table=(title,headers,widths,data)=>{
+  const heading=()=>{ensure(75);section(title);let x=32;rect(32,y-17,548,20,light);headers.forEach((h,i)=>{txt(h,x+4,y-10,8,true,green);x+=widths[i];});y-=19;};
+  heading();
+  for(let i=0;i<data.length;i++){
+   const row=data[i],cells=row.cells.map((v,j)=>wrap(v,Math.max(4,Math.floor((widths[j]-8)/4.7)))),max=Math.max(...cells.map(x=>x.length));
+   for(let offset=0;offset<max;){
+    if(y-17<54){footer();start();heading();}
+    const take=Math.min(max-offset,Math.max(1,Math.floor((y-60)/11))),h=take*11+6;
+    rect(32,y-h,548,h,i%2?'0.96 0.98 0.96':'1 1 1');let x=32;
+    cells.forEach((ls,j)=>{ls.slice(offset,offset+take).forEach((s,k)=>txt(s,x+4,y-10-k*11,8,j===cells.length-1&&!!row.color,j===cells.length-1&&row.color?row.color:ink));x+=widths[j];});
+    rect(32,y-h,548,.4,'0.83 0.88 0.84');y-=h;offset+=take;
+   }
+  }y-=9;
+ };
+ start();section('Datos del cliente y del contrato');line('Cliente: '+model.client,13,true);line('Residencial: '+model.residence);line('Contratos incluidos: '+model.details.length+' · Corte: '+date(model.asOf));
+ for(const d of model.details)line('Etapa '+(d.lot.stage||'—')+' · Bloque '+(d.lot.block||'—')+' · Solar '+(d.lot.sourceNumber||d.lot.number||d.lot.id)+' | Contrato: '+date(d.sale.date)+' | '+(d.sale.type==='credit'?d.sale.months+' cuotas':'Contado'),9);
+ section('Resumen del contrato');
+ tiles([['Precio total',cash(model.price)],['Prima acordada',cash(model.agreed)],['Prima aplicada',cash(model.prima)],['Saldo inicial a financiar',cash(model.price-model.agreed)],['Abonos sobre prima',cash(model.abonos)],['Saldo restante',cash(model.balance)],['Cuotas cubiertas',model.covered+' / '+model.count],['Cuotas vencidas pendientes',String(model.overdueCount)],['Monto vencido pendiente',cash(model.overdueAmount)]]);
+ ensure(110);section('Progreso del pago');
+ const pct=model.price?Math.max(0,Math.min(100,100*model.paid/model.price)):0;
+ txt(pct.toFixed(1)+'% pagado',32,y,15,true,green);txt('Total contabilizado: '+cash(model.paid),280,y,11,true);y-=18;rect(32,y-7,548,10,'0.88 0.90 0.88');rect(32,y-7,548*pct/100,10,green);y-=22;
+ line('Último pago: '+date(model.last)+' | Cuotas pagadas con atraso: '+model.latePaid);
+ line('Primera cuota pendiente: '+(model.next?date(model.next.dueDate)+' · '+cash(model.next.remainingCents):'Sin cuotas pendientes'),10,true);
+ if(model.opening)line('Saldo inicial abonado sin recibo individual: '+cash(model.opening),9,false,gray);
+ if(model.unmatched)line('Aviso: '+model.unmatched+' movimiento(s) requieren verificar su aplicación mensual. El saldo incluye los pagos registrados.',9,true,orange);
+ line('Verde: pagada · Naranja: pagada atrasada · Azul: adelanto · Rojo: vencida pendiente.',9,false,gray);
+ for(const d of model.details){
+  const lot='Etapa '+(d.lot.stage||'—')+' / Bloque '+(d.lot.block||'—')+' / Solar '+(d.lot.sourceNumber||d.lot.number||d.lot.id);
+  ensure(110);section(lot);line('Precio: '+cash(d.price)+' | Prima pactada: '+cash(d.agreed)+' | Saldo actual: '+cash(d.balance),10,true);
+  line('Prima aplicada contablemente: '+cash(d.primaApplied)+' | Prima pendiente: '+cash(d.agreed-d.primaApplied),9);
+  if(d.rows.length)table('Cuotas · '+lot,['No.','Vence','Últ. pago','Cuota','Aplicado','Pendiente','Estado'],[28,68,68,91,91,91,111],d.rows.map(r=>({cells:[r.number,date(r.dueDate),date(r.lastPaidAt),cash(r.dueCents),cash(r.appliedCents),cash(r.remainingCents),r.displayStatus],color:r.displayStatus.startsWith('Vencida')?red:r.displayStatus==='Pagada atrasada'?orange:r.displayStatus==='Pagada adelantada'?blue:r.displayStatus==='Pagada'?green:gray})));
+  else line('Venta al contado: no tiene mensualidades.');
+  if(d.history.length)table('Recibos · '+lot,['Fecha','Correlativo','Concepto / cuotas','Recibido','Saldo'],[65,90,205,94,94],d.history.map(p=>({cells:[date(p.date),p.reference,p.concept+' · '+p.application,cash(p.amount),cash(p.balance)]})));
+  else line('Sin recibos registrados a la fecha de corte.');
+ }
+ footer();
+ const objects=['<< /Type /Catalog /Pages 2 0 R >>','<< /Type /Pages /Kids ['+pages.map((_,i)=>(5+i*2)+' 0 R').join(' ')+'] /Count '+pages.length+' >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'];
+ pages.forEach((stream,i)=>objects.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents '+(6+i*2)+' 0 R >>','<< /Length '+stream.length+' >>\nstream\n'+stream+'\nendstream'));
+ let pdf='%PDF-1.4\n',offsets=[0];objects.forEach((o,i)=>{offsets.push(pdf.length);pdf+=(i+1)+' 0 obj\n'+o+'\nendobj\n';});const xref=pdf.length;pdf+='xref\n0 '+offsets.length+'\n0000000000 65535 f \n'+offsets.slice(1).map(n=>String(n).padStart(10,'0')+' 00000 n \n').join('')+'trailer\n<< /Size '+offsets.length+' /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF';
+ return new Blob([Uint8Array.from(pdf,x=>x.charCodeAt(0)&255)],{type:'application/pdf'});
+}
+async function pmDeliverAmortization(share){
+ try{
+  if(!cloudReady||cloudBlocked||cloudOffline||!cloudQueue||cloudQueue.pending||cloudQueue.latest!==cloudQueue.confirmed)throw Error('Sincroniza los cambios con Cloudflare antes de emitir el reporte.');
+  const clients=new Set(pmSales().map(s=>s.clientId));if(clients.size!==1)throw Error('Selecciona un solo cliente.');
+  const report=pmAmortizationModel(db,[...clients][0],residence().id,businessToday(),reconcileInstallments,installmentDueCents,(date,i)=>dateKey(addMonths(date,i)));
+  const blob=pmAmortizationPdf(report),name='LOTIGEST_Amortizacion_'+report.asOf+'.pdf';
+  if(share&&typeof File==='function'){const file=new File([blob],name,{type:'application/pdf'});if(navigator.canShare?.({files:[file]})){await navigator.share({files:[file],title:'Amortización LOTIGEST PRO'});return;}}
+  download(name,blob,'application/pdf');toast(share?'PDF descargado. Adjunta el archivo al chat del cliente en WhatsApp.':'Reporte de amortización descargado.');
+ }catch(e){if(e.name!=='AbortError')toast(e.message||'No se pudo generar el reporte.','error');}
+}
+function pmAmortizationActions(){
+ const actions=pmNode('div','pm-history-toolbar');
+ for(const [label,share] of [['Amortización PDF',false],['Compartir amortización',true]]){
+  const b=pmNode('button','btn btn-outline btn-sm',label);b.type='button';b.addEventListener('click',()=>pmDeliverAmortization(share));actions.append(b);
+ }return actions;
 }
