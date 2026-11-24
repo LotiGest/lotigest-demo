@@ -31,8 +31,8 @@ test('si todavía no se ha cargado contrato, el solar conserva su estado y color
  assert.equal(api.record(feature).status,'available');
  assert.match(api.page(),/Contrato registrado \(sin prima\): 0/);
 });
-test('mora y apartados tienen prioridad sobre verde limón',()=>{
- for(const kind of ['debt','reserved','private']){
+test('mora y propiedad privada tienen prioridad sobre verde limón',()=>{
+ for(const kind of ['debt','private']){
   const {api,feature}=fixture(kind,true);
   assert.equal(api.record(feature).status,kind);
  }
@@ -98,4 +98,21 @@ test('ficha de contrato manual sin OCR también pinta verde limón, sin simular 
  assert.equal(api.record(feature).status,'contracted');
  assert.equal(api.hasPrima(db.lots[0]),false);
  assert.match(api.details(),/Contrato registrado/);
+});
+
+test('apartado sin contrato es negro y cambia al guardar el contrato',()=>{
+ const {api,db,feature,lot}=fixture('reserved',false);
+ assert.equal(api.record(feature).status,'unregistered');
+ assert.equal(api.colors.unregistered,'#171717');
+ assert.equal(api.geoColor(lot),'#171717');
+ assert.match(api.page(),/Pendiente de contrato: 1/);
+ db.contractTexts.push({id:'CM',lotId:lot.id,clientId:'C1',format:'manual',status:'pending-sale'});
+ assert.equal(api.record(feature).status,'contracted');
+ assert.equal(api.geoColor(lot),'#A3E635');
+});
+test('asignación histórica liberada conserva negro hasta registrar contrato',()=>{
+ const {api,feature,lot}=fixture('available',false);
+ lot.ownerUnlinkHistory=[{legacyImportArchived:true}];
+ assert.equal(api.record(feature).status,'unregistered');
+ assert.equal(api.geoColor(lot),'#171717');
 });
