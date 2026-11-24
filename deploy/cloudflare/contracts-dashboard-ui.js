@@ -125,37 +125,34 @@
   showModal('Consultar contrato anulado',body,
    '<button type="button" class="btn btn-outline" data-action="close-modal">Cerrar</button>',true);
  }
- // PIN de confirmación efímero: nunca se persiste ni se incluye en exportaciones.
- let activationPin='',activationPinUntil=0,activationBusy=false;
+ // El PIN pertenece a la cuenta administradora, no al dispositivo.
+ let activationBusy=false,pinLoading=false;
  const activationAdmin=()=>typeof cloudUser!=='undefined'&&cloudUser?.role==='admin';
- function refreshActivationPin(force=false){
-  if(!activationAdmin()){activationPin='';activationPinUntil=0;return '';}
-  if(force||Date.now()>=activationPinUntil){
-   const previous=activationPin,bytes=new Uint32Array(1);
-   do{crypto.getRandomValues(bytes);activationPin=String(bytes[0]%10000).padStart(4,'0');}while(activationPin===previous);
-   activationPinUntil=Date.now()+60000;
-  }
-  return activationPin;
+ async function refreshActivationPin(){
+  const el=document.querySelector('.ct-activation-pin');
+  if(!el||pinLoading||!activationAdmin())return;
+  const username=cloudUser.name;pinLoading=true;
+  try{
+   const result=await cloudApi('admin-pin');
+   if(!activationAdmin()||cloudUser.name!==username||!el.isConnected)return;
+   el.querySelector('[data-ct-pin-value]').textContent=result.pin;
+  }catch(e){if(el.isConnected)el.querySelector('[data-ct-pin-value]').textContent='No disponible';}
+  finally{pinLoading=false;}
  }
- // Confirmación compartida con las operaciones de cobros.
- window.lotigestConfirmAdminPin=function(pin){
+ window.lotigestConfirmAdminPin=async function(pin){
   if(!activationAdmin()||!contractIntakeAdmin())throw Error('Se requiere administrador con la nube sincronizada.');
-  if(Date.now()>=activationPinUntil||!/^\d{4}$/.test(String(pin||''))||pin!==activationPin){
-   refreshActivationPin();throw Error('PIN incorrecto o vencido. Consulta el PIN actual en Contratos.');
-  }
-  refreshActivationPin(true);
+  if(!/^\d{4}$/.test(String(pin||'')))throw Error('Introduce los cuatro dígitos del PIN.');
+  await cloudApi('admin-pin',{method:'POST',body:JSON.stringify({pin})});
+  void refreshActivationPin();
   return true;
  };
  function activationPinMarkup(){
   if(!activationAdmin())return '';
-  return '<div class="card ct-activation-pin" role="region" aria-label="PIN del administrador"><span>PIN del administrador</span> <strong data-ct-pin-value>'+refreshActivationPin()+'</strong><small> Solo administrador · cambia cada minuto y después de utilizarlo</small></div>';
+  setTimeout(()=>refreshActivationPin(),0);
+  return '<div class="card ct-activation-pin" role="region" aria-label="PIN del administrador"><span>PIN del administrador</span> <strong data-ct-pin-value>Cargando…</strong><small> Mismo PIN en celular y PC con la misma cuenta · vence en dos minutos o al usarlo</small></div>';
  }
- setInterval(()=>{
-  const el=document.querySelector('.ct-activation-pin');
-  if(!el){if(!activationAdmin())refreshActivationPin();return;}
-  if(!activationAdmin()){el.remove();refreshActivationPin();return;}
-  el.querySelector('[data-ct-pin-value]').textContent=refreshActivationPin();
- },1000);
+ setInterval(()=>{const el=document.querySelector('.ct-activation-pin');if(el&&!activationAdmin())el.remove();else if(el&&document.visibilityState!=='hidden')void refreshActivationPin();},5000);
+ document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')void refreshActivationPin();});
  function activationRecord(id){
   if(!activationAdmin()||!contractIntakeAdmin())throw Error('Se requiere administrador con la nube sincronizada.');
   const d=(db.contractTexts||[]).find(x=>x.id===id&&x.status==='voided'&&x.residenceId===residence().id);
@@ -177,7 +174,7 @@
   try{
    const d=activationRecord(id);refreshActivationPin();
    showModal('Activar contrato',
-    '<p>Reactivar contrato <strong>'+esc(d.id)+'</strong> de '+esc(getClient(d.clientId)?.name)+'.</p><p>Introduce el PIN que aparece arriba del panel del administrador.</p>'+
+    '<p>Reactivar contrato <strong>'+esc(d.id)+'</strong> de '+esc(getClient(d.clientId)?.name)+'.</p><p>Introduce el PIN vigente de Contratos en este equipo o en tu celular con la misma cuenta.</p>'+
     '<form id="ct-activation-form"><input type="hidden" name="documentId" value="'+esc(id)+'"><label>PIN de 4 dígitos<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" minlength="4" maxlength="4" autocomplete="off" required></label><p id="ct-activation-error" role="alert"></p></form>',
     '<button type="button" class="btn btn-outline" data-action="close-modal">Cancelar</button><button type="submit" form="ct-activation-form" class="btn btn-primary">Activar contrato</button>',true);
   }catch(e){toast(e.message,'error');}
@@ -186,17 +183,16 @@
   if(e.target.id!=='ct-activation-form')return;
   e.preventDefault();e.stopImmediatePropagation();if(activationBusy)return;
   try{
-   const data=Object.fromEntries(new FormData(e.target)),d=activationRecord(data.documentId);
-   if(Date.now()>=activationPinUntil||!/^\d{4}$/.test(data.pin)||data.pin!==activationPin){
-    refreshActivationPin();throw Error('PIN incorrecto o vencido. Consulta el PIN actual del administrador.');
-   }
+   const data=Object.fromEntries(new FormData(e.target));activationRecord(data.documentId);
+   activationBusy=true;await window.lotigestConfirmAdminPin(data.pin);
+   const d=activationRecord(data.documentId);
    const next=JSON.parse(JSON.stringify(db)),record=next.contractTexts.find(x=>x.id===d.id),lot=next.lots.find(x=>x.id===d.lotId);
    const at=new Date().toISOString();
    record.status=record.saleId?'active':(record.statusBeforeVoid==='registered'?'registered':'pending-sale');
    record.reactivationHistory=[...(record.reactivationHistory||[]),{at,by:cloudUser.name||'Administrador',voidedAt:record.voidedAt,voidReason:record.voidReason}];
    record.updatedAt=at;lot.ownerClientId=record.clientId;
    if(record.saleId){lot.status='sold';delete lot.pendingContractId;}else lot.pendingContractId=record.id;
-   activationBusy=true;refreshActivationPin(true);
+   activationBusy=true;
    cloudWrite(JSON.stringify(next));db=next;await cloudFlush();closeModal();render();
    toast(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed?'Reactivación pendiente de sincronización.':'Contrato reactivado.');
   }catch(err){const el=document.getElementById('ct-activation-error');if(el)el.textContent=err.message;toast(err.message,'error');}
