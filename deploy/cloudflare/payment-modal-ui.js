@@ -348,7 +348,7 @@ function pmSalesDecorate(){
  const historyBar=pmNode('div','pm-history-toolbar');
  const historyBtn=pmNode('button','btn btn-outline pm-history-launch','Historial de pagos por fecha');
  historyBtn.type='button';historyBtn.dataset.pmHistoryOpen='true';
- historyBar.append(historyBtn);shell.append(historyBar);
+ historyBar.append(historyBtn);if(typeof pmAmortizationActions==='function')historyBar.append(pmAmortizationActions());shell.append(historyBar);
  const main=pmNode('div','pm-grid');
  const summary=pmCard('Resumen del contrato','layers');summary.body.id='pm-summary';
  const entry=pmCard('Registrar nuevo pago','wallet');entry.body.append(fields);
