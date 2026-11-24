@@ -51,6 +51,18 @@ function gpsPlanShow(){
  catch(error){const el=document.getElementById('gps-plan-step');if(el)el.textContent=error.message;return;}
  gpsPlanLayer=L.layerGroup().addTo(geoMap);
  const r=residence();
+ // Conservar alineación previa y dibujar la ÚNICA calle nueva entre C2/C3,
+ // hasta enlazar con la vía del croquis existente, detrás de los polígonos.
+ if(r.id==='arrayan'){
+  try{
+   const mappedStreet=planAffineFeatures([{key:'calle-comercial-etapa2',
+    points:arrayanStage2CommercialStreetPoints}],anchors)[0];
+   if(mappedStreet?.geo?.length>=3){
+    L.polygon(mappedStreet.geo,{color:'#627e8b',weight:1.25,
+     fillColor:'#91a5ad',fillOpacity:.7,interactive:false}).addTo(gpsPlanLayer);
+   }
+  }catch(error){console.warn('Calle comercial: verificación de alineación pendiente',error);}
+ }
  let displayed=0;
  for(const {feature:f,geo} of mapped){
   const rec=r.records?.[f.key]||{};

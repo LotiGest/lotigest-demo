@@ -29,9 +29,31 @@ test('conservar las calles, la franja de 8 metros y la alineación GPS previa',(
  assert.match(html,/const arrayanRoadMarkup=/);
  assert.match(html,/function residenceRoadMarkup\(\)/);
  assert.match(html,/M 155 220 Q 180 225 200 260 T 260 360 T 340 515/);
- // El hueco de acceso aparece entre los contornos del local 3 y el 4.
- const a=five[2].points,b=five[3].points;
- assert.ok(!a.some(p=>b.some(q=>Math.hypot(p[0]-q[0],p[1]-q[1])<0.005)));
+ // Hay exactamente UNA calle transversal: C1 y C2 pegados; después calle; después C3, C4, C5.
+ const p2=five[1].points,p3=five[2].points;
+ const shared=(a,b)=>a.filter(p=>b.some(q=>Math.hypot(p[0]-q[0],p[1]-q[1])<0.005));
+ assert.equal(shared(five[0].points,p2).length,2,'C1 y C2 comparten lindero');
+ assert.equal(shared(p2,p3).length,0,'única separación de calle: entre C2 y C3');
+ assert.equal(shared(p3,five[3].points).length,2,'C3 y C4 comparten lindero');
+ assert.equal(shared(five[3].points,five[4].points).length,2,'C4 y C5 comparten lindero');
+ const street=extract('arrayanStage2CommercialStreetPoints');
+ assert.equal(street.length,6);
+ assert.deepEqual(street[0],p2[1]);
+ assert.deepEqual(street[1],p3[0]);
+ assert.deepEqual(street.at(-1),p2[2]);
+ assert.deepEqual(street[2],p3[3]);
+ // Los dos extremos finales llegan a la geometría de la calle del plano anterior.
+ const start=html.indexOf('const arrayanRoadMarkup='),finish=html.indexOf('const arrayan',start+10);
+ const roadText=html.slice(start,finish);
+ const samples=[...roadText.matchAll(/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g)]
+  .map(m=>[Number(m[1]),Number(m[2])]);
+ for(const edge of [street[3],street[4]]){
+  assert.ok(samples.some(p=>Math.hypot(p[0]-edge[0],p[1]-edge[1])<0.03),
+   'La calle única debe empalmar con el pavimento existente');
+ }
+ assert.ok(html.includes('arrayanRoadMarkup+arrayanStage2CommercialStreetSvg()'));
+
+ assert.match(gps,/arrayanStage2CommercialStreetPoints/);
  assert.match(gps,/features\.length-added/);
  assert.match(gps,/isArrayanStage2CommercialFive/);
 });

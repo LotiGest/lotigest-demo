@@ -1,4 +1,4 @@
 {
-  "version": "0.22.69",
-  "notes": "LOTIGEST PRO: solo cinco parcelas comerciales faltantes en etapa 2, basadas en el plano 'altos 2 etapa impresion.pdf' (647, 962, 970, 998, 969 m²). Conserva todos los solares previos, la calle de acceso y las carreteras, con la alineación GPS existente. Marcadas como propiedad privada mientras se confirma su clasificación comercial; no se crean ventas ni propietarios."
+  "version": "0.22.70",
+  "notes": "LOTIGEST PRO: corrige únicamente los 5 locales comerciales de la etapa 2 (C1 y C2; calle única conectada a la existente; C3, C4 y C5). Conserva todos los solares anteriores, líneas rojas, vías originales, clientes, contratos y pagos. Las parcelas continúan protegidas como privadas, sin venta automática."
 }
