@@ -105,3 +105,20 @@ test('editar recibo de varios solares conserva IDs, distribuciones y registro de
  ctx.changes.date='2027-01-01';assert.throws(run,/fecha/);
  ctx.changes.date='2024-02-02';ctx.changes.amounts.A='1001';assert.throws(run,/saldo/);
 });
+
+test('editar tipo de pago distingue prima atrasada de cuota y no cambia el total recibido',()=>{
+ const ctx=model();
+ ctx.state={sales:[{id:'S',lotId:'L',clientId:'C',type:'credit',price:1000,downPayment:300,date:'2024-01-01'}],
+ lots:[{id:'L',residenceId:'R'}],payments:[{id:'A',saleId:'S',amount:200,concept:'Abono',date:'2024-02-01',receiptReference:'001',receiptInfo:{allocations:[{label:'Prima inicial',amount:200}]}}]};
+ ctx.rules={requireReceiptCorrelativo:x=>x,findReceiptCorrelativo:()=>null};
+ ctx.changes={date:'2024-02-01',method:'Efectivo',reference:'001',amounts:{A:'200'},paymentType:'prima'};
+ ctx.rebuild=(p,prior)=>{const down=Math.min(p.amount,Math.max(0,300-prior));return {allocations:[...(down?[{label:'Prima inicial',amount:down}]:[]),...(p.amount>down?[{number:1,label:'Cuota',amount:p.amount-down}]:[])]}};
+ const run=()=>vm.runInContext("pmHistoryEditPlan(state,'A',changes,'Admin','Corregir tipo',rebuild,rules,'2026-11-24')",ctx);
+ let plan=run();assert.equal(plan.total,20000);assert.equal(plan.state.payments[0].concept,'Prima atrasada');
+ assert.equal(plan.state.payments[0].receiptInfo.allocations.some(a=>a.number),false);
+ assert.equal(ctx.state.payments[0].concept,'Abono');
+ ctx.changes.amounts.A='400';assert.throws(run,/supera la prima/);
+ ctx.changes.amounts.A='200';ctx.changes.paymentType='abono';assert.throws(run,/prima pendiente/);
+ ctx.state.payments.push({id:'P',saleId:'S',amount:300,concept:'Prima',date:'2024-01-01'});
+ plan=run();assert.equal(plan.state.payments[0].concept,'Abono mensual');assert.equal(plan.state.payments[0].receiptInfo.allocations[0].number,1);
+});
