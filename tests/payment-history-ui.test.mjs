@@ -144,3 +144,25 @@ test('amortización de 72 cuotas conserva vencidas, futuras, folios y saldo en P
  assert.ok((raw.match(/\/Type \/Page\b/g)||[]).length>1);
  assert.equal(JSON.stringify(ctx.state),snapshot);
 });
+
+test('permite corregir prima inicial de dos solares sin receiptInfo solo con respaldo contractual verificable',()=>{
+ const ctx=model();
+ ctx.state={sales:[1,2].map(i=>({id:'S'+i,lotId:'L'+i,clientId:'C',type:'credit',price:2500000,downPayment:1000000,date:'2024-03-01',source:'contract-manual',documentId:'D'+i,openingPaid:0})),
+ lots:[1,2].map(i=>({id:'L'+i,residenceId:'R'})),
+ contractTexts:[1,2].map(i=>({id:'D'+i,saleId:'S'+i,lotId:'L'+i,clientId:'C',status:'active',format:'manual',structured:{down:1000000,downPaymentReceived:true}})),
+ payments:[1,2].map(i=>({id:'A'+i,saleId:'S'+i,groupId:'G2',amount:75000,concept:'Abono mensual',date:'2024-08-07',receiptReference:'3553',receiptInfo:{allocations:[{number:1,amount:75000}]}})).concat([1,2].map(i=>({id:'P'+i,saleId:'S'+i,groupId:'G1',amount:1000000,concept:'Prima',date:'2024-03-01',receiptReference:'3551'})))};
+ ctx.changes={date:'2024-03-01',method:'TRANSFERENCIA',reference:'3551',paymentType:'keep',amounts:{P1:'800,000',P2:'800,000'}};
+ ctx.rules={requireReceiptCorrelativo:x=>x,findReceiptCorrelativo:()=>null};
+ ctx.rebuild=(p,prior)=>{const down=Math.min(p.amount,Math.max(0,1000000-prior));return {allocations:[...(down?[{label:'Prima inicial',amount:down}]:[]),...(p.amount>down?[{number:1,amount:p.amount-down}]:[])]}};
+ const snapshot=JSON.stringify(ctx.state);
+ const run=()=>vm.runInContext("pmHistoryEditPlan(state,'P1',changes,'Admin','Corregir prima',rebuild,rules,'2026-11-24')",ctx);
+ const plan=run();
+ assert.equal(plan.total,160000000);assert.equal(plan.state.payments.length,4);
+ assert.equal(plan.state.payments[2].receiptInfo.allocations[0].amount,800000);
+ assert.equal(plan.state.payments[0].receiptInfo.allocations[0].amount,75000);
+ assert.equal(plan.state.payments[0].receiptInfo.allocations[0].number,undefined);
+ assert.equal(plan.state.paymentEditHistory[0].corrected.length,2);
+ assert.equal(JSON.stringify(ctx.state),snapshot);
+ ctx.state.sales[0].source='import';assert.throws(run,/detalle verificable/);
+ ctx.state.sales[0].source='contract-manual';delete ctx.state.payments[0].receiptInfo;assert.throws(run,/detalle verificable/);
+});
