@@ -666,3 +666,23 @@ body.lotigest-dark #modal-root .lg-payment-modern .pm-last-payment-reference{col
  #modal-root .lg-payment-modern .pm-last-payment{padding:9px 11px}
  #modal-root .lg-payment-modern .pm-last-payment-solares{padding-top:6px;margin-top:4px}
 }
+
+/* Estado de cuenta: botón compacto y ventana con vista previa. */
+#modal-root .lg-payment-modern .pm-contract-column h3{flex-wrap:wrap}
+#modal-root .lg-payment-modern .pm-statement-launch{margin-left:auto;background:#edf8f1;color:#115634;border:1px solid #82ba96;padding:6px 9px;font-size:11px;min-height:30px;white-space:normal}
+.pm-history-layer .pm-statement-window{width:min(1100px,100%);max-width:1100px;height:auto}
+.pm-statement-content{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:16px;overflow:auto;min-height:0;padding:4px}
+.pm-statement-controls{display:flex;flex-direction:column;gap:12px;min-width:0;color:#173e2a}
+.pm-statement-controls label{display:grid;gap:5px;font-size:13px;font-weight:700}
+.pm-statement-controls :is(input,select,textarea){box-sizing:border-box;width:100%;min-width:0;padding:10px;border:1px solid #b9d2c2;border-radius:8px;background:#fff;color:#173e2a;font:inherit}
+.pm-statement-paper{border:1px solid #d6dfd8;background:white;color:#164537;padding:20px;box-shadow:0 3px 10px #1232;min-width:0}
+.pm-statement-paper h3{text-align:center;margin:8px 0 15px;font-size:17px;color:#164537}
+.pm-statement-logo{display:block;width:min(260px,85%);height:auto;margin:auto}
+.pm-statement-field,.pm-statement-month,.pm-statement-table-head,.pm-statement-total{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:8px 7px;font-size:12px;overflow-wrap:anywhere}
+.pm-statement-field strong{text-align:right;max-width:66%}
+.pm-statement-table-head,.pm-statement-total{background:#164537;color:#fff;font-weight:800;border-radius:5px}
+.pm-statement-month:nth-of-type(even){background:#eef5f0}
+.pm-statement-total{margin:12px 0;flex-wrap:wrap}
+.pm-statement-total strong{font-size:18px;color:white}
+.pm-statement-paper small{display:block;color:#53645b;font-size:11px;margin-top:5px}
+@media(max-width:760px){.pm-statement-content{grid-template-columns:1fr}.pm-statement-paper{padding:13px}.pm-statement-controls{gap:8px}}
