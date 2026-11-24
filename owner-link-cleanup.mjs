@@ -1,6 +1,6 @@
 // LOTIGEST · Reconciliar únicamente vínculos provisionales propietario↔solar.
 // No eliminar clientes, solares, contratos, ventas, apartados ni pagos.
-export function auditOrphanOwnerLinks(state,residenceId=null){
+export function auditOrphanOwnerLinks(state,residenceId=null,allowImported=false){
  const candidates=[],protectedLinks=[],clients=new Map((state.clients||[]).map(c=>[c.id,c]));
  const salesById=new Map((state.sales||[]).map(s=>[s.id,s]));
  const activeDocs=(state.contractTexts||[]).filter(d=>d.status!=='voided');
@@ -27,8 +27,18 @@ export function auditOrphanOwnerLinks(state,residenceId=null){
    !['expired','cancelled'].includes(x.status));
   const anyOwnerPayment=connected(state.ownerPayments||[],lot.id);
   const anyStatements=connected(state.ownershipStatements||[],lot.id);
-  const anyHistorical=connected(state.historicalPayments||[],lot.id)||
-   connected(state.historicalContracts||[],lot.id);
+  const historicalRows=(state.historicalPayments||[]).filter(p=>connected([p],lot.id));
+  const historicalDocs=(state.historicalContracts||[]).filter(p=>connected([p],lot.id));
+  const statementRows=(state.ownershipStatements||[]).filter(p=>connected([p],lot.id));
+  const anyHistorical=historicalRows.length>0||historicalDocs.length>0;
+  // Solo datos documentales importados sin contabilizar; jamás liberar una venta
+  // ni un cobro real. Las referencias históricas quedan intactas.
+  const importedEvidence=historicalRows.length>0||historicalDocs.length>0||
+   statementRows.some(p=>p.sourceName||p.sourceSheet);
+  const importedOnly=allowImported&&importedEvidence&&
+   historicalRows.every(p=>!p.postedPaymentId&&!p.saleId)&&
+   historicalDocs.every(p=>!p.saleId&&p.status!=='posted')&&
+   statementRows.every(p=>p.sourceName||p.sourceSheet);
   const anyFinancial=['payments','receipts','cashEntries'].some(key=>connected(state[key]||[],lot.id));
   // Cuando un recibo solo tiene cliente y residencial, no asumir que pertenece a otro solar.
   const anyAmbiguous=['payments','ownerPayments','historicalPayments','historicalContracts',
@@ -49,11 +59,11 @@ export function auditOrphanOwnerLinks(state,residenceId=null){
   if(anyReservation)reasons.push('apartado o reserva');
   if(lot.pendingContractId)reasons.push('contrato pendiente');
   if(anyOwnerPayment)reasons.push('recibo de propietario');
-  if(anyStatements)reasons.push('ficha histórica de propietario');
-  if(anyHistorical)reasons.push('historial financiero');
+  if(anyStatements&&!importedOnly)reasons.push('ficha histórica de propietario');
+  if(anyHistorical&&!importedOnly)reasons.push('historial financiero');
   if(anyFinancial||anyAmbiguous)reasons.push('pagos, caja o recibos vinculados o sin conciliar');
   if(anyRequest)reasons.push('solicitud pública pendiente');
-  if(lot.mapDebtFlag||lot.historyRequiresReview)reasons.push('deuda o historial pendiente de revisión');
+  if((lot.mapDebtFlag||lot.historyRequiresReview)&&!importedOnly)reasons.push('deuda o historial pendiente de revisión');
   if(lot.contractId||lot.pendingContractId)reasons.push('referencia contractual del terreno');
   if(lot.clientId&&lot.clientId!==lot.ownerClientId)reasons.push('otro cliente relacionado con el solar');
   if(plan?.lotId&&plan.lotId!==lot.id)reasons.push('croquis asociado con otro solar');
@@ -63,7 +73,8 @@ export function auditOrphanOwnerLinks(state,residenceId=null){
   const item={lotId:lot.id,residenceId:lot.residenceId,clientId:lot.ownerClientId,
    clientName:owner?.name||'Cliente por revisar',stage:lot.stage??'',block:lot.block??'',
    number:lot.sourceNumber||lot.number||lot.id,previousStatus:lot.status,
-   reason:reasons.length?reasons.join(' · '):
+   importedOnly:Boolean(importedOnly),reason:reasons.length?reasons.join(' · '):
+    importedOnly?'asignación importada sin contabilizar: se conserva historial separado':
     lot.status==='sold'?'marcado Comprado sin venta real: se podrá liberar con respaldo':
     activeDocs.some(d=>d.clientId===lot.ownerClientId)?
      'solar adicional sin contrato (solo vínculo provisional)':'cliente sin contrato (solo vínculo provisional)'};
@@ -72,7 +83,7 @@ export function auditOrphanOwnerLinks(state,residenceId=null){
  return {candidates,protectedLinks,totals:{candidates:candidates.length,protected:protectedLinks.length}};
 }
 export function removeOrphanOwnerLinks(state,selectedIds,residenceId=null,
- actor='Administrador',reason='Corrección de asignación provisional',at=new Date().toISOString()){
+ actor='Administrador',reason='Corrección de asignación provisional',at=new Date().toISOString(),allowImported=false){
  if(!Array.isArray(selectedIds)||!selectedIds.length)throw Error('Selecciona solares para desvincular.');
  if(selectedIds.length>20)throw Error('Por seguridad, limpia hasta 20 asociaciones a la vez; vuelve a revisar antes de continuar.');
  const unique=new Set(selectedIds);
@@ -80,7 +91,7 @@ export function removeOrphanOwnerLinks(state,selectedIds,residenceId=null,
   throw Error('Selección incompatible.');
  const who=String(actor||'').trim(),why=String(reason||'').trim();
  if(!who||why.length<5||why.length>300)throw Error('Identifica al administrador y escribe un motivo de 5 a 300 caracteres.');
- const review=auditOrphanOwnerLinks(state,residenceId);
+ const review=auditOrphanOwnerLinks(state,residenceId,allowImported);
  const allowed=new Set(review.candidates.map(x=>x.lotId));
  for(const id of unique)if(!allowed.has(id))throw Error('El solar '+id+' ya no es seguro para desvincular.');
  const next=JSON.parse(JSON.stringify(state));let changed=0;
@@ -91,6 +102,13 @@ export function removeOrphanOwnerLinks(state,selectedIds,residenceId=null,
   lot.ownerUnlinkHistory??=[];
   lot.ownerUnlinkHistory.push({at,by:who.slice(0,120),reason:why,
    previousOwnerClientId,previousStatus,previousPurchaseFromPlan});
+  const candidate=review.candidates.find(x=>x.lotId===lot.id);
+  if(candidate?.importedOnly){
+   lot.ownerUnlinkHistory.at(-1).legacyImportArchived=true;
+   lot.ownerUnlinkHistory.at(-1).previousMapDebtFlag=lot.mapDebtFlag;
+   lot.ownerUnlinkHistory.at(-1).previousHistoryRequiresReview=lot.historyRequiresReview;
+   lot.mapDebtFlag=false;lot.historyRequiresReview=false;
+  }
   delete lot.ownerClientId;
   if(lot.clientId===previousOwnerClientId)delete lot.clientId;
   if(['sold'].includes(lot.status))lot.status='available';
