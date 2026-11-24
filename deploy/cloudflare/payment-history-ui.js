@@ -372,7 +372,7 @@ function pmReportCurrentMonthFirst(originalRows,payments,asOf){
    const value=Math.min(remaining,row.remainingCents),target=row.dueDate.slice(0,7),advance=month<target;
    remaining-=value;row.remainingCents-=value;row.appliedCents+=value;
    if(advance)row.advanceCents+=value;else row.confirmedCents+=value;
-   row.receipts.push({paymentId:p.id,date:p.date,amountCents:value,groupId:p.groupId||p.id,method:p.method||'',advance});
+   row.receipts.push({paymentId:p.id,date:p.date,amountCents:value,groupId:p.groupId||p.id,reference:pmHistoryReference(p),method:p.method||'',advance});
   }
   if(remaining)throw Error('No se pudo aplicar el importe mensual verificado.');
  }
@@ -455,7 +455,7 @@ function pmAmortizationModel(state,clientId,rid,asOf,reconcile,dueCents,addMonth
  if(all.some(p=>p.historicalImportId||posted.has(p.id)))throw Error('Concilia los cobros importados contabilizados antes de emitir el reporte.');
  const cents=x=>Math.round(Number(x||0)*100),sum=(arr,fn)=>arr.reduce((n,x)=>n+fn(x),0);
  if(all.some(p=>!p.date||!Number.isSafeInteger(cents(p.amount))||cents(p.amount)<=0))throw Error('Hay pagos sin fecha o importe válido.');
- const payments=all.filter(p=>p.date<=asOf),ledger=reconcile(sales,payments,asOf,dueCents,addMonth),projected=pmReportCurrentMonthFirst(ledger.rows,payments,asOf);
+ const payments=all.filter(p=>p.date<=asOf),ledger=reconcile(sales,payments,asOf,dueCents,addMonth,{requireReference:true}),projected=pmReportCurrentMonthFirst(ledger.rows,payments,asOf);
  const status=x=>!x.dueCents?'Sin importe':!x.remainingCents?(x.lastPaidAt>x.dueDate?'Pagada atrasada':x.lastPaidAt<x.dueDate?'Pagada adelantada':'Pagada'):x.dueDate<asOf?(x.appliedCents?'Vencida parcial':'Vencida sin pagar'):x.appliedCents?'Parcial':'Pendiente';
  const details=sales.map(s=>{
   const lot=scope.lots.find(l=>l.id===s.lotId),rows=projected.filter(x=>x.saleId===s.id).map(x=>({...x,displayStatus:status(x),reportStatus:pmReportPaymentStatus(x,asOf)}));
