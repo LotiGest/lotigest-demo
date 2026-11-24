@@ -405,9 +405,9 @@ function pmConsolidatedMonths(rows,payments,asOf){
   currentMonth:scheduled.find(m=>m.month===cutoff)||null,nextMonth:scheduled.find(m=>m.pending>0)||null,
   noDepositCovered:scheduled.filter(m=>m.noDeposit&&m.covered),unpaid,overdueAmount:unpaid.reduce((n,m)=>n+m.overdue,0)};
 }
-function pmAmortizationModel(state,clientId,rid,asOf,reconcile,dueCents,addMonth){
- const scope=contractCollectionsScope(state,rid),client=scope.clients.find(x=>x.id===clientId),sales=scope.sales.filter(x=>x.clientId===clientId);
- if(!client||!sales.length)throw Error('Selecciona un cliente con contrato registrado.');
+function pmAmortizationModel(state,clientId,rid,asOf,reconcile,dueCents,addMonth,lotId=null){
+ const scope=contractCollectionsScope(state,rid),client=scope.clients.find(x=>x.id===clientId),sales=scope.sales.filter(x=>x.clientId===clientId&&(lotId===null||x.lotId===lotId));
+ if(!client||!sales.length)throw Error(lotId===null?'Selecciona un cliente con contrato registrado.':'El solar seleccionado no pertenece a un contrato vigente de este cliente.');
  const ids=new Set(sales.map(s=>s.id)),posted=new Set((state.historicalPayments||[]).map(p=>p.postedPaymentId).filter(Boolean));
  const all=scope.payments.filter(p=>ids.has(p.saleId)&&!['voided','cancelled'].includes(p.status)&&!p.voidedAt&&!p.deletedAt&&!p.cancelledAt);
  if(all.some(p=>p.historicalImportId||posted.has(p.id)))throw Error('Concilia los cobros importados contabilizados antes de emitir el reporte.');
@@ -433,7 +433,7 @@ function pmAmortizationModel(state,clientId,rid,asOf,reconcile,dueCents,addMonth
  const price=sum(details,x=>x.price),paid=sum(details,x=>x.paid),agreed=sum(details,x=>x.agreed),prima=sum(details,x=>x.primaApplied);
  const rows=details.flatMap(x=>x.rows),pending=rows.filter(x=>x.remainingCents>0).sort((a,b)=>a.dueDate.localeCompare(b.dueDate)),overdue=pending.filter(x=>x.dueDate<asOf);
  const consolidated=pmConsolidatedMonths(rows,payments,asOf);
- return {consolidated,client:client.name,residence:state.residences?.find(x=>x.id===rid)?.name||'Residencial',company:state.company?.name||'GRUPO H',asOf,details,price,paid,agreed,prima,balance:price-paid,opening:sum(details,x=>x.opening),abonos:Math.max(0,paid-prima),count:rows.length,covered:rows.filter(x=>x.dueCents>0&&!x.remainingCents).length,latePaid:rows.filter(x=>x.displayStatus==='Pagada atrasada').length,overdueCount:overdue.length,overdueAmount:sum(overdue,x=>x.remainingCents),next:pending[0]||null,last:payments.map(p=>p.date).sort().at(-1)||null,unmatched:ledger.unmatched.length};
+ return {consolidated,individual:lotId!==null,client:client.name,residence:state.residences?.find(x=>x.id===rid)?.name||'Residencial',company:state.company?.name||'GRUPO H',asOf,details,price,paid,agreed,prima,balance:price-paid,opening:sum(details,x=>x.opening),abonos:Math.max(0,paid-prima),count:rows.length,covered:rows.filter(x=>x.dueCents>0&&!x.remainingCents).length,latePaid:rows.filter(x=>x.displayStatus==='Pagada atrasada').length,overdueCount:overdue.length,overdueAmount:sum(overdue,x=>x.remainingCents),next:pending[0]||null,last:payments.map(p=>p.date).sort().at(-1)||null,unmatched:ledger.unmatched.length};
 }
 function pmAmortizationPdf(model){
  const green='0.045 0.30 0.17',light='0.90 0.96 0.89',ink='0.10 0.18 0.15',red='0.70 0.12 0.16',orange='0.70 0.34 0.08',blue='0.12 0.35 0.62',gray='0.38 0.43 0.40';
@@ -445,7 +445,7 @@ function pmAmortizationPdf(model){
  const cash=c=>'L '+(Number(c)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
  const date=s=>s?String(s).split('-').reverse().join('/'):'—';
  const footer=()=>{rect(32,40,548,1,green);txt('Documento generado por LOTIGEST PRO · '+model.company,32,26,8,false,gray);txt('Página '+(pages.length+1),526,26,8,false,gray);pages.push(cmds.join('\n'));cmds=[];};
- const start=()=>{rect(0,780,612,12,green);rect(32,741,548,2,green);txt('LOTIGEST PRO',32,757,24,true,green);txt('Amortización del cliente',330,758,15,true);txt('Corte: '+date(model.asOf),32,725,9,false,gray);txt('Estado de cuenta',330,725,9,false,gray);y=706;};
+ const start=()=>{rect(0,780,612,12,green);rect(32,741,548,2,green);txt('LOTIGEST PRO',32,757,24,true,green);txt(model.individual?'Amortización por solar':'Amortización del cliente',330,758,15,true);txt('Corte: '+date(model.asOf),32,725,9,false,gray);txt('Estado de cuenta',330,725,9,false,gray);y=706;};
  const ensure=h=>{if(y-h<54){footer();start();}};
  const line=(s,size=10,bold=false,color=ink)=>{for(const l of wrap(s,Math.floor(548/(size*.58)))){ensure(size+5);txt(l,32,y,size,bold,color);y-=size+5;}};
  const section=s=>{ensure(42);rect(32,y-20,548,23,green);txt(s,40,y-12,11,true,'1 1 1');y-=32;};
@@ -464,7 +464,7 @@ function pmAmortizationPdf(model){
    }
   }y-=9;
  };
- start();section('Datos del cliente y del contrato');line('Cliente: '+model.client,13,true);line('Residencial: '+model.residence);line('Contratos incluidos: '+model.details.length+' · Corte: '+date(model.asOf));
+ start();section('Datos del cliente y del contrato');line('Cliente: '+model.client,13,true);line('Residencial: '+model.residence);line((model.individual?'Reporte individual de un solar':'Reporte consolidado · Contratos incluidos: '+model.details.length)+' · Corte: '+date(model.asOf));
  for(const d of model.details)line('Etapa '+(d.lot.stage||'—')+' · Bloque '+(d.lot.block||'—')+' · Solar '+(d.lot.sourceNumber||d.lot.number||d.lot.id)+' | Contrato: '+date(d.sale.date)+' | '+(d.sale.type==='credit'?d.sale.months+' cuotas':'Contado'),9);
  section('Resumen del contrato');
  tiles([['Precio total',cash(model.price)],['Prima acordada',cash(model.agreed)],['Prima aplicada',cash(model.prima)],['Saldo inicial a financiar',cash(model.price-model.agreed)],['Abonos sobre prima',cash(model.abonos)],['Saldo restante',cash(model.balance)],['Meses cubiertos',model.consolidated.monthsCovered+' / '+model.consolidated.monthCount],['Meses vencidos pendientes',String(model.consolidated.monthsOverdue)],['Monto vencido pendiente',cash(model.consolidated.overdueAmount)],['Prima pendiente',cash(model.agreed-model.prima)],['Total contabilizado',cash(model.paid)],['Interés contractual','0%']]);
@@ -480,13 +480,13 @@ function pmAmortizationPdf(model){
  const con=model.consolidated,monthLabel=k=>k?String(k).split('-').reverse().join('/'):'—';
  const signed=n=>(n<0?'-':n>0?'+':'')+cash(Math.abs(n));
  const shade=m=>m.status.startsWith('Vencida')?red:m.late?orange:m.status==='Pagada adelantada'?blue:m.covered?green:gray;
- section('Amortización mensual consolidada');
+ section(model.individual?'Amortización mensual del solar':'Amortización mensual consolidada');
  if(con.currentMonth)line('Cuota total del mes de corte: '+cash(con.currentMonth.due),12,true,green);
  else if(con.nextMonth)line('Cuota total de '+monthLabel(con.nextMonth.month)+': '+cash(con.nextMonth.due),12,true,green);
  line('Meses cubiertos: '+con.monthsCovered+' de '+con.monthCount+' | Meses cerrados sin depósito: '+con.monthsNoDeposit+' | Meses vencidos pendientes: '+con.monthsOverdue,10,true);
- line('Depositado es el dinero recibido en el mes (incluye prima); aplicado es lo que cubre esa mensualidad, aunque venga de otro mes. Los meses futuros no se marcan sin depósito.',9,false,gray);
- if(con.calendar.length)table('Control mensual · todos los solares',['Mes','Cuota total','Depositado','Aplicado','Pendiente','Estado / origen'],[48,86,86,86,86,156],con.calendar.map(m=>({cells:[monthLabel(m.month),cash(m.due),m.month>model.asOf.slice(0,7)?'—':cash(m.received),cash(m.applied),cash(m.pending),m.status+(m.noDeposit?' · Sin depósito'+(m.closed?'':' al corte'):'')+(m.sourceMonths.length?' · Recibos: '+m.sourceMonths.map(monthLabel).join(', '):'')],color:shade(m)})));
- if(con.receipts.length)table('Depósitos reales · recibos agrupados',['Fecha / folio','Recibido','Cuota del mes','Diferencia*','Aplicación a cuotas'],[87,89,89,89,194],con.receipts.map(g=>({cells:[date(g.date)+' / '+g.reference,cash(g.received),cash(g.base),signed(g.excess),'Cuotas: '+cash(g.monthly)+' · Anteriores '+cash(g.prior)+' · Del mes '+cash(g.current)+' · Futuras '+cash(g.future)+(g.nonMonthly?' · Prima u otro no aplicado: '+cash(g.nonMonthly):'')+(g.targets.length?' · '+g.targets.map(([k,v])=>monthLabel(k)+': '+cash(v)).join('; '):'')]})));
+ line(model.individual?'Depositado es únicamente la parte de cada recibo asignada a este solar (incluye prima), no el total del recibo compartido. Aplicado indica la mensualidad cubierta.':'Depositado es el dinero recibido en el mes (incluye prima); aplicado es lo que cubre esa mensualidad, aunque venga de otro mes. Los meses futuros no se marcan sin depósito.',9,false,gray);
+ if(con.calendar.length)table(model.individual?'Control mensual · solar seleccionado':'Control mensual · todos los solares',['Mes','Cuota total','Depositado','Aplicado','Pendiente','Estado / origen'],[48,86,86,86,86,156],con.calendar.map(m=>({cells:[monthLabel(m.month),cash(m.due),m.month>model.asOf.slice(0,7)?'—':cash(m.received),cash(m.applied),cash(m.pending),m.status+(m.noDeposit?' · Sin depósito'+(m.closed?'':' al corte'):'')+(m.sourceMonths.length?' · Recibos: '+m.sourceMonths.map(monthLabel).join(', '):'')],color:shade(m)})));
+ if(con.receipts.length)table(model.individual?'Depósitos asignados a este solar':'Depósitos reales · recibos agrupados',['Fecha / folio','Recibido','Cuota del mes','Diferencia*','Aplicación a cuotas'],[87,89,89,89,194],con.receipts.map(g=>({cells:[date(g.date)+' / '+g.reference,cash(g.received),cash(g.base),signed(g.excess),'Cuotas: '+cash(g.monthly)+' · Anteriores '+cash(g.prior)+' · Del mes '+cash(g.current)+' · Futuras '+cash(g.future)+(g.nonMonthly?' · Prima u otro no aplicado: '+cash(g.nonMonthly):'')+(g.targets.length?' · '+g.targets.map(([k,v])=>monthLabel(k)+': '+cash(v)).join('; '):'')]})));
  line('* Diferencia: parte del recibo aplicada a cuotas menos cuota programada de su mes. No equivale necesariamente a adelanto: puede cubrir mora. El destino real se indica en la última columna.',9,false,gray);
  if(con.unpaid.length){
   table('Meses vencidos con saldo pendiente',['Mes','Cuota total','Aplicado','Mora al corte'],[90,150,150,158],con.unpaid.map(m=>({cells:[monthLabel(m.month),cash(m.due),cash(m.applied),cash(m.overdue)],color:red})));
@@ -517,19 +517,50 @@ function pmAmortizationPdf(model){
  let pdf='%PDF-1.4\n',offsets=[0];objects.forEach((o,i)=>{offsets.push(pdf.length);pdf+=(i+1)+' 0 obj\n'+o+'\nendobj\n';});const xref=pdf.length;pdf+='xref\n0 '+offsets.length+'\n0000000000 65535 f \n'+offsets.slice(1).map(n=>String(n).padStart(10,'0')+' 00000 n \n').join('')+'trailer\n<< /Size '+offsets.length+' /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF';
  return new Blob([Uint8Array.from(pdf,x=>x.charCodeAt(0)&255)],{type:'application/pdf'});
 }
-async function pmDeliverAmortization(share){
+async function pmDeliverAmortization(share,lotId=null,expectedClient=null){
  try{
   if(!cloudReady||cloudBlocked||cloudOffline||!cloudQueue||cloudQueue.pending||cloudQueue.latest!==cloudQueue.confirmed)throw Error('Sincroniza los cambios con Cloudflare antes de emitir el reporte.');
   const clients=new Set(pmSales().map(s=>s.clientId));if(clients.size!==1)throw Error('Selecciona un solo cliente.');
-  const report=pmAmortizationModel(db,[...clients][0],residence().id,businessToday(),reconcileInstallments,installmentDueCents,(date,i)=>dateKey(addMonths(date,i)));
-  const blob=pmAmortizationPdf(report),name='LOTIGEST_Amortizacion_'+report.asOf+'.pdf';
+  const clientId=[...clients][0];if(expectedClient!==null&&clientId!==expectedClient)throw Error('El cliente cambió. Vuelve a elegir el reporte.');
+  const report=pmAmortizationModel(db,clientId,residence().id,businessToday(),reconcileInstallments,installmentDueCents,(date,i)=>dateKey(addMonths(date,i)),lotId);
+  const slug=s=>String(s??'').replace(/[^a-zA-Z0-9_-]+/g,'_').slice(0,60);
+  const lot=report.details[0].lot;
+  const tag=report.individual?'Etapa_'+slug(lot.stage)+'_Bloque_'+slug(lot.block)+'_Solar_'+slug(lot.sourceNumber||lot.number||lot.id):'Consolidada';
+  const blob=pmAmortizationPdf(report),name='LOTIGEST_Amortizacion_'+tag+'_'+report.asOf+'.pdf';
   if(share&&typeof File==='function'){const file=new File([blob],name,{type:'application/pdf'});if(navigator.canShare?.({files:[file]})){await navigator.share({files:[file],title:'Amortización LOTIGEST PRO'});return;}}
   download(name,blob,'application/pdf');toast(share?'PDF descargado. Adjunta el archivo al chat del cliente en WhatsApp.':'Reporte de amortización descargado.');
  }catch(e){if(e.name!=='AbortError')toast(e.message||'No se pudo generar el reporte.','error');}
 }
+function pmAmortizationChoices(state,clientId,rid){
+ const scope=contractCollectionsScope(state,rid);
+ return scope.sales.filter(s=>s.clientId===clientId).map(s=>{
+  const l=scope.lots.find(x=>x.id===s.lotId);
+  return {id:s.lotId,label:'Etapa '+(l.stage||'—')+' · Bloque '+(l.block||'—')+' · Solar '+(l.sourceNumber||l.number||l.id)};
+ }).sort((a,b)=>a.label.localeCompare(b.label,'es',{numeric:true}));
+}
 function pmAmortizationActions(){
- const actions=pmNode('div','pm-history-toolbar');
- for(const [label,share] of [['Amortización PDF',false],['Compartir amortización',true]]){
-  const b=pmNode('button','btn btn-outline btn-sm',label);b.type='button';b.addEventListener('click',()=>pmDeliverAmortization(share));actions.append(b);
- }return actions;
+ const actions=pmNode('div','pm-history-toolbar'),open=pmNode('button','btn btn-outline btn-sm','Amortización PDF');
+ open.type='button';open.setAttribute('aria-expanded','false');
+ const panel=pmNode('div','pm-history-item-body');panel.hidden=true;
+ const label=pmNode('label','','Elige los solares del reporte'),select=pmNode('select');select.setAttribute('aria-label','Alcance de amortización');
+ label.append(select);panel.append(label);
+ const note=pmNode('p','pm-help','El reporte individual incluye solo los importes asignados a ese solar.');
+ panel.append(note);let client=null;
+ for(const [title,share] of [['Descargar PDF',false],['Compartir PDF',true]]){
+  const b=pmNode('button','btn btn-outline btn-sm',title);b.type='button';
+  b.addEventListener('click',()=>pmDeliverAmortization(share,select.value||null,client));panel.append(b);
+ }
+ open.addEventListener('click',()=>{
+  if(!panel.hidden){panel.hidden=true;open.setAttribute('aria-expanded','false');return;}
+  try{
+   const clients=new Set(pmSales().map(s=>s.clientId));if(clients.size!==1)throw Error('Selecciona un solo cliente.');
+   client=[...clients][0];const choices=pmAmortizationChoices(db,client,residence().id);
+   if(!choices.length)throw Error('No hay contratos vigentes para este cliente.');
+   select.replaceChildren();
+   const all=pmNode('option','','Todos los solares ('+choices.length+') · Consolidado');all.value='';select.append(all);
+   for(const choice of choices){const option=pmNode('option','',choice.label);option.value=choice.id;select.append(option);}
+   panel.hidden=false;open.setAttribute('aria-expanded','true');select.focus();
+  }catch(e){toast(e.message,'error');}
+ });
+ actions.append(open,panel);return actions;
 }
