@@ -1,4 +1,4 @@
 {
-  "version": "0.22.73",
-  "notes": "Cotas del PDF en todos los 416 solares y locales. Linderos compartidos identificados, pendientes visibles y cinco polígonos comerciales ajustados al PDF. Conserva áreas manuales, propietarios, contratos y cobros."
+  "version": "0.22.74",
+  "notes": "LC-1: corte final corregido según la muestra aprobada, eliminando la prolongación sobrante. Se conservan los otros 415 polígonos, datos comerciales, áreas y medidas manuales."
 }

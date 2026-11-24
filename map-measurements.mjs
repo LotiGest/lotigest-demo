@@ -9,6 +9,7 @@ export function applyOfficialMapMeasurements(state){
  for(const lot of state.lots||[]){
   if(lot.residenceId!=='arrayan')continue;
   const row=OFFICIAL_MAP_MEASUREMENTS.lots[lot.sourceFeatureKey];if(!row)continue;
+  if(row.mapPoints&&JSON.stringify(lot.sourceMapPoints)!==JSON.stringify(row.mapPoints)){lot.sourceMapPoints=row.mapPoints.map(p=>[...p]);changed=true;}
   const edges=row.edges.map(e=>({edge:e.index,value:e.value,origin:e.origin,...(e.sourceFeatureKey?{sourceFeatureKey:e.sourceFeatureKey,sourceEdge:e.sourceEdge}:{})}));
   const measures=edges.filter(e=>e.value!=null).map(e=>e.value);
   for(const [key,value] of Object.entries({sourceMeasures:measures,sourceMeasurementEdges:edges,sourceMeasurementVersion:OFFICIAL_MAP_MEASUREMENTS.sha256,sourceMeasurementFile:OFFICIAL_MAP_MEASUREMENTS.source})){

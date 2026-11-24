@@ -42,6 +42,7 @@ for f in features:
   if edges[i]['value'] is not None:continue
   edges[i].update(value=m['value'],origin='pdf',bbox=m['bbox']);assign.append(mid)
  rows[f['key']]={'stage':f.get('stage'), 'block':f.get('block'),'number':f['number'],'edges':edges}
+ if f['key']=='commercial-01':rows[f['key']]['mapPoints']=f['points']
 # Only transfer a printed value when the neighbor shares the WHOLE matching boundary.
 inferred=0
 for key,r in rows.items():

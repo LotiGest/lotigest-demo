@@ -10,7 +10,7 @@ const src=html.slice(html.indexOf('function mapFeatures(r){'),html.indexOf("let 
 const getMap=db=>new Function('arrayanFeatures','recoveredStageFeatures','isArrayanStage2CommercialFive','arrayanStage2CommercialFive','officialFeatureStages','confirmedStageOneBlocks','db',src+'return mapFeatures;')(existing,extract('recoveredStageFeatures'),filter,five,{},{},db);
 test('cinco locales aprobados: originales intactos y sin duplicar trazados guardados',()=>{
  assert.equal(existing.length,411);
- assert.equal(createHash('sha256').update(JSON.stringify(existing)).digest('hex'),'36dcb3af93716cf2e203e527feb25a3a4c3ceb9116bea55749a93b6497b482fb');
+ assert.equal(createHash('sha256').update(JSON.stringify(existing.filter(f=>f.key!=='commercial-01'))).digest('hex'),'3d6d06d6dd9ac9fbb556ee49254056e38334bb0dd1ac59bc6051bfefb775ae95');
  const fs=getMap({lots:[]})({id:'arrayan',builtin:'arrayan',features:[{...five[0],points:[[1,1],[2,2],[3,3]]}],records:{}});
  assert.equal(fs.length,416);assert.equal(new Set(fs.map(f=>f.key)).size,416);
  assert.deepEqual(fs.filter(filter),five);assert.deepEqual(five.map(f=>f.displayLabel),['C-1','C-2','C-3','C-4','C-5']);
