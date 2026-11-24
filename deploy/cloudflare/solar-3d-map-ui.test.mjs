@@ -8,6 +8,7 @@ test('La vista 3D mantiene los puntos originales, clics y modo 2D',()=>{
  const dom=new JSDOM('<!doctype html><html><head></head><body><div id="arrayan-scroll"><svg id="arrayan-native"><g class="ar-solar" data-action="arrayan-select" data-id="ar-001"><polygon points="1,2 11,2 11,12 1,12" fill="#5dc39a"/><text>1</text></g></svg></div></body></html>',{url:'https://lotigest.example',runScripts:'outside-only'});
  const w=dom.window;
  w.eval("var page='arrayan';function arrayanPage(){return '<div class=\"page-cols\"><div id=\"arrayan-scroll\"></div></div>';}function render(){return true;}");
+ w.localStorage.setItem('lotigest-map-mode-3d-v2','3d');
  w.eval(source);
  assert.match(w.arrayanPage(),/data-lg-map-view="3d"/);
  assert.equal(w.render(),true);

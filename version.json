@@ -1,4 +1,4 @@
 {
-  "version": "0.22.74",
-  "notes": "LC-1: corte final corregido según la muestra aprobada, eliminando la prolongación sobrante. Se conservan los otros 415 polígonos, datos comerciales, áreas y medidas manuales."
+  "version": "0.22.75",
+  "notes": "Mapa de solares: vista ilustrada del proyecto sobre satélite y vistas interactivas 2D/3D con casas de techo según el estado real, terrazas y gradas ilustrativas. Giro completo. Conserva figuras, contratos, pagos y GPS."
 }
