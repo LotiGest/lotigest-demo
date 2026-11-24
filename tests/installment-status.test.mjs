@@ -115,3 +115,18 @@ test('cuota pagada tarde después de su vencimiento en el mismo mes se destaca c
  const {rows}=ledger([s],[p],'2026-02-20');
  assert.equal(rows[0].status,'paid-late');
 });
+
+test('vista oficial exige correlativo, excluye prima, anulados y aplicaciones superiores al recibo',()=>{
+ const s=sale({firstDueDate:'2026-01-26',months:6});
+ const payments=[
+  {id:'A',saleId:s.id,date:'2026-01-26',amount:1000,receiptReference:'0001',receiptInfo:{allocations:[{number:1,amount:1000}]}},
+  {id:'B',saleId:s.id,date:'2026-02-26',amount:1000,receiptInfo:{allocations:[{number:2,amount:1000}]}},
+  {id:'C',saleId:s.id,date:'2026-03-26',amount:100,receiptReference:'0003',receiptInfo:{allocations:[{number:3,amount:1000}]}},
+  {id:'D',saleId:s.id,date:'2026-04-26',amount:1000,receiptReference:'0004',paymentApplication:'prima',receiptInfo:{allocations:[{number:4,amount:1000}]}},
+  {id:'E',saleId:s.id,date:'2026-05-26',amount:1000,receiptReference:'0005',status:'cancelled',receiptInfo:{allocations:[{number:5,amount:1000}]}}
+ ];
+ const result=reconcileInstallments([s],payments,'2026-11-20',installment,addMonth,{requireReference:true});
+ assert.equal(result.rows[0].remainingCents,0);assert.equal(result.rows[0].receipts[0].reference,'0001');
+ assert.ok(result.rows.slice(1).every(x=>x.appliedCents===0));
+ assert.equal(result.unmatched.length,3);
+});
