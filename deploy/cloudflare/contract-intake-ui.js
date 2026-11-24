@@ -188,11 +188,17 @@ function contractIntakeManualFields(){
   '<div class="lg-contract-solar-info lg-contract-empty">Selecciona la etapa, el bloque y el número de solar para ver sus medidas y precio registrados.</div>';
  const more=extra.map((row,i)=>{
   const idx=i+1,l=all[idx],s=String(row.stage||''),stageOptions=stages.map(n=>'<option value="'+n+'" '+(s===String(n)?'selected':'')+'>Etapa '+n+'</option>').join('');
-  const lotOptions=eligible.filter(item=>String(item.stage)===s&&item.id!==selected?.id).map(item=>
+  const assigned=new Set(all.filter((item,j)=>item&&j!==idx).map(item=>item.id));
+  const lotOptions=eligible.filter(item=>String(item.stage)===s&&!assigned.has(item.id)).sort((a,b)=>
+   String(a.block).localeCompare(String(b.block),'es',{numeric:true})||
+   String(a.sourceNumber||a.number||a.id).localeCompare(String(b.sourceNumber||b.number||b.id),'es',{numeric:true})).map(item=>
    '<option value="'+val(item.id)+'" '+(l?.id===item.id?'selected':'')+'>Bloque '+val(item.block)+' · Solar '+val(item.sourceNumber||item.number||item.id)+'</option>').join('');
   return '<fieldset class="full" style="border:1px solid var(--line,#cbd5d1);border-radius:12px;padding:12px"><legend>Solar '+(idx+1)+'</legend>'+
    '<div class="form-grid"><label class="field-group"><span>Etapa</span><select name="extraStage_'+i+'" required><option value="">Etapa</option>'+stageOptions+'</select></label>'+
-   '<label class="field-group"><span>Bloque y solar</span><select name="extraLotId_'+i+'" required><option value="">Selecciona solar</option>'+lotOptions+'</select></label>'+
+   '<div class="field-group" data-contract-lot-search-group><label for="contract-lot-search-'+i+'"><strong>Bloque y solar</strong></label>'+
+   '<input type="search" id="contract-lot-search-'+i+'" data-contract-lot-search autocomplete="off" placeholder="Escribe bloque C, solar 8 o C 8" aria-controls="contract-lot-results-'+i+'" style="width:100%;min-width:0">'+
+   '<div id="contract-lot-results-'+i+'" data-contract-lot-results aria-label="Solares disponibles" style="max-height:240px;overflow-y:auto;display:grid;gap:4px" hidden></div>'+
+   '<select name="extraLotId_'+i+'" aria-label="Seleccionar bloque y solar" required><option value="">Selecciona solar</option>'+lotOptions+'</select></div>'+
    field('Precio acordado de este solar (L)','solarPrice_'+idx,'number',true,false,v['solarPrice_'+idx]??row.price??l?.price??'')+
    field('Prima pactada de este solar (L)','solarDown_'+idx,'number',true,false,v['solarDown_'+idx]??row.down??'')+
    '<div class="field-group"><span>Precio registrado en Predios</span><strong>'+ (l&&Number(l.price)>0?'L '+contractIntakeManualCash(l.price):'Sin precio registrado')+'</strong></div></div>'+
@@ -259,6 +265,39 @@ function contractIntakePrimaPreview(lots,downs,amount){
  else lines.push('El monto recibido no coincide con las primas pactadas. Revisa los importes antes de guardar.');
  return lines.join('\n');
 }
+// Búsqueda local, sin alterar la selección ni los importes mientras se escribe.
+function contractIntakeLotSearchMatches(label,query){
+ const norm=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim();
+ const words=norm(query).replace(/[·,;:./-]+/g,' ').split(/\s+/).filter(Boolean);
+ if(!words.length)return false;
+ const m=norm(label).match(/^BLOQUE\s+(.+?)\s*·\s*SOLAR\s+(.+)$/);
+ if(!m)return false;
+ const block=m[1],solar=m[2];
+ if(words[0]==='BLOQUE'){
+  if(words.length===1)return true;
+  const rest=words.slice(1),at=rest.indexOf('SOLAR');
+  if(at>=0)return block===rest.slice(0,at).join(' ')&&(!rest.slice(at+1).length||solar.startsWith(rest.slice(at+1).join(' ')));
+  return block===rest.join(' ')||(rest.length>1&&block===rest[0]&&solar.startsWith(rest.slice(1).join(' ')));
+ }
+ if(words[0]==='SOLAR')return words.length===1||solar.startsWith(words.slice(1).join(' '));
+ if(words.length===1)return block===words[0]||solar.startsWith(words[0]);
+ return block===words[0]&&solar.startsWith(words.slice(1).join(' '));
+}
+function contractIntakeShowLotSearch(input){
+ const group=input.closest('[data-contract-lot-search-group]'),select=group?.querySelector('select'),box=group?.querySelector('[data-contract-lot-results]');
+ if(!select||!box)return;
+ box.replaceChildren();
+ const query=input.value.trim();
+ box.hidden=!query;box.style.display=query?'grid':'none';
+ if(!query)return;
+ const matches=Array.from(select.options).filter(option=>option.value&&!option.disabled&&contractIntakeLotSearchMatches(option.textContent,query));
+ if(!matches.length){const msg=document.createElement('span');msg.className='sm muted';msg.textContent='No hay solares disponibles para esta búsqueda en la etapa seleccionada.';box.append(msg);return;}
+ for(const option of matches){
+  const button=document.createElement('button');button.type='button';button.className='btn btn-outline btn-sm';
+  button.dataset.contractLotPick=option.value;button.textContent=option.textContent;button.style.textAlign='left';
+  box.append(button);
+ }
+}
 function contractIntakeManualRecalculate(form){
  if(!form||contractIntakeWorking?.mode!=='manual')return;
  const get=k=>form.elements.namedItem(k)?.value??'';
@@ -304,6 +343,13 @@ document.addEventListener('click',event=>{
 },true);
 // Enter busca al cliente sin enviar el formulario, y lo selecciona si hay una coincidencia única.
 document.addEventListener('keydown',event=>{
+ if(event.key==='Enter'&&event.target.matches?.('[data-contract-lot-search]')&&contractIntakeWorking?.mode==='manual'){
+  event.preventDefault();event.stopImmediatePropagation();
+  const box=event.target.closest('[data-contract-lot-search-group]')?.querySelector('[data-contract-lot-results]');
+  const matches=box?.querySelectorAll('[data-contract-lot-pick]')||[];
+  if(matches.length===1)matches[0].click();else if(matches.length>1)matches[0].focus();
+  return;
+ }
  if(event.target.id!=='contract-intake-client-search'||event.key!=='Enter'||contractIntakeWorking?.mode!=='manual')return;
  event.preventDefault();event.stopImmediatePropagation();
  const query=event.target.value||'';
@@ -325,6 +371,7 @@ function contractIntakeClientSearch(query){
 }
 document.addEventListener('input',event=>{
  if(!contractIntakeWorking||contractIntakeWorking.mode!=='manual')return;
+ if(event.target.matches?.('[data-contract-lot-search]')){contractIntakeShowLotSearch(event.target);return;}
  if(event.target.id==='contract-intake-client-search'){
   contractIntakeWorking.clientQuery=event.target.value;contractIntakeClientSearch(event.target.value);return;
  }
@@ -335,6 +382,14 @@ document.addEventListener('input',event=>{
 },true);
 document.addEventListener('click',event=>{
  if(!contractIntakeWorking||contractIntakeWorking.mode!=='manual')return;
+ const lotPick=event.target.closest?.('[data-contract-lot-pick]');
+ if(lotPick){
+  const select=lotPick.closest('[data-contract-lot-search-group]')?.querySelector('select');
+  const id=lotPick.dataset.contractLotPick;
+  if(!select||!Array.from(select.options).some(option=>option.value===id&&!option.disabled))return;
+  event.preventDefault();event.stopImmediatePropagation();
+  select.value=id;select.dispatchEvent(new Event('change',{bubbles:true}));return;
+ }
  const search=event.target.closest?.('[data-contract-client-search]');
  if(search){
   event.preventDefault();event.stopImmediatePropagation();
