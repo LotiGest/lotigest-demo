@@ -190,3 +190,23 @@ test('consolidación mensual de tres solares distingue depósitos, mora y adelan
  assert.match(raw,/Amortización mensual consolidada/);assert.match(raw,/003555/);assert.match(raw,/Sin depósito/);
  assert.equal(JSON.stringify(ctx.state),snapshot);
 });
+
+test('amortización individual y consolidada separan las partes de un recibo compartido',()=>{
+ const ctx=model();ctx.Blob=Blob;
+ vm.runInContext(readFileSync(new URL('../contract-collections-scope.mjs',import.meta.url),'utf8').replace(/export /g,''),ctx);
+ vm.runInContext(readFileSync(new URL('../installment-status.mjs',import.meta.url),'utf8').replace(/export /g,''),ctx);
+ ctx.state={residences:[{id:'R',name:'Prueba'}],clients:[{id:'C',name:'Cliente prueba'},{id:'X',name:'Otro'}],
+ lots:[1,2,3].map(i=>({id:'L'+i,residenceId:'R',stage:1,block:'A',sourceNumber:String(i)})),
+ sales:[1,2,3].map(i=>({id:'S'+i,lotId:'L'+i,clientId:i===3?'X':'C',type:'credit',price:60000,downPayment:0,date:'2024-01-01',firstDueDate:'2024-02-05',months:6})),
+ contractTexts:[1,2,3].map(i=>({id:'D'+i,saleId:'S'+i,lotId:'L'+i,clientId:i===3?'X':'C',residenceId:'R',status:'active'})),
+ payments:[{id:'P1',saleId:'S1',groupId:'G',date:'2024-03-10',amount:15000,receiptReference:'0001',receiptInfo:{allocations:[{number:1,amount:10000},{number:2,amount:5000}]}},
+ {id:'P2',saleId:'S2',groupId:'G',date:'2024-03-10',amount:25000,receiptReference:'0001',receiptInfo:{allocations:[{number:1,amount:10000},{number:2,amount:10000},{number:3,amount:5000}]}}]};
+ const snapshot=JSON.stringify(ctx.state);
+ const run=lot=>{ctx.lot=lot;return vm.runInContext("pmAmortizationModel(state,'C','R','2024-04-30',reconcileInstallments,()=>1000000,(d,i)=>{const x=new Date(d+'T12:00:00Z');x.setUTCMonth(x.getUTCMonth()+i);return x.toISOString().slice(0,10)},lot)",ctx);};
+ const one=run('L1'),two=run('L2'),both=run(null);
+ assert.equal(one.details.length,1);assert.equal(one.paid,1500000);assert.equal(two.paid,2500000);assert.equal(both.paid,4000000);
+ assert.equal(one.consolidated.receipts[0].received,1500000);assert.equal(both.consolidated.receipts[0].received,4000000);
+ assert.equal(both.consolidated.monthCount,6);assert.equal(one.balance+two.balance,both.balance);
+ assert.equal(vm.runInContext("pmAmortizationChoices(state,'C','R').length",ctx),2);
+ assert.throws(()=>run('L3'),/no pertenece/);assert.equal(JSON.stringify(ctx.state),snapshot);
+});
