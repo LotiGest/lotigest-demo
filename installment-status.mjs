@@ -1,6 +1,6 @@
 // Conciliación visual de cuotas: nunca usa openingPaid ni saldo total como prueba de pago mensual.
 // Los anticipos siguen en contabilidad pero se muestran separados del mes pagado.
-export function reconcileInstallments(sales,payments,asOf,installmentCents,addMonth) {
+export function reconcileInstallments(sales,payments,asOf,installmentCents,addMonth,{requireReference=false}={}) {
  const cents=v=>Math.max(0,Math.round(Number(v||0)*100));
  const valid=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||'')) && !Number.isNaN(Date.parse(v+'T12:00:00Z'));
  const rows=[];
@@ -13,7 +13,7 @@ export function reconcileInstallments(sales,payments,asOf,installmentCents,addMo
    dueCents:Math.max(0,Number(installmentCents(sale,i+1))||0),
    appliedCents:0,confirmedCents:0,advanceCents:0,receipts:[]
   }));
-  const chronological=payments.filter(p=>p.saleId===sale.id&&!p.voidedAt&&!p.deletedAt)
+  const chronological=payments.filter(p=>p.saleId===sale.id&&!p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&!['voided','cancelled'].includes(p.status))
    .sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.id||'').localeCompare(String(b.id||'')));
   // La prima, el saldo inicial y el precio financiado NO son recibos de mensualidad.
   // Por seguridad, solo se acreditan meses respaldados por un detalle explícito
@@ -40,17 +40,30 @@ export function reconcileInstallments(sales,payments,asOf,installmentCents,addMo
     if(!row&&!isPrima)unmatched.push({saleId:sale.id,paymentId:payment.id,reason:'pago sin cuota identificada (no confundir con prima)'});
    }
    if(!dated){unmatched.push({saleId:sale.id,paymentId:payment.id,reason:'sin fecha válida o posterior al corte'});continue;}
+   // Cada centavo debe estar respaldado por el importe real del recibo.
+   // No acreditar una prima ni un recibo sin correlativo en la vista verificada.
+   const reference=String(payment.receiptReference||payment.receiptRef||payment.originalReceiptRef||payment.receiptReferenceNormalized||'').trim();
+   if(requireReference&&allocations.length&&!/^\d+$/.test(reference)){
+    unmatched.push({saleId:sale.id,paymentId:payment.id,reason:'recibo sin correlativo numérico verificable'});continue;
+   }
+   const primaOnly=payment.paymentApplication==='prima'||primaType||(/^prima\b/i.test(String(payment.concept||''))&&!Array.isArray(saved));
+   if(primaOnly){if(allocations.length)unmatched.push({saleId:sale.id,paymentId:payment.id,reason:'prima con aplicación mensual incompatible'});continue;}
+   const totalSaved=Array.isArray(saved)?saved.reduce((n,a)=>n+cents(a.amount),0):allocations.reduce((n,a)=>n+cents(a.amount),0);
+   if(totalSaved>amount){unmatched.push({saleId:sale.id,paymentId:payment.id,reason:'detalle de cuotas supera el importe recibido'});continue;}
+   let available=amount;
+
    for(const allocation of allocations) {
     const row=saleRows[Number(allocation.number)-1];
     if(!row)continue;
-    const value=Math.min(row.dueCents-row.appliedCents,cents(allocation.amount));
+    const value=Math.min(available,row.dueCents-row.appliedCents,cents(allocation.amount));
     if(value<=0)continue;
+    available-=value;
     const advance=payment.date.slice(0,7)<row.dueDate.slice(0,7);
     row.appliedCents+=value;
     if(advance)row.advanceCents+=value;
     else row.confirmedCents+=value;
     row.receipts.push({paymentId:payment.id,date:payment.date,amountCents:value,
-     groupId:payment.groupId||payment.id,method:payment.method||'',advance});
+     groupId:payment.groupId||payment.id,reference,method:payment.method||'',advance});
    }
   }
   for(const row of saleRows){

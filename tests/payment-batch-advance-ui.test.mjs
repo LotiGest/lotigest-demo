@@ -103,11 +103,11 @@ test('adelanto L 19,500 se aplica a siete cuotas y una cuota parcial, no a la pr
  assert.equal(rows[7].remainingCents,50000);
 });
 
-test('calendario en verde para adelantos completos y rojo para vencidas, no futuros',()=>{
- assert.match(css,/\.pm-month\.advance-covered\{background:#d9f4dd!important/);
+test('calendario distingue depósitos directos, excedentes y vencidas',()=>{
+ assert.match(css,/\.pm-month\.excess-covered\{background:#e4efff!important/);
  assert.match(modern,/const hasOverdue=inMonth\.some/);
  assert.match(modern,/hasOverdue\?'late'/);
- assert.match(modern,/verde con ✓: cuota cubierta con adelanto/i);
+ assert.match(modern,/Verde: pagada con correlativo del mes/);assert.match(modern,/requireReference:true/);assert.match(modern,/pmReportCurrentMonthFirst/);
  assert.match(build,/payment-batch-ui\.js/);
  assert.match(addon,/dataset\.pmBatchPdf=record\.id/);
  assert.match(addon,/factura fiscal/i);
