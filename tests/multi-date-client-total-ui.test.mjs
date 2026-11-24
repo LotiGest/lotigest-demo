@@ -28,6 +28,14 @@ test('Abonos varios agrupa cliente, incluye dos solares y guarda un total por fe
   Object.assign(state.rows[1],{date:'2024-03-01',amount:'30000',receiptRef:'00011'});
   await w.__md.save();assert.ok(saved,errors.join(';'));
   assert.equal(saved.payments.length,4);
+  const tokens=new Set();
+  for(const groupId of new Set(saved.payments.map(p=>p.groupId))){
+   const group=saved.payments.filter(p=>p.groupId===groupId);
+   assert.equal(new Set(group.map(p=>p.verifyToken)).size,1,'El servidor requiere un QR por recibo, no por solar');
+   assert.match(group[0].verifyToken,/^[a-f0-9]{32}$/);
+   tokens.add(group[0].verifyToken);
+  }
+  assert.equal(tokens.size,2,'Cada fecha tiene su QR independiente');
   assert.deepEqual([...new Set(saved.payments.map(p=>p.groupId))].length,2);
   for(const date of ['2024-02-01','2024-03-01'])assert.equal(saved.payments.filter(p=>p.date===date).reduce((n,p)=>n+p.amount,0),30000);
   assert.equal(w.document.querySelectorAll('[data-md-pdf]').length,2,'Un recibo por fecha');
