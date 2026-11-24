@@ -249,3 +249,23 @@ test('no comparte correlativo de prima entre fechas distintas',async()=>{
  Object.assign(x.fields,{solarPrice_0:'180000',down:'40000',primaPaid:'on',primaDate:'2026-11-02',primaMethod:'Efectivo',primaRef:'00006159'});
  await assert.rejects(()=>x.save({fields:x.fields}),/otro pago/);assert.equal(x.writes(),0);
 });
+
+test('agregar otro solar conserva precio negociado, prima vigente y datos del primer solar',()=>{
+ const db=base(),draft={mode:'manual',values:{lotId:'L1',stage:'1',solarPrice_0:'200000',down:0,solarDown_0:0},extraLots:[]};
+ const section=source.slice(source.indexOf('function contractIntakeRememberExtras(form){'),source.indexOf('function contractIntakeExtraFields('));
+ const env={contractIntakeWorking:draft,FormData:formData,getLot:id=>db.lots.find(l=>l.id===id),contractIdentityFormat};
+ const remember=new Function(...Object.keys(env),saveCode.slice(0,saveCode.indexOf('function contractIntakeFindClient('))+
+  section+';return contractIntakeRememberExtras;')(...Object.values(env));
+ const fields={lotId:'L1',stage:'1',solarPrice_0:'190000',down:'30000',months:'72',date:'2026-11-24',primaRef:'000123'};
+ remember({fields,querySelector:()=>({checked:true})});
+ assert.equal(draft.values.solarPrice_0,'190000');
+ assert.equal(draft.values.solarDown_0,30000);
+ assert.equal(draft.values.months,72);
+ assert.equal(draft.values.date,'2026-11-24');
+ assert.equal(draft.values.primaRef,'000123');
+ draft.extraLots.push({lotId:'',stage:'1',price:'',down:''});
+ remember({fields:{...fields,down:'',solarDown_0:'30000',extraLotId_0:'L2',extraStage_0:'2',solarPrice_1:'',solarDown_1:''},querySelector:()=>({checked:true})});
+ assert.equal(draft.values.solarPrice_0,'190000');
+ assert.equal(draft.values.solarDown_0,'30000');
+ assert.equal(draft.extraLots[0].price,250000);
+});
