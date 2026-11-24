@@ -166,3 +166,27 @@ test('permite corregir prima inicial de dos solares sin receiptInfo solo con res
  ctx.state.sales[0].source='import';assert.throws(run,/detalle verificable/);
  ctx.state.sales[0].source='contract-manual';delete ctx.state.payments[0].receiptInfo;assert.throws(run,/detalle verificable/);
 });
+
+test('consolidación mensual de tres solares distingue depósitos, mora y adelantos sin duplicar meses',async()=>{
+ const ctx=model();ctx.Blob=Blob;
+ vm.runInContext(readFileSync(new URL('../contract-collections-scope.mjs',import.meta.url),'utf8').replace(/export /g,''),ctx);
+ vm.runInContext(readFileSync(new URL('../installment-status.mjs',import.meta.url),'utf8').replace(/export /g,''),ctx);
+ ctx.state={company:{name:'GRUPO H'},residences:[{id:'R',name:'PRUEBA'}],clients:[{id:'C',name:'CLIENTE PRUEBA'}],
+ lots:[1,2,3].map(i=>({id:'L'+i,residenceId:'R',stage:1,block:'A',sourceNumber:String(i)})),
+ sales:[1,2,3].map(i=>({id:'S'+i,lotId:'L'+i,clientId:'C',type:'credit',price:60000,downPayment:0,date:'2024-01-01',firstDueDate:'2024-02-05',months:6})),
+ contractTexts:[1,2,3].map(i=>({id:'D'+i,saleId:'S'+i,lotId:'L'+i,clientId:'C',residenceId:'R',status:'active'})),
+ payments:[1,2,3].map(i=>({id:'P'+i,saleId:'S'+i,groupId:'G',date:'2024-03-10',amount:25000,receiptReference:'003555',receiptInfo:{allocations:[{number:1,amount:10000},{number:2,amount:10000},{number:3,amount:5000}]}}))};
+ const snapshot=JSON.stringify(ctx.state);
+ const report=vm.runInContext("pmAmortizationModel(state,'C','R','2024-04-30',reconcileInstallments,()=>1000000,(d,i)=>{const x=new Date(d+'T12:00:00Z');x.setUTCMonth(x.getUTCMonth()+i);return x.toISOString().slice(0,10)})",ctx);
+ const g=report.consolidated;
+ assert.equal(report.count,18);assert.equal(g.monthCount,6);assert.equal(g.monthsCovered,2);
+ assert.equal(g.monthsOverdue,1);assert.equal(g.monthsNoDeposit,1);
+ assert.equal(g.calendar[0].status,'Pagada atrasada');assert.equal(g.calendar[0].received,0);
+ assert.equal(g.receipts.length,1);assert.equal(g.receipts[0].received,7500000);
+ assert.equal(g.receipts[0].future,1500000);assert.equal(g.receipts[0].excess,4500000);
+ assert.equal(g.calendar[2].pending,1500000);assert.equal(g.calendar[3].noDeposit,false);
+ ctx.report=report;const pdf=vm.runInContext('pmAmortizationPdf(report)',ctx);
+ const raw=Buffer.from(await pdf.arrayBuffer()).toString('latin1');
+ assert.match(raw,/Amortización mensual consolidada/);assert.match(raw,/003555/);assert.match(raw,/Sin depósito/);
+ assert.equal(JSON.stringify(ctx.state),snapshot);
+});
