@@ -627,3 +627,117 @@ function pmOpenReports(trigger=null){
  dialog.append(header,content);layer.append(shade,dialog);shade.addEventListener('click',()=>pmClosePaymentHistory());pmReportsKeyboard(layer,dialog);
  document.body.append(layer);pmHistoryLayer=layer;close.focus();
 }
+
+const pmStatementArrayanLogo="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";
+
+function pmStatementCash(cents){return 'L '+(cents/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function pmStatementDate(date){return new Date(date+'T12:00:00Z').toLocaleDateString('es-HN',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});}
+function pmStatementMonth(key){const m=new Date(key+'-01T12:00:00Z').toLocaleDateString('es-HN',{month:'long',year:'numeric',timeZone:'UTC'});return m.charAt(0).toUpperCase()+m.slice(1);}
+function pmStatementModel(report){
+ if(report.unmatched)throw Error('Hay pagos por conciliar. Verifica los recibos antes de enviar un estado de cuenta.');
+ const monthly=report.details.filter(d=>d.sale.type==='credit');
+ if(!monthly.length)throw Error('El cliente no tiene mensualidades de crédito para este estado de cuenta.');
+ for(const d of monthly){
+  const applied=d.rows.reduce((n,r)=>n+r.appliedCents,0);
+  if(applied!==Math.max(0,d.paid-d.agreed))throw Error('El saldo mensual no coincide con los recibos conciliados del solar '+(d.lot.sourceNumber||d.lot.number||d.lot.id)+'. Revisa los abonos antes de enviar.');
+ }
+ const months=report.consolidated.calendar.filter(m=>m.due>0),cut=report.asOf.slice(0,7);
+ const pending=months.map(m=>({month:m.month,amount:m.rows.filter(r=>r.dueDate<=report.asOf).reduce((n,r)=>n+r.remainingCents,0)})).filter(m=>m.amount>0);
+ const covered=months.filter(m=>m.month<=cut&&m.covered&&m.rows.every(r=>r.dueDate<=report.asOf)).at(-1);
+ const base=months.find(m=>m.month===cut)?.due??months.find(m=>m.month>cut)?.due??0;
+ const normalized=report.residence.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ return {client:report.client,residence:report.residence,logo:/altos\s+del\s+arrayan/.test(normalized),asOf:report.asOf,
+  properties:report.details.map(d=>'Etapa '+(d.lot.stage||'—')+' · Bloque '+(d.lot.block||'—')+' · Solar '+(d.lot.sourceNumber||d.lot.number||d.lot.id)),
+  lastCovered:covered?pmStatementMonth(covered.month):'Sin mensualidad completa al corte',base,pending,total:pending.reduce((n,m)=>n+m.amount,0),prima:Math.max(0,report.agreed-report.prima)};
+}
+function pmStatementPdf(m){
+ const green='0.075 0.27 0.21',gray='0.30 0.35 0.33',light='0.93 0.96 0.94',gold='0.65 0.60 0.30',white='1 1 1';
+ const pages=[];let cmds=[],y=0;
+ const escape=s=>String(s??'').replace(/[^\x20-\xFF]/g,'-').replace(/([\\()])/g,'\\$1');
+ const rect=(x,b,w,h,color)=>cmds.push(color+' rg '+[x,b,w,h].join(' ')+' re f');
+ const txt=(s,x,b,size=11,bold=false,color=green)=>cmds.push(color+' rg BT /'+(bold?'F2':'F1')+' '+size+' Tf 1 0 0 1 '+x+' '+b+' Tm ('+escape(s)+') Tj ET');
+ const wrap=(s,n)=>{let line='',out=[];for(const token of String(s).split(/\s+/)){if(line&&line.length+token.length+1>n){out.push(line);line='';}if(token.length>n){if(line){out.push(line);line='';}for(let i=0;i<token.length;i+=n)out.push(token.slice(i,i+n));}else line+=(line?' ':'')+token;}if(line)out.push(line);return out.length?out:[''];};
+ const right=(s,b,size=11,bold=false,color=green)=>txt(s,Math.max(300,550-String(s).length*size*.56),b,size,bold,color);
+ const footer=()=>{rect(62,57,488,.7,'0.78 0.82 0.80');txt(m.residence.slice(0,80),62,43,8,false,gray);right('Página '+(pages.length+1),43,8,false,gray);pages.push(cmds.join('\n'));cmds=[];};
+ const start=()=>{rect(0,780,612,12,green);if(m.logo){cmds.push('q 270 0 0 '+(270*64/175)+' 171 655 cm /Logo Do Q');}else{wrap(m.residence,39).slice(0,3).forEach((s,i)=>txt(s,62,737-i*23,18,true));}txt('ESTADO DE CUENTA',194,630,20,true);rect(62,613,488,1.4,gold);y=590;};
+ const ensure=h=>{if(y-h<80){footer();start();}};
+ const field=(label,value)=>{const lines=wrap(value,41);ensure(20+lines.length*14);txt(label,65,y,10,false,gray);lines.forEach((s,i)=>right(s,y-i*14,10,true));y-=Math.max(22,lines.length*14+7);};
+ const tableHeader=()=>{ensure(52);rect(62,y-23,488,26,green);txt('MES PENDIENTE',74,y-14,10,true,white);txt('SALDO DE CUOTA',432,y-14,10,true,white);y-=29;};
+ start();field('Cliente',m.client);field('Propiedad',m.properties.join(' / '));field('Último mes cubierto',m.lastCovered);field('Cuota mensual del corte',pmStatementCash(m.base));field('Fecha de corte',pmStatementDate(m.asOf));y-=8;tableHeader();
+ if(!m.pending.length){txt('Sin mensualidades pendientes al corte.',74,y-12,11,true);y-=32;}
+ m.pending.forEach((p,i)=>{if(y-25<100){footer();start();field('Cliente',m.client);tableHeader();}rect(62,y-24,488,24,i%2?white:light);txt(pmStatementMonth(p.month),74,y-15,11,false,gray);right(pmStatementCash(p.amount),y-15,11,false);y-=27;});
+ y-=12;ensure(105);rect(62,y-52,488,52,green);txt('TOTAL PENDIENTE ('+m.pending.length+' MESES)',74,y-15,11,true,white);right(pmStatementCash(m.total),y-40,19,true,white);y-=70;
+ txt('Saldo de mensualidades al corte, sin intereses ni recargos por mora.',65,y,9,false,gray);y-=15;
+ if(m.prima)txt('Prima pendiente no incluida en el total: '+pmStatementCash(m.prima),65,y,9,false,gray);
+ footer();
+ const logo=m.logo?Array.from(atob(pmStatementArrayanLogo),ch=>ch.charCodeAt(0).toString(16).padStart(2,'0')).join('')+'>':null;
+ const objects=['<< /Type /Catalog /Pages 2 0 R >>','<< /Type /Pages /Kids ['+pages.map((_,i)=>(6+i*2)+' 0 R').join(' ')+'] /Count '+pages.length+' >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',logo?'<< /Type /XObject /Subtype /Image /Width 175 /Height 64 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter [/ASCIIHexDecode /DCTDecode] /Length '+logo.length+' >>\nstream\n'+logo+'\nendstream':'<< >>'];
+ pages.forEach((stream,i)=>objects.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> '+(logo?'/XObject << /Logo 5 0 R >>':'')+' >> /Contents '+(7+i*2)+' 0 R >>','<< /Length '+stream.length+' >>\nstream\n'+stream+'\nendstream'));
+ let pdf='%PDF-1.4\n',offsets=[0];objects.forEach((o,i)=>{offsets.push(pdf.length);pdf+=(i+1)+' 0 obj\n'+o+'\nendobj\n';});const xref=pdf.length;pdf+='xref\n0 '+offsets.length+'\n0000000000 65535 f \n'+offsets.slice(1).map(n=>String(n).padStart(10,'0')+' 00000 n \n').join('')+'trailer\n<< /Size '+offsets.length+' /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF';
+ return new Blob([Uint8Array.from(pdf,x=>x.charCodeAt(0)&255)],{type:'application/pdf'});
+}
+function pmStatementPreview(root,m){
+ root.replaceChildren();
+ if(m.logo){const img=pmNode('img','pm-statement-logo');img.alt=m.residence;img.src='data:image/jpeg;base64,'+pmStatementArrayanLogo;root.append(img);}else root.append(pmNode('h3','',m.residence));
+ root.append(pmNode('h3','','ESTADO DE CUENTA'));
+ for(const [label,value] of [['Cliente',m.client],['Propiedad',m.properties.join(' / ')],['Último mes cubierto',m.lastCovered],['Cuota mensual del corte',pmStatementCash(m.base)],['Fecha de corte',pmStatementDate(m.asOf)]]){
+  const row=pmNode('div','pm-statement-field');row.append(pmNode('span','',label),pmNode('strong','',value));root.append(row);
+ }
+ const head=pmNode('div','pm-statement-table-head');head.append(pmNode('span','','MES PENDIENTE'),pmNode('span','','SALDO DE CUOTA'));root.append(head);
+ for(const p of m.pending){const row=pmNode('div','pm-statement-month');row.append(pmNode('span','',pmStatementMonth(p.month)),pmNode('strong','',pmStatementCash(p.amount)));root.append(row);}
+ if(!m.pending.length)root.append(pmNode('p','','Sin mensualidades pendientes al corte.'));
+ const total=pmNode('div','pm-statement-total');total.append(pmNode('span','','TOTAL PENDIENTE ('+m.pending.length+' MESES)'),pmNode('strong','',pmStatementCash(m.total)));root.append(total);
+ root.append(pmNode('small','','Saldo de mensualidades al corte, sin intereses ni recargos por mora.'));
+ if(m.prima)root.append(pmNode('small','','Prima pendiente no incluida: '+pmStatementCash(m.prima)));
+}
+function pmOpenStatement(trigger){
+ try{
+  const clients=new Set(pmSales().map(s=>s.clientId));if(pmActive!=='sale'||clients.size!==1)throw Error('Selecciona un solo cliente con contrato.');
+  const clientId=[...clients][0],rid=residence().id,client=getClient(clientId),choices=pmAmortizationChoices(db,clientId,rid);
+  if(!client||!choices.length)throw Error('No hay contrato vigente del cliente.');
+  pmClosePaymentHistory(false);if(trigger?.isConnected)pmReportsReturnFocus=trigger;
+  const layer=pmNode('div','pm-history-layer'),shade=pmNode('div','pm-history-shade'),dialog=pmNode('section','pm-history-window pm-reports-window pm-statement-window');
+  dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-label','Estado de cuenta');
+  const header=pmNode('div','pm-history-head'),heading=pmNode('div');heading.append(pmNode('h2','','Estado de cuenta'),pmNode('p','','Vista previa del PDF para el cliente.'));
+  const close=pmNode('button','btn btn-soft','Cerrar ×');close.type='button';close.onclick=()=>pmClosePaymentHistory();header.append(heading,close);
+  const content=pmNode('div','pm-statement-content'),controls=pmNode('div','pm-statement-controls'),preview=pmNode('div','pm-statement-paper');
+  const field=(title,input)=>{const label=pmNode('label','',title);label.append(input);controls.append(label);return input;};
+  controls.append(pmNode('strong','','Destinatario: '+client.name));
+  const select=field('Solares',pmNode('select'));const all=pmNode('option','','Todos los solares ('+choices.length+')');all.value='';select.append(all);
+  for(const item of choices){const option=pmNode('option','',item.label);option.value=item.id;select.append(option);}
+  const phone=field('WhatsApp (destino editable)',pmNode('input'));phone.type='tel';phone.value=client.phone||'';
+  const message=field('Mensaje',pmNode('textarea'));message.rows=4;message.maxLength=500;message.value='Estimado(a) cliente, le compartimos su estado de cuenta actualizado. '+residence().name+'.';
+  controls.append(pmNode('p','pm-help','En celular, elige WhatsApp y confirma el contacto al compartir. En PC, se descarga el PDF y se abre el chat para adjuntarlo manualmente.'));
+  const alert=pmNode('p','pm-error');alert.setAttribute('role','status');controls.append(alert);
+  const actions=pmNode('div','pm-report-buttons');
+  const downloadBtn=pmNode('button','btn btn-outline','Descargar PDF'),shareBtn=pmNode('button','btn btn-primary','Enviar por WhatsApp');
+  for(const b of [downloadBtn,shareBtn])b.type='button';
+  actions.append(downloadBtn,shareBtn);controls.append(actions);content.append(controls,preview);dialog.append(header,content);layer.append(shade,dialog);
+  let model=null;
+  const fresh=()=>{
+   if(!cloudReady||cloudBlocked||cloudOffline||!cloudQueue||cloudQueue.pending||cloudQueue.latest!==cloudQueue.confirmed)throw Error('Sincroniza los cambios antes de emitir el estado de cuenta.');
+   const active=new Set(pmSales().map(s=>s.clientId));if(active.size!==1||!active.has(clientId)||residence().id!==rid)throw Error('El cliente cambió. Cierra y vuelve a abrir el estado de cuenta.');
+   return pmStatementModel(pmAmortizationModel(db,clientId,rid,businessToday(),reconcileInstallments,installmentDueCents,(date,i)=>dateKey(addMonths(date,i)),select.value||null));
+  };
+  const refresh=()=>{try{model=fresh();pmStatementPreview(preview,model);alert.textContent='';downloadBtn.disabled=shareBtn.disabled=false;}catch(e){model=null;preview.replaceChildren(pmNode('p','',e.message));alert.textContent=e.message;downloadBtn.disabled=shareBtn.disabled=true;}};
+  select.onchange=refresh;
+  const deliver=async share=>{
+   try{
+    const updated=fresh();if(JSON.stringify(updated)!==JSON.stringify(model)){refresh();throw Error('Los datos cambiaron. Revisa la vista previa y vuelve a confirmar.');}
+    const pdf=pmStatementPdf(updated),name='LOTIGEST_Estado_de_cuenta_'+updated.asOf+'.pdf';
+    if(!share){download(name,pdf,'application/pdf');return;}
+    const target=clientWhatsappPhone(phone.value);if(!target)throw Error('Ingresa un número válido de WhatsApp.');
+    if(typeof File==='function'){
+     const file=new File([pdf],name,{type:'application/pdf'});
+     if(navigator.canShare?.({files:[file]})){await navigator.share({files:[file],title:'Estado de cuenta',text:message.value+'\nDestino: +'+target});return;}
+    }
+    // No WhatsApp API configured: open the addressed chat, never claim attachment or automatic send.
+    download(name,pdf,'application/pdf');
+    window.open('https://wa.me/'+target+'?text='+encodeURIComponent(message.value),'_blank','noopener,noreferrer');
+    alert.textContent='PDF descargado. Adjunta el archivo al chat y confirma el envío.';
+   }catch(e){if(e.name!=='AbortError')alert.textContent=e.message||'No se pudo compartir el PDF.';}
+  };
+  downloadBtn.onclick=()=>deliver(false);shareBtn.onclick=()=>deliver(true);
+  shade.onclick=()=>pmClosePaymentHistory();pmReportsKeyboard(layer,dialog);document.body.append(layer);pmHistoryLayer=layer;refresh();close.focus();
+ }catch(e){toast(e.message,'error');}
+}
