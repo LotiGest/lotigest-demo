@@ -137,9 +137,18 @@
   }
   return activationPin;
  }
+ // Confirmación compartida con las operaciones de cobros.
+ window.lotigestConfirmAdminPin=function(pin){
+  if(!activationAdmin()||!contractIntakeAdmin())throw Error('Se requiere administrador con la nube sincronizada.');
+  if(Date.now()>=activationPinUntil||!/^\d{4}$/.test(String(pin||''))||pin!==activationPin){
+   refreshActivationPin();throw Error('PIN incorrecto o vencido. Consulta el PIN actual en Contratos.');
+  }
+  refreshActivationPin(true);
+  return true;
+ };
  function activationPinMarkup(){
   if(!activationAdmin())return '';
-  return '<div class="card ct-activation-pin" role="region" aria-label="PIN del administrador"><span>PIN para activar contratos</span> <strong data-ct-pin-value>'+refreshActivationPin()+'</strong><small> Solo administrador · cambia cada minuto y después de utilizarlo</small></div>';
+  return '<div class="card ct-activation-pin" role="region" aria-label="PIN del administrador"><span>PIN del administrador</span> <strong data-ct-pin-value>'+refreshActivationPin()+'</strong><small> Solo administrador · cambia cada minuto y después de utilizarlo</small></div>';
  }
  setInterval(()=>{
   const el=document.querySelector('.ct-activation-pin');
