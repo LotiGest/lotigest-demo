@@ -1,4 +1,4 @@
 {
-  "version": "0.22.70",
-  "notes": "LOTIGEST PRO: corrige únicamente los 5 locales comerciales de la etapa 2 (C1 y C2; calle única conectada a la existente; C3, C4 y C5). Conserva todos los solares anteriores, líneas rojas, vías originales, clientes, contratos y pagos. Las parcelas continúan protegidas como privadas, sin venta automática."
+  "version": "0.22.71",
+  "notes": "LOTIGEST PRO: retirados del mapa 2D, 3D y GPS los cinco solares comerciales grises añadidos por error en Etapa 2 y su calle gris provisional. Se conservan intactos los 411 polígonos originales, la carretera, las calles existentes y los registros de clientes, contratos, abonos y ventas; no se borran datos históricos."
 }
