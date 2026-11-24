@@ -7,7 +7,9 @@ function gpsPlanSource(r){
 }
 function gpsPlanSaved(){
  const r=residence(),a=r.geoConfig?.planAlignment;
- return a&&a.source===gpsPlanSource(r)&&Array.isArray(a.anchors)&&a.anchors.length===3?a:null;
+ const source=gpsPlanSource(r),prefix=source.slice(0,source.lastIndexOf(':')+1);
+ const same=a&&(a.source===source||r.builtin==='arrayan'&&[411,416].some(n=>a.source===prefix+n));
+ return same&&Array.isArray(a.anchors)&&a.anchors.length===3?a:null;
 }
 function gpsPlanWorking(){
  return gpsPlanDraft?.residenceId===residence().id?gpsPlanDraft:null;
@@ -47,6 +49,10 @@ function gpsPlanShow(){
  try{mapped=planAffineFeatures(mapFeatures(residence()),anchors);}
  catch(error){const el=document.getElementById('gps-plan-step');if(el)el.textContent=error.message;return;}
  gpsPlanLayer=L.layerGroup().addTo(geoMap);
+ if(residence().builtin==='arrayan'){
+   const road=planAffineFeatures([{points:arrayanStage2CommercialStreetPoints}],anchors)[0];
+   L.polygon(road.geo,{color:'#fff',weight:1,fillColor:'#91a5ad',fillOpacity:.8,interactive:false}).addTo(gpsPlanLayer);
+ }
  const r=residence();
  let displayed=0;
  for(const {feature:f,geo} of mapped){

@@ -1,4 +1,4 @@
 {
-  "version": "0.22.71",
-  "notes": "LOTIGEST PRO: retirados del mapa 2D, 3D y GPS los cinco solares comerciales grises añadidos por error en Etapa 2 y su calle gris provisional. Se conservan intactos los 411 polígonos originales, la carretera, las calles existentes y los registros de clientes, contratos, abonos y ventas; no se borran datos históricos."
+  "version": "0.22.72",
+  "notes": "LOTIGEST PRO: cinco solares C-1 a C-5 en Etapa 2 con calle continua y contorno ajustado según muestra aprobada. Se conservan todos los polígonos originales y registros existentes."
 }
