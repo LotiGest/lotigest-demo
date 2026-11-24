@@ -182,7 +182,7 @@ function pmFields(grid,form){
  }
  const slot=pmNode('div','pm-slot');slot.id='pm-amount-slot';fields.append(slot);
  if(ref){ref.classList.add('pm-span-2');fields.append(ref);}
- const apply=pmNode('div','pm-field pm-span-2');apply.innerHTML='<label for="pm-apply">Aplicar a:</label><select id="pm-apply" aria-label="Aplicación automática del abono"><option value="auto">Según deuda pendiente (automático)</option></select><p class="pm-help">Primero prima pendiente; después, cuotas más antiguas. El sistema no cambiará el orden.</p>';
+ const apply=pmNode('div','pm-field pm-span-2');apply.innerHTML='<label for="pm-apply">Aplicar a:</label><select id="pm-apply" name="paymentApplication" aria-label="Aplicación del pago"><option value="auto">Según deuda pendiente (automático)</option><option value="prima">Abono a prima pendiente (sin cuota mínima)</option></select><p class="pm-help" id="pm-apply-help">Primero prima pendiente; después, cuotas más antiguas.</p>';
  fields.append(apply);
  if(concept){concept.classList.add('pm-span-2');const input=concept.querySelector('input,textarea');if(input)input.placeholder='Ej. Abono correspondiente a noviembre de 2026';fields.append(concept);}
  grid.remove();return fields;
@@ -256,7 +256,7 @@ function pmIncludeClientSales(){
 function pmApplyClientTotal(raw){
  const total=String(raw??'').replace(/,/g,'').trim(),sales=pmSales();
  try{
-  const rows=total?splitClientPayment(db,sales.map(s=>s.id),Math.round(Number(total)*100)):[];
+  const rows=total?splitClientPayment(db,sales.map(s=>s.id),Math.round(Number(total)*100),null,document.getElementById('pm-apply')?.value||'auto'):[];
   const amounts=new Map(rows.map(r=>[r.saleId,String(r.amount)]));
   for(const sale of sales)paymentDraft.amounts[sale.id]=amounts.get(sale.id)||'';
   for(const input of document.querySelectorAll('[data-payment-amount]'))input.value=paymentDraft.amounts[input.dataset.paymentAmount]||'';
@@ -315,7 +315,7 @@ function pmRepaintSales(){
    input.type='number';input.min='0.01';input.step='0.01';input.required=true;input.id='pm-client-total';
    const total=Object.values(paymentDraft.amounts).reduce((n,a)=>n+Number(a||0),0);input.value=total?String(total):'';
    input.addEventListener('input',()=>pmApplyClientTotal(input.value));label.append(input);slot.append(label);
-   slot.append(pmNode('p','pm-help','Se reparte automáticamente según la cuota de cada solar.'));
+   slot.append(pmNode('p','pm-help','Se reparte automáticamente según la prima pendiente o la cuota de cada solar.'));
    // Mantener los controles originales para el guardado, sin pedir un importe por solar.
    if(selected)for(const input of selected.querySelectorAll('[data-payment-amount]')){input.readOnly=true;input.required=false;}
    if(selected)for(const input of selected.querySelectorAll('[data-pm-currency]'))input.required=false;
@@ -325,6 +325,18 @@ function pmRepaintSales(){
  if(application){
   const primaFaltante=sales.reduce((total,s)=>total+Math.max(0,Number(s.downPayment||0)-paidAmount(s.id)),0);
   application.options[0].textContent=primaFaltante>.009?'Prima pendiente y después mensual (automático)':'Abono mensual (automático)';
+  const primaOption=application.querySelector('option[value="prima"]');
+  if(primaOption)primaOption.disabled=primaFaltante<=.009;
+  if(primaFaltante<=.009&&application.value==='prima')application.value='auto';
+  const help=document.getElementById('pm-apply-help');
+  if(help)help.textContent=application.value==='prima'?'Prima pendiente: '+money(primaFaltante)+'. Puedes abonar cualquier monto positivo hasta completarla, sin cuota mínima.':'Primero prima pendiente; después, cuotas más antiguas.';
+  application.onchange=()=>{
+   const total=document.getElementById('pm-client-total');if(total&&total.value)pmApplyClientTotal(total.value);
+   const concept=form.elements.concept;
+   if(concept&&application.value==='prima')concept.value='Abono a prima pendiente';
+   if(help)help.textContent=application.value==='prima'?'Prima pendiente: '+money(primaFaltante)+'. Sin cuota mínima.':'Primero prima pendiente; después, cuotas más antiguas.';
+   const error=document.getElementById('multi-payment-error');if(error&&(!total||!total.value))error.textContent='';
+  };
  }
  const distribution=document.getElementById('pm-distribution');
  if(distribution)distribution.hidden=true;
