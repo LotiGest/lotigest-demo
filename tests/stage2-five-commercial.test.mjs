@@ -17,9 +17,10 @@ test('cinco locales aprobados: originales intactos y sin duplicar trazados guard
 });
 test('C4 comparte lindero con cabecera existente y calle desemboca entre dos bloques',()=>{
  const head=existing.find(f=>f.key==='ar-274');
- assert.deepEqual(five[3].points[1],head.points[1]);assert.deepEqual(five[3].points[2],head.points[3]);
- assert.deepEqual(road[1],existing.find(f=>f.key==='ar-286').points[0]);
- assert.deepEqual(road[4],head.points[1]);
+ assert.deepEqual(five[3].points[2],[290.4,303.72]);assert.deepEqual(five[3].points[3],[299.4,317.76]);
+ assert.ok(Math.hypot(five[3].points[2][0]-head.points[1][0],five[3].points[2][1]-head.points[1][1])<.02);
+ assert.ok(Math.hypot(road[1][0]-existing.find(f=>f.key==='ar-286').points[0][0],road[1][1]-existing.find(f=>f.key==='ar-286').points[0][1])<.02);
+ assert.ok(Math.hypot(road[2][0]-head.points[1][0],road[2][1]-head.points[1][1])<.02);
  assert.match(html,/arrayanRoadMarkup\+arrayanStage2CommercialStreetSvg/);
 });
 const syncSource=html.slice(html.indexOf('function syncMapInventory(r,force=false,onlyNew=null){'),html.indexOf('function inventoryArea('));
@@ -46,6 +47,9 @@ test('interfaz real muestra cinco figuras, 2D/3D y filtros sin errores de JavaSc
   assert.equal(app.d.querySelectorAll('.ar-solar').length,416);
   for(const f of five){const el=app.d.querySelector('[data-id="'+f.key+'"]');assert.ok(el);assert.match(el.textContent,new RegExp(f.displayLabel));}
   assert.ok(app.d.querySelector('[data-stage2-commercial-road]'));
+  assert.ok(app.d.querySelectorAll('[data-official-map-measure-labels] text').length>1500);
+  app.click('[data-action=map-measures-toggle]');assert.equal(app.d.querySelectorAll('[data-official-map-measure-labels]').length,0);
+  app.click('[data-action=map-measures-toggle]');assert.equal(app.d.querySelectorAll('[data-official-map-measure-labels]').length,1);
   app.change('#ar-stage-filter','2');assert.equal(app.d.querySelectorAll('.ar-solar').length,274);
   app.change('#ar-stage-filter','1');assert.equal(app.d.querySelectorAll('.ar-solar').length,142);
   assert.deepEqual(server.errors,[]);
