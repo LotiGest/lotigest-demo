@@ -18,7 +18,7 @@ function mapMeasureMarkup(features){
    let angle=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI;if(angle>90)angle-=180;if(angle< -90)angle+=180;
    const dx=center[0]-mid[0],dy=center[1]-mid[1],length=Math.hypot(dx,dy)||1;
    const x=mid[0]+dx/length*.9,y=mid[1]+dy/length*.9;
-   return '<text x="'+x.toFixed(3)+'" y="'+y.toFixed(3)+'" transform="rotate('+angle.toFixed(1)+' '+x.toFixed(3)+' '+y.toFixed(3)+')" text-anchor="middle" dominant-baseline="middle" font-size="1.05" font-family="Arial,sans-serif" font-weight="600" fill="'+(e.origin==='shared-boundary'?'#1d4b91':'#12372b')+'" stroke="#fff" stroke-width=".13" paint-order="stroke fill">'+mapMeasureFormat(e.value)+(e.origin==='shared-boundary'?'*':'')+'</text>';
+   return '<text data-lg-measure-key="'+esc(f.key)+'" x="'+x.toFixed(3)+'" y="'+y.toFixed(3)+'" transform="rotate('+angle.toFixed(1)+' '+x.toFixed(3)+' '+y.toFixed(3)+')" text-anchor="middle" dominant-baseline="middle" font-size="1.05" font-family="Arial,sans-serif" font-weight="600" fill="'+(e.origin==='shared-boundary'?'#1d4b91':'#12372b')+'" stroke="#fff" stroke-width=".13" paint-order="stroke fill">'+mapMeasureFormat(e.value)+(e.origin==='shared-boundary'?'*':'')+'</text>';
   }).join('');
  }).join('')+'</g>';
 }

@@ -16,14 +16,24 @@ function solarTouchSync(){
  if(!found){solarTouchSized=null;solarTouchGesture=null;return;}
  const {viewport,svg}=found;
  // La anchura mínima fija anterior (700 px) impedía alejar con los dedos en móviles.
- if(svg!==solarTouchSized||solarTouchBaseWidth!==Math.max(700,viewport.clientWidth||0)){
-  solarTouchSized=svg;
-  solarTouchBaseWidth=Math.max(700,viewport.clientWidth||0);
+ const fitted=viewport.classList?.contains('lg-scope-fit');
+ let baseWidth=Math.max(700,viewport.clientWidth||0);
+ if(fitted){
+  const box=String(svg.getAttribute('viewBox')||'').trim().split(/\s+/).map(Number);
+  const ratio=box[2]>0&&box[3]>0?box[2]/box[3]:1;
+  const yaw=viewport.classList.contains('lg-3d-mode')?(parseFloat(viewport.style.getPropertyValue('--lg-map-yaw'))||0)*Math.PI/180:0;
+  const c=Math.abs(Math.cos(yaw)),s=Math.abs(Math.sin(yaw));
+  // Fit the entire rotated bounding rectangle at 100%; subsequent pinch/zoom still works.
+  const w=Math.max(1,(viewport.clientWidth||360)-20),h=Math.max(1,(viewport.clientHeight||540)-24);
+  baseWidth=Math.max(1,Math.floor(Math.min(w/(c+s/ratio),h/(s+c/ratio))));
  }
+ solarTouchSized=svg;
+ solarTouchBaseWidth=baseWidth;
  svg.style.minWidth='0px';
  svg.style.maxWidth='none';
  svg.style.width=Math.round(solarTouchBaseWidth*solarTouchClamp(arrayanZoom)/100)+'px';
  svg.style.height='auto';
+ if(fitted){const box=String(svg.getAttribute('viewBox')||'').trim().split(/\s+/).map(Number);const ratio=box[2]>0&&box[3]>0?box[2]/box[3]:1;svg.style.marginTop=Math.max(0,((viewport.clientHeight||0)-solarTouchBaseWidth*solarTouchClamp(arrayanZoom)/100/ratio)/2)+'px';}else svg.style.marginTop='';
  svg.style.touchAction='pan-x pan-y';
  viewport.style.overscrollBehavior='contain';
  const label=document.getElementById('arrayan-zoom-label');
@@ -130,3 +140,5 @@ render=function(...args){
  if(document.getElementById('arrayan-scroll'))solarTouchSync();
  return output;
 };
+
+if(typeof window!=='undefined')window.addEventListener('resize',()=>{if(solarTouchElements())solarTouchSync();});

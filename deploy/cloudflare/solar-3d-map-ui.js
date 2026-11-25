@@ -40,7 +40,7 @@
   if(!p.length)return null;
   const xs=p.map(x=>Number(x[0])),ys=p.map(x=>Number(x[1]));
   const x=Math.min(...xs),y=Math.min(...ys),w=Math.max(...xs)-x,h=Math.max(...ys)-y;
-  const pad=Math.max(8,Math.max(w,h)*.12);
+  const pad=Math.max(5,Math.max(w,h)*.075);
   return [x-pad,y-pad,w+2*pad,h+2*pad].join(' ');
  }
  function applyScope(svg){
@@ -49,10 +49,13 @@
   const all=scopeFeatures(),active=Boolean(scopeStage||scopeBlock);
   const subset=active?all.filter(f=>(!scopeStage||stageOf(f)===scopeStage)&&(!scopeBlock||blockOf(f)===scopeBlock)):all;
   const bounds=active?scopedBounds(subset):null;
-  if(bounds)svg.setAttribute('viewBox',bounds);
+  svg.closest('#arrayan-scroll')?.classList.toggle('lg-scope-fit',Boolean(bounds));
+  if(bounds){svg.setAttribute('viewBox',bounds);svg.setAttribute('preserveAspectRatio','xMidYMid meet');}
   else if(original!==null)svg.setAttribute('viewBox',original);
   const keys=new Set(subset.map(f=>String(f.key)));
   for(const plot of svg.querySelectorAll('.ar-solar'))plot.classList.toggle('lg-outside-scope',Boolean(bounds)&&!keys.has(plot.dataset.id));
+  for(const label of svg.querySelectorAll('[data-lg-measure-key]'))label.classList.toggle('lg-outside-scope',Boolean(bounds)&&!keys.has(label.dataset.lgMeasureKey));
+  for(const label of svg.querySelectorAll('.ar-block-label'))label.classList.toggle('lg-outside-scope',Boolean(bounds)&&Boolean(scopeBlock)&&label.getAttribute('aria-label')?.toUpperCase()!==('BLOQUE '+scopeBlock.replace(/^bloque\s+/i,'')).toUpperCase()&&label.getAttribute('aria-label')?.toUpperCase()!==scopeBlock.toUpperCase());
  }
  function resetLegacyMapFilters(){
   if(typeof arrayanStageFilter!=='undefined')arrayanStageFilter='all';
@@ -68,7 +71,7 @@
   try{localStorage.setItem(modeKey,view);}catch(_){}
   render();
   const viewport=document.getElementById('arrayan-scroll');
-  if(viewport){viewport.scrollLeft=0;viewport.scrollTop=0;}
+  if(viewport){viewport.scrollLeft=0;viewport.scrollTop=0;if(!full&&(stage||block))viewport.scrollIntoView?.({block:'center',inline:'nearest',behavior:'auto'});}
  }
  try {const saved=localStorage.getItem(modeKey);if(['2d','3d','project'].includes(saved))view=saved;}catch(_){}
  function projectAllowed(){return typeof residence!=='function'||residence().id==='arrayan';}
@@ -176,6 +179,9 @@
   viewport.classList.toggle('lg-3d-mode',activeView==='3d');
   viewport.classList.toggle('lg-project-mode',activeView==='project');
   viewport.style.setProperty('--lg-map-yaw',yaw+'deg');
+  if(typeof solarTouchSync==='function')solarTouchSync();
+  const legacyStage=document.getElementById('ar-stage-filter'),legacyBlock=document.getElementById('ar-block-filter');
+  if(scopeStage||scopeBlock){if(legacyStage)legacyStage.value=scopeStage||'all';if(legacyBlock)legacyBlock.value=scopeBlock||'all';}
   for(const btn of document.querySelectorAll('[data-lg-map-view]')){
    const selected=btn.getAttribute('data-lg-map-view')===activeView;
    btn.setAttribute('aria-pressed',String(selected));
@@ -207,13 +213,19 @@
    event.stopImmediatePropagation();
    if(id==='lg-map-stage')switchScope(event.target.value,'');
    else switchScope(scopeStage,event.target.value);
-  }else if(['ar-stage-filter','ar-block-filter','ar-kind','ar-filter'].includes(id)){
+  }else if(id==='ar-stage-filter'||id==='ar-block-filter'){
+   event.stopImmediatePropagation();
+   const value=event.target.value==='all'?'':event.target.value;
+   if(id==='ar-stage-filter')switchScope(value,'');
+   else switchScope(scopeStage||(typeof arrayanStageFilter!=='undefined'&&arrayanStageFilter!=='all'?arrayanStageFilter:''),value);
+  }else if(['ar-kind','ar-filter'].includes(id)){
    scopeStage='';scopeBlock='';
   }
  },true);
  if(!document.getElementById('lotigest-map-3d-css')){
   const style=document.createElement('style');style.id='lotigest-map-3d-css';
   style.textContent=[
+   '#arrayan-scroll.lg-scope-fit{height:60vh;height:60dvh;max-height:680px;scroll-margin-top:110px}#arrayan-scroll.lg-scope-fit #arrayan-native{margin-inline:auto}#arrayan-scroll.lg-scope-fit.lg-3d-mode #arrayan-native{transition:none;transform:rotateZ(var(--lg-map-yaw,-6deg)) scale(.98);filter:drop-shadow(1px 8px 5px rgba(26,57,34,.22))}#arrayan-scroll.lg-scope-fit .ar-block-label{opacity:.9}',
    '.lg-map-scope{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin:0 0 14px;padding:10px;border:1px solid #b6cda8;border-radius:12px}.lg-map-scope details{flex:1;min-width:190px}.lg-map-scope summary{cursor:pointer;font-weight:600;padding:9px}.lg-map-scope-fields{display:flex;gap:10px;align-items:end;flex-wrap:wrap;padding:8px}.lg-map-scope-fields label{display:grid;gap:4px;flex:1;min-width:135px}.lg-map-scope-fields span{font-size:12px}.lg-outside-scope{display:none!important}#arrayan-scroll:not(.lg-3d-mode) .lg-map-tree{display:none}@media print{.lg-map-scope{display:none!important}}',
    '#arrayan-scroll .lg-map-project{display:none;margin:0}#arrayan-scroll.lg-project-mode .lg-map-project{display:block}#arrayan-scroll.lg-project-mode #arrayan-native{display:none!important}#arrayan-scroll.lg-project-mode{max-height:none!important;padding:0;overflow:hidden;background:#e7efe2}#arrayan-scroll .lg-map-project img{display:block;width:100%;height:auto;min-width:0}#arrayan-scroll .lg-map-project figcaption{padding:14px;color:#264d3d;font:13px/1.5 system-ui;background:#f5faef}#arrayan-scroll .lg-map-project figcaption span{display:block;margin:7px 0}.lg-map-house{pointer-events:none}#arrayan-scroll:not(.lg-3d-mode) .lg-map-terraces{display:none}#arrayan-scroll .lg-map-house [data-roof]{transition:fill .15s ease}',
    '.lg-map-visual-toolbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:12px 15px;margin:0 0 14px;border:1px solid #d4e5d2;background:linear-gradient(120deg,#f4faf0,#e9f5e7);border-radius:16px;color:#173e2f}',
