@@ -89,7 +89,7 @@
  }
 
  function mdCreateEntry(){
-  return {id:'MDR'+crypto.randomUUID().replace(/-/g,''),date:'',dateText:'',amount:'',receiptRef:'',statementId:mdState?.docs?.[0]?.id||'',photo:null,preview:null,status:'',dateEdited:false,amountEdited:false,refEdited:false,expanded:false};
+  return {id:'MDR'+crypto.randomUUID().replace(/-/g,''),date:'',dateText:'',amount:'',receiptRef:'',statementId:mdState?.docs?.[0]?.id||'',photo:null,preview:null,status:'',dateEdited:false,amountEdited:false,refEdited:false,refSuggested:false,expanded:false};
  }
  function mdStartSale(saleId){
   if(!cloudReady||cloudUser?.role!=='admin')return toast('Se requiere acceso de administrador para registrar abonos.','error');
@@ -140,7 +140,7 @@
    '<div class="md-manual-head"><span>Escribe la fecha del recibo · Enter avanza al siguiente abono.</span></div>'+
    '<div class="md-fields"><label class="md-date-label">Fecha *<span class="md-date-control"><input type="text" inputmode="numeric" autocomplete="off" spellcheck="false" data-md-field="date" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.dateText??mdHumanDate(row.date))+'" placeholder="DD/MM/AA · sin /" enterkeyhint="next" aria-label="Escribe los seis números de la fecha sin plecas; ejemplo 251125 es 25 de noviembre de 2025" required><span class="md-date-calendar" aria-hidden="true">▦</span><input type="date" class="md-native-date" data-md-picker="'+mdSafe(row.id)+'" aria-label="Elegir fecha en calendario" value="'+mdSafe(row.date||'')+'" max="'+mdSafe(mdToday())+'" tabindex="0"></span></label>'+
    '<label class="md-amount-label">Monto (L) *<span class="md-money-control"><span class="md-money-symbol" aria-hidden="true">L</span><input type="text" inputmode="decimal" autocomplete="off" data-md-field="amount" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(mdMoneyText(row.amount))+'" placeholder="Ej. 12,000.00" enterkeyhint="next" aria-label="Escribir monto manual del abono en lempiras" required></span></label>'+
-   '<label class="md-ref-label">Correlativo *<span class="md-ref-line"><span aria-hidden="true" class="md-ref-symbol">#</span><input type="text" inputmode="numeric" maxlength="80" pattern="[0-9]+" data-md-field="receiptRef" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.receiptRef)+'" placeholder="Ej. 00006159" enterkeyhint="done" aria-label="Escribir número correlativo manualmente. Enter avanza al siguiente abono" required></span></label></div>'+
+   '<label class="md-ref-label">Correlativo *<span class="md-ref-line"><span aria-hidden="true" class="md-ref-symbol">#</span><input type="text" inputmode="numeric" maxlength="80" pattern="[0-9]+" data-md-field="receiptRef" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.receiptRef)+'" placeholder="Ej. 00006159" enterkeyhint="done" aria-label="Correlativo editable. Enter propone el siguiente correlativo y avanza al siguiente abono" required></span></label></div>'+
    '<div class="md-photo-row"><label class="md-scan-icon" title="Escanear o seleccionar foto" aria-label="Escanear recibo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3H5a2 2 0 0 0-2 2v2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="8" width="10" height="9" rx="2"/><circle cx="12" cy="12.5" r="1.7"/></svg><input type="file" accept="image/jpeg,image/png,image/webp" data-md-photo="'+mdSafe(row.id)+'" hidden></label>'+
    (row.preview?'<img src="'+mdSafe(row.preview)+'" class="md-photo-preview" alt="Recibo de este abono">':'')+
    '<span class="md-photo-status" data-md-photo-status="'+mdSafe(row.id)+'">'+mdSafe(row.status||(row.photo?'Recibo adjunto':'OCR opcional · escribe los datos manualmente o escanea'))+'</span>'+(row.photo?'<button type="button" class="md-ocr-retry" data-md-retry="'+mdSafe(row.id)+'" aria-label="Reintentar lectura OCR del recibo">Reintentar OCR</button>':'')+'</div>'+
@@ -148,7 +148,7 @@
  }
  function mdShow(){
   const header='<div class="md-heading"><h3>¿Cómo deseas abonar?</h3><div class="md-choices"><button type="button" data-md-one>1 mes</button><button type="button" class="selected" aria-pressed="true" data-md-many>✓ Varios</button></div></div>'+
-    '<p class="md-note">Cada fecha se guardará como un pago individual con su propio correlativo y recibo. Los ceros iniciales no cuentan para detectar repetidos.</p>'+
+    '<p class="md-note">Cada fecha tiene su propio recibo. Enter propone el correlativo siguiente; puedes cambiarlo si hay un recibo anulado. Los ceros iniciales no cuentan para detectar repetidos.</p>'+
     '<p class="md-client">'+mdSafe(mdState.clientName)+'<small>'+mdSafe(mdState.lotLabel)+'</small></p>'+
     (mdState.kind==='sale'||mdState.docs.length===1?mdLastPaymentMarkup(mdState,db,mdState.docs?.[0]?.id):'')+
     (mdState.kind==='owner'&&mdState.docs.length>1?'<p class="md-last-instruction">Consulta el último pago de cada ficha junto a sus abonos.</p>':'')+
@@ -195,7 +195,7 @@
    if(ref&&key===null)warning='El correlativo debe contener solamente números.';
    else if(ref&&references.get(key)>1)warning='Correlativo '+key+' repetido entre estas fechas.';
    else if(ref&&window.lotigestOwnerPayments?.findReceiptCorrelativo(db,ref))warning='El correlativo '+key+' ya está registrado.';
-   el.textContent=warning||(ref?'Se comprobará como '+key:'');
+   el.textContent=warning||(ref?(r.refSuggested?'Correlativo sugerido (editable): ':'Se comprobará como ')+key:'');
    el.classList.toggle('invalid',Boolean(warning));
    const row=document.querySelector('[data-md-row="'+r.id+'"]');row?.classList.toggle('md-duplicate',Boolean(warning));
   }
@@ -224,7 +224,7 @@
    row.amountEdited=true;
   }else{
    row[field]=input.value;
-   if(field==='receiptRef')row.refEdited=true;
+   if(field==='receiptRef'){row.refEdited=true;row.refSuggested=false;}
    if(field==='statementId'&&mdState.kind==='owner'){
     const summary=document.querySelector('[data-md-last-payment-row="'+row.id+'"] .md-last-content');
     if(summary)summary.innerHTML=mdLastPaymentBody(mdState,db,row.statementId);
@@ -351,7 +351,7 @@
     row.amount=String(best.amount);extracted.push('Por Lps.: '+mdMoneyText(row.amount));
    }
    if(best.reference&&!row.refEdited){
-    row.receiptRef=String(best.reference);extracted.push('N.º '+row.receiptRef);
+    row.receiptRef=String(best.reference);row.refSuggested=false;extracted.push('N.º '+row.receiptRef);
    }
    row.status=extracted.length
     ?'OCR: '+extracted.join(' · ')+(extracted.length<3?' · completa lo que falte':'')+' · revisa antes de guardar'
@@ -558,8 +558,22 @@
   if(typeof input.scrollIntoView==='function')input.scrollIntoView({block:'center',behavior:'smooth'});
   return true;
  }
+ // BigInt evita perder dígitos de correlativos largos. Nunca saltar números sin confirmación.
+ function mdNextCorrelativo(raw){
+  const digits=String(raw??'').trim();
+  if(!/^\d{1,80}$/.test(digits)||BigInt(digits)<=0n)return '';
+  const next=String(BigInt(digits)+1n);
+  return next.length<=80?next:'';
+ }
+ function mdSuggestNextReference(previous,next){
+  if(!previous||!next||next.refEdited||(next.receiptRef&&!next.refSuggested))return false;
+  const suggestion=mdNextCorrelativo(previous.receiptRef);
+  if(!suggestion)return false;
+  next.receiptRef=suggestion;next.refSuggested=true;return true;
+ }
  function mdRowHasPayment(row){
-  return Boolean(String(row.amount||'').trim()||String(row.receiptRef||'').trim()||row.photo);
+  // Un correlativo sugerido solo no crea un pago ni obliga a llenar una fila adicional.
+  return Boolean(String(row.amount||'').trim()||row.photo||(!row.refSuggested&&String(row.receiptRef||'').trim())||(row.refSuggested&&String(row.dateText||row.date||'').trim()));
  }
  function mdNextRow(row){
   if(!mdState||!row)return;
@@ -579,8 +593,10 @@
    if(mdState.rows.length>=24){toast('Máximo 24 abonos por operación. Guarda los pagos antes de continuar.','error');return;}
    mdState.rows.push(mdCreateEntry());
   }
-  mdExpandRow(mdState.rows[index+1].id);
-  mdFocusField(mdState.rows[index+1].id,'date');
+  const next=mdState.rows[index+1];
+  mdSuggestNextReference(row,next);
+  mdExpandRow(next.id);mdRenderRows();
+  mdFocusField(next.id,'date');
  }
  function mdRememberPayment(target){
   const action=target?.closest?.('[data-action="new-payment"],[data-action="collection-owner-abono"],[data-md-start-sale],[data-md-start-owner],[data-action="view-lot"]');
@@ -639,7 +655,7 @@
   else if(action.hasAttribute('data-md-toggle-row'))mdToggleRow(action.dataset.mdToggleRow);
   else if(action.hasAttribute('data-md-add')){
    if(mdState.rows.length>=24)return mdError('Se admiten como máximo 24 recibos por operación.');
-   const row=mdCreateEntry();mdState.rows.push(row);mdExpandRow(row.id);mdFocusField(row.id,'date');
+   const row=mdCreateEntry();mdSuggestNextReference(mdState.rows.at(-1),row);mdState.rows.push(row);mdExpandRow(row.id);mdFocusField(row.id,'date');
   }
   else if(action.hasAttribute('data-md-remove'))mdRemove(action.dataset.mdRemove);
   else if(action.hasAttribute('data-md-retry')){

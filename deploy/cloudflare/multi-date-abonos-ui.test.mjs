@@ -38,7 +38,12 @@ test('dos fechas desde + guardan dos movimientos, dos folios y dos recibos separ
   app.click('[data-md-edit]');
   assert.equal(app.d.activeElement,app.d.querySelector('[data-md-field="date"]'),'Escribir debe enfocar la fecha manualmente');
   const fields=field=>[...app.d.querySelectorAll('[data-md-field="'+field+'"]')];
-  for(const [i,values] of [{date:'211026',amount:'12,000',receiptRef:'00006159'},{date:'20 Noviembre 2026',amount:'9,000.00',receiptRef:'00006160'}].entries()){
+  for(const [i,values] of [{date:'211026',amount:'12,000',receiptRef:'00006159'},{date:'20 Noviembre 2026',amount:'9,000.00',receiptRef:'00006161'}].entries()){
+   if(i===1){
+    const previous=fields('receiptRef')[0];previous.dispatchEvent(new app.w.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));
+    assert.equal(fields('receiptRef')[1].value,'6160','Enter sugiere el siguiente sin ceros iniciales');
+    assert.equal(fields('receiptRef')[1].readOnly,false);
+   }
    for(const [name,value] of Object.entries(values)){
     const control=fields(name)[i];control.value=value;
     control.dispatchEvent(new app.w.Event('input',{bubbles:true}));
@@ -60,13 +65,14 @@ test('dos fechas desde + guardan dos movimientos, dos folios y dos recibos separ
   enter(fields('receiptRef')[1]);
   assert.equal(app.d.querySelectorAll('[data-md-row]').length,3,'Enter en el último correlativo crea Abono 3');
   assert.equal(fields('date')[2].value,'','Enter crea otro abono con fecha vacía');
+  assert.equal(fields('receiptRef')[2].value,'6162','El consecutivo usa el número corregido, sin crear un pago incompleto');
   assert.equal(app.d.activeElement,fields('date')[2],'Entra al nuevo abono con fecha seleccionada');
   app.click('[data-md-save]');
   await until(()=>app.d.querySelector('[data-md-share-all]'),'resultados de abonos guardados');
   const after=(await server.read()).state;
   const payments=after.payments.filter(p=>p.saleId===sale.id&&!/^Prima/.test(p.concept||''));
   assert.equal(payments.length,2);
-  assert.deepEqual(new Set(payments.map(p=>p.receiptReferenceNormalized)),new Set(['6159','6160']));
+  assert.deepEqual(new Set(payments.map(p=>p.receiptReferenceNormalized)),new Set(['6159','6161']));
   assert.deepEqual(new Set(payments.map(p=>p.date)),new Set(['2026-10-21','2026-11-20']));
   assert.equal(new Set(payments.map(p=>p.groupId)).size,2,'Cada fecha posee recibo independiente');
   assert.equal(app.d.querySelectorAll('[data-md-pdf]').length,2);
