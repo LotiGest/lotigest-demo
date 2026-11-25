@@ -306,6 +306,8 @@ function pmRepaintSales(){
  const selected=document.getElementById('multi-payment-selected'),slot=document.getElementById('pm-amount-slot'),search=document.getElementById('pm-searchbox');
  if(selected)selected.classList.toggle('hidden-single',single||!sales.length);
  if(search)search.classList.toggle('has-selection',!!sales.length);
+ const clientFold=document.getElementById('pm-fold-client');
+ if(clientFold){const had=clientFold.dataset.hasClient==='true',has=!!sales.length;clientFold.querySelector('summary').textContent=has?'Cliente / solares · '+(client?.name||'Seleccionado'):'Buscar cliente / solares';if(had!==has||!has)clientFold.open=!has;clientFold.dataset.hasClient=String(has);}
  if(slot){
   slot.replaceChildren();
   if(single){
@@ -343,6 +345,41 @@ function pmRepaintSales(){
  if(distribution)distribution.hidden=true;
  const calendar=document.getElementById('pm-calendar-body');if(calendar)pmCalendar(calendar,sales);
 }
+// Diseño compacto: las secciones informativas conservan sus nodos y eventos.
+function pmFold(title,...nodes){
+ const details=pmNode('details','pm-fold'),header=pmNode('summary','pm-fold-title',title);
+ details.append(header,...nodes.filter(Boolean));return details;
+}
+function pmCompactSales(form,shell,search,person,last,historyBar,summary,cal,entry,fields){
+ const modal=form.closest('.lg-payment-modern');if(!modal)return;
+ modal.classList.add('pm-compact-payment');
+ // La búsqueda y los solares son accesibles sin desplazar el formulario de pago.
+ const client=pmFold('Buscar cliente / solares',search,person);
+ client.id='pm-fold-client';client.open=!pmSales().length;
+ const lastFold=pmFold('Último pago registrado',last,historyBar);
+ const contract=pmFold('Resumen del contrato',summary);
+ const statement=summary.querySelector('.pm-statement-launch');
+ if(statement)contract.firstElementChild.after(statement);
+ const calendar=pmFold('Calendario de pagos (Cronograma)',cal);
+ const monthly=pmNode('section','notice-card');monthly.dataset.monthlyBanner='true';
+ const monthlyFold=pmFold('Cuota mensual de los solares',monthly);
+ // El importe y el correlativo usan los inputs existentes, no copias.
+ const amount=fields.querySelector('#pm-amount-slot');
+ const reference=fields.querySelector('[name="receiptRef"]');
+ const referenceField=reference&&[...fields.children].find(el=>el.contains(reference));
+ if(amount)fields.prepend(amount);
+ if(referenceField){referenceField.classList.add('pm-primary-reference');if(amount)amount.after(referenceField);}
+ const date=fields.querySelector('.pm-date-group');
+ if(date){date.classList.add('pm-primary-date');(referenceField||amount)?.after(date);}
+ const secondary=Array.from(fields.children).filter(el=>el!==amount&&el!==referenceField&&el!==date);
+ if(secondary.length){const options=pmFold('Opciones del pago',...secondary);options.classList.add('pm-payment-options');fields.append(options);}
+ const sections=pmNode('div','pm-fold-list');
+ sections.append(client,lastFold,monthlyFold,contract,calendar);
+ // El panel Abono nunca se pliega y ocupa todo el ancho útil de la ventana.
+ shell.prepend(entry,sections);
+ entry.querySelector('h3').textContent='Abono';
+ form.addEventListener('invalid',event=>{for(let el=event.target.parentElement;el&&el!==form;el=el.parentElement){if(el.tagName==='DETAILS')el.open=true;}},true);
+}
 function pmSalesDecorate(){
  const form=document.getElementById('multi-payment-form');
  if(!form)return;
@@ -376,7 +413,10 @@ function pmSalesDecorate(){
  const cal=pmCalendarCard([]);cal.querySelector('.pm-calendar-body').id='pm-calendar-body';
  main.append(summary.card,cal,entry.card);shell.append(main);
  form.replaceChildren(shell);pmFooter(modal,'multi-payment-form');
+ pmCompactSales(form,shell,search,person,last,historyBar,summary.card,cal,entry.card,fields);
+ main.remove();
  pmRepaintSales();
+ if(typeof monthlyRefresh==='function')monthlyRefresh();
 }
 function pmOwnerDecorate(){
  const form=document.getElementById('owner-abono-form');
