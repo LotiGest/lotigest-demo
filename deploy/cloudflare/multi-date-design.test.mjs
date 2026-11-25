@@ -31,6 +31,8 @@ test('primera tarjeta abierta y segunda plegada como en el diseño aprobado',()=
  assert.match(x.list.innerHTML,/id="md-row-body-A2" hidden/);
  assert.match(x.list.innerHTML,/data-md-toggle-row="A1"/);
  assert.match(x.list.innerHTML,/aria-expanded="false"/);
+ assert.match(x.list.innerHTML,/md-summary-ref[^>]*># 00006159/);
+ assert.match(x.list.innerHTML,/md-summary-amount[^>]*>L 6,500.00/);
  assert.equal((x.list.innerHTML.match(/data-md-edit=/g)||[]).length,2);
  assert.equal((x.list.innerHTML.match(/data-md-photo=/g)||[]).length,2,'Se conserva un scanner por abono');
  assert.equal((x.list.innerHTML.match(/data-md-field="date"/g)||[]).length,2,'Las fechas siguen editables');
@@ -61,9 +63,9 @@ test('último pago muestra correlativo rojo y monto verde en una tarjeta menta',
  assert.match(css,/\.md-row-body\[hidden\][\s\S]{0,45}display:none!important/);
 });
 test('el avance Enter despliega la siguiente fila y guardar conserva movimientos separados',()=>{
- assert.match(js,/mdExpandRow\(mdState\.rows\[index\+1\]\.id\)/);
+ assert.match(js,/mdExpandRow\(next\.id\)/);
  assert.match(js,/else if\(action\.hasAttribute\('data-md-toggle-row'\)\)mdToggleRow/);
- assert.match(js,/const row=mdCreateEntry\(\);mdState\.rows\.push\(row\);mdExpandRow\(row\.id\)/);
+ assert.match(js,/mdSuggestNextAmount\(mdState\.rows\.at\(-1\),row\);mdState\.rows\.push\(row\);mdExpandRow\(row\.id\)/);
  assert.match(js,/findLastIndex\(mdRowHasPayment\)/,'Una última fila vacía no bloquea guardar');
  assert.match(js,/createOwnerPayment\(next/);
  assert.match(js,/next\.payments\.unshift\(payment\)/);

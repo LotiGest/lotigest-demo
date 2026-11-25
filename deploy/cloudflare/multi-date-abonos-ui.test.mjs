@@ -43,6 +43,8 @@ test('dos fechas desde + guardan dos movimientos, dos folios y dos recibos separ
     const previous=fields('receiptRef')[0];previous.dispatchEvent(new app.w.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));
     assert.equal(fields('receiptRef')[1].value,'6160','Enter sugiere el siguiente sin ceros iniciales');
     assert.equal(fields('receiptRef')[1].readOnly,false);
+    assert.equal(fields('amount')[1].value,'12,000.00');
+    assert.match(app.d.querySelector('[data-md-total]').textContent,/12,000/);
    }
    for(const [name,value] of Object.entries(values)){
     const control=fields(name)[i];control.value=value;
@@ -66,6 +68,9 @@ test('dos fechas desde + guardan dos movimientos, dos folios y dos recibos separ
   assert.equal(app.d.querySelectorAll('[data-md-row]').length,3,'Enter en el último correlativo crea Abono 3');
   assert.equal(fields('date')[2].value,'','Enter crea otro abono con fecha vacía');
   assert.equal(fields('receiptRef')[2].value,'6162','El consecutivo usa el número corregido, sin crear un pago incompleto');
+  assert.equal(fields('amount')[2].value,'9,000.00');
+  assert.match(app.d.querySelector('[data-md-total]').textContent,/21,000/);
+  assert.match(app.d.querySelector('[data-md-summary]').textContent,/21 de octubre 2026.*6159.*12,000/);
   assert.equal(app.d.activeElement,fields('date')[2],'Entra al nuevo abono con fecha seleccionada');
   app.click('[data-md-save]');
   await until(()=>app.d.querySelector('[data-md-share-all]'),'resultados de abonos guardados');
