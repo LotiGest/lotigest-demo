@@ -34,7 +34,7 @@
   const btn=document.querySelector('[data-owner-cleanup-save]');if(btn)
    btn.disabled=draft.busy||!draft.selected.size||!draft.backupDownloaded||!draft.confirmedBackup||draft.code!=='DESVINCULAR'||draft.reason.trim().length<5;
  }
- function open(lotId=null,global=false){
+ function open(lotId=null,global=false,bulk=false){
   if(!contractIntakeAdmin()){toast('Para limpiar asociaciones necesitas sesión de administrador y nube sincronizada.','error');return;}
   const rid=global?null:residence().id,audit=auditOrphanOwnerLinks(db,rid,true),selected=new Set();
   if(lotId){
@@ -46,9 +46,10 @@
    }
    selected.add(lotId);
   }
+  if(bulk)for(const candidate of audit.candidates)selected.add(candidate.lotId);
   draft={residenceId:rid,originResidenceId:residence().id,audit,snapshot:JSON.stringify(db),
-   selected,search:lotId||'',backupDownloaded:false,confirmedBackup:false,code:'',reason:'',busy:false};
-  showModal(lotId?'Quitar propietario de este solar':'Revisar solares vinculados sin contrato',
+   selected,search:lotId||'',backupDownloaded:false,confirmedBackup:false,code:'',reason:bulk?'Liberar asignaciones provisionales para registrar contratos manualmente':'',busy:false};
+  showModal(bulk?'Liberar todos los solares sin contrato':lotId?'Quitar propietario de este solar':'Revisar solares vinculados sin contrato',
    '<p>Esta herramienta permite liberar solares asignados por registros provisionales o importaciones sin contabilizar. No borra clientes, contratos, pagos ni solares. Verifica el cliente correcto antes de reasignar.</p><div id="owner-cleanup-content"></div>',
    '<button type="button" class="btn btn-soft" data-action="close-modal">Cancelar</button>'+
    '<button type="button" class="btn btn-primary" data-owner-cleanup-save disabled>Desvincular solares seleccionados</button>',true);
@@ -92,7 +93,7 @@
    '<strong>Corregir cliente asociado</strong><p class="sm">'+esc(message)+'</p>'+
    '<button type="button" class="btn btn-outline btn-sm" data-owner-cleanup-single="'+esc(lotId)+'" '+
    (!eligible||!synced?'disabled':'')+'>Quitar persona de este solar</button>'+
-   (!synced?'<p class="sm muted">Se requiere sesión de administrador con nube sincronizada.</p>':'')+
+   (synced?'<button type="button" class="btn btn-primary btn-sm" data-owner-cleanup-bulk>Liberar todos los solares sin contrato</button>':'<p class="sm muted">Se requiere sesión de administrador con nube sincronizada.</p>')+
    '</section>');
  }
  const cleanupViewLotBase=viewLot;
@@ -109,15 +110,16 @@
    '<p class="sm">Contratos es la referencia para identificar los solares correctos. Hay <b>'+audit.candidates.length+
    '</b> asociaciones provisionales sin contrato que pueden revisarse, y <b>'+audit.protectedLinks.length+
    '</b> protegidas por documentos o movimientos. No afecta el inventario ni los recibos.</p>'+
-   '<button type="button" class="btn btn-outline" data-owner-cleanup-open>Revisar y desvincular</button></section>';
+   '<button type="button" class="btn btn-outline" data-owner-cleanup-open>Revisar y desvincular</button> <button type="button" class="btn btn-primary" data-owner-cleanup-bulk>Liberar todos los solares sin contrato</button></section>';
   return section+result;
  };
  document.addEventListener('click',event=>{
-  const el=event.target.closest?.('[data-owner-cleanup-single],[data-owner-cleanup-open],[data-owner-cleanup-save],[data-owner-cleanup-select-all],[data-owner-cleanup-all],[data-owner-cleanup-global],[data-owner-cleanup-clear],[data-owner-cleanup-backup],[data-owner-cleanup-protected]');
+  const el=event.target.closest?.('[data-owner-cleanup-single],[data-owner-cleanup-open],[data-owner-cleanup-bulk],[data-owner-cleanup-save],[data-owner-cleanup-select-all],[data-owner-cleanup-all],[data-owner-cleanup-global],[data-owner-cleanup-clear],[data-owner-cleanup-backup],[data-owner-cleanup-protected]');
   if(!el)return;
   event.preventDefault();event.stopImmediatePropagation();
   if(el.hasAttribute('data-owner-cleanup-single'))return open(el.dataset.ownerCleanupSingle);
   if(el.hasAttribute('data-owner-cleanup-open'))return open();
+  if(el.hasAttribute('data-owner-cleanup-bulk'))return open(null,true,true);
   const d=draft;if(!d||d.busy)return;
   if(el.hasAttribute('data-owner-cleanup-global'))return open(null,d.residenceId!==null);
   if(el.hasAttribute('data-owner-cleanup-all')){

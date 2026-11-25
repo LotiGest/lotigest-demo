@@ -47,3 +47,10 @@ test('selección masiva incluye candidatos fuera del filtro y de la residencial 
  assert.match(ui,/global\?null:residence\(\)\.id/);
  assert.match(ui,/d\.reason,undefined,true,true/);
 });
+
+test('acceso directo masivo preselecciona todos los elegibles sin ejecutar cambios',()=>{
+ assert.match(ui,/data-owner-cleanup-bulk/);
+ assert.match(ui,/return open\(null,true,true\)/);
+ assert.match(ui,/if\(bulk\)for\(const candidate of audit\.candidates\)selected\.add\(candidate\.lotId\)/);
+ assert.match(ui,/backupDownloaded:false,confirmedBackup:false,code:''/);
+});

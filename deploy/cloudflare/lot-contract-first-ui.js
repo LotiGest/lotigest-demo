@@ -29,7 +29,7 @@
   html=html.replace('<button class="btn btn-outline" data-action="buyer-import">Importar Excel de compradores</button>',
    '<button class="btn btn-outline" data-lot-go-contracts>Ir a Contratos</button>');
   const rid=residence().id,audit=auditUncontractedSales(db,rid);
-  const links=auditOrphanOwnerLinks(db,rid);
+  const links=auditOrphanOwnerLinks(db,rid,true);
   const admin=cloudUser?.role==='admin';
   const info='<section class="card card-padding lot-contract-first-note">'+
    '<h3>Compradores desde Contratos</h3><p class="sm">Aquí administras medidas, precios, etapas, bloques y solares. Para crear o vincular el comprador y registrar la compra, utiliza <strong>Contratos → Nuevo contrato</strong>. Un comprador sin contrato no se mostrará como titular confirmado.</p>'+
@@ -37,7 +37,7 @@
     audit.protectedSales.length+'</strong> compras con vínculos protegidos. Además hay <strong>'+
     links.candidates.length+'</strong> asociaciones provisionales que se pueden revisar por separado.</p>'+
     '<div class="lot-contract-first-actions"><button type="button" class="btn btn-outline" data-lot-uncontracted-open>Revisar compras sin contrato</button>'+
-    '<button type="button" class="btn btn-outline" data-owner-cleanup-open>Revisar solares provisionales</button></div>':'')+
+    '<button type="button" class="btn btn-outline" data-owner-cleanup-bulk>Liberar todos los solares sin contrato</button></div>':'')+
    '</section>';
   return html.replace('<div class="page-cols">',info+'<div class="page-cols">');
  };
