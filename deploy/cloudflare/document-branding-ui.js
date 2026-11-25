@@ -54,7 +54,7 @@ function lgDocumentBrandHtml(rid){
  let documentRid=null;
  function scoped(rid,fn){const before=documentRid;documentRid=rid||null;try{return fn();}finally{documentRid=before;}}
  const letter=receiptLetterPdf;
- receiptLetterPdf=function(...args){return letter(...args,lgDocumentBranding(documentRid));};
+ receiptLetterPdf=function(parts,company,reference,kind='receipt',qrUrl=null){return letter(parts,company,reference,kind,qrUrl,lgDocumentBranding(documentRid));};
  const payment=paymentReceiptPdf;
  paymentReceiptPdf=function(id){const rows=paymentReceiptRows(id);const ids=[...new Set(rows.map(p=>getLot(getSale(p.saleId)?.lotId)?.residenceId).filter(Boolean))];return scoped(ids.length===1?ids[0]:null,()=>payment(id));};
  const owner=ownerPaymentPdf;
