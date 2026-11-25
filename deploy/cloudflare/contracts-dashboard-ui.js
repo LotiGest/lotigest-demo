@@ -125,7 +125,7 @@
   showModal('Consultar contrato anulado',body,
    '<button type="button" class="btn btn-outline" data-action="close-modal">Cerrar</button>',true);
  }
- // El PIN pertenece a la cuenta administradora, no al dispositivo.
+ // El PIN es compartido por todos los administradores de esta instalación.
  let activationBusy=false,pinLoading=false,pinCache=null,pinEpoch=0,pinFailed=false;
  const activationAdmin=()=>typeof cloudUser!=='undefined'&&cloudUser?.role==='admin';
  function pinDisplayState({offline,blocked,pending,pin,expires,now}){
@@ -143,7 +143,7 @@
   const tools=bar.querySelector('.lg-top-tools');if(!tools)return;
   let el=old;if(!el){el=document.createElement('span');el.className='ct-activation-pin';el.innerHTML='<span class="ct-pin-symbol" aria-hidden="true">◆</span><span class="ct-pin-label">PIN</span><strong data-ct-pin-value>— — — —</strong><i class="ct-pin-pending" hidden aria-hidden="true"></i>';el.setAttribute('role','status');tools.prepend(el);}
   const d=pinDisplayState({offline:pinOffline(),blocked:typeof cloudBlocked!=='undefined'&&cloudBlocked,pending:pinDirty(),pin:pinCache?.pin,expires:pinCache?.expires,now:Date.now()});
-  el.dataset.state=d.kind;el.querySelector('[data-ct-pin-value]').textContent=d.value;el.querySelector('.ct-pin-symbol').textContent=d.kind==='offline'?'×':'◆';el.querySelector('.ct-pin-pending').hidden=!pinDirty();el.title=d.status+'. El PIN requiere conexión y vence al usarse o a los dos minutos.';el.setAttribute('aria-label','PIN del administrador: '+d.value+'. '+d.status);
+  el.dataset.state=d.kind;el.querySelector('[data-ct-pin-value]').textContent=d.value;el.querySelector('.ct-pin-symbol').textContent=d.kind==='offline'?'×':'◆';el.querySelector('.ct-pin-pending').hidden=!pinDirty();el.title=d.status+'. PIN compartido entre administradores. Requiere conexión y vence al usarse o a los dos minutos.';el.setAttribute('aria-label','PIN del administrador: '+d.value+'. '+d.status);
  }
  async function refreshActivationPin(){
   paintActivationPin();
@@ -190,7 +190,7 @@
   try{
    const d=activationRecord(id);refreshActivationPin();
    showModal('Activar contrato',
-    '<p>Reactivar contrato <strong>'+esc(d.id)+'</strong> de '+esc(getClient(d.clientId)?.name)+'.</p><p>Introduce el PIN vigente de Contratos en este equipo o en tu celular con la misma cuenta.</p>'+
+    '<p>Reactivar contrato <strong>'+esc(d.id)+'</strong> de '+esc(getClient(d.clientId)?.name)+'.</p><p>Introduce el PIN vigente de Contratos en cualquier equipo con una cuenta administradora.</p>'+
     '<form id="ct-activation-form"><input type="hidden" name="documentId" value="'+esc(id)+'"><label>PIN de 4 dígitos<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" minlength="4" maxlength="4" autocomplete="off" required></label><p id="ct-activation-error" role="alert"></p></form>',
     '<button type="button" class="btn btn-outline" data-action="close-modal">Cancelar</button><button type="submit" form="ct-activation-form" class="btn btn-primary">Activar contrato</button>',true);
   }catch(e){toast(e.message,'error');}
