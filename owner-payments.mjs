@@ -25,6 +25,31 @@ export function findReceiptCorrelativo(state,raw){
  for(const p of state.historicalPayments||[])if(normalizeReceiptCorrelativo(p.receiptReference||p.receiptReferenceNormalized||p.sourceRaw?.receiptRef||p.sourceRaw?.folio)===key)return {normalized:key,kind:'histórico',id:p.id};
  return null;
 }
+// Información de un recibo existente, sin modificar la validación de unicidad.
+export function receiptCorrelativoMessage(state,raw){
+ const match=findReceiptCorrelativo(state,raw);if(!match)return '';
+ const names=new Set(),dates=new Set(),lots=new Set();let cents=null;
+ const client=(id,fallback)=>{const name=state.clients?.find(c=>c.id===id)?.name||fallback;if(name)names.add(String(name));};
+ const lot=(id,fallback)=>{if(id||fallback)lots.add(String(id||fallback));};
+ const date=v=>{if(/^\d{4}-\d{2}-\d{2}$/.test(v||''))dates.add(v.split('-').reverse().join('/'));};
+ if(match.kind==='venta'){
+  const p=state.payments.find(x=>x.id===match.id);
+  const rows=p.groupId?state.payments.filter(x=>x.groupId===p.groupId&&normalizeReceiptCorrelativo(x.receiptReference||x.receiptReferenceNormalized)===match.normalized):[p];
+  cents=0;
+  for(const x of rows){const sale=state.sales?.find(v=>v.id===x.saleId);client(sale?.clientId,x.receiptInfo?.clientName);lot(sale?.lotId);date(x.date);cents+=Math.round(Number(x.amount)*100);}
+ }else if(match.kind==='propietario'){
+  const p=state.ownerPayments.find(x=>x.id===match.id);client(p.clientId,p.clientName);date(p.date);cents=p.amountCents;
+  for(const a of p.allocations||[])for(const r of a.references||[])lot(r.lotId,r.block&&r.solar?'Bloque '+r.block+' / Solar '+r.solar:'');
+ }else{
+  const p=state.historicalPayments.find(x=>x.id===match.id),c=state.historicalContracts?.find(x=>x.id===p.contractId);
+  client(p.clientId||c?.clientId,p.clientName||c?.clientName);date(p.date);cents=p.amountCents;
+  lot(p.lotId,p.block&&p.lot?'Bloque '+p.block+' / Solar '+p.lot:'');
+  for(const r of p.references||[])lot(r.lotId,r.block&&(r.solar||r.lot)?'Bloque '+r.block+' / Solar '+(r.solar||r.lot):'');
+ }
+ return 'El correlativo '+match.normalized+' ya está registrado en otro pago. Cliente: '+([...names].join(' / ')||'Sin identificar')+
+  (dates.size?' · Fecha: '+[...dates].join(' / '):'')+(Number.isSafeInteger(cents)&&cents>0?' · Monto: L '+(cents/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'')+
+  (lots.size?' · Solar(es): '+[...lots].join(', '):'')+(match.kind==='histórico'?' · Registro histórico':'')+'.';
+}
 // Solo valida los recibos NUEVOS para no alterar legados sin correlativo.
 // Los pagos de una misma operación (varios solares) comparten un único correlativo.
 export function validateNewReceiptCorrelativos(previous,next){
@@ -64,7 +89,7 @@ export function createOwnerPayment(input,draft){
  const request={clientId:client.id,residenceId:draft.residenceId,date,method,concept,receiptReference,receiptReferenceNormalized,allocations:draft.allocations.map(a=>({statementId:a.statementId,referenceIndex:a.referenceIndex==null?null:Number(a.referenceIndex),amountCents:ownerCents(a.amount)}))};
  const prior=state.ownerPayments.find(p=>p.id===draft.id);if(prior){if(JSON.stringify(prior.request)!==JSON.stringify(request))throw Error('Ese recibo ya existe con otros datos.');return {state,receipt:prior};}
  const matching=findReceiptCorrelativo(state,receiptReference);
- if(matching)throw Error('El correlativo '+receiptReferenceNormalized+' ya está registrado en otro pago.');
+ if(matching)throw Error(receiptCorrelativoMessage(state,receiptReference));
  const groups=new Map(),usedReferences=new Set(),allocations=request.allocations.map(a=>{const s=state.ownershipStatements?.find(s=>s.id===a.statementId);if(!s||s.clientId!==client.id||s.residenceId!==draft.residenceId)throw Error('Todos los solares deben pertenecer a la misma persona y residencial.');if((s.contractIds||[]).some(id=>state.historicalContracts?.find(c=>c.id===id)?.saleId))throw Error('Esta ficha ya tiene una venta con cuotas. Registra el abono desde sus ventas.');if(a.referenceIndex!=null&&(!Number.isInteger(a.referenceIndex)||a.referenceIndex<0))throw Error('Solar inválido.');const refs=ownerAllocationReferences(state,s,a.referenceIndex);for(const r of refs){const key=r.lotId||r.block+':'+r.solar;if(usedReferences.has(key))throw Error('El mismo solar aparece en más de una ficha seleccionada. Confirma una sola ficha antes de abonar.');usedReferences.add(key);const l=r.lotId&&state.lots.find(l=>l.id===r.lotId);if(l?.ownerClientId&&l.ownerClientId!==client.id||l&&state.sales.some(v=>v.lotId===l.id&&v.clientId!==client.id))throw Error('El terreno tiene otro propietario.');}if(!groups.has(s.id))groups.set(s.id,{indexes:new Set(),total:0,statement:s});const g=groups.get(s.id),key=a.referenceIndex==null?'group':a.referenceIndex;if(g.indexes.has(key)||g.indexes.has('group')||key==='group'&&g.indexes.size)throw Error('No mezcles el abono conjunto con los mismos solares individuales.');g.indexes.add(key);g.total+=a.amountCents;return {...a,references:refs,sourceName:s.sourceName};});
  for(const g of groups.values()){const left=ownerStatementBalance(state,g.statement);if(left!=null&&g.total>left)throw Error('El abono supera el saldo documentado disponible de la ficha. Revisa sus condiciones antes de continuar.');}
  const amountCents=allocations.reduce((n,a)=>n+a.amountCents,0);if(!Number.isSafeInteger(amountCents))throw Error('El total supera el límite permitido.');
