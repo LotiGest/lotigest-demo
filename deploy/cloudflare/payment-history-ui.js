@@ -478,9 +478,10 @@ function pmAmortizationModel(state,clientId,rid,asOf,reconcile,dueCents,addMonth
  const price=sum(details,x=>x.price),paid=sum(details,x=>x.paid),agreed=sum(details,x=>x.agreed),prima=sum(details,x=>x.primaApplied);
  const rows=details.flatMap(x=>x.rows),pending=rows.filter(x=>x.remainingCents>0).sort((a,b)=>a.dueDate.localeCompare(b.dueDate)),overdue=pending.filter(x=>x.dueDate<asOf);
  const consolidated=pmConsolidatedMonths(rows,payments,asOf);
- return {consolidated,policy:'current-month-first',individual:lotId!==null,client:client.name,residence:state.residences?.find(x=>x.id===rid)?.name||'Residencial',company:state.company?.name||'GRUPO H',asOf,details,price,paid,agreed,prima,balance:price-paid,opening:sum(details,x=>x.opening),abonos:Math.max(0,paid-prima),count:rows.length,covered:rows.filter(x=>x.dueCents>0&&!x.remainingCents).length,latePaid:rows.filter(x=>x.displayStatus==='Pagada atrasada').length,overdueCount:overdue.length,overdueAmount:sum(overdue,x=>x.remainingCents),next:pending[0]||null,last:payments.map(p=>p.date).sort().at(-1)||null,unmatched:ledger.unmatched.length};
+ return {residenceId:rid,branding:typeof lgDocumentBranding==='function'?lgDocumentBranding(rid,state):null,consolidated,policy:'current-month-first',individual:lotId!==null,client:client.name,residence:state.residences?.find(x=>x.id===rid)?.name||'Residencial',company:state.company?.name||'GRUPO H',asOf,details,price,paid,agreed,prima,balance:price-paid,opening:sum(details,x=>x.opening),abonos:Math.max(0,paid-prima),count:rows.length,covered:rows.filter(x=>x.dueCents>0&&!x.remainingCents).length,latePaid:rows.filter(x=>x.displayStatus==='Pagada atrasada').length,overdueCount:overdue.length,overdueAmount:sum(overdue,x=>x.remainingCents),next:pending[0]||null,last:payments.map(p=>p.date).sort().at(-1)||null,unmatched:ledger.unmatched.length};
 }
 function pmAmortizationPdf(model){
+ const cl=model.branding?.company||null,rl=model.branding?.residential||null;
  const green='0.045 0.30 0.17',light='0.90 0.96 0.89',ink='0.10 0.18 0.15',red='0.70 0.12 0.16',orange='0.70 0.34 0.08',blue='0.12 0.35 0.62',gray='0.38 0.43 0.40';
  const pages=[];let cmds=[],y=0;
  const escape=s=>String(s??'').replace(/[^\x20-\xFF]/g,c=>({'—':'-','–':'-','’':"'"}[c]||' ')).replace(/([\\()])/g,'\\$1');
@@ -490,7 +491,7 @@ function pmAmortizationPdf(model){
  const cash=c=>'L '+(Number(c)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
  const date=s=>s?String(s).split('-').reverse().join('/'):'—';
  const footer=()=>{rect(32,40,548,1,green);txt('Documento generado por LOTIGEST PRO · '+model.company,32,26,8,false,gray);txt('Página '+(pages.length+1),526,26,8,false,gray);pages.push(cmds.join('\n'));cmds=[];};
- const start=()=>{rect(0,780,612,12,green);rect(32,741,548,2,green);txt('LOTIGEST PRO',32,757,24,true,green);txt(model.individual?'Amortización por solar':'Amortización consolidada',330,758,15,true);txt('Corte: '+date(model.asOf),32,725,9,false,gray);txt(String(model.company).slice(0,37)+' · Estado de cuenta',330,725,9,false,gray);y=706;};
+ const start=()=>{rect(0,780,612,12,green);rect(32,741,548,2,green);if(cl||rl){if(cl)cmds.push(lgDocLogoCommand(cl,'CompanyLogo',32,744,95,34));if(rl)cmds.push(lgDocLogoCommand(rl,'ResLogo',cl?137:32,744,170,34));}else txt('LOTIGEST PRO',32,757,24,true,green);txt(model.individual?'Amortización por solar':'Amortización consolidada',330,758,15,true);txt('Corte: '+date(model.asOf),32,725,9,false,gray);txt(String(model.company).slice(0,37)+' · Estado de cuenta',330,725,9,false,gray);y=706;};
  const ensure=h=>{if(y-h<54){footer();start();}};
  const line=(s,size=10,bold=false,color=ink)=>{for(const l of wrap(s,Math.floor(548/(size*.58)))){ensure(size+5);txt(l,32,y,size,bold,color);y-=size+5;}};
  const section=s=>{ensure(42);rect(32,y-20,548,23,green);txt(s,40,y-12,11,true,'1 1 1');y-=32;};
@@ -558,7 +559,8 @@ function pmAmortizationPdf(model){
  }
  footer();
  const objects=['<< /Type /Catalog /Pages 2 0 R >>','<< /Type /Pages /Kids ['+pages.map((_,i)=>(5+i*2)+' 0 R').join(' ')+'] /Count '+pages.length+' >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'];
- pages.forEach((stream,i)=>objects.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents '+(6+i*2)+' 0 R >>','<< /Length '+stream.length+' >>\nstream\n'+stream+'\nendstream'));
+ pages.forEach((stream,i)=>objects.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> '+(cl||rl?'/XObject << '+(cl?'/CompanyLogo '+(5+pages.length*2)+' 0 R ':'')+(rl?'/ResLogo '+(5+pages.length*2+(cl?1:0))+' 0 R ':'')+'>>':'')+' >> /Contents '+(6+i*2)+' 0 R >>','<< /Length '+stream.length+' >>\nstream\n'+stream+'\nendstream'));
+ if(cl)objects.push(lgDocLogoObject(cl));if(rl)objects.push(lgDocLogoObject(rl));
  let pdf='%PDF-1.4\n',offsets=[0];objects.forEach((o,i)=>{offsets.push(pdf.length);pdf+=(i+1)+' 0 obj\n'+o+'\nendobj\n';});const xref=pdf.length;pdf+='xref\n0 '+offsets.length+'\n0000000000 65535 f \n'+offsets.slice(1).map(n=>String(n).padStart(10,'0')+' 00000 n \n').join('')+'trailer\n<< /Size '+offsets.length+' /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF';
  return new Blob([Uint8Array.from(pdf,x=>x.charCodeAt(0)&255)],{type:'application/pdf'});
 }
@@ -646,11 +648,12 @@ function pmStatementModel(report){
  const covered=months.filter(m=>m.month<=cut&&m.covered&&m.rows.every(r=>r.dueDate<=report.asOf)).at(-1);
  const base=months.find(m=>m.month===cut)?.due??months.find(m=>m.month>cut)?.due??0;
  const normalized=report.residence.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
- return {client:report.client,residence:report.residence,logo:/altos\s+del\s+arrayan/.test(normalized),asOf:report.asOf,
+ return {branding:report.branding,client:report.client,residence:report.residence,logo:/altos\s+del\s+arrayan/.test(normalized),asOf:report.asOf,
   properties:report.details.map(d=>'Etapa '+(d.lot.stage||'—')+' · Bloque '+(d.lot.block||'—')+' · Solar '+(d.lot.sourceNumber||d.lot.number||d.lot.id)),
   lastCovered:covered?pmStatementMonth(covered.month):'Sin mensualidad completa al corte',base,pending,total:pending.reduce((n,m)=>n+m.amount,0),prima:Math.max(0,report.agreed-report.prima)};
 }
 function pmStatementPdf(m){
+ const brand=m.branding||null,rl=brand?brand.residential:m.logo?{data:'data:image/jpeg;base64,'+pmStatementArrayanLogo,width:175,height:64}:null,cl=brand?.company||null;
  const green='0.075 0.27 0.21',gray='0.30 0.35 0.33',light='0.93 0.96 0.94',gold='0.65 0.60 0.30',white='1 1 1';
  const pages=[];let cmds=[],y=0;
  const escape=s=>String(s??'').replace(/[^\x20-\xFF]/g,'-').replace(/([\\()])/g,'\\$1');
@@ -659,7 +662,7 @@ function pmStatementPdf(m){
  const wrap=(s,n)=>{let line='',out=[];for(const token of String(s).split(/\s+/)){if(line&&line.length+token.length+1>n){out.push(line);line='';}if(token.length>n){if(line){out.push(line);line='';}for(let i=0;i<token.length;i+=n)out.push(token.slice(i,i+n));}else line+=(line?' ':'')+token;}if(line)out.push(line);return out.length?out:[''];};
  const right=(s,b,size=11,bold=false,color=green)=>txt(s,Math.max(300,550-String(s).length*size*.56),b,size,bold,color);
  const footer=()=>{rect(62,57,488,.7,'0.78 0.82 0.80');txt(m.residence.slice(0,80),62,43,8,false,gray);right('Página '+(pages.length+1),43,8,false,gray);pages.push(cmds.join('\n'));cmds=[];};
- const start=()=>{rect(0,780,612,12,green);if(m.logo){cmds.push('q 270 0 0 '+(270*64/175)+' 171 655 cm /Logo Do Q');}else{wrap(m.residence,39).slice(0,3).forEach((s,i)=>txt(s,62,737-i*23,18,true));}txt('ESTADO DE CUENTA',194,630,20,true);rect(62,613,488,1.4,gold);y=590;};
+ const start=()=>{rect(0,780,612,12,green);if(cl)cmds.push(lgDocLogoCommand(cl,'CompanyLogo',62,665,110,95));if(rl){if(brand)cmds.push(lgDocLogoCommand(rl,'Logo',cl?220:171,655,270,110));else cmds.push('q 270 0 0 '+(270*64/175)+' 171 655 cm /Logo Do Q');}else{wrap(m.residence,cl?30:39).slice(0,3).forEach((s,i)=>txt(s,cl?200:62,737-i*23,18,true));}txt('ESTADO DE CUENTA',194,630,20,true);rect(62,613,488,1.4,gold);y=590;};
  const ensure=h=>{if(y-h<80){footer();start();}};
  const field=(label,value)=>{const lines=wrap(value,41);ensure(20+lines.length*14);txt(label,65,y,10,false,gray);lines.forEach((s,i)=>right(s,y-i*14,10,true));y-=Math.max(22,lines.length*14+7);};
  const tableHeader=()=>{ensure(52);rect(62,y-23,488,26,green);txt('MES PENDIENTE',74,y-14,10,true,white);txt('SALDO DE CUOTA',432,y-14,10,true,white);y-=29;};
@@ -670,15 +673,16 @@ function pmStatementPdf(m){
  txt('Saldo de mensualidades al corte, sin intereses ni recargos por mora.',65,y,9,false,gray);y-=15;
  if(m.prima)txt('Prima pendiente no incluida en el total: '+pmStatementCash(m.prima),65,y,9,false,gray);
  footer();
- const logo=m.logo?Array.from(atob(pmStatementArrayanLogo),ch=>ch.charCodeAt(0).toString(16).padStart(2,'0')).join('')+'>':null;
- const objects=['<< /Type /Catalog /Pages 2 0 R >>','<< /Type /Pages /Kids ['+pages.map((_,i)=>(6+i*2)+' 0 R').join(' ')+'] /Count '+pages.length+' >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',logo?'<< /Type /XObject /Subtype /Image /Width 175 /Height 64 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter [/ASCIIHexDecode /DCTDecode] /Length '+logo.length+' >>\nstream\n'+logo+'\nendstream':'<< >>'];
- pages.forEach((stream,i)=>objects.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> '+(logo?'/XObject << /Logo 5 0 R >>':'')+' >> /Contents '+(7+i*2)+' 0 R >>','<< /Length '+stream.length+' >>\nstream\n'+stream+'\nendstream'));
+ const logo=rl?Array.from(atob(rl.data.split(',')[1]),ch=>ch.charCodeAt(0).toString(16).padStart(2,'0')).join('')+'>':null;
+ const objects=['<< /Type /Catalog /Pages 2 0 R >>','<< /Type /Pages /Kids ['+pages.map((_,i)=>(6+i*2)+' 0 R').join(' ')+'] /Count '+pages.length+' >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',logo?'<< /Type /XObject /Subtype /Image /Width '+rl.width+' /Height '+rl.height+' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter [/ASCIIHexDecode /DCTDecode] /Length '+logo.length+' >>\nstream\n'+logo+'\nendstream':'<< >>'];
+ pages.forEach((stream,i)=>objects.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> '+(logo||cl?'/XObject << '+(logo?'/Logo 5 0 R ':'')+(cl?'/CompanyLogo '+(6+pages.length*2)+' 0 R ':'')+'>>':'')+' >> /Contents '+(7+i*2)+' 0 R >>','<< /Length '+stream.length+' >>\nstream\n'+stream+'\nendstream'));
+ if(cl)objects.push(lgDocLogoObject(cl));
  let pdf='%PDF-1.4\n',offsets=[0];objects.forEach((o,i)=>{offsets.push(pdf.length);pdf+=(i+1)+' 0 obj\n'+o+'\nendobj\n';});const xref=pdf.length;pdf+='xref\n0 '+offsets.length+'\n0000000000 65535 f \n'+offsets.slice(1).map(n=>String(n).padStart(10,'0')+' 00000 n \n').join('')+'trailer\n<< /Size '+offsets.length+' /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF';
  return new Blob([Uint8Array.from(pdf,x=>x.charCodeAt(0)&255)],{type:'application/pdf'});
 }
 function pmStatementPreview(root,m){
  root.replaceChildren();
- if(m.logo){const img=pmNode('img','pm-statement-logo');img.alt=m.residence;img.src='data:image/jpeg;base64,'+pmStatementArrayanLogo;root.append(img);}else root.append(pmNode('h3','',m.residence));
+ if(m.branding){for(const [key,label] of [['company','Logo de la empresa'],['residential',m.residence]]){const logo=m.branding[key];if(logo){const img=pmNode('img','pm-statement-logo');img.alt=label;img.src=logo.data;root.append(img);}}if(!m.branding.residential)root.append(pmNode('h3','',m.residence));}else if(m.logo){const img=pmNode('img','pm-statement-logo');img.alt=m.residence;img.src='data:image/jpeg;base64,'+pmStatementArrayanLogo;root.append(img);}else root.append(pmNode('h3','',m.residence));
  root.append(pmNode('h3','','ESTADO DE CUENTA'));
  for(const [label,value] of [['Cliente',m.client],['Propiedad',m.properties.join(' / ')],['Último mes cubierto',m.lastCovered],['Cuota mensual del corte',pmStatementCash(m.base)],['Fecha de corte',pmStatementDate(m.asOf)]]){
   const row=pmNode('div','pm-statement-field');row.append(pmNode('span','',label),pmNode('strong','',value));root.append(row);

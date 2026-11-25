@@ -1,4 +1,4 @@
 {
-  "version": "1.0.0",
-  "notes": "LOTIGEST Pro 1.0.0: nueva numeración. Registro de abonos en ventana emergente compacta; paneles administrativos con acciones, indicadores, filtros y detalles desplegables; textos de presentación reducidos. Mapas de solares, GPS y diseño permanecen sin acordeones. Conserva funciones y datos existentes."
+  "version": "1.0.1",
+  "notes": "Logos configurables para documentos: empresa general y residencial independiente, recibos, cotizaciones, contratos, estados de cuenta, amortizaciones y reportes financieros. Conserva el diseño compacto y los mapas de 1.0.0."
 }

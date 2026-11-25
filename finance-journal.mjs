@@ -11,7 +11,8 @@ export function financeJournal(movements,{from,until,residenceId='all'}){
  });
  return {rows,opening:opening/100,income:income/100,expense:expense/100,closing:running/100};
 }
-export function financeJournalPdf(journal,{company='GRUPO H',period='',scope='Todas las residenciales',from='',to=''}={}){
+export function financeJournalPdf(journal,{company='GRUPO H',period='',scope='Todas las residenciales',from='',to='',branding=null}={}){
+ const cl=branding?.company||null,rl=branding?.residential||null;
  const pages=[];let commands=[],y;
  const green='0.06 0.25 0.11',orange='0.68 0.30 0.06',light='0.94 0.97 0.91',line='0.79 0.86 0.77';
  const clean=x=>String(x??'').replace(/[–—]/g,'-').replace(/[^\x20-\xFF]/g,' ');
@@ -37,7 +38,7 @@ export function financeJournalPdf(journal,{company='GRUPO H',period='',scope='To
  const columns=[24,88,160,328,412,496,588];
  function tableHeader(){rect(24,y-25,564,25,green);['Fecha','Correlativo','Concepto','Ingreso (L)','Egreso (L)','Saldo (L)'].forEach((label,i)=>text(columns[i]+6,y-16,label,8,true,'1 1 1'));y-=25;}
  function start(first=false,table=true){
-  commands=[];text(24,751,clean(company).slice(0,28),22,true);right(588,752,'LOTIGEST PRO',18,true);right(588,735,'Sistema de Gestión de Lotificaciones',8);rule(24,718,588,718,green);
+  commands=[];if(cl||rl){if(cl)commands.push(lgDocLogoCommand(cl,'CompanyLogo',24,725,85,52));if(rl)commands.push(lgDocLogoCommand(rl,'ResLogo',cl?116:24,725,200,52));}else text(24,751,clean(company).slice(0,28),22,true);right(588,752,'LOTIGEST PRO',18,true);right(588,735,'Sistema de Gestión de Lotificaciones',8);rule(24,718,588,718,green);
   center(306,684,'LIBRO DIARIO DIGITAL',25,true);center(306,663,'Ingresos y egresos · '+period,12);
   const scopeLines=wrap('Residencial: '+scope,112);let metaY=632;
   rect(24,metaY-15-scopeLines.length*11,564,27+scopeLines.length*11,light);
@@ -79,7 +80,8 @@ export function financeJournalPdf(journal,{company='GRUPO H',period='',scope='To
  for(let i=0;i<pages.length;i++)pages[i]=pages[i].replace(/__PAGES__/g,String(pages.length));
  const objects=[null,'<< /Type /Catalog /Pages 2 0 R >>',null,'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'];
  const kids=[];
- for(const stream of pages){const page=objects.length,content=page+1;kids.push(page+' 0 R');objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${content} 0 R >>`);objects.push(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);}
+ for(const stream of pages){const page=objects.length,content=page+1;kids.push(page+' 0 R');objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> ${cl||rl?'/XObject << '+(cl?'/CompanyLogo '+(5+pages.length*2)+' 0 R ':'')+(rl?'/ResLogo '+(5+pages.length*2+(cl?1:0))+' 0 R ':'')+'>>':''} >> /Contents ${content} 0 R >>`);objects.push(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);}
+ if(cl)objects.push(lgDocLogoObject(cl));if(rl)objects.push(lgDocLogoObject(rl));
  objects[2]=`<< /Type /Pages /Count ${kids.length} /Kids [${kids.join(' ')}] >>`;
  // PDF usa bytes Latin-1 para conservar español y offsets exactos.
  let pdf='%PDF-1.4\n',offsets=[0];for(let i=1;i<objects.length;i++){offsets[i]=pdf.length;pdf+=`${i} 0 obj\n${objects[i]}\nendobj\n`;}
