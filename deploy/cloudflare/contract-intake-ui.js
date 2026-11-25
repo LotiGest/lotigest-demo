@@ -1197,7 +1197,7 @@ async function contractManageEditSave(form){
    if(!/^\d{4}$/.test(pin)||typeof window.lotigestConfirmAdminPin!=='function')throw Error('Introduce el PIN vigente de administrador.');
    contractManageEditBusy=true;
    try{await window.lotigestConfirmAdminPin(pin);
-    if(!contractIntakeAdmin()||contractManageEditSnapshot.raw!==JSON.stringify(db))throw Error('Los datos cambiaron durante la confirmación. Abre nuevamente el contrato.');
+    if(!form.isConnected||!contractIntakeAdmin()||contractManageEditSnapshot?.id!==d.id||contractManageEditSnapshot.raw!==JSON.stringify(db))throw Error('La ventana o los datos cambiaron durante la confirmación. Abre nuevamente el contrato.');
     const after={price:terms.price,down:terms.down,months:terms.months,date:terms.date,firstDueDate:terms.firstDueDate};
     record.termsEditHistory??=[];record.termsEditHistory.push({before:previous,after,reason,by:String(cloudUser.name),at:new Date().toISOString()});
     Object.assign(target,{price:terms.price,downPayment:terms.down,months:terms.months,date:terms.date,firstDueDate:terms.firstDueDate});
