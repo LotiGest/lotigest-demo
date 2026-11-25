@@ -89,7 +89,7 @@
  }
 
  function mdCreateEntry(){
-  return {id:'MDR'+crypto.randomUUID().replace(/-/g,''),date:'',dateText:'',amount:'',receiptRef:'',statementId:mdState?.docs?.[0]?.id||'',photo:null,preview:null,status:'',dateEdited:false,amountEdited:false,refEdited:false,refSuggested:false,expanded:false};
+  return {id:'MDR'+crypto.randomUUID().replace(/-/g,''),date:'',dateText:'',amount:'',receiptRef:'',statementId:mdState?.docs?.[0]?.id||'',photo:null,preview:null,status:'',dateEdited:false,amountEdited:false,amountSuggested:false,refEdited:false,refSuggested:false,expanded:false};
  }
  function mdStartSale(saleId){
   if(!cloudReady||cloudUser?.role!=='admin')return toast('Se requiere acceso de administrador para registrar abonos.','error');
@@ -131,7 +131,7 @@
   const open=Boolean(row.expanded);
   const options=mdState.kind==='owner'?'<label class="md-lot-choice">Ficha / solares<select data-md-field="statementId" data-md-id="'+mdSafe(row.id)+'">'+mdState.docs.map(s=>'<option value="'+mdSafe(s.id)+'" '+(s.id===row.statementId?'selected':'')+'>'+mdSafe(s.sourceName||'Ficha')+' · '+mdSafe((s.references||[]).map(r=>'B '+r.block+' / S '+r.lot).join(', ')||'Solar por confirmar')+'</option>').join('')+'</select></label>':'';
   return '<article class="md-row'+(open?'':' md-row-collapsed')+'" data-md-row="'+mdSafe(row.id)+'">'+
-   '<div class="md-row-top"><button type="button" class="md-row-toggle" data-md-toggle-row="'+mdSafe(row.id)+'" aria-controls="md-row-body-'+mdSafe(row.id)+'" aria-expanded="'+open+'"><span class="md-row-icon" aria-hidden="true">▤</span><strong>Abono '+(index+1)+'</strong></button>'+
+   '<div class="md-row-top"><button type="button" class="md-row-toggle" data-md-toggle-row="'+mdSafe(row.id)+'" aria-controls="md-row-body-'+mdSafe(row.id)+'" aria-expanded="'+open+'"><span class="md-row-icon" aria-hidden="true">▤</span><strong>Abono '+(index+1)+'</strong><span class="md-row-summary" data-md-summary="'+mdSafe(row.id)+'">'+mdRowSummary(row)+'</span></button>'+
    '<div class="md-row-actions"><button type="button" class="md-manual-focus" data-md-edit="'+mdSafe(row.id)+'" aria-label="Escribir fecha, monto y correlativo del abono '+(index+1)+'">✎ Escribir</button>'+
    '<button type="button" class="md-trash" title="Quitar este abono" aria-label="Quitar abono '+(index+1)+'" data-md-remove="'+mdSafe(row.id)+'">✕</button>'+
    '<button type="button" class="md-row-chevron" data-md-toggle-row="'+mdSafe(row.id)+'" aria-controls="md-row-body-'+mdSafe(row.id)+'" aria-expanded="'+open+'" aria-label="'+(open?'Contraer':'Desplegar')+' abono '+(index+1)+'"><span aria-hidden="true">'+(open?'⌃':'⌄')+'</span></button></div></div>'+
@@ -146,9 +146,19 @@
    '<span class="md-photo-status" data-md-photo-status="'+mdSafe(row.id)+'">'+mdSafe(row.status||(row.photo?'Recibo adjunto':'OCR opcional · escribe los datos manualmente o escanea'))+'</span>'+(row.photo?'<button type="button" class="md-ocr-retry" data-md-retry="'+mdSafe(row.id)+'" aria-label="Reintentar lectura OCR del recibo">Reintentar OCR</button>':'')+'</div>'+
    '<p class="md-ref-feedback" data-md-feedback="'+mdSafe(row.id)+'" role="status"></p></div></article>';
  }
+ function mdRowSummary(row){
+  const date=row.date?mdHumanDate(row.date):'';
+  const ref=String(row.receiptRef||'').trim();
+  const amount=Number(row.amount);
+  const hasAmount=String(row.amount||'').trim()&&Number.isFinite(amount)&&amount>0;
+  return '<span class="md-summary-date">'+(date?'Fecha: '+mdSafe(date.replace(/^(\d{1,2}) (\S+) (\d{4})$/u,(_,d,m,y)=>d+' de '+m.toLocaleLowerCase('es')+' '+y)):'Fecha pendiente')+'</span>'+
+   '<span class="md-summary-ref">'+(ref?'# '+mdSafe(ref):'Sin correlativo')+'</span>'+
+   '<span class="md-summary-amount">'+(hasAmount?'L '+mdSafe(mdMoneyText(row.amount)):'Sin monto')+'</span>'+
+   (row.amountSuggested&&!row.date?'<small class="md-summary-suggested">Monto sugerido</small>':'');
+ }
  function mdShow(){
   const header='<div class="md-heading"><h3>¿Cómo deseas abonar?</h3><div class="md-choices"><button type="button" data-md-one>1 mes</button><button type="button" class="selected" aria-pressed="true" data-md-many>✓ Varios</button></div></div>'+
-    '<p class="md-note">Cada fecha tiene su propio recibo. Enter propone el correlativo siguiente; puedes cambiarlo si hay un recibo anulado. Los ceros iniciales no cuentan para detectar repetidos.</p>'+
+    '<p class="md-note">Cada fecha tiene su propio recibo. Enter propone el mismo monto y el correlativo siguiente. Ambos son editables; confirma cada fecha. Los ceros iniciales no cuentan para detectar repetidos.</p>'+
     '<p class="md-client">'+mdSafe(mdState.clientName)+'<small>'+mdSafe(mdState.lotLabel)+'</small></p>'+
     (mdState.kind==='sale'||mdState.docs.length===1?mdLastPaymentMarkup(mdState,db,mdState.docs?.[0]?.id):'')+
     (mdState.kind==='owner'&&mdState.docs.length>1?'<p class="md-last-instruction">Consulta el último pago de cada ficha junto a sus abonos.</p>':'')+
@@ -178,9 +188,11 @@
  }
  function mdRefresh(){
   if(!mdState)return;
-  const total=mdState.rows.reduce((acc,r)=>acc+(Number(r.amount)||0),0);
+  const entered=mdState.rows.filter(mdRowHasPayment);
+  const total=entered.reduce((acc,r)=>acc+(Number(r.amount)||0),0);
   const totalEl=document.querySelector('[data-md-total]'),count=document.querySelector('[data-md-count]');
-  if(totalEl)totalEl.textContent=mdFmt(total);if(count)count.textContent=String(mdState.rows.length);
+  if(totalEl)totalEl.textContent=mdFmt(total);if(count)count.textContent=String(entered.length);
+  for(const r of mdState.rows){const summary=document.querySelector('[data-md-summary="'+r.id+'"]');if(summary)summary.innerHTML=mdRowSummary(r);}
   const references=new Map();
   for(const r of mdState.rows){
    const key=window.lotigestOwnerPayments?.normalizeReceiptCorrelativo(r.receiptRef);
@@ -221,7 +233,7 @@
    row.amount=parsed.value;
    input.value=parsed.display;
    try{input.setSelectionRange(prefix.length,prefix.length);}catch{}
-   row.amountEdited=true;
+   row.amountEdited=true;row.amountSuggested=false;
   }else{
    row[field]=input.value;
    if(field==='receiptRef'){row.refEdited=true;row.refSuggested=false;}
@@ -348,7 +360,7 @@
     row.date=best.date;row.dateText=mdHumanDate(best.date);extracted.push('fecha: '+row.dateText);
    }
    if(best.amount!=null&&!row.amountEdited){
-    row.amount=String(best.amount);extracted.push('Por Lps.: '+mdMoneyText(row.amount));
+    row.amount=String(best.amount);row.amountSuggested=false;extracted.push('Por Lps.: '+mdMoneyText(row.amount));
    }
    if(best.reference&&!row.refEdited){
     row.receiptRef=String(best.reference);row.refSuggested=false;extracted.push('N.º '+row.receiptRef);
@@ -572,9 +584,15 @@
   if(!suggestion)return false;
   next.receiptRef=suggestion;next.refSuggested=true;return true;
  }
+ function mdSuggestNextAmount(previous,next){
+  if(!previous||!next||next.amountEdited||next.photo||(next.amount&&!next.amountSuggested))return false;
+  const raw=String(previous.amount||'').trim(),amount=Number(raw),cents=Math.round(amount*100);
+  if(!raw||!Number.isSafeInteger(cents)||cents<=0||Math.abs(cents-amount*100)>.001)return false;
+  next.amount=String(cents/100);next.amountSuggested=true;return true;
+ }
  function mdRowHasPayment(row){
-  // Un correlativo sugerido solo no crea un pago ni obliga a llenar una fila adicional.
-  return Boolean(String(row.amount||'').trim()||row.photo||(!row.refSuggested&&String(row.receiptRef||'').trim())||(row.refSuggested&&String(row.dateText||row.date||'').trim()));
+  // Una fila con sugerencias solamente no cuenta en el total ni se registra.
+  return Boolean(String(row.dateText||row.date||'').trim()||row.photo||(!row.amountSuggested&&String(row.amount||'').trim())||(!row.refSuggested&&String(row.receiptRef||'').trim()));
  }
  function mdNextRow(row){
   if(!mdState||!row)return;
@@ -595,7 +613,7 @@
    mdState.rows.push(mdCreateEntry());
   }
   const next=mdState.rows[index+1];
-  mdSuggestNextReference(row,next);
+  mdSuggestNextReference(row,next);mdSuggestNextAmount(row,next);
   mdExpandRow(next.id);mdRenderRows();
   mdFocusField(next.id,'date');
  }
@@ -656,7 +674,7 @@
   else if(action.hasAttribute('data-md-toggle-row'))mdToggleRow(action.dataset.mdToggleRow);
   else if(action.hasAttribute('data-md-add')){
    if(mdState.rows.length>=24)return mdError('Se admiten como máximo 24 recibos por operación.');
-   const row=mdCreateEntry();mdSuggestNextReference(mdState.rows.at(-1),row);mdState.rows.push(row);mdExpandRow(row.id);mdFocusField(row.id,'date');
+   const row=mdCreateEntry();mdSuggestNextReference(mdState.rows.at(-1),row);mdSuggestNextAmount(mdState.rows.at(-1),row);mdState.rows.push(row);mdExpandRow(row.id);mdFocusField(row.id,'date');
   }
   else if(action.hasAttribute('data-md-remove'))mdRemove(action.dataset.mdRemove);
   else if(action.hasAttribute('data-md-retry')){
@@ -683,6 +701,7 @@
    row.date=iso;row.dateText=mdHumanDate(iso);row.dateEdited=true;
    const visible=document.querySelector('[data-md-field="date"][data-md-id="'+row.id+'"]');
    if(visible)visible.value=row.dateText;
+   mdRefresh();
   }
   else if(event.target.matches('[data-md-field]'))mdUpdateField(event.target);
  },true);
@@ -697,6 +716,7 @@
   }else if(input.matches('[data-md-field="amount"]')){
    input.value=mdMoneyText(row.amount);
   }
+  mdRefresh();
  },true);
 
  document.addEventListener('focusin',event=>{
