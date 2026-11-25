@@ -34,3 +34,9 @@ body.lotigest-dark .workspace-inner[data-compact-ready] .lg-panel-fold[open]>sum
  .workspace-inner[data-compact-ready] .lg-panel-fold>summary{display:none}
  .workspace-inner[data-compact-ready] .lg-panel-fold{border:0;margin:0;box-shadow:none}
 }
+
+/* Cerrado significa cero espacio para el contenido, incluso si otros estilos usan display:flex/grid. */
+.workspace-inner[data-compact-ready] details.lg-panel-fold:not([open])>:not(summary){display:none!important}
+.workspace-inner[data-compact-ready] details.lg-panel-fold:not([open]){height:auto!important;min-height:0!important;padding:0!important;align-self:start;overflow:hidden}
+.workspace-inner[data-compact-ready] .lg-panel-fold:not([open])>summary{margin:0!important}
+@media print{.workspace-inner[data-compact-ready] details.lg-panel-fold:not([open])>:not(summary){display:revert!important}}
