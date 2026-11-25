@@ -85,7 +85,12 @@ export function buildPagesFiles(html, version, parser, bridge) {
     // Cada PDF de pago contiene un QR vectorial que apunta a la verificación pública.
     .replace("for(const part of parts){if(part.row)", "for(const part of parts){if(part.pageBreak){footer();header();continue;}if(part.row)")
     .replace("function receiptLetterPdf(parts,company,reference,kind='receipt'){",
-      "function receiptLetterPdf(parts,company,reference,kind='receipt',qrUrl=null){")
+      "function receiptLetterPdf(parts,company,reference,kind='receipt',qrUrl=null,branding=null){")
+    .replace("const logo=db.company.logo?.data?.startsWith('data:image/jpeg;base64,')?db.company.logo:null;", "const logo=branding?.company||null,resLogo=branding?.residential||null;")
+    .replace("draw(kind==='quote'?'LOTIGEST':company.slice(0,31),132,715,23,true);", "draw(company.slice(0,resLogo?14:31),132,715,resLogo?16:23,true);if(resLogo)cmds.push(lgDocLogoCommand(resLogo,'ResLogo',280,680,143,65));")
+    .replace("logoId=5+pages.length*2;", "logoId=5+pages.length*2,resLogoId=logoId+(logo?1:0);")
+    .replace("(logo?' /XObject << /Logo '+logoId+' 0 R >>':'')", "(logo||resLogo?' /XObject << '+(logo?'/Logo '+logoId+' 0 R ':'')+(resLogo?'/ResLogo '+resLogoId+' 0 R ':'')+'>>':'')")
+    .replace(/(if\(logo\)\{const jpeg=atob\(logo\.data\.split\([\s\S]*?\n)(?= let pdf=)/, "$1 if(resLogo)add(lgDocLogoObject(resLogo));\n")
     .replace("const footer=()=>{\n if(kind!=='quote')",
       "const footer=()=>{\n if(qrUrl)cmds.push(receiptQrVector(qrUrl));\n if(kind!=='quote')")
     .replace("draw('PAGO RECIBIDO',430,126,12,true,green);",
