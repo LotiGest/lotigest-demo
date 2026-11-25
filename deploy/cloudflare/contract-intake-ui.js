@@ -251,7 +251,7 @@ function contractIntakeManualFields(){
   '<div class="lg-contract-lot-actions"><button type="button" class="btn btn-outline" data-contract-intake-add>+ Agregar otro solar a este contrato</button></div></section>'+
   '<section class="lg-contract-step" aria-labelledby="lg-contract-step-terms"><h3 id="lg-contract-step-terms" class="lg-contract-step-heading"><span>3</span> Condiciones del contrato</h3>'+finances+'</section>'+
   '<section class="lg-contract-step" aria-labelledby="lg-contract-step-dates"><h3 id="lg-contract-step-dates" class="lg-contract-step-heading"><span>4</span> Fecha del contrato</h3>'+
-  '<div class="lg-contract-date-fields">'+field('Fecha del contrato','date','date',true)+field('Fecha de primera cuota','firstDueDate','date')+'</div>'+
+  '<div class="lg-contract-date-fields">'+field('Fecha del contrato','date','date',true)+field('Fecha de primera cuota','firstDueDate','date')+'</div><p class="sm muted">Primera cuota según el contrato; por defecto un mes después. No se mueve por pagar tarde.</p>'+
   payment+'<details class="lg-contract-notes"><summary>Observaciones (opcional)</summary><textarea name="observations" rows="2" style="width:100%">'+val(v.observations||'')+'</textarea></details></section>'+
   '<div id="contract-intake-alert" role="alert" class="lg-contract-alert"></div></form>';
 }
@@ -712,7 +712,7 @@ async function contractIntakeSave(form){
   if(chosen.length>1)data.lots=chosen.map(x=>({lotId:x.lot.id,stage:x.lot.stage,price:x.price,down:Number(x.down)}));
  }
  const received=original.mode==='manual'&&data.primaPaid==='on';
- if(data.date)buyerDate(data.date,'fecha del contrato');
+ if(data.date){buyerDate(data.date,'fecha del contrato');if(!data.firstDueDate)data.firstDueDate=contractSuggestedFirstDue(data.date);}
  if(data.firstDueDate&&(!data.date||buyerDate(data.firstDueDate,'primera cuota')<data.date))throw Error('La fecha de la primera cuota no puede ser anterior a la fecha del contrato.');
  if(data.date&&data.date>businessToday())throw Error('La fecha del contrato no puede estar en el futuro.');
  if(received){
@@ -821,6 +821,27 @@ async function contractIntakeSave(form){
   if(!cloudBlocked&&!cloudOffline&&cloudQueue?.latest===cloudQueue?.confirmed&&contractIdentityDigits(getClient(client.id)?.identity)===contractIdentityDigits(data.identity)&&savedDocumentIds.length&&typeof lawyerSheetOpen==='function'){try{lawyerSheetOpen(savedDocumentIds[0]);}catch(err){toast('Contrato guardado. No se abrió la ficha: '+err.message,'error');}}
  }finally{original.busy=false;if(button?.isConnected)button.disabled=false;}
 }
+// El vencimiento normal se propone desde el contrato, nunca desde un recibo.
+function contractSuggestedFirstDue(date){
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date||''))return '';
+ const [y,m,d]=date.split('-').map(Number);
+ const original=new Date(Date.UTC(y,m-1,d,12));
+ if(original.toISOString().slice(0,10)!==date)return '';
+ const next=new Date(Date.UTC(y,m,1,12)),last=new Date(Date.UTC(next.getUTCFullYear(),next.getUTCMonth()+1,0,12)).getUTCDate();
+ next.setUTCDate(Math.min(d,last));return next.toISOString().slice(0,10);
+}
+function contractSuggestDueInput(form,changed){
+ const date=form?.elements?.date,due=form?.elements?.firstDueDate;if(!date||!due)return;
+ if(changed==='firstDueDate'){due.dataset.suggested='';return;}
+ const old=due.dataset.suggested;
+ if(due.value&&due.value!==old)return;
+ const value=contractSuggestedFirstDue(date.value);
+ if(value){due.value=value;due.dataset.suggested=value;}
+}
+document.addEventListener('change',event=>{
+ const form=event.target.closest?.('#contract-intake-form,#contract-intake-activate-form');
+ if(form&&['date','firstDueDate'].includes(event.target.name))contractSuggestDueInput(form,event.target.name);
+},true);
 function contractIntakeActivate(id){
  if(!contractIntakeAdmin()){toast('Debes tener sesión de administrador y datos sincronizados.','error');return;}
  const d=(db.contractTexts||[]).find(x=>x.id===id&&x.status==='pending-sale');
@@ -830,8 +851,8 @@ function contractIntakeActivate(id){
   '<p>Precio '+money(d.structured.price)+' · Prima pactada '+money(d.structured.down)+' · '+esc(d.structured.months)+' cuotas. <strong>Prima recibida: L 0.00</strong>; deberás registrarla después desde Abonos.</p>'+
   '<form id="contract-intake-activate-form"><input type="hidden" name="documentId" value="'+esc(id)+'">'+
   '<label>Fecha de contrato<input name="date" type="date" required value="'+esc(d.structured?.date||'')+'"></label>'+
-  '<label>Fecha primera cuota<input name="firstDueDate" type="date" required value="'+esc(d.structured?.firstDueDate||'')+'"></label>'+
-  '<p class="sm muted">Estos datos no aparecen en la imagen y no pueden inventarse. Al activar, el sistema reconocerá la deuda y el calendario, pero no un pago.</p></form>',
+  '<label>Fecha primera cuota<input name="firstDueDate" type="date" required value="'+esc(d.structured?.firstDueDate||contractSuggestedFirstDue(d.structured?.date))+'"></label>'+
+  '<p class="sm muted">Confirma las fechas pactadas. Si no existe una fecha especial, se propone un mes después del contrato. La fecha del primer pago no mueve el vencimiento. Al activar se reconoce la deuda, no un pago.</p></form>',
   '<button class="btn btn-soft" data-action="close-modal">Cancelar</button><button class="btn btn-primary" type="submit" form="contract-intake-activate-form">Activar crédito sin registrar abonos</button>',true);
 }
 async function contractIntakeConfirmActivation(form){
@@ -847,7 +868,7 @@ async function contractIntakeConfirmActivation(form){
  const next=JSON.parse(JSON.stringify(db)),record=next.contractTexts.find(x=>x.id===d.id),target=next.lots.find(x=>x.id===lot.id);
  const sale={id:'V-'+crypto.randomUUID(),clientId:d.clientId,lotId:d.lotId,type:'credit',price,downPayment:down,months,date,firstDueDate,
   openingPaid:0,importedPaidInstallments:0,historical:true,source:'contract-intake',documentId:record.id};
- next.sales.unshift(sale);record.saleId=sale.id;record.status='active';record.updatedAt=new Date().toISOString();
+ next.sales.unshift(sale);record.saleId=sale.id;record.status='active';record.structured={...record.structured,date,firstDueDate};record.updatedAt=new Date().toISOString();
  target.price=price;target.status='sold';target.mapDebtFlag=false;target.ownerClientId=d.clientId;delete target.pendingContractId;
  const r=next.residences?.find(r=>r.id===target.residenceId);
  if(r&&target.sourceFeatureKey){r.records??={};r.records[target.sourceFeatureKey]={...(r.records[target.sourceFeatureKey]||{}),lotId:target.id,block:target.block,status:'sold'};}
@@ -1155,7 +1176,7 @@ function contractManageEditOpen(id){
  const d=contractManageRecord(id);
  if(!d){toast('El contrato no existe o está anulado.','error');return;}
  const lot=getLot(d.lotId),client=getClient(d.clientId),sale=db.sales.find(s=>s.id===d.saleId||s.lotId===d.lotId),v={...(d.structured||{})},financial=!sale||sale.type==='credit';
- if(sale){v.price=sale.price;v.down=sale.downPayment;v.months=sale.months;v.date=v.date||sale.date;v.firstDueDate=sale.firstDueDate||v.firstDueDate||dateKey(addMonths(sale.date,1));}
+ if(sale){v.price=sale.price;v.down=sale.downPayment;v.months=sale.months;v.date=v.date||sale.date;v.firstDueDate=v.firstDueDate||sale.firstDueDate||contractSuggestedFirstDue(v.date);}
  contractManageEditSnapshot={id,raw:JSON.stringify(db)};
  const field=(label,key,type='text')=>'<label class="field-group"><span>'+label+'</span><input name="'+key+'" type="'+type+'" '+(type==='number'?'min="0" step="0.01" ':'')+
   'value="'+esc(v[key]??'')+'" style="width:100%;min-width:0"></label>';
@@ -1163,7 +1184,7 @@ function contractManageEditOpen(id){
   ['Norte','north'],['Sur','south'],['Este','east'],['Oeste','west']].map(([label,key])=>field(label,key)).join('');
  const credit=financial?field('Precio pactado (L)','price','number')+field('Prima pactada (L)','down','number')+
   '<label class="field-group"><span>Plazo (meses)</span><input name="months" type="number" min="1" max="360" step="1" required value="'+esc(v.months??'')+'"></label>'+
-  field('Fecha del contrato','date','date')+field('Primera cuota','firstDueDate','date')+(sale?'<label class="field-group"><span>Motivo de la corrección de condiciones</span><input name="termsReason" maxlength="300" autocomplete="off"></label><label class="field-group"><span>PIN de administrador (para cambios de condiciones)</span><input name="termsPin" type="password" inputmode="numeric" maxlength="4" autocomplete="off"></label>':''):'';
+  field('Fecha del contrato','date','date')+field('Primera cuota','firstDueDate','date')+(sale&&!d.structured?.firstDueDate?'<p class="sm muted">La ficha no contiene la primera cuota pactada. Vencimiento sugerido sin período especial: '+esc(contractSuggestedFirstDue(v.date))+'. Verifica el documento original antes de guardar.</p>':'')+(sale?'<label class="field-group"><span>Motivo de la corrección de condiciones</span><input name="termsReason" maxlength="300" autocomplete="off"></label><label class="field-group"><span>PIN de administrador (para cambios de condiciones)</span><input name="termsPin" type="password" inputmode="numeric" maxlength="4" autocomplete="off"></label>':''):'';
  showModal('Editar contrato',
   '<p><strong>'+esc(client?.name||v.name||'Cliente')+'</strong> · DNI '+esc(client?.identity||v.identity||'')+'</p>'+
   '<p>Etapa '+esc(lot?.stage||'—')+' · Bloque '+esc(lot?.block||'—')+' · Solar '+esc(lot?.sourceNumber||'—')+'</p>'+
