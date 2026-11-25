@@ -1,4 +1,4 @@
 {
-  "version": "1.0.12",
-  "notes": "PIN de administrador global en cabecera compacta, brillo animado, estados de conexión y sincronización. Sin mostrar PIN vencido ni autorizar operaciones protegidas sin servidor."
+  "version": "1.0.13",
+  "notes": "Corrección del guardado de Abonos varios cuando el módulo de correlativos está desactualizado."
 }
