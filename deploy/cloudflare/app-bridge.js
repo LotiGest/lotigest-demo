@@ -41,13 +41,91 @@ async function cloudApi(path,options={}){
  }catch(e){if(e.name==='AbortError')throw Error('La conexión tardó demasiado. Tus cambios siguen pendientes; puedes reintentar.');throw e;}
  finally{clearTimeout(timer);}
 }
+// Conciliación de tres versiones: base confirmada, copia local y servidor.
+function cloudMergeIndependent(base,local,remote){
+ const eq=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+ const conflict=()=>{throw Object.assign(Error('Coinciden cambios sobre un mismo cliente, solar, contrato o configuración. Tus datos pendientes se conservan; revisa antes de continuar.'),{status:409});};
+ if(!base||!local||!remote||base.version!==3||local.version!==3||remote.version!==3)conflict();
+ const known=new Set(['clients','lots','sales','payments','reservations','historicalContracts','historicalPayments','ownershipStatements','ownerPayments','cashEntries','residences','contractTexts','ledgerImportBatches']);
+ const map=rows=>{
+  if(!Array.isArray(rows)||rows.some(r=>!r||typeof r.id!=='string'||!r.id)||new Set(rows.map(r=>r.id)).size!==rows.length)conflict();
+  return new Map(rows.map(r=>[r.id,r]));
+ };
+ const touched=(a,b)=>{
+  const keys=new Set();
+  const token=(k,v)=>{if(v!==undefined&&v!==null&&String(v)!=='')keys.add(k+':'+String(v));};
+  const lookup=(state,key,id)=>state[key]?.find(r=>r.id===id);
+  const collect=(k,r,state)=>{
+   if(!r)return;
+   token(k,r.id);
+   if(k==='clients')token('client',r.id);
+   if(k==='lots'){token('lot',r.id);token('client',r.ownerClientId);}
+   if(k==='sales')token('sale',r.id);
+   token('client',r.clientId);token('lot',r.lotId);token('sale',r.saleId);
+   if(r.saleId){const sale=lookup(state,'sales',r.saleId);token('client',sale?.clientId);token('lot',sale?.lotId);}
+   if(r.contractId){token('contract',r.contractId);const contract=lookup(state,'historicalContracts',r.contractId);token('client',contract?.clientId);token('lot',contract?.lotId);}
+   if(k==='historicalContracts')token('contract',r.id);
+   if(k==='payments'||k==='ownerPayments'){
+    const raw=String(r.receiptReference||r.receiptRef||r.originalReceiptRef||'').trim().replace(/^0+(?=\d)/,'');
+    token('receipt',raw);token('receipt-group',r.groupId);
+   }
+   for(const ref of r.references||[])token('lot',ref?.lotId);
+   for(const allocation of r.allocations||[]){token('statement',allocation?.statementId);for(const ref of allocation?.references||[])token('lot',ref?.lotId);}
+   if(k==='ownershipStatements')token('statement',r.id);
+  };
+  for(const k of known){
+   if(eq(a[k],b[k]))continue;
+   const before=map(a[k]??[]),after=map(b[k]??[]);
+   for(const id of new Set([...before.keys(),...after.keys()])){
+    const x=before.get(id),y=after.get(id);if(eq(x,y))continue;
+    if(k==='residences'&&x&&y){
+     const {records:ar,...ax}=x,{records:br,...bx}=y;
+     if(!eq(ax,bx))token('residences',id);
+     const A=ar||{},B=br||{};
+     for(const key of new Set([...Object.keys(A),...Object.keys(B)]))if(!eq(A[key],B[key])){token('map',id+'/'+key);for(const v of [A[key],B[key]])token('lot',v?.lotId);}
+    }else{collect(k,x,a);collect(k,y,b);}
+   }
+  }
+  return keys;
+ };
+ const left=touched(base,local),right=touched(base,remote);
+ if([...left].some(k=>right.has(k)))conflict();
+ const pick=(b,l,r)=>eq(l,b)?r:eq(r,b)?l:eq(l,r)?l:conflict();
+ const mergeRecord=(k,b,l,r)=>{
+  if(k!=='residences'||!b||!l||!r)return pick(b,l,r);
+  const out={};
+  for(const key of new Set([...Object.keys(b),...Object.keys(l),...Object.keys(r)])){
+   let value;
+   if(key==='records'&&[b[key],l[key],r[key]].every(x=>x===undefined||(x&&typeof x==='object'&&!Array.isArray(x)))){
+    const B=b[key]||{},L=l[key]||{},R=r[key]||{};value={};
+    for(const id of new Set([...Object.keys(B),...Object.keys(L),...Object.keys(R)])){const v=pick(B[id],L[id],R[id]);if(v!==undefined)value[id]=v;}
+   }else value=pick(b[key],l[key],r[key]);
+   if(value!==undefined)out[key]=value;
+  }
+  return out;
+ };
+ const out={};
+ for(const k of new Set([...Object.keys(base),...Object.keys(remote),...Object.keys(local)])){
+  const b=base[k],l=local[k],r=remote[k];let value;
+  if(eq(l,b))value=r;
+  else if(eq(r,b)||eq(l,r))value=l;
+  else if(known.has(k)&&Array.isArray(l)&&Array.isArray(r)){
+   const B=map(b??[]),L=map(l),R=map(r);value=[];
+   for(const id of new Set([...R.keys(),...L.keys(),...B.keys()])){const v=mergeRecord(k,B.get(id),L.get(id),R.get(id));if(v!==undefined)value.push(v);}
+  }else if(['paymentEditHistory','paymentVoidHistory','contractAudit','auditLog'].includes(k)&&Array.isArray(b)&&Array.isArray(l)&&Array.isArray(r)&&eq(l.slice(0,b.length),b)&&eq(r.slice(0,b.length),b)){
+   value=[...r,...l.slice(b.length)];
+  }else conflict();
+  if(value!==undefined)out[k]=value;
+ }
+ return out;
+}
 function cloudPersist(){
- const packed={...cloudQueue,cacheVersion:2,confirmed:cloudQueue.latest===cloudQueue.confirmed,
+ const packed={...cloudQueue,cacheVersion:3,confirmed:cloudQueue.latest===cloudQueue.confirmed?true:cloudQueue.confirmed,
   pending:cloudQueue.pending?{...cloudQueue.pending,raw:cloudQueue.pending.raw===cloudQueue.latest?null:cloudQueue.pending.raw}:null};
  localStorage.setItem(CLOUD_CACHE,JSON.stringify(packed));
 }
 function cloudUnpack(raw){
- const saved=JSON.parse(raw||'null');if(saved?.cacheVersion===2){saved.confirmed=saved.confirmed?saved.latest:null;if(saved.pending?.raw===null)saved.pending.raw=saved.latest;}return saved;
+ const saved=JSON.parse(raw||'null');if(saved?.cacheVersion===2){saved.confirmed=saved.confirmed?saved.latest:null;}else if(saved?.cacheVersion===3&&saved.confirmed===true)saved.confirmed=saved.latest;if(saved?.pending?.raw===null)saved.pending.raw=saved.latest;return saved;
 }
 function cloudWrite(raw){
  if(!cloudReady||cloudUser?.role==='sales')return;
@@ -60,13 +138,30 @@ async function cloudFlush(){
  if(!cloudReady||cloudBusy||cloudBlocked)return;if(cloudUser?.role==='sales')return;if(navigator.onLine===false){cloudOffline=true;cloudStatus('Sin conexión. Los cambios se conservan en este equipo y se enviarán automáticamente.');return;}cloudBusy=true;
  try{
   await cloudFlushFiles();
+  let rebases=0,mergedRemote=false;
   while(cloudQueue.pending||cloudQueue.latest!==cloudQueue.confirmed){
    if(!cloudQueue.pending){cloudQueue.pending={raw:cloudQueue.latest,mutation:crypto.randomUUID(),revision:cloudQueue.revision};cloudPersist();}
    const p=cloudQueue.pending;cloudStatus('Guardando en Cloudflare D1…');
    const payload={method:'PUT',body:JSON.stringify({state:JSON.parse(p.raw),revision:p.revision,mutation:p.mutation})};
-   let result;try{result=await cloudApi('state',payload);}catch(e){if(e.status!==401||!cloudCredential)throw e;await cloudApi('session',{method:'POST',body:JSON.stringify({credential:cloudCredential})});result=await cloudApi('state',payload);}
+   let result;
+   try{
+    try{result=await cloudApi('state',payload);}catch(e){if(e.status!==401||!cloudCredential)throw e;await cloudApi('session',{method:'POST',body:JSON.stringify({credential:cloudCredential})});result=await cloudApi('state',payload);}
+   }catch(e){
+    if(e.status!==409||!cloudQueue.confirmed||rebases++>=6)throw e;
+    const remote=await cloudApi('state');
+    if(!remote.state||remote.revision<=p.revision)throw e;
+    const base=JSON.parse(cloudQueue.confirmed),local=JSON.parse(cloudQueue.latest);
+    const normalized=readStoredLotigest(JSON.stringify(remote.state));
+    const merged=cloudMergeIndependent(base,local,normalized);
+    const prior=cloudQueue;
+    cloudQueue={...prior,revision:remote.revision,confirmed:JSON.stringify(normalized),latest:JSON.stringify(merged),pending:null};
+    try{cloudPersist();}catch(error){cloudQueue=prior;throw error;}
+    db=merged;mergedRemote=true;
+    continue; // Nueva mutación, misma validación y transacción de D1.
+   }
    cloudQueue.revision=result.revision;cloudQueue.confirmed=p.raw;cloudQueue.pending=null;cloudPersist();
   }
+  if(mergedRemote&&!activeModal)render();
   cloudOffline=false;cloudStatus('Guardado en Cloudflare D1 · revisión '+cloudQueue.revision);
  }catch(e){if(!e.status||e.status>=500)cloudOffline=true;if(e.status===401){cloudReady=false;sessionStorage.removeItem(SESSION);render();}if([409,413,400,403].includes(e.status))cloudBlocked=true;cloudStatus(e.message||'Sin conexión. Cambios pendientes conservados en este equipo.',cloudBlocked||e.status===401);}
  finally{cloudBusy=false;}
@@ -178,7 +273,7 @@ window.addEventListener('storage',e=>{
   cloudBlocked=true;cloudStatus('Otra pestaña cambió la copia local. Se conservó una copia de recuperación. Descarga tus cambios antes de cargar el servidor.',true);
  }
 });
-function cloudHelpPage(){if(cloudUser?.role==='sales')return sellerHelpPage();return `${header('Guía de uso','Empieza aquí y sigue este recorrido para registrar una operación.')}<p id="cloud-offline-readiness">${'serviceWorker' in navigator?(navigator.serviceWorker.controller?'Inicio sin conexión preparado en este equipo.':'Preparando el inicio sin conexión; mantén esta pestaña conectada hasta que termine.'):'Este navegador no permite preparar el arranque sin conexión.'}</p><div class="card card-padding"><ol class="cloud-guide"><li><strong>Selecciona la residencial.</strong> Usa Residenciales para agregarla y el selector superior para trabajar en la correcta.</li><li><strong>Prepara el terreno.</strong> En Terrenos / Predios revisa bloque, número, medidas, área y precio. Los solares sin precio o área no pueden venderse.</li><li><strong>Registra al cliente.</strong> En Clientes agrega nombre, identidad y contacto. Busca primero para evitar duplicados.</li><li><strong>Aparta o vende.</strong> Abre el solar en el mapa, selecciona al cliente y elige Apartado, Contado o Crédito. Revisa prima, fecha y plazo antes de confirmar.</li><li><strong>Registra el abono.</strong> En Cuotas y pagos elige registro normal o OCR. Con OCR revisa el monto y el cliente detectados antes de confirmar; la foto no se archiva.</li><li><strong>Comprueba el recibo y el guardado.</strong> Abre Recibos para descargar o compartir. El guardado se hace automáticamente. Si estás sin conexión, los movimientos quedan pendientes y se envían cuando regrese internet; si hay un conflicto, revisa la advertencia antes de continuar.</li></ol><p>Si el servidor detecta cambios de otra sesión, descarga tu copia y usa «Usar datos del servidor». Nunca se sobrescriben esos cambios automáticamente.</p><p>Sin internet, tus cambios quedan pendientes en este equipo y se envían automáticamente cuando vuelve la conexión. Después de abrirlo una vez con internet y preparar la copia de este equipo, puedes volver a abrirlo sin red e iniciar sesión con tu contraseña. El acceso sin conexión debe renovarse con internet cada siete días.</p><p>En Respaldo puedes exportar tus datos o revisar la copia anterior del navegador. Los PDF se adjuntan aparte y admiten hasta 12 MB por archivo. El OCR y los mapas de fondo necesitan haberse descargado previamente; WhatsApp y las funciones externas requieren internet.</p><p>Los administradores gestionan registros y las cuentas de vendedor consultan el catálogo sin datos personales ni cobros. Los recordatorios automáticos de WhatsApp y el mapa público requieren terminar su integración; compartir un recibo es una acción manual.</p><button class="btn btn-primary" data-page="clients">Ir a Clientes</button> <button class="btn btn-outline" data-page="lots">Ir a Terrenos</button> <button class="btn btn-outline" data-page="payments">Ir a Cuotas y pagos</button></div>`;}
+function cloudHelpPage(){if(cloudUser?.role==='sales')return sellerHelpPage();return `${header('Guía de uso','Empieza aquí y sigue este recorrido para registrar una operación.')}<p id="cloud-offline-readiness">${'serviceWorker' in navigator?(navigator.serviceWorker.controller?'Inicio sin conexión preparado en este equipo.':'Preparando el inicio sin conexión; mantén esta pestaña conectada hasta que termine.'):'Este navegador no permite preparar el arranque sin conexión.'}</p><div class="card card-padding"><ol class="cloud-guide"><li><strong>Selecciona la residencial.</strong> Usa Residenciales para agregarla y el selector superior para trabajar en la correcta.</li><li><strong>Prepara el terreno.</strong> En Terrenos / Predios revisa bloque, número, medidas, área y precio. Los solares sin precio o área no pueden venderse.</li><li><strong>Registra al cliente.</strong> En Clientes agrega nombre, identidad y contacto. Busca primero para evitar duplicados.</li><li><strong>Aparta o vende.</strong> Abre el solar en el mapa, selecciona al cliente y elige Apartado, Contado o Crédito. Revisa prima, fecha y plazo antes de confirmar.</li><li><strong>Registra el abono.</strong> En Cuotas y pagos elige registro normal o OCR. Con OCR revisa el monto y el cliente detectados antes de confirmar; la foto no se archiva.</li><li><strong>Comprueba el recibo y el guardado.</strong> Abre Recibos para descargar o compartir. El guardado se hace automáticamente. Si estás sin conexión, los movimientos quedan pendientes y se envían cuando regrese internet; si hay un conflicto, revisa la advertencia antes de continuar.</li></ol><p>Los cambios independientes de otras sesiones se concilian y guardan automáticamente. Si dos personas modifican el mismo cliente, solar o contrato, revisa el conflicto y descarga tu copia antes de recuperar datos del servidor.</p><p>Sin internet, tus cambios quedan pendientes en este equipo y se envían automáticamente cuando vuelve la conexión. Después de abrirlo una vez con internet y preparar la copia de este equipo, puedes volver a abrirlo sin red e iniciar sesión con tu contraseña. El acceso sin conexión debe renovarse con internet cada siete días.</p><p>En Respaldo puedes exportar tus datos o revisar la copia anterior del navegador. Los PDF se adjuntan aparte y admiten hasta 12 MB por archivo. El OCR y los mapas de fondo necesitan haberse descargado previamente; WhatsApp y las funciones externas requieren internet.</p><p>Los administradores gestionan registros y las cuentas de vendedor consultan el catálogo sin datos personales ni cobros. Los recordatorios automáticos de WhatsApp y el mapa público requieren terminar su integración; compartir un recibo es una acción manual.</p><button class="btn btn-primary" data-page="clients">Ir a Clientes</button> <button class="btn btn-outline" data-page="lots">Ir a Terrenos</button> <button class="btn btn-outline" data-page="payments">Ir a Cuotas y pagos</button></div>`;}
 
 function cloudRecoveryCopies(){
  const copies=[];for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(!key.startsWith(CLOUD_CACHE+'_recovery_'))continue;try{const q=cloudUnpack(localStorage.getItem(key));if(q?.owner===cloudUser?.name&&q.latest)copies.push({key,raw:q.latest});}catch{}}
