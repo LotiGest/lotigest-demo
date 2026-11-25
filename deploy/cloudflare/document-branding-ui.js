@@ -1,3 +1,18 @@
+
+ // Preferencias de comunicaciones. No almacenar credenciales ni activar envíos sin conexión oficial.
+ function lgWhatsAppStatementSettings(state=db){
+  const s=state.company?.whatsappStatements||{};
+  return {phone:typeof s.phone==='string'?s.phone:'',day:Number.isInteger(s.day)&&s.day>=1&&s.day<=28?s.day:25,hour:Number.isInteger(s.hour)&&s.hour>=8&&s.hour<=18?s.hour:9,consents:s.consents&&typeof s.consents==='object'?s.consents:{}};
+ }
+ function lgStatementMessage(m,company,phone){
+  const cash=n=>'L '+(n/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  return 'Buen día, '+m.client+'. Le saludamos cordialmente de '+company+' – '+m.residence+'. Le compartimos su estado de cuenta al '+m.asOf+'.\n\n'+
+   'Cuota mensual: '+cash(m.base)+'\nTotal pagado (incluye prima): '+cash(m.paid)+'\nMensualidades pendientes al corte: '+cash(m.total)+'\n'+
+   (m.prima>0?'Prima pendiente: '+cash(m.prima)+'\n':'')+
+   'Saldo total del contrato: '+cash(m.balance)+'\n\n'+
+   'El saldo total incluye las cuotas futuras; no representa necesariamente el importe exigible hoy. '+(m.total>0||m.prima>0?'Si ya realizó algún pago, con gusto revisamos su comprobante. ':'Gracias por mantenerse al día. ')+
+   'Para cualquier consulta o aclaración, estamos a su disposición'+(phone?' al +'+phone:'')+'. Muchas gracias por su confianza.';
+ }
 // Identidad de documentos: un logo general y otro independiente por residencial.
 // No cambia la identidad de LOTIGEST, los pagos ni el inventario.
 function lgValidDocLogo(l){return l&&typeof l.data==='string'&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(l.data)&&Number.isInteger(l.width)&&Number.isInteger(l.height)&&l.width>0&&l.height>0&&l.width<=1600&&l.height<=1600?l:null;}
@@ -63,4 +78,41 @@ function lgDocumentBrandHtml(rid){
  makeClientQuotePdf=function(request,...args){return scoped(getLot(request.lotId)?.residenceId||request.residenceId,()=>quote(request,...args));};
  const doc=documentHtml;
  documentHtml=function(type,id){const sale=type==='contract'?getSale(id):getSale(db.payments.find(p=>p.id===id)?.saleId);const html=doc(type,id);return html.replace('<div class="print-sheet">','<div class="print-sheet">'+lgDocumentBrandHtml(getLot(sale?.lotId)?.residenceId));};
+})();
+
+(function installWhatsAppStatementSettings(){
+ const previous=settingsPage;
+ const options=(arr,selected)=>arr.map(([v,n])=>'<option value="'+esc(v)+'" '+(String(v)===String(selected)?'selected':'')+'>'+esc(n)+'</option>').join('');
+ function markup(){
+  if(cloudUser?.role!=='admin')return '';
+  const s=lgWhatsAppStatementSettings(),clients=(db.clients||[]).filter(c=>clientWhatsappPhone(c.phone)).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+  return '<section class="card card-padding" id="lg-wa-settings"><h3>WhatsApp · Estados de cuenta</h3><p class="sm">Conexión automática pendiente de WhatsApp Business. No se enviarán mensajes automáticamente todavía.</p>'+
+   '<form id="lg-wa-config"><div class="form-grid"><label>Número de WhatsApp de la empresa<input name="phone" type="tel" placeholder="+504 9999-9999" value="'+esc(s.phone)+'" required></label>'+
+   '<label>Día mensual previsto<select name="day">'+options(Array.from({length:28},(_,i)=>[i+1,i+1]),s.day)+'</select></label>'+
+   '<label>Hora prevista (Honduras)<select name="hour">'+options(Array.from({length:11},(_,i)=>[i+8,String(i+8).padStart(2,'0')+':00']),s.hour)+'</select></label></div>'+
+   '<p class="sm">Horario guardado para una futura conexión oficial. Solo se enviarán avisos autorizados y no se cargarán credenciales aquí.</p><button type="submit" class="btn btn-primary">Guardar configuración</button></form>'+
+   '<details style="margin-top:12px"><summary>Autorización del cliente para recibir estados de cuenta</summary><form id="lg-wa-consent"><label>Cliente<select name="client" required><option value="">Seleccionar cliente</option>'+options(clients.map(c=>[c.id,c.name+' · '+c.phone+(s.consents[c.id]===clientWhatsappPhone(c.phone)?' · Autorizado':'')]),'')+'</select></label><label><input type="checkbox" name="confirmed"> El cliente autorizó recibir sus estados de cuenta en este número.</label><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="submit" class="btn btn-primary" name="intent" value="grant">Registrar autorización</button><button type="submit" class="btn btn-outline" name="intent" value="revoke">Revocar autorización</button></div></form></details>'+
+   '<p class="sm">Mensaje: saludo cordial, cuota mensual, total pagado, mensualidades pendientes, saldo contractual y contacto para aclaraciones. El PDF conserva ambos logos configurados.</p></section>';
+ }
+ settingsPage=function(){return markup()+previous();};
+ document.addEventListener('submit',async e=>{
+  const form=e.target;if(!['lg-wa-config','lg-wa-consent'].includes(form.id))return;
+  e.preventDefault();e.stopImmediatePropagation();
+  try{
+   if(cloudUser?.role!=='admin'||!cloudReady||cloudBlocked||cloudOffline)throw Error('Se requiere administrador conectado.');
+   const s=lgWhatsAppStatementSettings(),d=new FormData(form);
+   if(form.id==='lg-wa-config'){
+    const phone=clientWhatsappPhone(d.get('phone'));if(!phone)throw Error('Número de WhatsApp inválido.');
+    const day=Number(d.get('day')),hour=Number(d.get('hour'));if(!Number.isInteger(day)||day<1||day>28||!Number.isInteger(hour)||hour<8||hour>18)throw Error('Horario inválido.');
+    Object.assign(s,{phone:'+'+phone,day,hour});
+   }else{
+    const c=getClient(d.get('client')),phone=clientWhatsappPhone(c?.phone);if(!c||!phone)throw Error('Selecciona un cliente con teléfono válido.');
+    s.consents={...s.consents};
+    if(e.submitter?.value==='revoke')delete s.consents[c.id];
+    else{if(!d.has('confirmed'))throw Error('Confirma que el cliente autorizó el envío.');s.consents[c.id]=phone;}
+   }
+   const next={...db,company:{...db.company,whatsappStatements:s}};
+   cloudWrite(JSON.stringify(next));db=next;await cloudFlush();render();toast('Preferencias de WhatsApp guardadas. Envío automático pendiente de conexión.');
+  }catch(err){toast(err.message,'error');}
+ },true);
 })();

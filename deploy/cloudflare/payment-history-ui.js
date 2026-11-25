@@ -710,7 +710,7 @@ function pmOpenStatement(trigger,context=null){
   const select=field('Solares',pmNode('select'));const all=pmNode('option','','Todos los solares ('+choices.length+')');all.value='';select.append(all);
   for(const item of choices){const option=pmNode('option','',item.label);option.value=item.id;select.append(option);}
   const phone=field('WhatsApp (destino editable)',pmNode('input'));phone.type='tel';phone.value=client.phone||'';
-  const message=field('Mensaje',pmNode('textarea'));message.rows=4;message.maxLength=500;message.value='Estimado(a) cliente, le compartimos su estado de cuenta actualizado. '+((db.residences||[]).find(r=>r.id===rid)?.name||'')+'.';
+  const message=field('Mensaje',pmNode('textarea'));message.rows=7;message.maxLength=2000;message.value='';let lastSuggested='';
   controls.append(pmNode('p','pm-help','En celular, elige WhatsApp y confirma el contacto al compartir. En PC, se descarga el PDF y se abre el chat para adjuntarlo manualmente.'));
   const alert=pmNode('p','pm-error');alert.setAttribute('role','status');controls.append(alert);
   const actions=pmNode('div','pm-report-buttons');
@@ -723,14 +723,14 @@ function pmOpenStatement(trigger,context=null){
    const active=context?new Set(contractCollectionsScope(db,rid).sales.filter(s=>s.clientId===clientId).map(s=>s.clientId)):new Set(pmSales().map(s=>s.clientId));if(active.size!==1||!active.has(clientId)||(!context&&residence().id!==rid))throw Error('El cliente cambió. Cierra y vuelve a abrir el estado de cuenta.');
    return pmStatementModel(pmAmortizationModel(db,clientId,rid,businessToday(),reconcileInstallments,installmentDueCents,(date,i)=>dateKey(addMonths(date,i)),select.value||null));
   };
-  const refresh=()=>{try{model=fresh();pmStatementPreview(preview,model);alert.textContent='';downloadBtn.disabled=shareBtn.disabled=false;}catch(e){model=null;preview.replaceChildren(pmNode('p','',e.message));alert.textContent=e.message;downloadBtn.disabled=shareBtn.disabled=true;}};
+  const refresh=()=>{try{model=fresh();pmStatementPreview(preview,model);const suggested=lgStatementMessage(model,db.company.name||'GRUPO H',clientWhatsappPhone(lgWhatsAppStatementSettings().phone));if(!message.value||message.value===lastSuggested)message.value=suggested;lastSuggested=suggested;alert.textContent='';downloadBtn.disabled=shareBtn.disabled=false;}catch(e){model=null;preview.replaceChildren(pmNode('p','',e.message));alert.textContent=e.message;downloadBtn.disabled=shareBtn.disabled=true;}};
   select.onchange=refresh;
   const deliver=async share=>{
    try{
     const updated=fresh();if(JSON.stringify(updated)!==JSON.stringify(model)){refresh();throw Error('Los datos cambiaron. Revisa la vista previa y vuelve a confirmar.');}
     const pdf=pmStatementPdf(updated),name='LOTIGEST_Estado_de_cuenta_'+updated.asOf+'.pdf';
     if(!share){download(name,pdf,'application/pdf');return;}
-    const summary=message.value+'\nTotal pagado: '+pmStatementCash(updated.paid)+'\nCuotas pendientes al corte: '+pmStatementCash(updated.total)+'\nSaldo total por pagar: '+pmStatementCash(updated.balance);
+    const summary=message.value;
     const target=clientWhatsappPhone(phone.value);if(!target)throw Error('Ingresa un número válido de WhatsApp.');
     if(typeof File==='function'){
      const file=new File([pdf],name,{type:'application/pdf'});
