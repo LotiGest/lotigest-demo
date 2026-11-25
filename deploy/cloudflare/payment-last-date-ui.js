@@ -57,7 +57,8 @@ function pmLatestClientPayments(clientId,residenceId){
  for(const row of rows)for(const label of row.labels){
   if(label&&!bySolar.has(label))bySolar.set(label,{label,date:row.date,reference:row.reference,amountCents:row.parts.get(label)??null,sameReceipt:row===rows[0]});
  }
- return {latest:rows[0]||null,bySolar:[...bySolar.values()]};
+ const numeric=rows.filter(r=>/^\d+$/.test(r.reference)).sort((a,b)=>{const x=BigInt(a.reference),y=BigInt(b.reference);return x===y?0:x>y?-1:1;});
+ return {latest:rows[0]||null,highest:numeric[0]||null,bySolar:[...bySolar.values()]};
 }
 function pmLastPaymentMoney(cents){return cents==null?'Monto por solar no desglosado':'L '+(cents/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function pmLastPaymentDetails(item){
@@ -69,7 +70,7 @@ function pmUpdateLastPayment(clientId,residenceId){
  const root=document.getElementById('pm-last-payment');
  if(!root)return;
  root.replaceChildren();
- const {latest,bySolar}=pmLatestClientPayments(clientId,residenceId);
+ const {latest,highest,bySolar}=pmLatestClientPayments(clientId,residenceId);
  const heading=pmNode('div','pm-last-payment-main');
  heading.append(pmNode('small','','Fecha del último pago registrado'),
   pmNode('strong','',latest?pmReadableDate(latest.date):clientId?'Sin pagos registrados':'Selecciona un cliente'));
@@ -79,6 +80,7 @@ function pmUpdateLastPayment(clientId,residenceId){
   clientId?'Este cliente todavía no tiene un pago confirmado en esta residencial.':
   'La fecha aparecerá al seleccionar al cliente.'));
  root.append(heading);
+ if(highest&&highest!==latest){const other=pmNode('div','pm-last-payment-main');other.append(pmNode('small','','Mayor correlativo registrado (puede tener otra fecha)'),pmNode('strong','',pmReadableDate(highest.date)),pmLastPaymentDetails(highest));root.append(other);}
  if(bySolar.length>1){
   const list=pmNode('div','pm-last-payment-solares');
   list.append(pmNode('small','','Último pago por solar:'));
