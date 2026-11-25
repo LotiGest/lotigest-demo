@@ -52,7 +52,7 @@ function receiptCorrelativoFeedback(input){
  if(!raw)error='Debes ingresar el correlativo del pago.';
  else if(raw.length>80||normalized===null)error='El correlativo debe contener solamente números.';
  else if(typeof db!=='undefined'&&api?.findReceiptCorrelativo(db,raw))
-  error=api.receiptCorrelativoMessage(db,raw);
+  error=typeof api.receiptCorrelativoMessage==='function'?api.receiptCorrelativoMessage(db,raw):'El correlativo '+normalized+' ya está registrado. Actualiza LOTIGEST para consultar el titular.';
  if(input.setCustomValidity)input.setCustomValidity(error);
  input.setAttribute('aria-invalid',String(Boolean(error)));
  if(label){label.classList.toggle('pm-correlativo-duplicate',Boolean(error));label.classList.toggle('pm-correlativo-valid',Boolean(raw&&!error));}
@@ -60,10 +60,14 @@ function receiptCorrelativoFeedback(input){
 }
 document.addEventListener('input',event=>{
  if(event.target.matches?.('[name="receiptRef"]'))receiptCorrelativoFeedback(event.target);
-});
+},true);
 document.addEventListener('change',event=>{
  if(event.target.matches?.('[name="receiptRef"]'))receiptCorrelativoFeedback(event.target);
-});
+},true);
+// Revalidar el folio actual antes de guardar, incluso si el OCR o un cambio de foco lo rellenó.
+document.addEventListener('submit',event=>{
+ const input=event.target?.elements?.receiptRef;if(input)receiptCorrelativoFeedback(input);
+},true);
 function receiptOcrStatus(form,message){
  const el=form?.querySelector('[data-paper-ocr-status]');if(el)el.textContent=message;
 }
