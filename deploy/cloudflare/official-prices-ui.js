@@ -183,31 +183,54 @@ document.addEventListener('submit',e=>{
  }
 },true);
 const officialPriceLotsBase=lotsPage;
+
+let lpDraft=null,lpSheets=null,lpGeneration=0;
 lotsPage=function(){
  const result=officialPriceLotsBase();
- if(!officialPriceAuthorized()||!String(residence().name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().includes('ALTOS DEL ARRAYAN'))return result;
- return '<section class="card" style="padding:14px;margin:10px 0"><strong>Precios oficiales de Altos del Arrayán</strong><p class="sm">Completar únicamente los datos faltantes de solares disponibles, etapa 1; compradores, apartados, ventas y pagos quedan protegidos. 32 filas dudosas de L, N y O requieren revisión manual.</p><button class="btn btn-outline" type="button" data-action="official-prices-preview">Revisar precios faltantes del PDF</button></section>'+result;
+ if(!officialPriceAuthorized())return result;
+ const isArrayan=String(residence().name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().includes('ALTOS DEL ARRAYAN');
+ return '<section class="card" style="padding:14px;margin:10px 0"><strong>Medidas, precios y primas de terrenos</strong><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn btn-outline" type="button" data-action="lp-open">Importar medidas, precios y primas (.xlsx)</button>'+(isArrayan?'<button class="btn btn-primary" type="button" data-action="official-prices-preview">Cargar precios del PDF · Etapa 2</button>':'')+'</div></section>'+result;
 };
-function officialPriceOpenPreview(){
- if(!officialPriceAuthorized())throw Error('Solo el administrador puede completar precios.');
- const snapshot=JSON.stringify(db),rid=residence().id,plan=prepareOfficialPriceFill(db,rid);
- officialPricePreview={snapshot,rid,plan};
- const list=(label,rows)=>'<p><strong>'+rows.length+' '+label+'</strong></p>'+(rows.length?'<p class="sm" style="max-height:110px;overflow:auto">'+esc(rows.slice(0,30).join(' · '))+(rows.length>30?'…':'')+'</p>':'');
- showModal('Precios oficiales del PDF','<p>Fuente: PDF de precios de Altos del Arrayán. Solo se completan los campos faltantes cuando el solar es único, disponible, sin propietario, apartado, contrato o historial por revisar.</p>'+
-  '<p><strong>'+plan.catalogCount+' solares con referencia consistente</strong> · '+plan.excludedPdfRows+' referencias del PDF excluidas por rótulo contradictorio.</p>'+
-  list('solares para completar',plan.changes)+list('ocupados o protegidos',plan.skipped)+list('sin correspondencia única en etapa 1',plan.missing)+list('conflictos',plan.conflicts)+
-  '<p class="sm">No se crean terrenos nuevos ni ventas. Los precios existentes diferentes al PDF no se cambian automáticamente.</p>',
-  '<button class="btn btn-soft" data-action="close-modal">Cancelar</button><button class="btn btn-primary" data-action="official-prices-confirm" '+(!plan.changes.length?'disabled':'')+'>Aplicar '+plan.changes.length+' cambios</button>',true);
+function lpAdmin(){return Boolean(contractIntakeAdmin());}
+function lpOpen(builtin=false){
+ if(!lpAdmin())throw Error('Se requiere administrador y nube sincronizada.');
+ lpDraft=null;lpSheets=builtin?officialStage2Workbook():null;lpGeneration++;
+ showModal('Importar medidas, precios y primas','<p>Destino: <strong>'+esc(residence().name)+'</strong>. No registra pagos, ventas ni contratos.</p>'+
+  '<button class="btn btn-outline" data-action="lp-template">Descargar plantilla Excel</button> '+
+  '<label class="btn btn-outline">Seleccionar Excel<input id="lp-file" type="file" accept=".xlsx" hidden></label>'+
+  '<p><label><input type="checkbox" id="lp-relabeled"> Confirmo utilizar el encabezado del bloque cuando el rótulo original del PDF es distinto (L, N, O).</label></p>'+
+  '<div id="lp-preview" role="status"></div>',
+  '<button class="btn btn-soft" data-action="close-modal">Cancelar</button><button class="btn btn-primary" id="lp-confirm" data-action="official-prices-confirm" disabled>Aplicar importación</button>',true);
+ lpPreview();
 }
-function officialPriceConfirm(){
- const p=officialPricePreview;
- if(!p||!officialPriceAuthorized())throw Error('Revisa primero los precios.');
- if(p.rid!==residence().id||JSON.stringify(db)!==p.snapshot)throw Error('Los datos cambiaron. Vuelve a revisar el PDF antes de aplicar.');
- const before=db;db=p.plan.state;
- if(!designPersist()){db=before;return;}
- officialPricePreview=null;closeModal();render();
- toast(p.plan.changes.length+' solares completados desde el PDF. Confirma que aparezca «✓ Guardado» en la nube.');
+function lpPreview(){
+ const host=document.getElementById('lp-preview'),btn=document.getElementById('lp-confirm');if(!host||!btn)return;
+ btn.disabled=true;lpDraft=null;
+ if(!lpSheets){host.textContent='Selecciona el Excel de medidas y precios.';return;}
+ try{
+  const rid=residence().id,snapshot=JSON.stringify(db),plan=prepareLotPriceWorkbook(lpSheets,db,rid,Boolean(document.getElementById('lp-relabeled')?.checked));
+  lpDraft={rid,snapshot,plan};
+  const list=(title,items)=>'<details><summary>'+items.length+' '+title+'</summary><p class="sm" style="max-height:150px;overflow:auto">'+esc(items.join(' · ')||'Ninguno')+'</p></details>';
+  host.innerHTML='<p><strong>'+plan.changes.length+' solares para actualizar</strong> · '+plan.references.length+' referencias de catálogo en solares protegidos</p>'+
+   list('sin correspondencia en inventario',plan.missing)+list('rótulos por confirmar',plan.review)+list('errores (bloquean importación)',plan.errors)+
+   '<p class="sm">Los solares protegidos conservan precio pactado, medidas vigentes y condiciones de contrato. Los solares inexistentes no se crean.</p><button class="btn btn-outline" data-action="lp-backup">Descargar respaldo JSON</button>';
+  lpDraft.backup=false;
+ }catch(e){host.textContent=e.message;}
 }
+function officialPriceOpenPreview(){lpOpen(true);}
+async function officialPriceConfirm(){
+ const p=lpDraft;if(!p||!lpAdmin()||!p.backup||p.plan.errors.length)throw Error('Revisa el archivo y guarda el respaldo primero.');
+ if(p.rid!==residence().id||JSON.stringify(db)!==p.snapshot)throw Error('Los datos cambiaron. Abre nuevamente la importación.');
+ if(!confirm('¿Aplicar '+p.plan.changes.length+' actualizaciones y '+p.plan.references.length+' referencias del catálogo? No se modificarán pagos ni contratos.'))return;
+ cloudWrite(JSON.stringify(p.plan.state));db=p.plan.state;await cloudFlush();lpDraft=null;closeModal();render();
+ if(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed)toast('Importación pendiente de sincronización.','error');else toast('Catálogo actualizado correctamente.');
+}
+document.addEventListener('change',async e=>{
+ if(e.target.id==='lp-relabeled'){lpPreview();return;}
+ if(e.target.id!=='lp-file')return;
+ const file=e.target.files?.[0],generation=++lpGeneration;lpSheets=null;lpPreview();
+ try{if(!file||!/\.xlsx$/i.test(file.name)||file.size>12*1024*1024)throw Error('Selecciona un Excel .xlsx de menos de 12 MB.');const sheets=await readExcelRows(file);if(generation!==lpGeneration||!document.getElementById('lp-preview'))return;lpSheets=sheets;lpPreview();}catch(err){toast(err.message,'error');}
+},true);
 function officialPriceEditLot(id){
  if(!officialPriceAuthorized())throw Error('Solo administradores pueden editar precios.');
  const l=getLot(id);
@@ -247,8 +270,11 @@ function officialPriceSaveLot(id){
 const officialPriceActionsBase=handlerAction;
 handlerAction=function(action,el){
  try{
+  if(action==='lp-open')return lpOpen(false);
+  if(action==='lp-template')return downloadExcel('Plantilla_medidas_precios_primas.xlsx',priceImportHeaders,[]);
+  if(action==='lp-backup'){if(!lpDraft)throw Error('Revisa los datos.');download('LOTIGEST_antes_importar_catalogo_'+businessToday()+'.json',JSON.stringify(db,null,2),'application/json');lpDraft.backup=true;const p=lpDraft.plan;document.getElementById('lp-confirm').disabled=Boolean(p.errors.length||!(p.changes.length+p.references.length));return;}
   if(action==='official-prices-preview')return officialPriceOpenPreview();
-  if(action==='official-prices-confirm')return officialPriceConfirm();
+  if(action==='official-prices-confirm')return officialPriceConfirm().catch(e=>toast(e.message,'error'));
   if(action==='official-lot-edit')return officialPriceEditLot(el.dataset.id);
   if(action==='official-lot-save')return officialPriceSaveLot(el.dataset.id);
  }catch(e){toast(e.message,'error');return;}

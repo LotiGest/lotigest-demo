@@ -1,4 +1,4 @@
 {
-  "version": "1.0.9",
-  "notes": "Terrenos y Predios: Revisar compras sin contrato incluye las asignaciones provisionales y compras elegibles, selección total sin límite y una sola confirmación con respaldo."
+  "version": "1.0.10",
+  "notes": "Catálogo de precios corregido a etapa 2: 264 filas del PDF, importación Excel con vista previa y respaldo, medidas y prima sugerida en contratos; referencias no modifican ventas ni pagos."
 }

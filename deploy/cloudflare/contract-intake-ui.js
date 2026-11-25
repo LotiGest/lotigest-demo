@@ -16,14 +16,15 @@ function contractIntakeRememberExtras(form){
  if(contractIntakeWorking.mode==='manual'&&data.lotId!==contractIntakeWorking.values.lotId){
   const lot=getLot(data.lotId);
   data.solarPrice_0=lot?.price??'';
-  data.down=lot?.defaultDownPayment??lot?.downPayment??lot?.prima??'';
+  data.down=lot?.quotePrima??lot?.pdfPrima??lot?.defaultDownPayment??lot?.downPayment??lot?.prima??'';
   data.solarDown_0=data.down;
+  if(lot&&!data.months)data.months=lot.quoteMonths??'';
  }
  contractIntakeWorking.extraLots=(contractIntakeWorking.extraLots||[]).map((old,i)=>{
   const id=data['extraLotId_'+i]||'',lot=getLot(id),changed=id!==old.lotId;
   if(contractIntakeWorking.mode==='manual'&&changed){
    data['solarPrice_'+(i+1)]=lot?.price??'';
-   data['solarDown_'+(i+1)]=lot?.defaultDownPayment??lot?.downPayment??lot?.prima??'';
+   data['solarDown_'+(i+1)]=lot?.quotePrima??lot?.pdfPrima??lot?.defaultDownPayment??lot?.downPayment??lot?.prima??'';
   }
   return {...old,stage:data['extraStage_'+i]||'',lotId:id,
    ...(lot?{block:lot.block,number:String(lot.sourceNumber||lot.number||'')}:{}),
@@ -215,7 +216,7 @@ function contractIntakeManualFields(){
  const finances=termsLots+'<div class="lg-contract-terms-grid"><div class="lg-contract-term-fields">'+
   field(multi?'Precio de venta del primer solar (L) · Editable':'Precio de venta (L) · Editable','solarPrice_0','number',true,false,v.solarPrice_0??selected?.price??'')+
   (multi?field('Prima del primer solar (L)','solarDown_0','number',true,false,v.solarDown_0??v.down??'')+
-    hidden('down',prima??''):field('Prima (L) · Editable','down','number',true,false,v.down??selected?.defaultDownPayment??selected?.downPayment??selected?.prima??''))+
+    hidden('down',prima??''):field('Prima (L) · Editable','down','number',true,false,v.down??selected?.quotePrima??selected?.pdfPrima??selected?.defaultDownPayment??selected?.downPayment??selected?.prima??''))+
   '<label class="field-group"><span>Plazo (meses)</span><input type="number" name="months" min="1" max="360" step="1" required value="'+val(v.months??'')+'"></label></div>'+
   '<aside class="lg-contract-calc"><h4>Cálculo automático · 0 % interés</h4>'+
   '<div class="lg-contract-calc-row"><span>Precio del contrato</span><strong id="contract-auto-price">'+priceLabel+'</strong></div>'+
@@ -421,7 +422,7 @@ document.addEventListener('click',event=>{
   if(assigned.length===1){
    const l=assigned[0];
    Object.assign(draft.values,{lotId:l.id,stage:String(l.stage),block:l.block,number:String(l.sourceNumber||l.number||''),
-    solarPrice_0:l.price??'',down:l.defaultDownPayment??l.downPayment??l.prima??''});
+    solarPrice_0:l.price??'',down:l.quotePrima??l.pdfPrima??l.defaultDownPayment??l.downPayment??l.prima??''});
   }
  }
  document.getElementById('contract-intake-review').innerHTML=contractIntakeFields();
