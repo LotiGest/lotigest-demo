@@ -200,12 +200,13 @@
  }
  function ccDetail(g,extra=false){
   const m=g.model.m,t=m?ccMetrics(m,collectionMonth):null,attr=ccAttr(g),status=ccStatus(g);
+  const future=m?pmFutureCoverage(m.details.flatMap(d=>d.rows),m.asOf):null;
   const lots=g.lots.map(l=>l.id).join(' · '), credit=g.sales.some(s=>s.type==='credit'&&balance(s)>.009);
   const metric=(label,value,style='',sub='')=>'<div class="cc-metric '+style+'"><small>'+esc(label)+'</small><strong>'+esc(value)+'</strong>'+(sub?'<small>'+esc(sub)+'</small>':'')+'</div>';
   return '<div class="cc-detail-head"><span class="cc-avatar">'+ic('users')+'</span><div><h2>'+esc(g.client.name)+'</h2><small>'+esc(g.client.phone||'Sin teléfono')+' · '+esc(g.residenceName)+'</small></div><span class="cc-count">'+g.lots.length+' solar(es)</span></div>'+
    '<p class="cc-lots">'+esc(lots)+'</p>'+
    (credit&&cloudUser?.role==='admin'?'<div class="cc-actions cc-pay-top"><button type="button" class="btn btn-primary" data-cc-pay'+attr+'>+ Registrar abono</button><button type="button" class="btn btn-outline" data-cc-many'+attr+'>+ Abonos varios</button></div>':'')+
-   (t?'<div class="cc-metrics">'+metric('Pendiente del mes',ccCash(t.month),'',collectionMonth)+metric('Total vencido',ccCash(t.overdue),t.overdue?'cc-late':'',t.months+' mes(es)')+metric('Saldo total según amortización',ccCash(t.balance),'cc-balance')+'</div>'+
+   (t?'<div class="cc-metrics">'+metric('Pendiente del mes',ccCash(t.month),'',collectionMonth)+metric('Total vencido',ccCash(t.overdue),t.overdue?'cc-late':'',t.months+' mes(es)')+metric('Saldo total según amortización',ccCash(t.balance),'cc-balance')+(future?.amountCents?metric('Adelanto vigente',ccCash(future.amountCents),'',future.covered+' cuota(s) futuras cubiertas')+metric('Último vencimiento futuro cubierto',future.through||'Parcial'):'')+(future?.next?metric('Próxima cuota con saldo',ccCash(future.next.remainingCents),'',future.next.dueDate):'')+'</div>'+
    '<div class="cc-progress"><div class="cc-progress-head"><strong>Progreso de la amortización</strong><b>'+t.percent.toFixed(1)+'%</b></div><progress max="100" value="'+t.percent+'"></progress><div class="cc-progress-values">'+metric('Pagado acumulado',ccCash(t.paid))+metric('Saldo por pagar',ccCash(t.balance))+metric('Total contratado',ccCash(t.price))+'</div></div>':
    '<p class="cc-review" role="alert">'+esc(g.sales.length?'Revisar amortización: '+g.model.error:'Contrato pendiente de activación. Aún no tiene cuotas confirmadas.')+'</p>')+
    '<div class="cc-table-wrap"><table class="cc-table"><thead><tr><th>Solar</th><th>Cuota mensual</th><th>Vencido</th><th>Estado</th></tr></thead><tbody>'+

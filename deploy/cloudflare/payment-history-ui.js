@@ -407,9 +407,18 @@ function pmReportCurrentMonthFirst(originalRows,payments,asOf){
  }
  return rows;
 }
+// Saldo anticipado al corte, no confundir con adelantos ya consumidos.
+function pmFutureCoverage(rows,asOf){
+ const future=rows.filter(r=>r.dueCents>0&&r.dueDate.slice(0,7)>asOf.slice(0,7));
+ const covered=future.filter(r=>r.remainingCents===0);
+ const partial=future.filter(r=>r.remainingCents>0&&r.appliedCents>0);
+ const pending=rows.filter(r=>r.remainingCents>0).sort((a,b)=>a.dueDate.localeCompare(b.dueDate))[0]||null;
+ return {covered:covered.length,partial:partial.length,amountCents:future.reduce((n,r)=>n+r.appliedCents,0),through:covered.map(r=>r.dueDate).sort().at(-1)||null,next:pending};
+}
 function pmReportPaymentStatus(row,asOf){
  if(!row.dueCents)return 'Sin cuota';
- if(!row.remainingCents)return 'Pagada';
+ if(!row.remainingCents)return row.dueDate.slice(0,7)>asOf.slice(0,7)?'Pagada por adelantado':'Pagada';
+ if(row.appliedCents&&row.dueDate.slice(0,7)>asOf.slice(0,7))return 'Adelanto parcial';
  if(row.appliedCents)return row.receipts.some(r=>r.date.slice(0,7)!==row.dueDate.slice(0,7))?'Abono con excedente':'Abono parcial';
  return row.dueDate<asOf?'Pendiente vencida':'Pendiente';
 }
