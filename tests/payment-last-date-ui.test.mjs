@@ -108,3 +108,22 @@ test('abono conjunto de ficha sin desglose no duplica el monto por solar',()=>{
  assert.equal(result.latest.amountCents,600000);
  assert.ok(result.bySolar.every(x=>x.amountCents===null));
 });
+
+test('mayor correlativo no se oculta cuando tiene fecha anterior',()=>{
+ const {db,pmLatestClientPayments}=mock();
+ db.payments.push({id:'F1',saleId:'s1',date:'2026-11-03',amount:6500,receiptReference:'4421'},
+ {id:'F2',saleId:'s1',date:'2025-11-25',amount:6500,receiptReference:'4422'});
+ const result=pmLatestClientPayments('c1','R1');
+ assert.equal(result.latest.reference,'4421');
+ assert.equal(result.highest.reference,'4422');
+ assert.equal(result.highest.date,'2025-11-25');
+});
+test('adelantos vigentes excluyen meses pasados y muestran la próxima cuota parcial',()=>{
+ const src=readFileSync(new URL('../deploy/cloudflare/payment-history-ui.js',import.meta.url),'utf8');
+ const fn=new Function(src.slice(src.indexOf('function pmFutureCoverage('),src.indexOf('function pmReportPaymentStatus('))+';return pmFutureCoverage;')();
+ const rows=[{dueDate:'2026-11-27',dueCents:650000,appliedCents:650000,remainingCents:0},
+ {dueDate:'2026-12-27',dueCents:650000,appliedCents:650000,remainingCents:0},
+ {dueDate:'2027-01-27',dueCents:650000,appliedCents:100000,remainingCents:550000}];
+ const v=fn(rows,'2026-11-25');
+ assert.equal(v.covered,1);assert.equal(v.amountCents,750000);assert.equal(v.partial,1);assert.equal(v.next.remainingCents,550000);
+});
