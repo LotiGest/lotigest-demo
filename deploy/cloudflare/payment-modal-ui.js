@@ -20,9 +20,10 @@ function pmHeaderClient(modal,client){
   row=pmNode('div','pm-header-client');
   const name=pmNode('strong','pm-header-client-name');name.setAttribute('aria-live','polite');
   const find=pmNode('button','btn btn-outline btn-sm pm-change-client','Buscar otro cliente');find.type='button';
-  find.addEventListener('click',()=>{
-   const form=modal.querySelector('#multi-payment-form,#owner-abono-form');if(!form)return;
-   if(modal.querySelector('[type="submit"]:disabled')||document.querySelector('.pm-history-layer'))return;
+  const many=pmNode('button','btn btn-outline btn-sm pm-change-client pm-many-client','Abonos varios');many.type='button';
+  function canLeave(message){
+   const form=modal.querySelector('#multi-payment-form,#owner-abono-form');if(!form)return false;
+   if(modal.querySelector('[type="submit"]:disabled')||document.querySelector('.pm-history-layer'))return false;
    // No trasladar fechas, correlativos, importes ni fotografías de un cliente a otro.
    const dirty=[...form.querySelectorAll('input,textarea,select')].some(el=>{
     if(el.type==='file')return Boolean(el.files?.length);
@@ -31,13 +32,24 @@ function pmHeaderClient(modal,client){
     if(el.matches('#multi-payment-search,[type="search"],[type="hidden"]'))return false;
     return el.tagName==='SELECT'?el.selectedIndex>0:el.value!==el.defaultValue;
    });
-   if(dirty&&!window.confirm('Hay datos de un abono sin guardar. ¿Descartarlos y buscar otro cliente?'))return;
-   newPayment(null,false);
+   return !dirty||window.confirm(message);
+  }
+  find.addEventListener('click',()=>{if(canLeave('Hay datos de un abono sin guardar. ¿Descartarlos y buscar otro cliente?'))newPayment(null,false);});
+  many.addEventListener('click',()=>{
+   const api=window.lotigestMultiDate;
+   if(!api)return;
+   if(cloudBlocked||cloudBusy||cloudQueue?.pending||cloudQueue?.latest!==cloudQueue?.confirmed)return toast('Sincroniza primero los cambios pendientes.','error');
+   const sale=pmActive==='sale'?pmSales().find(s=>s.type==='credit'&&balance(s)>.009):null;
+   const owner=pmActive==='owner'?ownerPaymentDraft:null;
+   if(!sale&&!owner)return toast('Selecciona un cliente con saldo pendiente.','error');
+   if(!canLeave('Hay datos de un abono sin guardar. ¿Descartarlos y abrir Abonos varios?'))return;
+   closeModal();if(sale)api.openSale(sale.id);else api.openOwner(owner.clientId,owner.residenceId);
   });
-  row.append(name,find);header.append(row);
+  row.append(name,find,many);header.append(row);
  }
  row.querySelector('.pm-header-client-name').textContent=client?.name||'Selecciona un cliente';
  row.querySelector('.pm-change-client').hidden=!client;
+ row.querySelector('.pm-many-client').hidden=!client;
 }
 function pmIcon(name){return typeof ic==='function'?ic(name):'';}
 function pmCard(title,icon){
