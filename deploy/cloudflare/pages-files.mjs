@@ -72,7 +72,7 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace('function receiptsPage(){', 'function baseReceiptsPage(){')
     // Conservar folio del recibo original y proteger contra importación duplicada.
     .replace("const groupId=uid('RC'),next=JSON.parse(JSON.stringify(db)),stamp=new Date().toISOString();",
-      "const originalRef=String(d.receiptRef||'').trim();const normalizedRef=lotigestOwnerPayments.requireReceiptCorrelativo(originalRef);if(lotigestOwnerPayments.findReceiptCorrelativo(db,originalRef))throw Error('El correlativo '+normalizedRef+' ya está registrado en otro pago.');const groupId=uid('RC'),next=JSON.parse(JSON.stringify(db)),stamp=new Date().toISOString();")
+      "const originalRef=String(d.receiptRef||'').trim();const normalizedRef=lotigestOwnerPayments.requireReceiptCorrelativo(originalRef);if(lotigestOwnerPayments.findReceiptCorrelativo(db,originalRef))throw Error(lotigestOwnerPayments.receiptCorrelativoMessage(db,originalRef));const groupId=uid('RC'),next=JSON.parse(JSON.stringify(db)),stamp=new Date().toISOString();")
     .replace("method:String(d.method||'').trim().slice(0,80),recordedAt:stamp",
       "method:String(d.method||'').trim().slice(0,80),receiptReference:originalRef,receiptReferenceNormalized:normalizedRef,recordedAt:stamp")
 

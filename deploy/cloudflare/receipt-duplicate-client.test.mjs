@@ -14,3 +14,18 @@ test('identifica abono de propietario e histórico, sin inventar datos',()=>{
  assert.equal(receiptCorrelativoMessage(state,'4425'),'');
  assert.match(receiptCorrelativoMessage({...state,clients:[]},'4422'),/Sin identificar/);
 });
+
+test('el guardado normal y el servidor también identifican al titular',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const {validateNewReceiptCorrelativos}=await import('../../owner-payments.mjs');
+ const generated=readFileSync(new URL('./pages-files.mjs',import.meta.url),'utf8');
+ assert.match(generated,/throw Error\(lotigestOwnerPayments\.receiptCorrelativoMessage\(db,originalRef\)\)/);
+ const next=structuredClone(state);
+ next.payments.push({id:'NEW',groupId:'RC-NEW',saleId:'S1',receiptReference:'4422',receiptReferenceNormalized:'4422'});
+ assert.throws(()=>validateNewReceiptCorrelativos(state,next),/CLIENTE PRUEBA.*6,500\.00/);
+ const correction=structuredClone(state);
+ correction.payments.push({id:'EDIT',saleId:'S1',receiptReference:'9999'});
+ const edited=structuredClone(correction);
+ edited.payments.at(-1).receiptReference='4422';edited.payments.at(-1).receiptReferenceNormalized='4422';
+ assert.throws(()=>validateNewReceiptCorrelativos(correction,edited),/CLIENTE PRUEBA/);
+});
