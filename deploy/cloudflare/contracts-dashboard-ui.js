@@ -270,7 +270,7 @@
   const d=r.doc;
   if(d.status==='voided')return '<button type="button" class="btn btn-outline btn-sm" data-ct-voided-view="'+esc(d.id)+'">Ver anulación</button>'+ (activationAdmin()?' <button type="button" class="btn btn-primary btn-sm" data-ct-activate="'+esc(d.id)+'">Activar contrato</button>':'');
   return '<button class="btn btn-outline btn-sm" data-contract-ficha-view="'+esc(d.id)+'">Ver</button> '+
-   (d.status!=='voided'?'<button class="btn btn-outline btn-sm" data-contract-edit="'+esc(d.id)+'">Editar</button> '+
+   (d.status!=='voided'?'<button class="btn btn-outline btn-sm" data-contract-edit="'+esc(d.id)+'">Editar contrato</button> '+
     '<button class="btn btn-outline btn-sm" data-contract-delete="'+esc(d.id)+'">Eliminar</button> ':'')+
    (d.structured&&d.clientId?'<button class="btn btn-outline btn-sm" data-contract-sheet="'+esc(d.id)+'">PDF</button> ':'')+
    (r.sale?'<button class="btn btn-outline btn-sm" data-action="contract-preview" data-id="'+esc(r.sale.id)+'">Plantilla</button> ':'')+
