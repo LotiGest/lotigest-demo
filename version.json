@@ -1,4 +1,4 @@
 {
-  "version": "1.0.10",
-  "notes": "Catálogo de precios corregido a etapa 2: 264 filas del PDF, importación Excel con vista previa y respaldo, medidas y prima sugerida en contratos; referencias no modifican ventas ni pagos."
+  "version": "1.0.11",
+  "notes": "Ficha contractual completa y envío al abogado tras guardar, contacto por residencial, PDF con logos y medidas/colindancias registradas; revisión de faltantes y confirmación de destinatario."
 }

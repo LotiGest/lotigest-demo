@@ -767,6 +767,7 @@ async function contractIntakeSave(form){
    }
   }
   const now=new Date().toISOString();
+  const savedDocumentIds=[];
   for(const {lot,fields} of planned){
    const target=next.lots.find(l=>l.id===lot.id);
    if(target.ownerClientId&&target.ownerClientId!==client.id)throw Error('Un solar ya está asignado a otro cliente; verifica la identidad.');
@@ -781,7 +782,11 @@ async function contractIntakeSave(form){
      monthlyCalculated:Math.round((fields.price-fields.down)/months*100)/100,downPaymentReceived:received},
     ...(groupId?{contractGroupId:groupId,contractLotIds:planned.map(r=>r.lot.id)}:{}),
     ...(key?{documentKey:key,documentMime:contractIntakeImageMime(original.file)}:{}),format:original.mode==='manual'?'manual':'photo+ocr',status:received?'active':'pending-sale',createdAt:now,updatedAt:now};
-   next.contractTexts??=[];next.contractTexts.unshift(record);
+   next.contractTexts??=[];next.contractTexts.unshift(record);savedDocumentIds.push(record.id);
+   if(original.mode==='manual'){
+    const v=record.structured;
+    for(const [k,value] of Object.entries({areaM2:target.area,areaVaras:target.areaVaras2,pricePerVara:target.priceVara2,north:target.north||target.colindancias?.north||target.dimensions?.north,south:target.south||target.colindancias?.south||target.dimensions?.south,east:target.east||target.colindancias?.east||target.dimensions?.east,west:target.west||target.colindancias?.west||target.dimensions?.west}))if(value!=null&&value!=='')v[k]=value;
+   }
    target.ownerClientId=client.id;
    if(received){
     if(!(fields.down>0))throw Error('Todos los solares deben tener una prima positiva si se marca como pagada.');
@@ -813,6 +818,7 @@ async function contractIntakeSave(form){
   }else if(contractIdentityDigits(getClient(client.id)?.identity)!==contractIdentityDigits(data.identity))toast('El servidor confirmó el guardado, pero no aparece el DNI correcto. No registres abonos y revisa Clientes.','error');
   else toast(received?'Contrato, crédito y prima pagada registrados en '+planned.length+' solar(es). Revisa Residenciales y Cobros.':'Ficha y DNI guardados para '+planned.length+' solar(es). Puedes activar cada crédito y registrar los abonos.');
   contractIntakeWorking=null;closeModal();render();
+  if(!cloudBlocked&&!cloudOffline&&cloudQueue?.latest===cloudQueue?.confirmed&&contractIdentityDigits(getClient(client.id)?.identity)===contractIdentityDigits(data.identity)&&savedDocumentIds.length&&typeof lawyerSheetOpen==='function'){try{lawyerSheetOpen(savedDocumentIds[0]);}catch(err){toast('Contrato guardado. No se abrió la ficha: '+err.message,'error');}}
  }finally{original.busy=false;if(button?.isConnected)button.disabled=false;}
 }
 function contractIntakeActivate(id){
