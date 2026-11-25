@@ -84,6 +84,8 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace("toast('Pagos registrados. Recibo listo para descargar o compartir.');", '')
     // Cada PDF de pago contiene un QR vectorial que apunta a la verificación pública.
     .replace("for(const part of parts){if(part.row)", "for(const part of parts){if(part.pageBreak){footer();header();continue;}if(part.row)")
+    .replace("</style><h1>${esc(db.company.name)} · Reporte de solares", "</style>${lgDocumentBrandHtml(collectionStage==='all'?null:collectionStage)}<h1>${esc(db.company.name)} · Reporte de solares")
+    .replace("</style><h1>${esc(db.company.name)} · Finanzas y utilidad", "</style>${lgDocumentBrandHtml(financeFilter.residenceId==='all'?null:financeFilter.residenceId)}<h1>${esc(db.company.name)} · Finanzas y utilidad")
     .replace("function receiptLetterPdf(parts,company,reference,kind='receipt'){",
       "function receiptLetterPdf(parts,company,reference,kind='receipt',qrUrl=null,branding=null){")
     .replace("const logo=db.company.logo?.data?.startsWith('data:image/jpeg;base64,')?db.company.logo:null;", "const logo=branding?.company||null,resLogo=branding?.residential||null;")
