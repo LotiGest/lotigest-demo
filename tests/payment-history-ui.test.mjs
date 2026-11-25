@@ -188,6 +188,8 @@ test('consolidación mensual de tres solares distingue depósitos, mora y adelan
  ctx.report=report;const pdf=vm.runInContext('pmAmortizationPdf(report)',ctx);
  const raw=Buffer.from(await pdf.arrayBuffer()).toString('latin1');
  assert.match(raw,/Amortización mensual consolidada/);assert.match(raw,/003555/);assert.match(raw,/Sin depósito/);
+ const monthlyPdf=raw.slice(raw.indexOf('Amortización mensual consolidada'),raw.indexOf('Distribución del último pago'));
+ assert.match(monthlyPdf,/Depósito \/ folio/);assert.match(monthlyPdf,/Aplicado \/ folio/);assert.match(monthlyPdf,/#003555/);
  assert.equal(JSON.stringify(ctx.state),snapshot);
 });
 
@@ -274,4 +276,23 @@ test('después de guardar, el historial conserva ventana y filtros y actualiza b
  assert.equal(ctx.paymentDraft.snapshot,'borrador obsoleto');
  assert.match(historySource,/const visible=pmHistoryRows\(\)\.filter/);
  assert.doesNotMatch(historySource,/pmClosePaymentHistory\(\);closeModal\(\);render\(\)/);
+});
+
+test('amortización mensual identifica cada recibo real y su aplicación sin duplicar pagos',()=>{
+ const ctx=model({payments:[{"id":"P1","groupId":"G","date":"2026-04-23","amount":1000,"receiptReference":"4408"},{"id":"P2","groupId":"G","date":"2026-04-23","amount":2000,"receiptReference":"4408"},{"id":"P3","date":"2026-05-23","amount":1000,"receiptReference":"4409"},{"id":"PR","date":"2026-03-01","amount":5000,"receiptReference":"4401","concept":"Prima"}],rows:[{"dueDate":"2026-04-27","dueCents":100000,"appliedCents":100000,"remainingCents":0,"lastPaidAt":"2026-04-23","receipts":[{"paymentId":"P1","date":"2026-04-23","amountCents":100000}]},{"dueDate":"2026-05-27","dueCents":300000,"appliedCents":300000,"remainingCents":0,"lastPaidAt":"2026-05-23","receipts":[{"paymentId":"P2","date":"2026-04-23","amountCents":200000},{"paymentId":"P3","date":"2026-05-23","amountCents":100000}]}]});
+ const report=vm.runInContext("pmConsolidatedMonths(rows,payments,'2026-05-25')",ctx);
+ const [mar,apr,may]=report.calendar;
+ assert.equal(mar.deposits[0].reference,'4401');assert.equal(mar.applications.length,0);
+ assert.equal(apr.deposits.length,1);assert.equal(apr.deposits[0].amount,300000);
+ assert.equal(apr.applications[0].amount,100000);
+ assert.equal(may.deposits[0].reference,'4409');
+ assert.equal(may.applications[0].reference,'4408');
+ assert.equal(may.applications[1].reference,'4409');
+ assert.equal(may.applications.reduce((n,r)=>n+r.amount,0),may.applied);
+ assert.equal(may.excessApplied,200000);
+ ctx.items=may.applications;
+ const lines=vm.runInContext("pmAmortizationReceiptLines(items,n=>'L '+(n/100).toFixed(2),d=>d)",ctx);
+ assert.match(lines,/2026-04-23 #4408 L 2000\.00/);
+ assert.match(lines,/2026-05-23 #4409 L 1000\.00/);
+ assert.match(historySource,/Depósito \/ folio/);assert.match(historySource,/Aplicado \/ folio/);
 });
