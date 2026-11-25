@@ -752,3 +752,11 @@ body.lotigest-dark #modal-root .lg-payment-modern.pm-compact-payment .pm-primary
  #modal-root .lg-payment-modern.pm-compact-payment .pm-fold-title{padding:7px 10px;min-height:34px}
  #modal-root .lg-payment-modern.pm-compact-payment .pm-primary-date>.pm-date-today{min-height:34px;font-size:11px}
 }
+
+/* Cliente visible en el encabezado de Abono, incluso en móvil. */
+#modal-root .lg-payment-modern .modal-header>div{min-width:0;flex:1}
+#modal-root .lg-payment-modern .pm-header-client{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:5px}
+#modal-root .lg-payment-modern .pm-header-client-name{font-size:clamp(13px,2.4vw,17px);font-weight:800;overflow-wrap:anywhere;color:inherit}
+#modal-root .lg-payment-modern .pm-change-client{font-size:12px;padding:5px 9px;min-height:32px;white-space:normal}
+#modal-root .lg-payment-modern .pm-change-client[hidden]{display:none!important}
+@media(max-width:600px){#modal-root .lg-payment-modern .pm-header-client{gap:4px 8px}#modal-root .lg-payment-modern .pm-change-client{min-height:36px}}

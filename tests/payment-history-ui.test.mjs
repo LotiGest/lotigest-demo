@@ -261,3 +261,17 @@ test('estado de cuenta muestra únicamente meses exigibles, cuota parcial y tota
  ctx.report.unmatched=1;assert.throws(make,/conciliar/);ctx.report.unmatched=0;
  details[0].paid+=1;assert.throws(make,/no coincide/);
 });
+
+test('después de guardar, el historial conserva ventana y filtros y actualiza borrador válido',()=>{
+ let refresh=0,repaint=0,rendered=0;
+ const ctx=model({paymentDraft:{snapshot:'anterior',stored:'antes'},localStorage:{getItem:()=> 'después'},STORAGE:'key',document:{getElementById:()=>({})},render:()=>rendered++,renderPaymentSelected:()=>repaint++,refresh:()=>refresh++});
+ vm.runInContext("pmHistoryAfterEdit('anterior','antes',true,refresh)",ctx);
+ assert.equal(ctx.paymentDraft.snapshot,JSON.stringify(ctx.db));
+ assert.equal(ctx.paymentDraft.stored,'después');
+ assert.equal(refresh,1);assert.equal(repaint,1);assert.equal(rendered,1);
+ ctx.paymentDraft.snapshot='borrador obsoleto';
+ vm.runInContext("pmHistoryAfterEdit('anterior','antes',true,refresh)",ctx);
+ assert.equal(ctx.paymentDraft.snapshot,'borrador obsoleto');
+ assert.match(historySource,/const visible=pmHistoryRows\(\)\.filter/);
+ assert.doesNotMatch(historySource,/pmClosePaymentHistory\(\);closeModal\(\);render\(\)/);
+});

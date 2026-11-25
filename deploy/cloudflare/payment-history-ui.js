@@ -187,7 +187,19 @@ function pmHistoryEditPlan(state,receiptId,changes,actor,reason,rebuild,receiptR
   before:group,after:next.payments.filter(p=>ids.has(p.id)),corrected});
  return {state:next,count:group.length,total:next.payments.filter(p=>ids.has(p.id)).reduce((n,p)=>n+Math.round(p.amount*100),0)};
 }
-function pmHistoryEditForm(row,item){
+// Actualizar la ventana existente, no volver a buscar al cliente.
+function pmHistoryAfterEdit(snapshot,stored,confirmed,refresh){
+ if(confirmed&&pmActive==='sale'&&paymentDraft?.snapshot===snapshot&&paymentDraft.stored===stored){
+  paymentDraft.snapshot=JSON.stringify(db);paymentDraft.stored=localStorage.getItem(STORAGE);
+ }
+ if(confirmed&&pmActive==='owner'&&ownerPaymentDraft?.snapshot===snapshot)ownerPaymentDraft.snapshot=JSON.stringify(db);
+ render();
+ if(pmActive==='sale'&&document.getElementById('multi-payment-form')){
+  renderPaymentSelected();
+ }
+ if(typeof refresh==='function')refresh();
+}
+function pmHistoryEditForm(row,item,refresh){
  if(item.querySelector('[data-pm-edit-form],[data-pm-void-form]'))return;
  const selected=(db.payments||[]).find(p=>p.id===row.receiptId);if(!selected)return;
  const group=db.payments.filter(p=>selected.groupId?p.groupId===selected.groupId:p.id===selected.id),snapshot=JSON.stringify(db);
@@ -227,15 +239,16 @@ function pmHistoryEditForm(row,item){
    save.disabled=true;cancel.disabled=true;
    await window.lotigestConfirmAdminPin(pin.value);pin.value='';
    if(JSON.stringify(db)!==snapshot)throw Error('Los datos cambiaron. Cierra y vuelve a abrir el historial.');
+   const stored=localStorage.getItem(STORAGE);
    cloudWrite(JSON.stringify(plan.state));db=plan.state;await cloudFlush();
    const confirmed=cloudReady&&!cloudBlocked&&!cloudOffline&&cloudQueue&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed;
-   pmClosePaymentHistory();closeModal();render();
+   pmHistoryAfterEdit(snapshot,stored,confirmed,refresh);
    toast(confirmed?'Pago actualizado. Saldo y cuotas recalculados.':'Edición pendiente de sincronización. No repitas la operación.',confirmed?'success':'error');
   }catch(err){message.textContent=err.message;pin.value='';save.disabled=false;cancel.disabled=false;}
  });
  item.append(form);date.focus();
 }
-function pmHistoryVoidForm(row,item){
+function pmHistoryVoidForm(row,item,refresh){
  if(item.querySelector('[data-pm-void-form],[data-pm-edit-form]'))return;
  const form=pmNode('form','pm-history-item-body');form.dataset.pmVoidForm='true';
  const selected=(db.payments||[]).find(p=>p.id===row.receiptId);
@@ -260,9 +273,10 @@ function pmHistoryVoidForm(row,item){
    save.disabled=true;cancel.disabled=true;
    await window.lotigestConfirmAdminPin(pin.value);pin.value='';
    if(JSON.stringify(db)!==snapshot)throw Error('Los datos cambiaron. Cierra y vuelve a abrir el historial.');
+   const stored=localStorage.getItem(STORAGE);
    cloudWrite(JSON.stringify(plan.state));db=plan.state;await cloudFlush();
    const confirmed=cloudReady&&!cloudBlocked&&!cloudOffline&&cloudQueue&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed;
-   pmClosePaymentHistory();closeModal();render();
+   pmHistoryAfterEdit(snapshot,stored,confirmed,refresh);
    toast(confirmed?'Recibo anulado. Saldo y cuotas actualizados.':'Anulación pendiente de sincronización. No repitas la operación.',confirmed?'success':'error');
   }catch(err){message.textContent=err.message;pin.value='';save.disabled=false;cancel.disabled=false;}
  });
@@ -273,7 +287,6 @@ function pmClosePaymentHistory(restore=true){
  if(restore){const target=pmReportsReturnFocus;pmReportsReturnFocus=null;if(target?.isConnected)target.focus();}
 }
 function pmOpenPaymentHistory(fromReports=false){
- const rows=pmHistoryRows();
  pmClosePaymentHistory(false);
  const layer=pmNode('div','pm-history-layer'),shade=pmNode('div','pm-history-shade');
  const dialog=pmNode('section','pm-history-window');
@@ -302,12 +315,12 @@ function pmOpenPaymentHistory(fromReports=false){
  const render=()=>{
   list.replaceChildren();
   const q=String(text.value||'').trim().toLowerCase();
-  const visible=rows.filter(p=>(!from.value||p.date>=from.value)&&(!to.value||p.date<=to.value)&&
+  const visible=pmHistoryRows().filter(p=>(!from.value||p.date>=from.value)&&(!to.value||p.date<=to.value)&&
     pmHistoryMatches(p,q));
   count.textContent=visible.length+' registro(s) por fecha'+(visible.length?' · Último movimiento: '+(visible[0].date||'Por verificar'):'');
   if(!visible.length){list.append(pmNode('p','pm-help','No hay movimientos para estas fechas o el cliente/solar seleccionado.'));return;}
   for(const p of visible){
-   const item=pmNode('article','pm-history-item');
+   const item=pmNode('article','pm-history-item');item.dataset.pmReceiptId=String(p.receiptId||p.id);
    const row=pmNode('div','pm-history-item-head');
    row.append(pmNode('strong','',p.date||'Fecha por verificar'),pmNode('strong','',p.amountCents===null?'Importe por verificar':money(p.amountCents/100)));
    item.append(row);
@@ -327,13 +340,21 @@ function pmOpenPaymentHistory(fromReports=false){
     item.append(button);
     if(pmHistoryCanVoid(p)){
      const edit=pmNode('button','btn btn-outline btn-sm','Editar pago');edit.type='button';edit.style.color='#176c34';edit.style.marginLeft='8px';
-     edit.addEventListener('click',()=>pmHistoryEditForm(p,item));item.append(edit);
+     edit.addEventListener('click',()=>pmHistoryEditForm(p,item,()=>refreshAfterSave(p)));item.append(edit);
      const remove=pmNode('button','btn btn-outline btn-sm','Eliminar pago');remove.type='button';remove.style.color='#b42332';remove.style.marginLeft='8px';
-     remove.addEventListener('click',()=>pmHistoryVoidForm(p,item));item.append(remove);
+     remove.addEventListener('click',()=>pmHistoryVoidForm(p,item,()=>refreshAfterSave(p)));item.append(remove);
     }
    }else item.append(pmNode('small','pm-help','Documento sin recibo PDF vinculado; revisar el movimiento.'));
    list.append(item);
   }
+ };
+ const refreshAfterSave=p=>{
+  if(!layer.isConnected||pmHistoryLayer!==layer)return;
+  const scrolls=[dialog,list].map(el=>[el,el.scrollTop]);
+  render();
+  for(const [el,top] of scrolls)el.scrollTop=top;
+  const item=[...list.children].find(el=>el.dataset.pmReceiptId===String(p.receiptId||p.id));
+  (item?.querySelector('button')||close).focus({preventScroll:true});
  };
  from.addEventListener('change',render);to.addEventListener('change',render);
  text.addEventListener('input',render);

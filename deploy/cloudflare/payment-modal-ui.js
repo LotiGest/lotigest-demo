@@ -12,6 +12,33 @@ function pmModal(title,subtitle){
  if(heading&&!caption.parentNode)heading.after(caption);
  return modal;
 }
+// Nombre visible aun cuando el panel de búsqueda está plegado.
+function pmHeaderClient(modal,client){
+ const header=modal?.querySelector('.modal-header>div');if(!header)return;
+ let row=header.querySelector('.pm-header-client');
+ if(!row){
+  row=pmNode('div','pm-header-client');
+  const name=pmNode('strong','pm-header-client-name');name.setAttribute('aria-live','polite');
+  const find=pmNode('button','btn btn-outline btn-sm pm-change-client','Buscar otro cliente');find.type='button';
+  find.addEventListener('click',()=>{
+   const form=modal.querySelector('#multi-payment-form,#owner-abono-form');if(!form)return;
+   if(modal.querySelector('[type="submit"]:disabled')||document.querySelector('.pm-history-layer'))return;
+   // No trasladar fechas, correlativos, importes ni fotografías de un cliente a otro.
+   const dirty=[...form.querySelectorAll('input,textarea,select')].some(el=>{
+    if(el.type==='file')return Boolean(el.files?.length);
+    if(el.type==='checkbox'||el.type==='radio')return el.checked!==el.defaultChecked;
+    if(el.matches('[data-payment-amount],[data-owner-statement],#pm-client-total,[name="receiptRef"]'))return Boolean(String(el.value||'').trim());
+    if(el.matches('#multi-payment-search,[type="search"],[type="hidden"]'))return false;
+    return el.tagName==='SELECT'?el.selectedIndex>0:el.value!==el.defaultValue;
+   });
+   if(dirty&&!window.confirm('Hay datos de un abono sin guardar. ¿Descartarlos y buscar otro cliente?'))return;
+   newPayment(null,false);
+  });
+  row.append(name,find);header.append(row);
+ }
+ row.querySelector('.pm-header-client-name').textContent=client?.name||'Selecciona un cliente';
+ row.querySelector('.pm-change-client').hidden=!client;
+}
 function pmIcon(name){return typeof ic==='function'?ic(name):'';}
 function pmCard(title,icon){
  const card=pmNode('section','pm-card');
@@ -271,6 +298,7 @@ function pmRepaintSales(){
  const sales=pmSales(),single=sales.length===1,client=sales.length?getClient(sales[0].clientId):null;
  const name=document.getElementById('pm-client-name'),identity=document.getElementById('pm-client-id'),tags=document.getElementById('pm-lot-tags');
  if(name)name.textContent=client?.name||'Selecciona un cliente';
+ pmHeaderClient(form.closest('.lg-payment-modern'),client);
  if(identity)identity.textContent=client?.identity?'Identidad: '+client.identity:'Residencial: '+residence().name;
  if(tags)pmRenderAssignedLots(tags,client?.id||paymentDraft?.clientId);
  const summary=document.getElementById('pm-summary');
@@ -469,6 +497,7 @@ function pmOwnerDecorate(){
  main.append(left.card,right.card);shell.append(main);
  const cal=pmCard('Calendario de pagos (Cronograma)','calendar');cal.body.append(pmNode('p','pm-help','Las fichas de propietario no tienen un calendario de cuotas verificable hasta que se registren el contrato, las fechas y el plazo. Puedes registrar el abono sin inventar meses pagados.'));
  shell.append(cal.card);form.replaceChildren(shell);pmFooter(modal,'owner-abono-form');
+ pmHeaderClient(modal,client);
  pmUpdateLastPayment(client?.id||'',ownerPaymentDraft?.residenceId);
 }
 // Interceptor único: cualquiera que sea el acceso (Cuotas, Clientes, Fichas, Cobros),
