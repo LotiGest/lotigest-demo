@@ -188,6 +188,8 @@ test('consolidación mensual de tres solares distingue depósitos, mora y adelan
  ctx.report=report;const pdf=vm.runInContext('pmAmortizationPdf(report)',ctx);
  const raw=Buffer.from(await pdf.arrayBuffer()).toString('latin1');
  assert.match(raw,/Amortización mensual consolidada/);assert.match(raw,/003555/);assert.match(raw,/Sin depósito/);
+ const monthlyPdf=raw.slice(raw.indexOf('Amortización mensual consolidada'),raw.indexOf('Distribución del último pago'));
+ assert.match(monthlyPdf,/Depósito \/ folio/);assert.match(monthlyPdf,/Aplicado \/ folio/);assert.match(monthlyPdf,/#003555/);
  assert.equal(JSON.stringify(ctx.state),snapshot);
 });
 
