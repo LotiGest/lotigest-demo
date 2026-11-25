@@ -52,7 +52,7 @@ function receiptCorrelativoFeedback(input){
  if(!raw)error='Debes ingresar el correlativo del pago.';
  else if(raw.length>80||normalized===null)error='El correlativo debe contener solamente números.';
  else if(typeof db!=='undefined'&&api?.findReceiptCorrelativo(db,raw))
-  error='El correlativo '+normalized+' ya está registrado en otro pago.';
+  error=api.receiptCorrelativoMessage(db,raw);
  if(input.setCustomValidity)input.setCustomValidity(error);
  input.setAttribute('aria-invalid',String(Boolean(error)));
  if(label){label.classList.toggle('pm-correlativo-duplicate',Boolean(error));label.classList.toggle('pm-correlativo-valid',Boolean(raw&&!error));}
