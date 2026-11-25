@@ -157,7 +157,7 @@ function pmCalendar(root,sales){
   const glyph={'paid':'✓','paid-late':'✓','excess-covered':'↗✓','advance-covered':'↗✓','advance':'↗','late':'!','pending':'◷','partial':'◐','mixed':'◐','deposit-only':'✓',none:'—'}[status];
   const cell=pmNode('button','pm-month '+status+(key===now.slice(0,7)?' current':'')+(pmSelectedMonth===key?' pm-month-selected':''));
   cell.type='button';cell.dataset.pmMonth=key;cell.setAttribute('aria-pressed',String(pmSelectedMonth===key));
-  cell.setAttribute('aria-label',names[m-1]+' '+pmYear+': '+(inMonth.length?inMonth.map(x=>pmReportPaymentStatus(x,now)).join('; '):'sin cuota programada'));
+  cell.setAttribute('aria-label',names[m-1]+' '+pmYear+': '+(inMonth.length?inMonth.map(x=>pmReportPaymentStatus(x,now)).join('; '):received.length?'Depósito registrado, sin cuota programada':'sin cuota programada'));
   cell.title=received.length?received.map(p=>p.date+' · #'+(p.reference||'Sin folio')+' · '+money(p.amountCents/100)).join('\n'):inMonth.length?inMonth.map(x=>'Cuota '+x.number+' · '+x.dueDate+' · '+pmReportPaymentStatus(x,now)).join('\n'):'Sin cuota programada';
   cell.append(pmNode('strong','',names[m-1]),pmNode('small','',glyph));
   if(received.length){const onlyPrima=received.every(p=>p.primaCents===p.amountCents);cell.append(pmNode('small','pm-deposit-label',onlyPrima?'Prima recibida':received.length+' recibo(s)'));cell.append(pmNode('small','pm-deposit-label',money(received.reduce((n,p)=>n+p.amountCents,0)/100)));}
