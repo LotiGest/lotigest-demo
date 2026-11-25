@@ -5,6 +5,71 @@
  'use strict';
  const modeKey='lotigest-map-mode-3d-v2';
  let view='project', yaw=-6;
+ // La navegación de detalle es una presentación local, no modifica el inventario.
+ let scopeStage='', scopeBlock='', scopeResidence='';
+ const originalBoxes=new WeakMap();
+ function scopeFeatures(){
+  if(typeof residence!=='function'||typeof mapFeatures!=='function')return [];
+  const current=residence();
+  if(scopeResidence!==current.id){scopeResidence=current.id;scopeStage='';scopeBlock='';}
+  return mapFeatures(current);
+ }
+ function stageOf(f){return String(f.stage??'');}
+ function blockOf(f){return String((typeof residenceRecords==='function'?residenceRecords()[f.key]?.block:'')||f.block||'');}
+ function scopeEscape(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+ function options(values,current,empty,format){
+  return '<option value="">'+empty+'</option>'+values.map(v=>'<option value="'+scopeEscape(v)+'"'+(v===current?' selected':'')+'>'+scopeEscape(format(v))+'</option>').join('');
+ }
+ function scopeToolbar(){
+  const features=scopeFeatures();
+  if(!features.length)return '';
+  const sort=(a,b)=>a.localeCompare(b,'es',{numeric:true});
+  const stages=[...new Set(features.map(stageOf).filter(Boolean))].sort(sort);
+  const stageFeatures=features.filter(f=>!scopeStage||stageOf(f)===scopeStage);
+  const blocks=[...new Set(stageFeatures.map(blockOf).filter(Boolean))].sort(sort);
+  const count=stageFeatures.filter(f=>!scopeBlock||blockOf(f)===scopeBlock).length;
+  return '<div class="lg-map-scope" role="group" aria-label="Mapa completo y navegación por sectores">'+
+   '<button type="button" class="btn btn-primary" data-lg-map-full aria-pressed="'+(!scopeStage&&!scopeBlock)+'">Mapa completo</button>'+
+   '<details '+(scopeStage||scopeBlock?'open':'')+'><summary>Ver por etapa o bloque</summary><div class="lg-map-scope-fields">'+
+   '<label>Etapa<select id="lg-map-stage">'+options(stages,scopeStage,'Todas las etapas',v=>'Etapa '+v)+'</select></label>'+
+   '<label>Bloque<select id="lg-map-block">'+options(blocks,scopeBlock,'Todos los bloques',v=>/^bloque/i.test(v)?v:'Bloque '+v)+'</select></label>'+
+   '<span aria-live="polite">'+count+' terrenos en esta vista</span></div></details></div>';
+ }
+ function scopedBounds(features){
+  const p=features.flatMap(f=>Array.isArray(f.points)?f.points:[]).filter(x=>Array.isArray(x)&&x.length>=2&&Number.isFinite(Number(x[0]))&&Number.isFinite(Number(x[1])));
+  if(!p.length)return null;
+  const xs=p.map(x=>Number(x[0])),ys=p.map(x=>Number(x[1]));
+  const x=Math.min(...xs),y=Math.min(...ys),w=Math.max(...xs)-x,h=Math.max(...ys)-y;
+  const pad=Math.max(8,Math.max(w,h)*.12);
+  return [x-pad,y-pad,w+2*pad,h+2*pad].join(' ');
+ }
+ function applyScope(svg){
+  if(!originalBoxes.has(svg))originalBoxes.set(svg,svg.getAttribute('viewBox'));
+  const original=originalBoxes.get(svg);
+  const all=scopeFeatures(),active=Boolean(scopeStage||scopeBlock);
+  const subset=active?all.filter(f=>(!scopeStage||stageOf(f)===scopeStage)&&(!scopeBlock||blockOf(f)===scopeBlock)):all;
+  const bounds=active?scopedBounds(subset):null;
+  if(bounds)svg.setAttribute('viewBox',bounds);
+  else if(original!==null)svg.setAttribute('viewBox',original);
+  const keys=new Set(subset.map(f=>String(f.key)));
+  for(const plot of svg.querySelectorAll('.ar-solar'))plot.classList.toggle('lg-outside-scope',Boolean(bounds)&&!keys.has(plot.dataset.id));
+ }
+ function resetLegacyMapFilters(){
+  if(typeof arrayanStageFilter!=='undefined')arrayanStageFilter='all';
+  if(typeof arrayanBlockFilter!=='undefined')arrayanBlockFilter='all';
+  if(typeof arrayanKindFilter!=='undefined')arrayanKindFilter='all';
+  if(typeof arrayanFilter!=='undefined')arrayanFilter='all';
+  if(typeof arrayanSelected!=='undefined')arrayanSelected=null;
+  if(typeof arrayanZoom!=='undefined')arrayanZoom=100;
+ }
+ function switchScope(stage,block,full=false){
+  scopeStage=stage;scopeBlock=block;resetLegacyMapFilters();
+  if(!full&&view==='project')view='3d';
+  try{localStorage.setItem(modeKey,view);}catch(_){}
+  render();
+  const viewport=document.getElementById('arrayan-scroll');
+  if(viewport){viewport.scrollLeft=0;viewport.scrollTop=0;}
+ }
  try {const saved=localStorage.getItem(modeKey);if(['2d','3d','project'].includes(saved))view=saved;}catch(_){}
  function projectAllowed(){return typeof residence!=='function'||residence().id==='arrayan';}
  const previousPage=arrayanPage;
@@ -20,7 +85,7 @@
    '<button type="button" class="btn btn-outline" data-lg-map-turn="1" title="Girar a la derecha">Girar ↷</button>'+
    '<small>Casas simbólicas: techos verdes = vendidos / prima; amarillos = disponibles; rojos = mora; morados = apartados; gris = privado; verde limón = contrato sin prima. Relieve y alineación ilustrativos.</small></div>';
   const illustration=!projectAllowed()?'':'<figure class="lg-map-project"><img src="/altos-arrayan-vista-proyecto.webp" width="1536" height="1024" alt="Propuesta visual de Altos del Arrayán con casas y terrazas sobre imagen satelital" decoding="async"><figcaption>Vista ilustrativa del proyecto · casas, colores y alturas de referencia. Para consultar estados actuales y seleccionar terrenos, abre Vista 2D o Vista 3D.<br><span>Punto de referencia: 14.4279541, -88.9510169 · alineación aproximada.</span><button type="button" class="btn btn-primary" data-lg-map-view="3d">Seleccionar un solar</button></figcaption></figure>';
-  return html.replace('<div class="page-cols">',bar+'<div class="page-cols">').replace(/(<div[^>]*id="arrayan-scroll"[^>]*>)/,'$1'+illustration);
+  return html.replace('<div class="page-cols">',bar+scopeToolbar()+'<div class="page-cols">').replace(/(<div[^>]*id="arrayan-scroll"[^>]*>)/,'$1'+illustration);
  };
  const ns='http://www.w3.org/2000/svg';
  function darken(hex){
@@ -79,6 +144,12 @@
    body.appendChild(node('path',{d:'M-2.45 -.65L0 -2.2L2.45 -.65L0 .8Z',fill:roof.color,'data-roof':'true',stroke:'#f8fff5','stroke-width':.18}));
    body.appendChild(node('path',{d:'M0 -2.2L0 .8',fill:'none',stroke:'#2c5d3e','stroke-width':.12}));
    body.appendChild(node('path',{d:'M-.6 1.1L0 .8L0 2.2L-.6 1.9Z',fill:'#52685a'}));
+   // Vegetación simbólica en la vista 3D, recortada al solar; no representa árboles levantados por GPS.
+   const tree=node('g',{'class':'lg-map-tree',transform:'translate(2.9 .6)','aria-hidden':'true'});
+   tree.appendChild(node('path',{d:'M0 .2V1.6',stroke:'#846747','stroke-width':.35}));
+   tree.appendChild(node('circle',{cx:0,cy:-.35,r:1.05,fill:'#37774a',stroke:'#28573a','stroke-width':.12}));
+   tree.appendChild(node('circle',{cx:-.3,cy:-.65,r:.57,fill:'#82b26a'}));
+   body.appendChild(tree);
    group.appendChild(body);plot.insertBefore(group,text||null);
   }
  }
@@ -100,7 +171,7 @@
   if(!viewport)return;
   const svg=viewport.querySelector('#arrayan-native');
   if(!svg)return;
-  addSolarRelief(svg);if(projectAllowed())addTerraces(svg);addHouses(svg);
+  addSolarRelief(svg);if(projectAllowed())addTerraces(svg);addHouses(svg);applyScope(svg);
   const activeView=view==='project'&&!projectAllowed()?'3d':view;
   viewport.classList.toggle('lg-3d-mode',activeView==='3d');
   viewport.classList.toggle('lg-project-mode',activeView==='project');
@@ -115,6 +186,8 @@
  const previousRender=render;
  render=function(...args){const result=previousRender(...args);apply();return result;};
  document.addEventListener('click',function(event){
+  const fullBtn=event.target.closest?.('[data-lg-map-full], [data-action="arrayan-fit"]');
+  if(fullBtn){event.preventDefault();event.stopImmediatePropagation();switchScope('','',true);return;}
   const modeBtn=event.target.closest?.('[data-lg-map-view]');
   const turnBtn=event.target.closest?.('[data-lg-map-turn]');
   if(!modeBtn&&!turnBtn)return;
@@ -122,14 +195,26 @@
   if(modeBtn){
    const requested=modeBtn.getAttribute('data-lg-map-view');view=['2d','3d','project'].includes(requested)?requested:'3d';
    try{localStorage.setItem(modeKey,view)}catch(_){}
+   if(view==='project'&&(scopeStage||scopeBlock)){switchScope('','',true);return;}
   } else if(view==='3d'){
    yaw=(yaw+Number(turnBtn.getAttribute('data-lg-map-turn'))*45)%360;
   }
   apply();
  },true);
+ document.addEventListener('change',function(event){
+  const id=event.target.id;
+  if(id==='lg-map-stage'||id==='lg-map-block'){
+   event.stopImmediatePropagation();
+   if(id==='lg-map-stage')switchScope(event.target.value,'');
+   else switchScope(scopeStage,event.target.value);
+  }else if(['ar-stage-filter','ar-block-filter','ar-kind','ar-filter'].includes(id)){
+   scopeStage='';scopeBlock='';
+  }
+ },true);
  if(!document.getElementById('lotigest-map-3d-css')){
   const style=document.createElement('style');style.id='lotigest-map-3d-css';
   style.textContent=[
+   '.lg-map-scope{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin:0 0 14px;padding:10px;border:1px solid #b6cda8;border-radius:12px}.lg-map-scope details{flex:1;min-width:190px}.lg-map-scope summary{cursor:pointer;font-weight:600;padding:9px}.lg-map-scope-fields{display:flex;gap:10px;align-items:end;flex-wrap:wrap;padding:8px}.lg-map-scope-fields label{display:grid;gap:4px;flex:1;min-width:135px}.lg-map-scope-fields span{font-size:12px}.lg-outside-scope{display:none!important}#arrayan-scroll:not(.lg-3d-mode) .lg-map-tree{display:none}@media print{.lg-map-scope{display:none!important}}',
    '#arrayan-scroll .lg-map-project{display:none;margin:0}#arrayan-scroll.lg-project-mode .lg-map-project{display:block}#arrayan-scroll.lg-project-mode #arrayan-native{display:none!important}#arrayan-scroll.lg-project-mode{max-height:none!important;padding:0;overflow:hidden;background:#e7efe2}#arrayan-scroll .lg-map-project img{display:block;width:100%;height:auto;min-width:0}#arrayan-scroll .lg-map-project figcaption{padding:14px;color:#264d3d;font:13px/1.5 system-ui;background:#f5faef}#arrayan-scroll .lg-map-project figcaption span{display:block;margin:7px 0}.lg-map-house{pointer-events:none}#arrayan-scroll:not(.lg-3d-mode) .lg-map-terraces{display:none}#arrayan-scroll .lg-map-house [data-roof]{transition:fill .15s ease}',
    '.lg-map-visual-toolbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:12px 15px;margin:0 0 14px;border:1px solid #d4e5d2;background:linear-gradient(120deg,#f4faf0,#e9f5e7);border-radius:16px;color:#173e2f}',
    '.lg-map-visual-toolbar strong{font-size:14px;margin-right:auto}',
