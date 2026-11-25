@@ -102,7 +102,7 @@ function pmCalendar(root,sales){
  const partialAdvances=rows.filter(r=>r.remainingCents>0&&r.receipts.some(p=>p.date.slice(0,7)!==r.dueDate.slice(0,7))).length;
  const pending=rows.length-paid;
  const next=rows.find(r=>r.remainingCents>0);
- const progress=pmNode('div','pm-progress');
+ const progress=pmNode('div','pm-progress'),future=pmFutureCoverage(rows,now);
  for(const [label,value] of [
   ['Plan de pago',rows.length+' cuotas (la prima es aparte)'],
   ['Cuotas cubiertas (sin prima)',String(paid)],
@@ -110,7 +110,11 @@ function pmCalendar(root,sales){
   ['Cuotas pendientes / por conciliar',String(pending)],
   ['Cubiertas con excedente',String(advances)],
   ['Abono parcial con excedente',String(partialAdvances)],
-  ['Próxima cuota por revisar',next?next.dueDate:'Sin cuotas pendientes']
+  ['Cuotas futuras pagadas por adelantado',String(future.covered)],
+  ['Adelanto vigente a meses futuros',money(future.amountCents/100)],
+  ['Último vencimiento futuro cubierto',future.through||'—'],
+  ['Próxima cuota por revisar',next?next.dueDate:'Sin cuotas pendientes'],
+  ['Saldo de próxima cuota',next?money(next.remainingCents/100):money(0)]
  ]){
   const item=pmNode('div');item.append(pmNode('span','',label),pmNode('strong','',value));progress.append(item);
  }
@@ -329,7 +333,12 @@ function pmRepaintSales(){
    summary.append(pmSummaryRow('Saldo inicial a financiar (precio − prima)',money(Math.max(0,price-agreed))));
    summary.append(pmSummaryRow('Cuotas cubiertas con recibos (sin prima)',String(confirmed)+' cuotas'));
    summary.append(pmSummaryRow('Abonos a cuotas identificadas',money(monthlyCents/100)));
-   summary.append(pmSummaryRow('Adelantos aplicados a meses futuros',money(advances/100)));
+   const future=pmFutureCoverage(ledger.rows,businessToday());
+   summary.append(pmSummaryRow('Adelantos históricos aplicados',money(advances/100)));
+   summary.append(pmSummaryRow('Adelanto vigente a meses futuros',money(future.amountCents/100),'pm-good'));
+   summary.append(pmSummaryRow('Cuotas futuras cubiertas',String(future.covered)));
+   if(future.through)summary.append(pmSummaryRow('Último vencimiento futuro cubierto',future.through));
+   if(future.next)summary.append(pmSummaryRow('Próxima cuota con saldo · '+future.next.dueDate,money(future.next.remainingCents/100)));
    summary.append(pmSummaryRow('Total contabilizado (prima y demás pagos)',money(paid)));
    summary.append(pmSummaryRow('Saldo restante actual',money(remaining),'pm-good'));
    const regular=sales.filter(s=>s.type==='credit'&&Number(s.months)>0).map(s=>({sale:s,cents:installmentDueCents(s,1)}));
