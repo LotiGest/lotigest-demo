@@ -206,7 +206,7 @@
    let warning='';
    if(ref&&key===null)warning='El correlativo debe contener solamente números.';
    else if(ref&&references.get(key)>1)warning='Correlativo '+key+' repetido entre estas fechas.';
-   else if(ref&&window.lotigestOwnerPayments?.findReceiptCorrelativo(db,ref))warning='El correlativo '+key+' ya está registrado.';
+   else if(ref&&window.lotigestOwnerPayments?.findReceiptCorrelativo(db,ref))warning=window.lotigestOwnerPayments.receiptCorrelativoMessage(db,ref);
    el.textContent=warning||(ref?(r.refSuggested?'Correlativo sugerido (editable): ':'Se comprobará como ')+key:'');
    el.classList.toggle('invalid',Boolean(warning));
    const row=document.querySelector('[data-md-row="'+r.id+'"]');row?.classList.toggle('md-duplicate',Boolean(warning));
@@ -393,7 +393,8 @@
    const val=Number(row.amount),cents=Math.round(val*100);
    if(row.amount===''||!Number.isSafeInteger(cents)||cents<=0||Math.abs(cents-val*100)>.001)throw Error('Monto inválido en el abono '+(i+1)+'.');
    const raw=String(row.receiptRef||'').trim(),normalized=window.lotigestOwnerPayments.requireReceiptCorrelativo(raw);
-   if(existingKeys.has(normalized)||window.lotigestOwnerPayments.findReceiptCorrelativo(db,raw))throw Error('El correlativo '+normalized+' ya está registrado o repetido.');
+   if(existingKeys.has(normalized))throw Error('El correlativo '+normalized+' está repetido entre estas fechas.');
+   const duplicate=window.lotigestOwnerPayments.receiptCorrelativoMessage(db,raw);if(duplicate)throw Error(duplicate);
    existingKeys.add(normalized);
    if(mdState.kind==='owner'&&!mdState.docs.some(d=>d.id===row.statementId))throw Error('Selecciona una ficha válida en el abono '+(i+1)+'.');
    if(row.photo&&(!window.lotigestFiles||row.photo.size>12*1024*1024))throw Error('No se puede conservar la fotografía del abono '+(i+1)+'.');
@@ -606,7 +607,7 @@
   catch(e){mdFocusField(row.id,'receiptRef');toast(e.message,'error');return;}
   if(mdState.rows.some(other=>other!==row&&window.lotigestOwnerPayments.normalizeReceiptCorrelativo(other.receiptRef)===normalized)||
      window.lotigestOwnerPayments.findReceiptCorrelativo(db,row.receiptRef)){
-   mdFocusField(row.id,'receiptRef');toast('El correlativo '+normalized+' ya está registrado o repetido.','error');return;
+   mdFocusField(row.id,'receiptRef');toast(window.lotigestOwnerPayments.receiptCorrelativoMessage(db,row.receiptRef)||'El correlativo '+normalized+' está repetido entre estas fechas.','error');return;
   }
   if(index+1>=mdState.rows.length){
    if(mdState.rows.length>=24){toast('Máximo 24 abonos por operación. Guarda los pagos antes de continuar.','error');return;}
