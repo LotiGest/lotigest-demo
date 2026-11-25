@@ -1,4 +1,4 @@
 {
   "version": "1.0.0",
-  "notes": "LOTIGEST Pro 1.0.0: nueva numeración de versiones. Registro de abonos en ventana emergente compacta y adaptable, con monto y correlativo visibles y secciones informativas desplegables. Conserva las funciones y datos existentes, incluido el mapa 2D/3D."
+  "notes": "LOTIGEST Pro 1.0.0: nueva numeración. Registro de abonos en ventana emergente compacta; paneles administrativos con acciones, indicadores, filtros y detalles desplegables; textos de presentación reducidos. Mapas de solares, GPS y diseño permanecen sin acordeones. Conserva funciones y datos existentes."
 }
