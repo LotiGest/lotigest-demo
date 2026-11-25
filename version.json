@@ -1,4 +1,4 @@
 {
-  "version": "1.0.8",
-  "notes": "Acceso directo a liberar todas las asignaciones provisionales sin contrato en todas las residenciales, con selección masiva previa, respaldo y protección de contratos y cobros."
+  "version": "1.0.9",
+  "notes": "Terrenos y Predios: Revisar compras sin contrato incluye las asignaciones provisionales y compras elegibles, selección total sin límite y una sola confirmación con respaldo."
 }

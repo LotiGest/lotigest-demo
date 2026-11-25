@@ -35,7 +35,7 @@
    '<h3>Compradores desde Contratos</h3><p class="sm">Aquí administras medidas, precios, etapas, bloques y solares. Para crear o vincular el comprador y registrar la compra, utiliza <strong>Contratos → Nuevo contrato</strong>. Un comprador sin contrato no se mostrará como titular confirmado.</p>'+
    (admin?'<p class="sm"><strong>'+audit.candidates.length+'</strong> compras sin contrato y sin movimientos encontradas para revisión; <strong>'+
     audit.protectedSales.length+'</strong> compras con vínculos protegidos. Además hay <strong>'+
-    links.candidates.length+'</strong> asociaciones provisionales que se pueden revisar por separado.</p>'+
+    links.candidates.length+'</strong> asociaciones provisionales que puedes liberar en la misma operación.</p>'+
     '<div class="lot-contract-first-actions"><button type="button" class="btn btn-outline" data-lot-uncontracted-open>Revisar compras sin contrato</button>'+
     '<button type="button" class="btn btn-outline" data-owner-cleanup-bulk>Liberar todos los solares sin contrato</button></div>':'')+
    '</section>';
@@ -83,24 +83,45 @@
  function filterText(value){
   return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  }
+
+ function auditCombinedSolarCleanup(state,rid){
+  const sales=auditUncontractedSales(state,rid),owners=auditOrphanOwnerLinks(state,rid,true);
+  const candidates=[...sales.candidates.map(x=>({...x,key:'sale:'+x.saleId,kind:'Compra sin contrato'})),...owners.candidates.map(x=>({...x,key:'owner:'+x.lotId,kind:'Asignación provisional'}))];
+  const eligible=new Set(candidates.map(x=>x.lotId)),protectedByLot=new Map();
+  for(const x of [...sales.protectedSales,...owners.protectedLinks])if(!eligible.has(x.lotId)){
+   const previous=protectedByLot.get(x.lotId);
+   protectedByLot.set(x.lotId,previous?{...previous,reason:[...new Set([previous.reason,x.reason])].join(' · ')}:x);
+  }
+  return {candidates,protectedSales:[...protectedByLot.values()]};
+ }
+ function removeCombinedSolarCleanup(state,keys,rid,actor){
+  if(!Array.isArray(keys)||!keys.length||new Set(keys).size!==keys.length)throw Error('Selección inválida.');
+  const audit=auditCombinedSolarCleanup(state,rid),allowed=new Map(audit.candidates.map(x=>[x.key,x]));
+  for(const key of keys)if(!allowed.has(key))throw Error('La selección cambió o contiene un solar protegido.');
+  const rows=keys.map(key=>allowed.get(key)),owners=rows.filter(x=>x.kind==='Asignación provisional').map(x=>x.lotId),sales=rows.filter(x=>x.kind==='Compra sin contrato').map(x=>x.saleId);
+  let next=state;
+  if(owners.length)next=removeOrphanOwnerLinks(next,owners,rid,actor,'Liberar asignaciones provisionales para registrar contratos manualmente',undefined,true,true).state;
+  if(sales.length)next=removeUncontractedSales(next,sales,rid,true).state;
+  return {state:next,changed:rows.length};
+ }
  function renderAudit(){
   const d=auditDraft,host=document.getElementById('lot-uncontracted-content');
   if(!d||!host)return;
   const q=filterText(d.search);
-  const shown=d.audit.candidates.filter(row=>filterText([row.clientName,row.stage,row.block,row.number,row.saleId].join(' ')).includes(q));
+  const shown=d.audit.candidates.filter(row=>filterText([row.clientName,row.stage,row.block,row.number,row.lotId,row.kind,row.saleId].join(' ')).includes(q));
   host.innerHTML='<p class="sm"><strong>'+d.audit.candidates.length+
-   ' compras revisables</strong> sin contrato y sin pagos, apartados o fichas vinculadas. <strong>'+
+   ' solares elegibles</strong> (compras sin respaldo y asignaciones provisionales). <strong>'+
    d.audit.protectedSales.length+' protegidas</strong>: no se eliminarán, incluso aunque falte su contrato.</p>'+
    '<label class="field-group">Buscar cliente, etapa, bloque o solar<input id="lot-uncontracted-search" value="'+esc(d.search)+'" autocomplete="off" placeholder="Buscar comprador o solar"></label>'+
    '<div class="owner-cleanup-list">'+
    (shown.length?shown.slice(0,250).map(row=>'<label class="owner-cleanup-item">'+
-    '<input type="checkbox" data-lot-uncontracted-id="'+esc(row.saleId)+'" '+(d.selected.has(row.saleId)?'checked':'')+'>'+
+    '<input type="checkbox" data-lot-uncontracted-id="'+esc(row.key)+'" '+(d.selected.has(row.key)?'checked':'')+'>'+
     '<span><strong>'+esc(row.clientName)+'</strong><small>Etapa '+esc(row.stage||'—')+' · Bloque '+
-    esc(row.block||'—')+' · Solar '+esc(row.number)+'</small><small>Compra '+esc(row.saleId)+
+    esc(row.block||'—')+' · Solar '+esc(row.number)+'</small><small>'+esc(row.kind)+
     ' · '+esc(row.reason)+'</small></span></label>').join(''):
-    '<p class="sm muted">No se encontraron compras elegibles con este filtro.</p>')+'</div>'+
-   '<p class="sm"><strong>'+d.selected.size+' compras seleccionadas.</strong> Máximo 20 por operación. Al retirarlas desaparece la venta sin respaldo; el solar conserva precio, medidas, ubicación y código. Su estado se libera si quedó marcado como vendido por esa compra. No se borrarán clientes.</p>'+
-   '<div class="owner-cleanup-actions"><button class="btn btn-outline btn-sm" type="button" data-lot-uncontracted-select>Seleccionar visibles (máx. 20)</button>'+
+    '<p class="sm muted">No se encontraron solares elegibles con este filtro.</p>')+'</div>'+
+   '<p class="sm"><strong>'+d.selected.size+' solares seleccionados.</strong> Se liberarán en una sola operación. Se conservan clientes, medidas, precios, contratos, pagos e historial importado.</p>'+
+   '<div class="owner-cleanup-actions"><button class="btn btn-outline btn-sm" type="button" data-lot-uncontracted-select>Seleccionar visibles</button><button class="btn btn-primary btn-sm" type="button" data-lot-uncontracted-all>Seleccionar todos ('+d.audit.candidates.length+')</button>'+
    '<button class="btn btn-outline btn-sm" type="button" data-lot-uncontracted-clear>Quitar selección</button>'+
    '<button class="btn btn-outline btn-sm" type="button" data-lot-uncontracted-protected>Ver protegidas ('+d.audit.protectedSales.length+')</button></div>'+
    '<div class="owner-cleanup-confirm"><button class="btn btn-outline" type="button" data-lot-uncontracted-backup>1. Descargar respaldo JSON</button>'+
@@ -108,18 +129,18 @@
    '<label>Escribe <strong>RETIRAR</strong> para confirmar<input id="lot-uncontracted-code" value="'+esc(d.code)+'" autocomplete="off"></label>'+
    '<p role="alert" id="lot-uncontracted-error"></p></div>';
   const button=document.querySelector('[data-lot-uncontracted-save]');
-  if(button)button.disabled=d.busy||!d.selected.size||d.selected.size>20||
+  if(button)button.disabled=d.busy||!d.selected.size||
    !d.backupDownloaded||!d.confirmed||d.code!=='RETIRAR';
  }
  function openAudit(){
   if(!contractIntakeAdmin()){toast('Esta revisión requiere administrador y Cloudflare sincronizado.','error');return;}
   auditDraft={residenceId:residence().id,snapshot:JSON.stringify(db),
-   audit:auditUncontractedSales(db,residence().id),search:'',
+   audit:auditCombinedSolarCleanup(db,residence().id),search:'',
    selected:new Set(),backupDownloaded:false,confirmed:false,code:'',busy:false};
   showModal('Revisar compras sin contrato · Terrenos / Predios',
-   '<p>Esta limpieza no es automática. Revisa la lista, descarga una copia completa y confirma únicamente las compras sin contrato que deseas retirar. Los pagos, contratos, apartados y fichas con historial quedan protegidos.</p><div id="lot-uncontracted-content"></div>',
+   '<p>Esta limpieza no es automática. Selecciona todos los solares elegibles de esta residencial, descarga el respaldo y confirma. No se borrarán clientes, contratos, pagos, reservas ni el historial importado.</p><div id="lot-uncontracted-content"></div>',
    '<button class="btn btn-soft" type="button" data-action="close-modal">Cancelar</button>'+
-   '<button class="btn btn-primary" type="button" data-lot-uncontracted-save disabled>Retirar las compras seleccionadas</button>',true);
+   '<button class="btn btn-primary" type="button" data-lot-uncontracted-save disabled>Liberar solares seleccionados</button>',true);
   renderAudit();
  }
  async function saveAudit(){
@@ -130,22 +151,22 @@
     throw Error('Descarga el respaldo, confírmalo y selecciona las compras.');
    if(residence().id!==d.residenceId||JSON.stringify(db)!==d.snapshot)
     throw Error('El estado cambió. Revisa nuevamente antes de borrar.');
-   const result=removeUncontractedSales(db,[...d.selected],d.residenceId);
-   if(!confirm('¿Retirar '+result.changed+' compras SIN contrato ni pagos? Se conservarán todos los clientes y solares.'))return;
+   const result=removeCombinedSolarCleanup(db,[...d.selected],d.residenceId,cloudUser?.name||'Administrador');
+   if(!confirm('¿Retirar '+result.changed+' asignaciones y compras elegibles SIN contrato ni pagos reales? Se conservarán todos los clientes y solares.'))return;
    d.busy=true;
    cloudWrite(JSON.stringify(result.state));db=result.state;
    await cloudFlush();
    closeModal();auditDraft=null;render();
    if(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed)
     toast('Cambio pendiente en Cloudflare. Verifica el estado de sincronización antes de continuar.','error');
-   else toast(result.changed+' compras sin contrato retiradas. Puedes registrarlas desde Contratos.');
+   else toast(result.changed+' solares liberados. Puedes registrarlos desde Contratos.');
   }catch(e){
    const el=document.getElementById('lot-uncontracted-error');if(el)el.textContent=e.message;
    toast(e.message,'error');
   }finally{if(d){d.busy=false;renderAudit();}}
  }
  document.addEventListener('click',event=>{
-  const anchor=event.target.closest?.('[data-lot-go-contracts],[data-lot-uncontracted-open],[data-lot-uncontracted-save],[data-lot-uncontracted-select],[data-lot-uncontracted-clear],[data-lot-uncontracted-protected],[data-lot-uncontracted-backup],[data-action="buyer-history"],[data-action="buyer-import"],[data-action="buyer-import-confirm"]');
+  const anchor=event.target.closest?.('[data-lot-go-contracts],[data-lot-uncontracted-open],[data-lot-uncontracted-save],[data-lot-uncontracted-select],[data-lot-uncontracted-all],[data-lot-uncontracted-clear],[data-lot-uncontracted-protected],[data-lot-uncontracted-backup],[data-action="buyer-history"],[data-action="buyer-import"],[data-action="buyer-import-confirm"]');
   if(!anchor)return;
   event.preventDefault();event.stopImmediatePropagation();
   if(anchor.hasAttribute('data-lot-go-contracts')){
@@ -156,8 +177,9 @@
   }
   if(anchor.hasAttribute('data-lot-uncontracted-open')){openAudit();return;}
   const d=auditDraft;if(!d||d.busy)return;
-  if(anchor.hasAttribute('data-lot-uncontracted-select')){
-   d.audit.candidates.filter(row=>filterText([row.clientName,row.stage,row.block,row.number,row.saleId].join(' ')).includes(filterText(d.search))).slice(0,20).forEach(row=>d.selected.add(row.saleId));
+  if(anchor.hasAttribute('data-lot-uncontracted-all')){d.selected=new Set(d.audit.candidates.map(row=>row.key));d.search='';}
+  else if(anchor.hasAttribute('data-lot-uncontracted-select')){
+   d.audit.candidates.filter(row=>filterText([row.clientName,row.stage,row.block,row.number,row.lotId,row.kind,row.saleId].join(' ')).includes(filterText(d.search))).slice(0,250).forEach(row=>d.selected.add(row.key));
   }else if(anchor.hasAttribute('data-lot-uncontracted-clear'))d.selected.clear();
   else if(anchor.hasAttribute('data-lot-uncontracted-protected')){
    const lines=d.audit.protectedSales.slice(0,35).map(r=>r.clientName+' · Etapa '+r.stage+' / Bloque '+r.block+' / Solar '+r.number+' · '+r.reason);
@@ -200,7 +222,7 @@
   }else if(event.target.id==='lot-uncontracted-code'){
    d.code=event.target.value;
    const button=document.querySelector('[data-lot-uncontracted-save]');
-   if(button)button.disabled=d.busy||!d.selected.size||d.selected.size>20||
+   if(button)button.disabled=d.busy||!d.selected.size||
     !d.backupDownloaded||!d.confirmed||d.code!=='RETIRAR';
   }
  },true);

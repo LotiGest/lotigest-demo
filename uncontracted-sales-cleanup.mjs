@@ -47,6 +47,8 @@ export function auditUncontractedSales(state,residenceId=null){
    reasons.push('otra venta asociada al solar');
   if(lot.pendingContractId||lot.contractId)reasons.push('contrato pendiente o vinculado al solar');
   if(lot.mapDebtFlag)reasons.push('mora o deuda señalada en el mapa');
+  const plan=state.residences?.find(r=>r.id===lot.residenceId)?.records?.[lot.sourceFeatureKey];
+  if(plan?.status==='reserved'||plan?.lotId&&plan.lotId!==lot.id||lot.clientId&&lot.clientId!==sale.clientId||lot.historyRequiresReview)reasons.push('referencia de inventario protegida');
   if(lot.status==='reserved'||lot.status==='private'||lot.type==='private')
    reasons.push('estado protegido del solar');
   if(lot.ownerClientId&&lot.ownerClientId!==sale.clientId)
@@ -60,8 +62,8 @@ export function auditUncontractedSales(state,residenceId=null){
  }
  return {candidates,protectedSales,totals:{candidates:candidates.length,protected:protectedSales.length}};
 }
-export function removeUncontractedSales(state,selectedSaleIds,residenceId=null){
- if(!Array.isArray(selectedSaleIds)||!selectedSaleIds.length||selectedSaleIds.length>20)
+export function removeUncontractedSales(state,selectedSaleIds,residenceId=null,allowBulk=false){
+ if(!Array.isArray(selectedSaleIds)||!selectedSaleIds.length||(!allowBulk&&selectedSaleIds.length>20))
   throw Error('Selecciona entre 1 y 20 compras para revisar por operación.');
  const unique=new Set(selectedSaleIds);
  if(unique.size!==selectedSaleIds.length||[...unique].some(x=>typeof x!=='string'||!x))
@@ -79,6 +81,10 @@ export function removeUncontractedSales(state,selectedSaleIds,residenceId=null){
   const lot=next.lots.find(l=>l.id===sale.lotId);
   if(!lot)throw Error('Solar perdido: '+sale.lotId);
   if(lot.ownerClientId===sale.clientId)delete lot.ownerClientId;
+  if(lot.clientId===sale.clientId)delete lot.clientId;
+  lot.purchaseFromPlan=false;
+  const plan=next.residences?.find(r=>r.id===lot.residenceId)?.records?.[lot.sourceFeatureKey];
+  if(plan&&(!plan.lotId||plan.lotId===lot.id)&&plan.status==='sold')plan.status='available';
   if(lot.status==='sold')lot.status='available';
   affected.push({saleId:sale.id,lotId:lot.id,clientId:sale.clientId});
  }

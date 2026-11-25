@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {auditUncontractedSales,removeUncontractedSales} from '../uncontracted-sales-cleanup.mjs';
+import {auditOrphanOwnerLinks,removeOrphanOwnerLinks} from '../owner-link-cleanup.mjs';
 
 const ui=readFileSync(new URL('../deploy/cloudflare/lot-contract-first-ui.js',import.meta.url),'utf8');
 const build=readFileSync(new URL('../deploy/cloudflare/build.mjs',import.meta.url),'utf8');
@@ -96,7 +97,7 @@ test('Terrenos solo muestra titular con contrato y no el comprador sin ficha con
  assert.doesNotMatch(html,/Importar Excel de compradores/);
  assert.match(html,/data-lot-go-contracts/);
  assert.match(html,/data-lot-uncontracted-open/);
- assert.match(html,/data-owner-cleanup-open/);
+ assert.match(html,/data-owner-cleanup-bulk/);
 });
 test('Bloquea compradores y compras directas desde Terrenos, mantiene apartados',()=>{
  assert.match(ui,/option\.value\)\)option\.remove/);
@@ -122,4 +123,14 @@ test('protege comprobantes de Caja e históricos aunque no exista ficha de contr
  db.receipts=[];
  db.historicalContracts=[{id:'H1',clientId:'C1',residenceId:'R'}];
  assert.deepEqual(auditUncontractedSales(db,'R').candidates.map(x=>x.saleId),[]);
+});
+
+test('liberación conjunta masiva de 51 asignaciones y una compra, sin tocar protegidos',()=>{
+ const db=state();for(let i=0;i<51;i++)db.lots.push({id:'P'+i,residenceId:'R',ownerClientId:'C1',status:'sold'});
+ const code=ui.slice(ui.indexOf(' function auditCombinedSolarCleanup('),ui.indexOf(' function renderAudit('));
+ const api=new Function('auditOrphanOwnerLinks','removeOrphanOwnerLinks','auditUncontractedSales','removeUncontractedSales',code+';return {auditCombinedSolarCleanup,removeCombinedSolarCleanup}')(auditOrphanOwnerLinks,removeOrphanOwnerLinks,auditUncontractedSales,removeUncontractedSales);
+ const a=api.auditCombinedSolarCleanup(db,'R');assert.equal(a.candidates.length,52);assert.equal(a.protectedSales.length,2);
+ const before=JSON.stringify(db),result=api.removeCombinedSolarCleanup(db,a.candidates.map(x=>x.key),'R','ADMIN');assert.equal(result.changed,52);assert.equal(JSON.stringify(db),before);assert.deepEqual(result.state.payments,db.payments);assert.deepEqual(result.state.contractTexts,db.contractTexts);assert.deepEqual(result.state.clients,db.clients);assert.equal(result.state.lots.filter(x=>x.status==='available').length,52);
+ assert.throws(()=>api.removeCombinedSolarCleanup(db,['sale:S2'],'R','ADMIN'),/protegido/);
+ assert.match(ui,/data-lot-uncontracted-all/);assert.match(ui,/removeCombinedSolarCleanup\(db,/);
 });
