@@ -40,7 +40,7 @@
   const rows=[['','Saldo inicial · '+j.period.label+' · '+scope(),'','','',0,0,j.opening],...j.rows.map(e=>[e.date,e.description||e.category,e.payee||'',financeResidenceName(e.residenceId),e.correlative||'Sin correlativo',e.income,e.expense,e.balance]),['','Totales / saldo final','','','',j.income,j.expense,j.closing]];
   downloadExcel('LOTIGEST_Libro_diario_'+j.period.from.slice(0,7)+'.xlsx',headers,rows,[],'Libro diario');
  }
- function pdf(){const j=journal();download('LOTIGEST_Libro_diario_'+j.period.from.slice(0,7)+'.pdf',financeJournalPdf(j,{company:db.company.name||'GRUPO H',period:j.period.label,scope:scope(),from:j.period.from,to:j.period.to}),'application/pdf');}
+ function pdf(){const j=journal();download('LOTIGEST_Libro_diario_'+j.period.from.slice(0,7)+'.pdf',financeJournalPdf(j,{company:db.company.name||'GRUPO H',period:j.period.label,scope:scope(),from:j.period.from,to:j.period.to,branding:lgDocumentBranding(financeFilter.residenceId)}),'application/pdf');}
  document.addEventListener('click',e=>{const button=e.target.closest?.('[data-fn-excel],[data-fn-pdf],[data-fn-kind]');if(!button)return;e.preventDefault();try{if(button.hasAttribute('data-fn-excel'))excel();else if(button.hasAttribute('data-fn-pdf'))pdf();else{kind=button.dataset.fnKind;render();}}catch(err){toast(err.message,'error');}});
  document.addEventListener('change',e=>{if(e.target.matches('[data-fn-scope]')){financeFilter.residenceId=e.target.value;render();}else if(e.target.matches('[data-fn-book-month]')){financeFilter.month=Number(e.target.value);render();}});
  document.addEventListener('input',e=>{if(e.target.matches('[data-fn-search]')){query=e.target.value;document.getElementById('fn-transactions').innerHTML=table();}});
