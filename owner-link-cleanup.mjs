@@ -83,16 +83,17 @@ export function auditOrphanOwnerLinks(state,residenceId=null,allowImported=false
  return {candidates,protectedLinks,totals:{candidates:candidates.length,protected:protectedLinks.length}};
 }
 export function removeOrphanOwnerLinks(state,selectedIds,residenceId=null,
- actor='Administrador',reason='Corrección de asignación provisional',at=new Date().toISOString(),allowImported=false){
+ actor='Administrador',reason='Corrección de asignación provisional',at=new Date().toISOString(),allowImported=false,allowBulk=false){
  if(!Array.isArray(selectedIds)||!selectedIds.length)throw Error('Selecciona solares para desvincular.');
- if(selectedIds.length>20)throw Error('Por seguridad, limpia hasta 20 asociaciones a la vez; vuelve a revisar antes de continuar.');
+ if(!allowBulk&&selectedIds.length>20)throw Error('Por seguridad, limpia hasta 20 asociaciones a la vez; vuelve a revisar antes de continuar.');
  const unique=new Set(selectedIds);
  if(unique.size!==selectedIds.length||[...unique].some(x=>typeof x!=='string'||!x))
   throw Error('Selección incompatible.');
  const who=String(actor||'').trim(),why=String(reason||'').trim();
  if(!who||why.length<5||why.length>300)throw Error('Identifica al administrador y escribe un motivo de 5 a 300 caracteres.');
  const review=auditOrphanOwnerLinks(state,residenceId,allowImported);
- const allowed=new Set(review.candidates.map(x=>x.lotId));
+ const candidateById=new Map(review.candidates.map(x=>[x.lotId,x]));
+ const allowed=new Set(candidateById.keys());
  for(const id of unique)if(!allowed.has(id))throw Error('El solar '+id+' ya no es seguro para desvincular.');
  const next=JSON.parse(JSON.stringify(state));let changed=0;
  for(const lot of next.lots){
@@ -102,7 +103,7 @@ export function removeOrphanOwnerLinks(state,selectedIds,residenceId=null,
   lot.ownerUnlinkHistory??=[];
   lot.ownerUnlinkHistory.push({at,by:who.slice(0,120),reason:why,
    previousOwnerClientId,previousStatus,previousPurchaseFromPlan});
-  const candidate=review.candidates.find(x=>x.lotId===lot.id);
+  const candidate=candidateById.get(lot.id);
   if(candidate?.importedOnly){
    lot.ownerUnlinkHistory.at(-1).legacyImportArchived=true;
    lot.ownerUnlinkHistory.at(-1).previousMapDebtFlag=lot.mapDebtFlag;

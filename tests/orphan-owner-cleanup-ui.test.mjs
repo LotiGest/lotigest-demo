@@ -39,3 +39,11 @@ test('ficha de Terrenos y Predios ofrece quitar propietario del solar sin tocar 
  assert.match(ui,/owner-cleanup-reason/);
  assert.match(ui,/ownerUnlinkHistory|removeOrphanOwnerLinks\(db,/);
 });
+
+test('selección masiva incluye candidatos fuera del filtro y de la residencial cuando se elige el ámbito global',()=>{
+ assert.match(ui,/data-owner-cleanup-all/);
+ assert.match(ui,/data-owner-cleanup-global/);
+ assert.match(ui,/new Set\(d\.audit\.candidates\.map\(x=>x\.lotId\)\)/);
+ assert.match(ui,/global\?null:residence\(\)\.id/);
+ assert.match(ui,/d\.reason,undefined,true,true/);
+});

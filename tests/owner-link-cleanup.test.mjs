@@ -107,3 +107,18 @@ test('modo importaciones libera únicamente vínculos documentales sin contabili
  data.historicalPayments[0].postedPaymentId='REAL';
  assert.ok(auditOrphanOwnerLinks(data,'ARRAYAN',true).protectedLinks.some(x=>x.lotId==='L9'));
 });
+
+test('selección masiva explícita supera 20 y conserva contratos en todas las residenciales',()=>{
+ const data=state(); data.residences.push({id:'OTRA'});
+ for(let i=0;i<45;i++)data.lots.push(lot('BULK-'+i,'C2',{residenceId:i<25?'ARRAYAN':'OTRA',status:'sold'}));
+ const ids=auditOrphanOwnerLinks(data,null,true).candidates.map(x=>x.lotId);
+ assert.ok(ids.length>45);
+ const result=removeOrphanOwnerLinks(data,ids,null,'ADMIN','Corrección masiva',undefined,true,true);
+ assert.equal(result.changed,ids.length);
+ assert.deepEqual(result.state.contractTexts,data.contractTexts);
+ assert.deepEqual(result.state.ownerPayments,data.ownerPayments);
+ assert.deepEqual(result.state.sales,data.sales);
+ assert.equal(result.state.lots.find(x=>x.id==='L1').ownerClientId,'C1');
+ assert.equal(result.state.lots.find(x=>x.id==='BULK-44').status,'available');
+ assert.throws(()=>removeOrphanOwnerLinks(data,[...ids,'L1'],null,'ADMIN','Corrección masiva',undefined,true,true),/no es seguro/);
+});
