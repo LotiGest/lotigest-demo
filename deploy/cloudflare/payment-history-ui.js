@@ -638,7 +638,7 @@ function pmStatementMonth(key){const m=new Date(key+'-01T12:00:00Z').toLocaleDat
 function pmStatementModel(report){
  if(report.unmatched)throw Error('Hay pagos por conciliar. Verifica los recibos antes de enviar un estado de cuenta.');
  const monthly=report.details.filter(d=>d.sale.type==='credit');
- if(!monthly.length)throw Error('El cliente no tiene mensualidades de crédito para este estado de cuenta.');
+ // Los contratos de contado también tienen estado de cuenta, sin mensualidades.
  for(const d of monthly){
   const applied=d.rows.reduce((n,r)=>n+r.appliedCents,0);
   if(applied!==Math.max(0,d.paid-d.agreed))throw Error('El saldo mensual no coincide con los recibos conciliados del solar '+(d.lot.sourceNumber||d.lot.number||d.lot.id)+'. Revisa los abonos antes de enviar.');
@@ -650,7 +650,7 @@ function pmStatementModel(report){
  const normalized=report.residence.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  return {branding:report.branding,client:report.client,residence:report.residence,logo:/altos\s+del\s+arrayan/.test(normalized),asOf:report.asOf,
   properties:report.details.map(d=>'Etapa '+(d.lot.stage||'—')+' · Bloque '+(d.lot.block||'—')+' · Solar '+(d.lot.sourceNumber||d.lot.number||d.lot.id)),
-  lastCovered:covered?pmStatementMonth(covered.month):'Sin mensualidad completa al corte',base,pending,total:pending.reduce((n,m)=>n+m.amount,0),prima:Math.max(0,report.agreed-report.prima)};
+  price:report.price,paid:report.paid,abonos:report.abonos,paidPrima:report.prima,balance:report.balance,lastCovered:covered?pmStatementMonth(covered.month):'Sin mensualidad completa al corte',base,pending,total:pending.reduce((n,m)=>n+m.amount,0),prima:Math.max(0,report.agreed-report.prima)};
 }
 function pmStatementPdf(m){
  const brand=m.branding||null,rl=brand?brand.residential:m.logo?{data:'data:image/jpeg;base64,'+pmStatementArrayanLogo,width:175,height:64}:null,cl=brand?.company||null;
@@ -666,7 +666,7 @@ function pmStatementPdf(m){
  const ensure=h=>{if(y-h<80){footer();start();}};
  const field=(label,value)=>{const lines=wrap(value,41);ensure(20+lines.length*14);txt(label,65,y,10,false,gray);lines.forEach((s,i)=>right(s,y-i*14,10,true));y-=Math.max(22,lines.length*14+7);};
  const tableHeader=()=>{ensure(52);rect(62,y-23,488,26,green);txt('MES PENDIENTE',74,y-14,10,true,white);txt('SALDO DE CUOTA',432,y-14,10,true,white);y-=29;};
- start();field('Cliente',m.client);field('Propiedad',m.properties.join(' / '));field('Último mes cubierto',m.lastCovered);field('Cuota mensual del corte',pmStatementCash(m.base));field('Fecha de corte',pmStatementDate(m.asOf));y-=8;tableHeader();
+ start();field('Cliente',m.client);field('Propiedad',m.properties.join(' / '));field('Último mes cubierto',m.lastCovered);field('Cuota mensual del corte',pmStatementCash(m.base));field('Fecha de corte',pmStatementDate(m.asOf));field('Prima pagada',pmStatementCash(m.paidPrima));field('Abonos',pmStatementCash(m.abonos));field('Total pagado',pmStatementCash(m.paid));field('Saldo total por pagar',pmStatementCash(m.balance));y-=8;tableHeader();
  if(!m.pending.length){txt('Sin mensualidades pendientes al corte.',74,y-12,11,true);y-=32;}
  m.pending.forEach((p,i)=>{if(y-25<100){footer();start();field('Cliente',m.client);tableHeader();}rect(62,y-24,488,24,i%2?white:light);txt(pmStatementMonth(p.month),74,y-15,11,false,gray);right(pmStatementCash(p.amount),y-15,11,false);y-=27;});
  y-=12;ensure(105);rect(62,y-52,488,52,green);txt('TOTAL PENDIENTE ('+m.pending.length+' MESES)',74,y-15,11,true,white);right(pmStatementCash(m.total),y-40,19,true,white);y-=70;
@@ -684,7 +684,7 @@ function pmStatementPreview(root,m){
  root.replaceChildren();
  if(m.branding){for(const [key,label] of [['company','Logo de la empresa'],['residential',m.residence]]){const logo=m.branding[key];if(logo){const img=pmNode('img','pm-statement-logo');img.alt=label;img.src=logo.data;root.append(img);}}if(!m.branding.residential)root.append(pmNode('h3','',m.residence));}else if(m.logo){const img=pmNode('img','pm-statement-logo');img.alt=m.residence;img.src='data:image/jpeg;base64,'+pmStatementArrayanLogo;root.append(img);}else root.append(pmNode('h3','',m.residence));
  root.append(pmNode('h3','','ESTADO DE CUENTA'));
- for(const [label,value] of [['Cliente',m.client],['Propiedad',m.properties.join(' / ')],['Último mes cubierto',m.lastCovered],['Cuota mensual del corte',pmStatementCash(m.base)],['Fecha de corte',pmStatementDate(m.asOf)]]){
+ for(const [label,value] of [['Cliente',m.client],['Propiedad',m.properties.join(' / ')],['Último mes cubierto',m.lastCovered],['Cuota mensual del corte',pmStatementCash(m.base)],['Fecha de corte',pmStatementDate(m.asOf)],['Prima pagada',pmStatementCash(m.paidPrima)],['Abonos',pmStatementCash(m.abonos)],['Total pagado',pmStatementCash(m.paid)],['Saldo total por pagar',pmStatementCash(m.balance)]]){
   const row=pmNode('div','pm-statement-field');row.append(pmNode('span','',label),pmNode('strong','',value));root.append(row);
  }
  const head=pmNode('div','pm-statement-table-head');head.append(pmNode('span','','MES PENDIENTE'),pmNode('span','','SALDO DE CUOTA'));root.append(head);
@@ -694,10 +694,10 @@ function pmStatementPreview(root,m){
  root.append(pmNode('small','','Saldo de mensualidades al corte, sin intereses ni recargos por mora.'));
  if(m.prima)root.append(pmNode('small','','Prima pendiente no incluida: '+pmStatementCash(m.prima)));
 }
-function pmOpenStatement(trigger){
+function pmOpenStatement(trigger,context=null){
  try{
-  const clients=new Set(pmSales().map(s=>s.clientId));if(pmActive!=='sale'||clients.size!==1)throw Error('Selecciona un solo cliente con contrato.');
-  const clientId=[...clients][0],rid=residence().id,client=getClient(clientId),choices=pmAmortizationChoices(db,clientId,rid);
+  const clients=context?new Set([context.clientId]):new Set(pmSales().map(s=>s.clientId));if((!context&&pmActive!=='sale')||clients.size!==1)throw Error('Selecciona un solo cliente con contrato.');
+  const clientId=[...clients][0],rid=context?.rid||residence().id,client=getClient(clientId),choices=pmAmortizationChoices(db,clientId,rid);
   if(!client||!choices.length)throw Error('No hay contrato vigente del cliente.');
   pmClosePaymentHistory(false);if(trigger?.isConnected)pmReportsReturnFocus=trigger;
   const layer=pmNode('div','pm-history-layer'),shade=pmNode('div','pm-history-shade'),dialog=pmNode('section','pm-history-window pm-reports-window pm-statement-window');
@@ -710,7 +710,7 @@ function pmOpenStatement(trigger){
   const select=field('Solares',pmNode('select'));const all=pmNode('option','','Todos los solares ('+choices.length+')');all.value='';select.append(all);
   for(const item of choices){const option=pmNode('option','',item.label);option.value=item.id;select.append(option);}
   const phone=field('WhatsApp (destino editable)',pmNode('input'));phone.type='tel';phone.value=client.phone||'';
-  const message=field('Mensaje',pmNode('textarea'));message.rows=4;message.maxLength=500;message.value='Estimado(a) cliente, le compartimos su estado de cuenta actualizado. '+residence().name+'.';
+  const message=field('Mensaje',pmNode('textarea'));message.rows=4;message.maxLength=500;message.value='Estimado(a) cliente, le compartimos su estado de cuenta actualizado. '+((db.residences||[]).find(r=>r.id===rid)?.name||'')+'.';
   controls.append(pmNode('p','pm-help','En celular, elige WhatsApp y confirma el contacto al compartir. En PC, se descarga el PDF y se abre el chat para adjuntarlo manualmente.'));
   const alert=pmNode('p','pm-error');alert.setAttribute('role','status');controls.append(alert);
   const actions=pmNode('div','pm-report-buttons');
@@ -720,7 +720,7 @@ function pmOpenStatement(trigger){
   let model=null;
   const fresh=()=>{
    if(!cloudReady||cloudBlocked||cloudOffline||!cloudQueue||cloudQueue.pending||cloudQueue.latest!==cloudQueue.confirmed)throw Error('Sincroniza los cambios antes de emitir el estado de cuenta.');
-   const active=new Set(pmSales().map(s=>s.clientId));if(active.size!==1||!active.has(clientId)||residence().id!==rid)throw Error('El cliente cambió. Cierra y vuelve a abrir el estado de cuenta.');
+   const active=context?new Set(contractCollectionsScope(db,rid).sales.filter(s=>s.clientId===clientId).map(s=>s.clientId)):new Set(pmSales().map(s=>s.clientId));if(active.size!==1||!active.has(clientId)||(!context&&residence().id!==rid))throw Error('El cliente cambió. Cierra y vuelve a abrir el estado de cuenta.');
    return pmStatementModel(pmAmortizationModel(db,clientId,rid,businessToday(),reconcileInstallments,installmentDueCents,(date,i)=>dateKey(addMonths(date,i)),select.value||null));
   };
   const refresh=()=>{try{model=fresh();pmStatementPreview(preview,model);alert.textContent='';downloadBtn.disabled=shareBtn.disabled=false;}catch(e){model=null;preview.replaceChildren(pmNode('p','',e.message));alert.textContent=e.message;downloadBtn.disabled=shareBtn.disabled=true;}};
@@ -730,14 +730,15 @@ function pmOpenStatement(trigger){
     const updated=fresh();if(JSON.stringify(updated)!==JSON.stringify(model)){refresh();throw Error('Los datos cambiaron. Revisa la vista previa y vuelve a confirmar.');}
     const pdf=pmStatementPdf(updated),name='LOTIGEST_Estado_de_cuenta_'+updated.asOf+'.pdf';
     if(!share){download(name,pdf,'application/pdf');return;}
+    const summary=message.value+'\nTotal pagado: '+pmStatementCash(updated.paid)+'\nCuotas pendientes al corte: '+pmStatementCash(updated.total)+'\nSaldo total por pagar: '+pmStatementCash(updated.balance);
     const target=clientWhatsappPhone(phone.value);if(!target)throw Error('Ingresa un número válido de WhatsApp.');
     if(typeof File==='function'){
      const file=new File([pdf],name,{type:'application/pdf'});
-     if(navigator.canShare?.({files:[file]})){await navigator.share({files:[file],title:'Estado de cuenta',text:message.value+'\nDestino: +'+target});return;}
+     if(navigator.canShare?.({files:[file]})){await navigator.share({files:[file],title:'Estado de cuenta',text:summary+'\nDestino: +'+target});return;}
     }
     // No WhatsApp API configured: open the addressed chat, never claim attachment or automatic send.
     download(name,pdf,'application/pdf');
-    window.open('https://wa.me/'+target+'?text='+encodeURIComponent(message.value),'_blank','noopener,noreferrer');
+    window.open('https://wa.me/'+target+'?text='+encodeURIComponent(summary),'_blank','noopener,noreferrer');
     alert.textContent='PDF descargado. Adjunta el archivo al chat y confirma el envío.';
    }catch(e){if(e.name!=='AbortError')alert.textContent=e.message||'No se pudo compartir el PDF.';}
   };
