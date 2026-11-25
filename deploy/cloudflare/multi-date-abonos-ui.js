@@ -190,6 +190,21 @@
   mdState.rows.forEach(r=>{r.expanded=shouldOpen&&r.id===id;});
   mdRenderRows();
  }
+ // Compatible con instalaciones que aún conservan el módulo anterior.
+ function mdDuplicateMessage(state,raw){
+  const api=window.lotigestOwnerPayments;
+  if(typeof api?.findReceiptCorrelativo!=='function')throw Error('No se cargó la validación de recibos. Conserva los datos ingresados antes de actualizar LOTIGEST.');
+  const match=api.findReceiptCorrelativo(state,raw);
+  if(!match)return '';
+  const p=match.kind==='venta'?state.payments?.find(x=>x.id===match.id):match.kind==='propietario'?state.ownerPayments?.find(x=>x.id===match.id):state.historicalPayments?.find(x=>x.id===match.id);
+  const sale=state.sales?.find(x=>x.id===p?.saleId),contract=state.historicalContracts?.find(x=>x.id===p?.contractId);
+  const name=state.clients?.find(x=>x.id===(sale?.clientId||p?.clientId||contract?.clientId))?.name||p?.clientName||p?.receiptInfo?.clientName||contract?.clientName||'Sin identificar';
+  const fallback='El correlativo '+match.normalized+' ya está registrado. Cliente: '+name+(p?.date?' · Fecha: '+p.date:'')+'.';
+  if(typeof api.receiptCorrelativoMessage==='function'){
+   try{return api.receiptCorrelativoMessage(state,raw)||fallback;}catch{}
+  }
+  return fallback;
+ }
  function mdRefresh(){
   if(!mdState)return;
   const entered=mdState.rows.filter(mdRowHasPayment);
@@ -210,7 +225,7 @@
    let warning='';
    if(ref&&key===null)warning='El correlativo debe contener solamente números.';
    else if(ref&&references.get(key)>1)warning='Correlativo '+key+' repetido entre estas fechas.';
-   else if(ref&&window.lotigestOwnerPayments?.findReceiptCorrelativo(db,ref))warning=window.lotigestOwnerPayments.receiptCorrelativoMessage(db,ref);
+   else if(ref&&window.lotigestOwnerPayments?.findReceiptCorrelativo(db,ref))warning=mdDuplicateMessage(db,ref);
    el.textContent=warning||(ref?(r.refSuggested?'Correlativo sugerido (editable): ':'Se comprobará como ')+key:'');
    el.classList.toggle('invalid',Boolean(warning));
    const row=document.querySelector('[data-md-row="'+r.id+'"]');row?.classList.toggle('md-duplicate',Boolean(warning));
@@ -398,7 +413,7 @@
    if(row.amount===''||!Number.isSafeInteger(cents)||cents<=0||Math.abs(cents-val*100)>.001)throw Error('Monto inválido en el abono '+(i+1)+'.');
    const raw=String(row.receiptRef||'').trim(),normalized=window.lotigestOwnerPayments.requireReceiptCorrelativo(raw);
    if(existingKeys.has(normalized))throw Error('El correlativo '+normalized+' está repetido entre estas fechas.');
-   const duplicate=window.lotigestOwnerPayments.receiptCorrelativoMessage(db,raw);if(duplicate)throw Error(duplicate);
+   const duplicate=mdDuplicateMessage(db,raw);if(duplicate)throw Error(duplicate);
    existingKeys.add(normalized);
    if(mdState.kind==='owner'&&!mdState.docs.some(d=>d.id===row.statementId))throw Error('Selecciona una ficha válida en el abono '+(i+1)+'.');
    if(row.photo&&(!window.lotigestFiles||row.photo.size>12*1024*1024))throw Error('No se puede conservar la fotografía del abono '+(i+1)+'.');
@@ -611,7 +626,7 @@
   catch(e){mdFocusField(row.id,'receiptRef');toast(e.message,'error');return;}
   if(mdState.rows.some(other=>other!==row&&window.lotigestOwnerPayments.normalizeReceiptCorrelativo(other.receiptRef)===normalized)||
      window.lotigestOwnerPayments.findReceiptCorrelativo(db,row.receiptRef)){
-   mdFocusField(row.id,'receiptRef');toast(window.lotigestOwnerPayments.receiptCorrelativoMessage(db,row.receiptRef)||'El correlativo '+normalized+' está repetido entre estas fechas.','error');return;
+   mdFocusField(row.id,'receiptRef');toast(mdDuplicateMessage(db,row.receiptRef)||'El correlativo '+normalized+' está repetido entre estas fechas.','error');return;
   }
   if(index+1>=mdState.rows.length){
    if(mdState.rows.length>=24){toast('Máximo 24 abonos por operación. Guarda los pagos antes de continuar.','error');return;}
