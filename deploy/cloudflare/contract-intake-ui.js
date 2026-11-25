@@ -1123,33 +1123,63 @@ document.addEventListener('submit',event=>{
 function contractManageRecord(id){
  return (db.contractTexts||[]).find(d=>d.id===id&&['manual','photo+ocr'].includes(d.format)&&d.status!=='voided');
 }
+let contractManageEditSnapshot=null,contractManageEditBusy=false;
+function contractManageTerms(state,doc,data,today){
+ const linked=state.sales.filter(s=>s.lotId===doc.lotId||s.id===doc.saleId);
+ if(linked.length>1||linked.some(s=>s.lotId!==doc.lotId||s.clientId!==doc.clientId||(doc.saleId&&s.id!==doc.saleId)))throw Error('Revisa la vinculación de la venta antes de editar.');
+ const sale=linked[0];
+ if(doc.saleId&&!sale)throw Error('No existe la venta vinculada.');
+ if(sale&&sale.type!=='credit')throw Error('Las condiciones de una venta de contado requieren revisión contable.');
+ const price=Number(data.price),down=Number(data.down),months=Number(data.months);
+ if(!String(data.price??'').trim()||!String(data.down??'').trim()||!Number.isFinite(price)||price<=0||!Number.isFinite(down)||down<0||down>=price||!Number.isInteger(months)||months<1||months>360)throw Error('Precio, prima pactada o plazo inválidos.');
+ const cents=n=>Math.round(Number(n)*100);
+ if([price,down].some(n=>!Number.isSafeInteger(cents(n))||Math.abs(n*100-cents(n))>.00001))throw Error('Los importes solo admiten dos decimales.');
+ const date=data.date?buyerDate(data.date,'fecha de contrato'):'',firstDueDate=data.firstDueDate?buyerDate(data.firstDueDate,'primera cuota'):'';
+ if(sale&&(!date||!firstDueDate))throw Error('Registra ambas fechas para el contrato activo.');
+ if(firstDueDate&&(!date||firstDueDate<date))throw Error('La primera cuota no puede ser anterior al contrato.');
+ if(date>today)throw Error('No puedes ingresar una fecha de contrato futura.');
+ if(sale){
+  const payments=state.payments.filter(p=>p.saleId===sale.id);
+  const paid=cents(sale.openingPaid||0)+payments.reduce((n,p)=>n+cents(p.amount),0);
+  if(!Number.isSafeInteger(paid)||paid>cents(price))throw Error('El nuevo precio no puede ser inferior a lo ya pagado.');
+  if(payments.some(p=>p.date<date))throw Error('La fecha del contrato no puede ser posterior a un recibo existente.');
+  const explicitPrima=payments.filter(p=>p.paymentApplication==='prima'||/^prima\b|^abono a prima\b/i.test(p.concept||'')).reduce((n,p)=>n+cents(p.amount),0);
+  if(cents(down)<explicitPrima)throw Error('La prima pactada no puede ser menor que la prima ya registrada. Revisa los recibos.');
+  if((state.ownerPayments||[]).some(p=>(p.allocations||[]).some(a=>(a.references||[]).some(r=>r.lotId===sale.lotId))))throw Error('Este solar tiene pagos de fichas históricas; requiere conciliación antes de cambiar condiciones.');
+ }
+ const monthly=Math.round((cents(price)-cents(down))/months)/100;
+ return {sale,terms:{price,down,months,financed:(cents(price)-cents(down))/100,monthly,monthlyCalculated:monthly,date,firstDueDate}};
+}
 function contractManageEditOpen(id){
  if(!contractIntakeAdmin()){toast('Solo un administrador con sincronización confirmada puede editar contratos.','error');return;}
  const d=contractManageRecord(id);
  if(!d){toast('El contrato no existe o está anulado.','error');return;}
- const lot=getLot(d.lotId),client=getClient(d.clientId),v=d.structured||{},financial=!d.saleId&&!db.sales.some(s=>s.lotId===d.lotId);
+ const lot=getLot(d.lotId),client=getClient(d.clientId),sale=db.sales.find(s=>s.id===d.saleId||s.lotId===d.lotId),v={...(d.structured||{})},financial=!sale||sale.type==='credit';
+ if(sale){v.price=sale.price;v.down=sale.downPayment;v.months=sale.months;v.date=v.date||sale.date;v.firstDueDate=sale.firstDueDate||v.firstDueDate||dateKey(addMonths(sale.date,1));}
+ contractManageEditSnapshot={id,raw:JSON.stringify(db)};
  const field=(label,key,type='text')=>'<label class="field-group"><span>'+label+'</span><input name="'+key+'" type="'+type+'" '+(type==='number'?'min="0" step="0.01" ':'')+
   'value="'+esc(v[key]??'')+'" style="width:100%;min-width:0"></label>';
  const basic=[['RTN','rtn'],['Estado civil','maritalStatus'],['Profesión u oficio','occupation'],['Dirección','address'],['Teléfono (+504 / +1)','phone'],
   ['Norte','north'],['Sur','south'],['Este','east'],['Oeste','west']].map(([label,key])=>field(label,key)).join('');
  const credit=financial?field('Precio pactado (L)','price','number')+field('Prima pactada (L)','down','number')+
   '<label class="field-group"><span>Plazo (meses)</span><input name="months" type="number" min="1" max="360" step="1" required value="'+esc(v.months??'')+'"></label>'+
-  field('Fecha del contrato','date','date')+field('Primera cuota','firstDueDate','date'):'';
+  field('Fecha del contrato','date','date')+field('Primera cuota','firstDueDate','date')+(sale?'<label class="field-group"><span>Motivo de la corrección de condiciones</span><input name="termsReason" maxlength="300" autocomplete="off"></label><label class="field-group"><span>PIN de administrador (para cambios de condiciones)</span><input name="termsPin" type="password" inputmode="numeric" maxlength="4" autocomplete="off"></label>':''):'';
  showModal('Editar contrato',
   '<p><strong>'+esc(client?.name||v.name||'Cliente')+'</strong> · DNI '+esc(client?.identity||v.identity||'')+'</p>'+
   '<p>Etapa '+esc(lot?.stage||'—')+' · Bloque '+esc(lot?.block||'—')+' · Solar '+esc(lot?.sourceNumber||'—')+'</p>'+
-  '<p class="sm muted">Las medidas y el solar se conservan del inventario. '+(financial?'Puedes corregir precio, prima pactada, fechas y plazo porque todavía no existe venta.':
-  'Este contrato tiene una venta: los importes y fechas de crédito se protegen para no alterar abonos ni mora.')+'</p>'+
+  '<p class="sm muted">Las medidas y el solar se conservan del inventario. '+(sale&&financial?'Puedes corregir precio, prima pactada, plazo y ambas fechas. Los recibos se conservan; se recalcula la amortización. Fecha de venta registrada: '+esc(sale.date)+'. Los cambios financieros requieren motivo y PIN.':financial?'Puedes corregir precio, prima pactada, fechas y plazo.':'Venta de contado: condiciones financieras protegidas.')+'</p>'+
   '<form id="contract-manage-edit"><input name="documentId" type="hidden" value="'+esc(id)+'"><div class="form-grid">'+basic+credit+'</div>'+
   '<label>Observaciones<textarea name="observations" maxlength="5000" rows="3">'+esc(v.observations||'')+'</textarea></label></form>',
   '<button class="btn btn-outline" data-action="close-modal" type="button">Cancelar</button>'+
   '<button class="btn btn-primary" type="submit" form="contract-manage-edit">Guardar cambios</button>',true);
 }
 async function contractManageEditSave(form){
+ if(contractManageEditBusy)return;
  if(!contractIntakeAdmin())throw Error('La nube debe estar sincronizada y tu usuario debe ser administrador.');
  const data=Object.fromEntries(new FormData(form)),d=contractManageRecord(data.documentId);
  if(!d)throw Error('No existe el contrato o ya fue anulado.');
- const lot=getLot(d.lotId),financial=!d.saleId&&!db.sales.some(s=>s.lotId===d.lotId);
+ const lot=getLot(d.lotId),sale=db.sales.find(s=>s.id===d.saleId||s.lotId===d.lotId),financial=!sale||sale.type==='credit';
+ if(!contractManageEditSnapshot||contractManageEditSnapshot.id!==d.id||contractManageEditSnapshot.raw!==JSON.stringify(db))throw Error('Los datos cambiaron. Vuelve a abrir Editar contrato para evitar sobrescribir información.');
  if(!lot)throw Error('El solar vinculado ya no existe.');
  const next=JSON.parse(JSON.stringify(db)),record=next.contractTexts.find(x=>x.id===d.id),p=record.structured||{};
  for(const key of ['rtn','maritalStatus','occupation','address','phone','north','south','east','west','observations']){
@@ -1158,24 +1188,30 @@ async function contractManageEditSave(form){
   p[key]=value;
  }
  if(financial){
-  const price=Number(data.price),down=Number(data.down),months=Number(data.months);
-  if(!Number.isFinite(price)||price<=0||!Number.isFinite(down)||down<0||down>=price||!Number.isInteger(months)||months<1||months>360)
-   throw Error('Precio, prima pactada o plazo inválidos.');
-  if([price,down].some(n=>Math.abs(n*100-Math.round(n*100))>.00001))throw Error('Los importes solo admiten dos decimales.');
-  if(data.date)buyerDate(data.date,'fecha de contrato');
-  if(data.firstDueDate&&(!data.date||buyerDate(data.firstDueDate,'primera cuota')<data.date))
-   throw Error('La primera cuota debe ser posterior al contrato.');
-  if(data.date&&data.date>businessToday())throw Error('No puedes ingresar una fecha de contrato futura.');
-  Object.assign(p,{price,down,months,financed:Math.round((price-down)*100)/100,
-   monthly:Math.round((price-down)/months*100)/100,monthlyCalculated:Math.round((price-down)/months*100)/100,
-   date:String(data.date||''),firstDueDate:String(data.firstDueDate||'')});
+  const {sale:target,terms}=contractManageTerms(next,record,data,businessToday());
+  const previous={price:target?.price??p.price,down:target?.downPayment??p.down,months:target?.months??p.months,date:target?.date??p.date,firstDueDate:target?.firstDueDate??p.firstDueDate};
+  const changed=Object.keys(previous).some(key=>String(previous[key]??'')!==String(terms[key]??''));
+  if(target&&changed){
+   const reason=String(data.termsReason||'').trim(),pin=String(data.termsPin||'');
+   if(!reason||reason.length>300)throw Error('Indica el motivo de la corrección.');
+   if(!/^\d{4}$/.test(pin)||typeof window.lotigestConfirmAdminPin!=='function')throw Error('Introduce el PIN vigente de administrador.');
+   contractManageEditBusy=true;
+   try{await window.lotigestConfirmAdminPin(pin);
+    if(!contractIntakeAdmin()||contractManageEditSnapshot.raw!==JSON.stringify(db))throw Error('Los datos cambiaron durante la confirmación. Abre nuevamente el contrato.');
+    const after={price:terms.price,down:terms.down,months:terms.months,date:terms.date,firstDueDate:terms.firstDueDate};
+    record.termsEditHistory??=[];record.termsEditHistory.push({before:previous,after,reason,by:String(cloudUser.name),at:new Date().toISOString()});
+    Object.assign(target,{price:terms.price,downPayment:terms.down,months:terms.months,date:terms.date,firstDueDate:terms.firstDueDate});
+   }finally{contractManageEditBusy=false;}
+  }
+  Object.assign(p,terms);
+  p.negotiatedPrice=Number(terms.price)!==Number(lot.price);
  }
  record.structured=p;record.updatedAt=new Date().toISOString();
  cloudWrite(JSON.stringify(next));db=next;await cloudFlush();
  closeModal();render();
  if(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed)
   toast('Contrato modificado localmente; falta confirmar su sincronización.','error');
- else toast('Contrato editado. Se conservaron las medidas, ventas y pagos.');
+ else toast('Contrato editado. Cuotas y saldo recalculados; recibos y medidas conservados.');
 }
 function contractManageDeleteOpen(id){
  if(!contractIntakeAdmin()){toast('Solo un administrador puede eliminar contratos.','error');return;}
