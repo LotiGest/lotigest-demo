@@ -239,7 +239,8 @@ test('Reactivación: PIN solo administrador, valida entrada, conserva pagos y ro
   w.db.contractTexts[0].status='voided';w.db.contractTexts[0].voidReason='Prueba';
   w.db.lots[0].purchaseFromPlan=true;
   w.db.payments=[{id:'P1',amount:100}];
-  w.render();
+  let code='1234';w.cloudApi=async(path,options)=>{if(options?.method==='POST'){assert.equal(JSON.parse(options.body).pin,code);code='5678';return {ok:true};}return {pin:code,expires:Date.now()+120000};};
+  w.render();await new Promise(resolve=>setTimeout(resolve,0));
   const pin=w.document.querySelector('[data-ct-pin-value]').textContent;
   assert.match(pin,/^\d{4}$/);
   assert.ok(w.document.querySelector('[data-ct-activate="D1"]'));
@@ -273,4 +274,8 @@ test('Reactivación bloquea ubicación diferente y otro propietario',()=>{
   w.document.querySelector('[data-ct-activate="D1"]').click();assert.match(errors.pop(),/otra asignación/);
   assert.equal(dialogs.length,0);assert.equal(w.db.contractTexts[0].status,'voided');
  }finally{close();}
+});
+
+test('PIN global, estados sin conexión y pendientes sin exponer un PIN vencido',async()=>{
+ const {w,close}=boot();try{w.cloudUser={role:'admin',name:'Admin'};w.cloudOffline=false;w.cloudBlocked=false;w.cloudQueue={latest:1,confirmed:1};w.cloudApi=async()=>({pin:'1234',expires:Date.now()+120000});w.page='clients';w.render();await new Promise(r=>setTimeout(r,0));assert.equal(w.document.querySelector('.lg-top-tools .ct-activation-pin').dataset.state,'online');assert.equal(w.document.querySelector('.workspace-inner .ct-activation-pin'),null);w.cloudOffline=true;w.cloudQueue.latest=2;w.render();const pin=w.document.querySelector('.ct-activation-pin');assert.equal(pin.dataset.state,'offline');assert.doesNotMatch(pin.textContent,/1234/);assert.equal(pin.querySelector('.ct-pin-pending').hidden,false);w.cloudUser.role='reader';w.render();assert.equal(w.document.querySelector('.ct-activation-pin'),null);}finally{close();}
 });

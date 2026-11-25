@@ -1,4 +1,4 @@
 {
-  "version": "1.0.11",
-  "notes": "Ficha contractual completa y envío al abogado tras guardar, contacto por residencial, PDF con logos y medidas/colindancias registradas; revisión de faltantes y confirmación de destinatario."
+  "version": "1.0.12",
+  "notes": "PIN de administrador global en cabecera compacta, brillo animado, estados de conexión y sincronización. Sin mostrar PIN vencido ni autorizar operaciones protegidas sin servidor."
 }

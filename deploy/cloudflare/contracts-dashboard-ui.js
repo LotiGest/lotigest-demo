@@ -126,32 +126,48 @@
    '<button type="button" class="btn btn-outline" data-action="close-modal">Cerrar</button>',true);
  }
  // El PIN pertenece a la cuenta administradora, no al dispositivo.
- let activationBusy=false,pinLoading=false;
+ let activationBusy=false,pinLoading=false,pinCache=null,pinEpoch=0,pinFailed=false;
  const activationAdmin=()=>typeof cloudUser!=='undefined'&&cloudUser?.role==='admin';
+ function pinDisplayState({offline,blocked,pending,pin,expires,now}){
+  if(offline)return {kind:'offline',value:'— — — —',status:pending?'Sin conexión · cambios pendientes en este equipo':'Sin conexión · guardado local disponible para operaciones compatibles'};
+  if(blocked)return {kind:'blocked',value:'— — — —',status:'Sincronización bloqueada · revisa los cambios pendientes'};
+  const valid=/^\d{4}$/.test(String(pin||''))&&expires>now;
+  return {kind:valid?(pending?'pending':'online'):'waiting',value:valid?pin:'— — — —',status:pending?'Cambios pendientes de sincronizar':valid?'Conectado · PIN vigente':'PIN pendiente de verificar'};
+ }
+ const pinOffline=()=>navigator.onLine===false||(typeof cloudOffline!=='undefined'&&cloudOffline)||pinFailed;
+ const pinDirty=()=>typeof cloudQueue!=='undefined'&&Boolean(cloudQueue&&(cloudQueue.pending||cloudQueue.latest!==cloudQueue.confirmed));
+ function paintActivationPin(){
+  const bar=document.querySelector('.lg-topbar'),old=document.querySelector('.ct-activation-pin');
+  if(!activationAdmin()||!bar){old?.remove();pinCache=null;return;}
+  if(pinCache&&pinCache.owner!==cloudUser.name)pinCache=null;
+  const tools=bar.querySelector('.lg-top-tools');if(!tools)return;
+  let el=old;if(!el){el=document.createElement('span');el.className='ct-activation-pin';el.innerHTML='<span class="ct-pin-symbol" aria-hidden="true">◆</span><span class="ct-pin-label">PIN</span><strong data-ct-pin-value>— — — —</strong><i class="ct-pin-pending" hidden aria-hidden="true"></i>';el.setAttribute('role','status');tools.prepend(el);}
+  const d=pinDisplayState({offline:pinOffline(),blocked:typeof cloudBlocked!=='undefined'&&cloudBlocked,pending:pinDirty(),pin:pinCache?.pin,expires:pinCache?.expires,now:Date.now()});
+  el.dataset.state=d.kind;el.querySelector('[data-ct-pin-value]').textContent=d.value;el.querySelector('.ct-pin-symbol').textContent=d.kind==='offline'?'×':'◆';el.querySelector('.ct-pin-pending').hidden=!pinDirty();el.title=d.status+'. El PIN requiere conexión y vence al usarse o a los dos minutos.';el.setAttribute('aria-label','PIN del administrador: '+d.value+'. '+d.status);
+ }
  async function refreshActivationPin(){
-  const el=document.querySelector('.ct-activation-pin');
-  if(!el||pinLoading||!activationAdmin())return;
-  const username=cloudUser.name;pinLoading=true;
+  paintActivationPin();
+  if(!activationAdmin()||!document.querySelector('.lg-topbar')||pinLoading||navigator.onLine===false||typeof cloudApi!=='function')return;
+  const username=cloudUser.name,epoch=pinEpoch;pinLoading=true;
   try{
    const result=await cloudApi('admin-pin');
-   if(!activationAdmin()||cloudUser.name!==username||!el.isConnected)return;
-   el.querySelector('[data-ct-pin-value]').textContent=result.pin;
-  }catch(e){if(el.isConnected)el.querySelector('[data-ct-pin-value]').textContent='No disponible';}
-  finally{pinLoading=false;}
+   if(!activationAdmin()||cloudUser.name!==username||epoch!==pinEpoch)return;
+   if(!/^\d{4}$/.test(String(result.pin))||!Number.isFinite(result.expires)||result.expires<=Date.now())throw Error('PIN vencido o inválido');
+   pinCache={owner:username,pin:result.pin,expires:result.expires};pinFailed=false;
+  }catch(e){if(activationAdmin()&&cloudUser.name===username&&epoch===pinEpoch){pinCache=null;pinFailed=!e.status||e.status>=500;}}
+  finally{pinLoading=false;paintActivationPin();if(epoch!==pinEpoch&&activationAdmin())void refreshActivationPin();}
  }
  window.lotigestConfirmAdminPin=async function(pin){
   if(!activationAdmin()||!contractIntakeAdmin())throw Error('Se requiere administrador con la nube sincronizada.');
   if(!/^\d{4}$/.test(String(pin||'')))throw Error('Introduce los cuatro dígitos del PIN.');
   await cloudApi('admin-pin',{method:'POST',body:JSON.stringify({pin})});
-  void refreshActivationPin();
+  pinEpoch++;pinCache=null;paintActivationPin();void refreshActivationPin();
   return true;
  };
- function activationPinMarkup(){
-  if(!activationAdmin())return '';
-  setTimeout(()=>refreshActivationPin(),0);
-  return '<div class="card ct-activation-pin" role="region" aria-label="PIN del administrador"><span>PIN del administrador</span> <strong data-ct-pin-value>Cargando…</strong><small> Mismo PIN en celular y PC con la misma cuenta · vence en dos minutos o al usarlo</small></div>';
- }
- setInterval(()=>{const el=document.querySelector('.ct-activation-pin');if(el&&!activationAdmin())el.remove();else if(el&&document.visibilityState!=='hidden')void refreshActivationPin();},5000);
+ setInterval(()=>{paintActivationPin();if(document.visibilityState!=='hidden')void refreshActivationPin();},5000);
+ setInterval(paintActivationPin,1000);
+ window.addEventListener('offline',()=>{pinEpoch++;pinCache=null;paintActivationPin();});
+ window.addEventListener('online',()=>{pinFailed=false;void refreshActivationPin();});
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')void refreshActivationPin();});
  function activationRecord(id){
   if(!activationAdmin()||!contractIntakeAdmin())throw Error('Se requiere administrador con la nube sincronizada.');
@@ -320,7 +336,7 @@
     '<p class="sm muted">Requiere revisar la selección, descargar respaldo y confirmar. No elimina solares, medidas ni contratos vigentes.</p></section>':'';
   return '<div class="ct-module">'+
     header('Contratos','Gestión de fichas, documentos y terrenos vinculados.',toolbar)+
-    activationPinMarkup()+cards+releaseTools+filters+table+tools+'</div>';
+    cards+releaseTools+filters+table+tools+'</div>';
  };
  // En Contratos, aprovechar la barra superior del sistema en lugar de repetir
  // cabecera, selector de residencial y botones dentro del área de trabajo.
@@ -371,6 +387,7 @@
  render=function(){
   const result=contractDashboardPreviousRender.apply(this,arguments);
   if(page==='contracts')contractToolbarInTopbar();
+  paintActivationPin();if(activationAdmin()&&!pinCache)void refreshActivationPin();
   return result;
  };
  function update(key,val){state[key]=val;state.page=1;if(key==='stage'){state.block='all';state.solar='all';}else if(key==='block')state.solar='all';render();}

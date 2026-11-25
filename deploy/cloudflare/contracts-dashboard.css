@@ -175,3 +175,17 @@ body.lotigest-dark .ct-void-released{color:#9defbf}
 
 .ct-activation-pin{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding:14px}.ct-activation-pin strong{letter-spacing:6px;font-size:26px;color:var(--green,#176039);font-variant-numeric:tabular-nums}.ct-activation-pin small{color:var(--muted,#657568)}
 @media print{.ct-activation-pin{display:none!important}}
+
+/* PIN global en flujo normal de la cabecera: no es una ventana flotante. */
+html body #app .lotigest-shell .lg-top-tools .ct-activation-pin{position:relative;display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;gap:4px;box-sizing:border-box;margin:0;padding:5px 9px;height:29px;min-width:88px;max-width:126px;overflow:hidden;border:1px solid #72bc66;border-radius:999px;background:#e7f7e5;color:#155e31;font-size:11px;font-weight:800;white-space:nowrap}
+html body #app .lotigest-shell .lg-top-tools .ct-activation-pin strong{font-size:12px;letter-spacing:.35px;color:inherit;font-variant-numeric:tabular-nums}
+.ct-activation-pin[data-state=offline]{background:#ffebeb!important;color:#a81d33!important;border-color:#d9505e!important}
+.ct-activation-pin[data-state=blocked],.ct-activation-pin[data-state=pending]{background:#fff2d8!important;color:#805413!important;border-color:#cc9a42!important}
+.ct-activation-pin[data-state=waiting]{background:#edf0ef!important;color:#56675f!important;border-color:#b3c0ba!important}
+.ct-activation-pin[data-state=online]::after,.ct-activation-pin[data-state=offline]::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(110deg,transparent 25%,rgba(255,255,255,.75) 50%,transparent 75%);transform:translateX(-125%);animation:ct-pin-sweep 3.2s ease-in-out infinite}
+@keyframes ct-pin-sweep{0%,28%{transform:translateX(-125%)}65%,100%{transform:translateX(125%)}}
+.ct-pin-pending{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}.ct-pin-pending[hidden]{display:none!important}
+@media(max-width:900px){html body #app .lotigest-shell .lg-top-tools .ct-activation-pin{height:27px;min-width:77px;padding:4px 6px;gap:3px}html body #app .lotigest-shell .lg-top-title strong{min-width:0!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}html body #app .lotigest-shell .ct-topbar .lg-top-title{flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:3px!important}html body #app .lotigest-shell .ct-topbar .lg-top-title>span{display:none!important}}
+@media(max-width:400px){html body #app .lotigest-shell .lg-top-tools{gap:3px!important}html body #app .lotigest-shell .lg-top-tools .ct-activation-pin{min-width:69px;padding:4px 5px}html body #app .lotigest-shell .lg-top-tools .ct-activation-pin .ct-pin-symbol{display:none}html body #app .lotigest-shell .lg-top-tools :is(.lg-iconbtn,.lg-user-button){min-width:34px!important;width:34px!important}html body #app .lotigest-shell .lg-top-title strong{font-size:13px!important}}
+@media(prefers-reduced-motion:reduce){.ct-activation-pin::after{animation:none!important;display:none}}
+@media print{.ct-activation-pin{display:none!important}}
