@@ -743,6 +743,6 @@ function pmOpenStatement(trigger,context=null){
    }catch(e){if(e.name!=='AbortError')alert.textContent=e.message||'No se pudo compartir el PDF.';}
   };
   downloadBtn.onclick=()=>deliver(false);shareBtn.onclick=()=>deliver(true);
-  shade.onclick=()=>pmClosePaymentHistory();pmReportsKeyboard(layer,dialog);document.body.append(layer);pmHistoryLayer=layer;refresh();close.focus();
+  shade.onclick=()=>pmClosePaymentHistory();pmReportsKeyboard(layer,dialog);document.body.append(layer);pmHistoryLayer=layer;refresh();if(context?.share&&!shareBtn.disabled)shareBtn.focus();else close.focus();
  }catch(e){toast(e.message,'error');}
 }
