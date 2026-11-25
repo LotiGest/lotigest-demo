@@ -1,4 +1,4 @@
 {
-  "version": "0.22.75",
-  "notes": "Mapa de solares: vista ilustrada del proyecto sobre satélite y vistas interactivas 2D/3D con casas de techo según el estado real, terrazas y gradas ilustrativas. Giro completo. Conserva figuras, contratos, pagos y GPS."
+  "version": "1.0.0",
+  "notes": "LOTIGEST Pro 1.0.0: nueva numeración de versiones. Registro de abonos en ventana emergente compacta y adaptable, con monto y correlativo visibles y secciones informativas desplegables. Conserva las funciones y datos existentes, incluido el mapa 2D/3D."
 }
