@@ -1,11 +1,11 @@
 // Identidad de documentos: un logo general y otro independiente por residencial.
 // No cambia la identidad de LOTIGEST, los pagos ni el inventario.
-function lgValidDocLogo(l){return l&&typeof l.data==='string'&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(l.data)&&Number.isInteger(l.width)&&Number.isInteger(l.height)&&l.width>0&&l.height>0&&l.width<=1000&&l.height<=1000?l:null;}
+function lgValidDocLogo(l){return l&&typeof l.data==='string'&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(l.data)&&Number.isInteger(l.width)&&Number.isInteger(l.height)&&l.width>0&&l.height>0&&l.width<=1600&&l.height<=1600?l:null;}
 function lgDocumentBranding(rid,state=db){
  const r=(state.residences||[]).find(x=>x.id===rid);
  const logos=state.company?.residenceLogos||{};
  const explicit=r&&Object.prototype.hasOwnProperty.call(logos,r.id);
- const fallback=r&&/altos\s+del\s+arrayan/i.test(r.name.normalize('NFD').replace(/[\u0300-\u036f]/g,''))&&typeof pmStatementArrayanLogo!=='undefined'?{data:'data:image/jpeg;base64,'+pmStatementArrayanLogo,width:175,height:64}:null;
+ const fallback=r&&/altos\s+del\s+arrayan/i.test(r.name.normalize('NFD').replace(/[\u0300-\u036f]/g,''))&&typeof pmStatementArrayanLogo!=='undefined'?{data:'data:image/jpeg;base64,'+pmStatementArrayanLogo,width:600,height:224}:null;
  return {company:lgValidDocLogo(state.company?.logo),residential:lgValidDocLogo(explicit?logos[r.id]:fallback),name:r?.name||''};
 }
 function lgDocLogoCommand(logo,key,x,y,w,h){
@@ -27,13 +27,13 @@ function lgDocumentBrandHtml(rid){
  documentLogoSettings=function(){
   const rid=(db.residences||[]).some(r=>r.id===selectedRid)?selectedRid:residence().id;
   const b=lgDocumentBranding(rid);
-  return '<section class="card card-padding" id="lg-document-brand-settings"><h3>Logos de documentos impresos</h3><div class="form-grid"><div class="field-group"><label>Logo general · '+esc(db.company.name||'GRUPO H')+'</label><div>'+preview(b.company,'Logo general')+'</div><label class="btn btn-primary">Cambiar logo<input id="company-logo-file" type="file" accept="image/png,image/jpeg,image/webp" hidden></label> <button class="btn btn-outline" type="button" data-action="company-logo-remove">Quitar</button></div><div class="field-group"><label for="lg-brand-residence">Residencial</label><select id="lg-brand-residence">'+(db.residences||[]).map(r=>'<option value="'+esc(r.id)+'" '+(r.id===rid?'selected':'')+'>'+esc(r.name)+'</option>').join('')+'</select><div>'+preview(b.residential,b.name)+'</div><label class="btn btn-primary">Cambiar logo residencial<input id="lg-residence-logo-file" type="file" accept="image/png,image/jpeg,image/webp" hidden></label> <button type="button" class="btn btn-outline" id="lg-residence-logo-remove">Quitar</button></div></div><small class="muted">PNG, JPG o WebP. Cada residencial conserva su propio logo.</small></section>';
+  return '<section class="card card-padding" id="lg-document-brand-settings"><h3>Logos de documentos impresos</h3><div class="form-grid"><div class="field-group"><label>Logo general · '+esc(db.company.name||'GRUPO H')+'</label><div>'+preview(b.company,'Logo general')+'</div><label class="btn btn-primary">Cambiar logo<input id="company-logo-file" type="file" accept="image/png,image/jpeg,image/webp" hidden></label> <button class="btn btn-outline" type="button" data-action="company-logo-remove">Quitar</button></div><div class="field-group"><label for="lg-brand-residence">Residencial</label><select id="lg-brand-residence">'+(db.residences||[]).map(r=>'<option value="'+esc(r.id)+'" '+(r.id===rid?'selected':'')+'>'+esc(r.name)+'</option>').join('')+'</select><div>'+preview(b.residential,b.name)+'</div><label class="btn btn-primary">Cambiar logo residencial<input id="lg-residence-logo-file" type="file" accept="image/png,image/jpeg,image/webp" hidden></label> <button type="button" class="btn btn-outline" id="lg-residence-logo-remove">Quitar</button></div></div><small class="muted">PNG, JPG o WebP. Hasta 1600 píxeles de resolución, conservando las proporciones. Cada residencial conserva su propio logo.</small></section>';
  };
  function refresh(){const old=document.getElementById('lg-document-brand-settings');if(!old){render();return;}const t=document.createElement('template');t.innerHTML=documentLogoSettings();old.replaceWith(t.content);}
  async function convert(file){
   if(!file||!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>12*1024*1024)throw Error('Selecciona PNG, JPG o WebP de hasta 12 MB.');
   const img=await createImageBitmap(file);
-  try{const canvas=document.createElement('canvas'),scale=Math.min(1,700/Math.max(img.width,img.height));canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);return {data:canvas.toDataURL('image/jpeg',.86),width:canvas.width,height:canvas.height};}finally{img.close();}
+  try{const canvas=document.createElement('canvas'),scale=Math.min(1,1600/Math.max(img.width,img.height));canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);return {data:canvas.toDataURL('image/jpeg',.94),width:canvas.width,height:canvas.height};}finally{img.close();}
  }
  function persist(rid,logo){
   if(cloudUser?.role!=='admin'||!cloudReady||cloudBlocked)throw Error('Se requiere acceso de administrador y guardado disponible.');
