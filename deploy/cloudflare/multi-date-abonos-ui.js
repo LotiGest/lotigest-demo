@@ -511,18 +511,19 @@
   return result;
  };
 
- function mdOpenManyWithShortcut(){
+ function mdOpenManyWithShortcut(forcePicker=false){
   if(!cloudReady||cloudUser?.role!=='admin')return toast('Se requiere una cuenta administradora para registrar abonos.','error');
   if(document.querySelector('#modal-root .modal'))return toast('Cierra la ventana actual antes de abrir abonos múltiples.','error');
   const activeResidence=page==='collections'&&typeof residence==='function'?residence()?.id:null;
-  const target=mdLastPaymentTarget;
+  const target=forcePicker?null:mdLastPaymentTarget;
   if(target?.kind==='sale'){
    const sale=getSale(target.saleId),lot=getLot(sale?.lotId);
    if(sale?.type==='credit'&&balance(sale)>.01&&(!activeResidence||lot?.residenceId===activeResidence))return mdStartSale(sale.id);
   }
   if(target?.kind==='owner'&&getClient(target.clientId)&&(!activeResidence||target.residenceId===activeResidence))return mdStartOwner(target.clientId,target.residenceId);
   // Sin solar activo, ofrecer un selector; no se cobra un lote por suposición.
-  const sales=(db.sales||[]).filter(s=>s.type==='credit'&&balance(s)>.01&&(!activeResidence||getLot(s.lotId)?.residenceId===activeResidence));
+  const pool=activeResidence&&typeof contractCollectionsScope==='function'?contractCollectionsScope(db,activeResidence).sales:db.sales||[];
+  const sales=pool.filter(s=>s.type==='credit'&&balance(s)>.009&&(!activeResidence||getLot(s.lotId)?.residenceId===activeResidence));
   if(!sales.length)return toast('No hay contratos con saldo disponibles para registrar abonos.','error');
   showModal('Elegir cliente para varios abonos','<p>Elige al cliente e ingresa el total de cada abono. Se repartirá según la cuota de sus solares.</p><label>Cliente<input id="md-shortcut-search" placeholder="Nombre, bloque o solar" autocomplete="off"></label><div id="md-shortcut-results" style="max-height:50dvh;overflow-y:auto"></div>','<button type="button" class="btn btn-soft" data-action="close-modal">Cancelar</button>',true);
   function matches(query){
