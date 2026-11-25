@@ -64,3 +64,15 @@ test('estilos de barra desplegada prevalecen sobre reglas de colapso antiguas',(
  assert.match(build,/files\\['sidebar-click.css'\\]/);
  assert.match(build,/href="\\/sidebar-click.css"/);
 });
+
+test('logo empresarial ajustado sin sustituir el botón de navegación',()=>{
+ const code=source.match(/function lgSidebarCompanyLogo\(state\)\{[^\n]+\}/)?.[0];
+ assert.ok(code);
+ const logo=new Function(code+';return lgSidebarCompanyLogo;')();
+ assert.match(logo({}),/^data:image\/webp;base64,UklGR/);
+ const custom='data:image/jpeg;base64,AAAA';
+ assert.equal(logo({company:{logo:{data:custom}}}),custom);
+ assert.equal(logo({company:{logo:{data:'javascript:alert(1)'}}}),logo({}));
+ assert.ok(source.includes('class="lg-sidebar-company-logo"'));
+ assert.match(styles,/\.lg-sidebar-company-logo\{[^}]*object-fit:contain/);
+});

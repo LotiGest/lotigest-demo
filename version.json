@@ -1,4 +1,4 @@
 {
-  "version": "1.0.1",
-  "notes": "Logos configurables para documentos: empresa general y residencial independiente, recibos, cotizaciones, contratos, estados de cuenta, amortizaciones y reportes financieros. Conserva el diseño compacto y los mapas de 1.0.0."
+  "version": "1.0.2",
+  "notes": "Logo de GRUPO H ajustado al botón de la barra lateral, reutiliza el logo general configurable. Conserva logos de documentos y navegación."
 }
