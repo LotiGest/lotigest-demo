@@ -54,7 +54,7 @@
  }
 
  // Último pago por venta o por ficha, nunca por cliente completo.
- function mdLastPaymentFor(state,data,statementId){
+ function mdLastPaymentFor(state,data,statementId,highest=false){
   if(!state||!data)return null;
   const owner=state.kind==='owner';
   const source=owner?(data.ownerPayments||[]).filter(p=>p.clientId===state.clientId&&p.residenceId===state.residenceId)
@@ -71,16 +71,20 @@
    voidedAt:p.voidedAt,status:p.status
   })).filter(p=>/^\d{4}-\d{2}-\d{2}$/.test(String(p.date||''))&&p.date<=mdToday()&&Number.isFinite(p.amount)&&p.amount>0&&
    !p.voidedAt&&!['voided','cancelled'].includes(p.status))
-  .sort((a,b)=>b.date.localeCompare(a.date)||String(b.recordedAt||'').localeCompare(String(a.recordedAt||'')))[0]||null;
+  .filter(p=>!highest||/^\d+$/.test(p.reference)).sort((a,b)=>{
+   if(highest){const x=BigInt(a.reference),y=BigInt(b.reference);if(x!==y)return x>y?-1:1;}
+   return b.date.localeCompare(a.date)||String(b.recordedAt||'').localeCompare(String(a.recordedAt||''));
+  })[0]||null;
  }
  function mdLastPaymentBody(state,data,statementId){
   const p=mdLastPaymentFor(state,data,statementId);
   if(!p)return '<strong class="md-last-empty">No hay pagos registrados con fecha y monto para '+(state.kind==='sale'?'este solar.':'esta ficha.')+'</strong>';
+  const high=mdLastPaymentFor(state,data,statementId,true);
   return '<div class="md-last-grid">'+
    '<div class="md-last-cell md-last-date"><span class="md-last-cell-icon" aria-hidden="true">▦</span><span class="md-last-cell-details"><small>Fecha</small><strong>'+mdSafe(mdHumanDate(p.date)||p.date)+'</strong></span></div>'+
    '<div class="md-last-cell md-last-ref"><span class="md-last-cell-icon" aria-hidden="true">#</span><span class="md-last-cell-details"><small>Correlativo</small><strong class="md-last-folio">'+mdSafe(p.reference||'Sin correlativo')+'</strong></span></div>'+
    '<div class="md-last-cell md-last-amount"><span class="md-last-cell-icon" aria-hidden="true">L</span><span class="md-last-cell-details"><small>Monto '+(state.kind==='owner'?'aplicado':'pagado')+'</small><strong class="md-last-money">'+mdSafe(mdFmt(p.amount))+'</strong></span></div>'+
-   '</div>'+(/\bprima\b/i.test(p.concept)?'<small class="md-last-description">Prima inicial; no cuenta como cuota mensual.</small>':'');
+   '</div>'+(high&&high.reference!==p.reference?'<p class="md-last-description">Mayor correlativo registrado: <strong class="md-last-folio"># '+mdSafe(high.reference)+'</strong> · '+mdSafe(mdHumanDate(high.date))+' · '+mdSafe(mdFmt(high.amount))+'</p>':'')+(/\bprima\b/i.test(p.concept)?'<small class="md-last-description">Prima inicial; no cuenta como cuota mensual.</small>':'');
  }
  function mdLastPaymentMarkup(state,data,statementId,rowId){
   return '<aside class="md-last-payment" role="status" '+(rowId?'data-md-last-payment-row="'+mdSafe(rowId)+'"':'data-md-last-payment')+'>'+
