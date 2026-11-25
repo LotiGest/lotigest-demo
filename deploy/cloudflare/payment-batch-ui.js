@@ -84,7 +84,7 @@ submitMultiPayment=function(form){
   if(!paymentDraft||!form?.isConnected)throw Error('Abre nuevamente el formulario de abonos.');
   const draft=paymentDraft,d=Object.fromEntries(new FormData(form)),rows=planMultiPayment(draft,d);
   const originalRef=String(d.receiptRef||'').trim(),normalizedRef=lotigestOwnerPayments.requireReceiptCorrelativo(originalRef);
-  if(lotigestOwnerPayments.findReceiptCorrelativo(db,originalRef))throw Error('El correlativo '+normalizedRef+' ya está registrado en otro pago.');
+  if(lotigestOwnerPayments.findReceiptCorrelativo(db,originalRef))throw Error(lotigestOwnerPayments.receiptCorrelativoMessage(db,originalRef));
   if(JSON.stringify(db)!==draft.snapshot||localStorage.getItem(STORAGE)!==draft.stored)
    throw Error('Los datos cambiaron. Abre Registrar pago nuevamente para evitar duplicados.');
   const reference=uid('RC'),next=JSON.parse(JSON.stringify(db)),stamp=new Date().toISOString();
