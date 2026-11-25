@@ -91,6 +91,16 @@ function pmCalendar(root,sales){
  const todayNotice=pmNode('div','pm-current-date');
  todayNotice.append(pmNode('strong','','Fecha actual de Honduras: '+pmReadableDate(now)),pmNode('small','','Esta fecha es informativa. Los recibos antiguos conservan su fecha real de pago.'));
  root.append(todayNotice);
+ const uncertain=validSales.filter(s=>{
+  const d=(db.contractTexts||[]).find(x=>x.status!=='voided'&&(x.saleId===s.id||x.id===s.documentId));
+  return d&&(!d.structured?.firstDueDate||d.structured.firstDueDate!==s.firstDueDate||d.structured.date!==s.date);
+ });
+ for(const s of uncertain){
+  const d=(db.contractTexts||[]).find(x=>x.status!=='voided'&&(x.saleId===s.id||x.id===s.documentId));
+  const notice=pmNode('div','pm-calendar-note pm-calendar-warning');
+  notice.append(pmNode('strong','','Revisar fechas del contrato · '+s.lotId),pmNode('p','','Contrato: '+s.date+' · Primera cuota registrada: '+(s.firstDueDate||'un mes después del contrato')+'. La ficha no confirma estas fechas. Verifica en Editar contrato; no se cambian por la fecha del primer abono.'));
+  root.append(notice);
+ }
  if(!yearAll.length){
   root.append(pmNode('p','pm-help',validSales.length?'Revisa la fecha de primera cuota y el plazo del contrato.':'Selecciona un solar con un contrato de crédito registrado.'));
   return;
