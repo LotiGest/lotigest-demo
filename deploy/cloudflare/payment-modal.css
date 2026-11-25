@@ -760,3 +760,5 @@ body.lotigest-dark #modal-root .lg-payment-modern.pm-compact-payment .pm-primary
 #modal-root .lg-payment-modern .pm-change-client{font-size:12px;padding:5px 9px;min-height:32px;white-space:normal}
 #modal-root .lg-payment-modern .pm-change-client[hidden]{display:none!important}
 @media(max-width:600px){#modal-root .lg-payment-modern .pm-header-client{gap:4px 8px}#modal-root .lg-payment-modern .pm-change-client{min-height:36px}}
+
+#modal-root .lg-payment-modern .pm-month.deposit-only{border:1px solid #378459;background:#e5f4e8;color:#185a34}#modal-root .lg-payment-modern .pm-deposit-label{font-size:10px;line-height:1.25;overflow-wrap:anywhere}body.lotigest-dark #modal-root .lg-payment-modern .pm-month.deposit-only{background:#214f3b;color:#a9e8b6}

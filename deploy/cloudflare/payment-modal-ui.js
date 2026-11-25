@@ -82,12 +82,32 @@ function pmMonthLabel(status){
  return {'paid':'Cuota pagada','paid-late':'Cuota vencida pagada','advance-covered':'Cuota cubierta por adelanto','advance':'Adelanto parcial para esta cuota',
   'partial':'Abono parcial','late':'Cuota vencida sin pagar','pending':'Pendiente'}[status]||'Sin cuota';
 }
+function pmCalendarDeposits(sales,payments,asOf){
+ const ids=new Set(sales.map(s=>s.id)),groups=new Map();
+ for(const p of payments){
+  if(!ids.has(p.saleId)||p.voidedAt||p.deletedAt||p.cancelledAt||['voided','cancelled','annulled'].includes(p.status)||!/^\d{4}-\d{2}-\d{2}$/.test(p.date||'')||p.date>asOf)continue;
+  const amount=Math.round(Number(p.amount)*100);if(!Number.isSafeInteger(amount)||amount<=0)continue;
+  const key=JSON.stringify([p.groupId||p.id,p.date]),ref=String(p.receiptReference||p.receiptRef||p.originalReceiptRef||p.receiptReferenceNormalized||'').trim();
+  if(!groups.has(key))groups.set(key,{date:p.date,reference:ref,amountCents:0,primaCents:0,id:p.id});
+  const g=groups.get(key),alloc=p.receiptInfo?.allocations;
+  const prima=Array.isArray(alloc)?alloc.filter(a=>!a.number&&/\bprima\b/i.test(String(a.label||''))).reduce((n,a)=>n+Math.max(0,Math.round(Number(a.amount||0)*100)),0):
+   p.paymentApplication==='prima'||/\bprima\b/i.test(String(p.concept||''))?amount:0;
+  g.amountCents+=amount;g.primaCents+=Math.min(amount,prima);if(!g.reference)g.reference=ref;
+ }
+ return [...groups.values()].sort((a,b)=>a.date.localeCompare(b.date)||a.reference.localeCompare(b.reference));
+}
+function pmCalendarYears(sales,rows,deposits){
+ const values=[...sales.map(s=>s.date),...rows.map(r=>r.dueDate),...deposits.map(p=>p.date)].filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d||'')).map(d=>Number(d.slice(0,4)));
+ if(!values.length)return [];
+ const first=Math.min(...values),last=Math.max(...values);
+ return last-first<=100?Array.from({length:last-first+1},(_,i)=>first+i):[...new Set(values)].sort((a,b)=>a-b);
+}
 function pmCalendar(root,sales){
  root.replaceChildren();
  const validSales=sales.filter(s=>s?.type==='credit'&&Number(s.months)>0);
  const ledger=pmReconciled(validSales),rows=ledger.rows;
- const yearAll=[...new Set(rows.map(r=>Number(r.dueDate.slice(0,4))))].sort((a,b)=>a-b);
- const now=businessToday(),current=Number(now.slice(0,4));
+ const now=businessToday(),current=Number(now.slice(0,4)),deposits=pmCalendarDeposits(validSales,db.payments||[],now);
+ const yearAll=pmCalendarYears(validSales,rows,deposits);
  const todayNotice=pmNode('div','pm-current-date');
  todayNotice.append(pmNode('strong','','Fecha actual de Honduras: '+pmReadableDate(now)),pmNode('small','','Esta fecha es informativa. Los recibos antiguos conservan su fecha real de pago.'));
  root.append(todayNotice);
@@ -108,8 +128,8 @@ function pmCalendar(root,sales){
   ['Cuotas cubiertas (sin prima)',String(paid)],
   ['Pagadas con recibo del mes',String(directPaid)],
   ['Cuotas pendientes / por conciliar',String(pending)],
-  ['Cubiertas con excedente',String(advances)],
-  ['Abono parcial con excedente',String(partialAdvances)],
+  ['Cuotas cubiertas con recibos de otros meses (histórico)',String(advances)],
+  ['Cuotas parciales con recibos de otros meses',String(partialAdvances)],
   ['Cuotas futuras pagadas por adelantado',String(future.covered)],
   ['Adelanto vigente a meses futuros',money(future.amountCents/100)],
   ['Último vencimiento futuro cubierto',future.through||'—'],
@@ -125,8 +145,8 @@ function pmCalendar(root,sales){
  const months=pmNode('div','pm-months'),names=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
  for(let m=1;m<=12;m++){
   const key=String(pmYear)+'-'+String(m).padStart(2,'0');
-  const inMonth=rows.filter(r=>r.dueDate.slice(0,7)===key);
-  let status='none';
+  const inMonth=rows.filter(r=>r.dueDate.slice(0,7)===key),received=deposits.filter(p=>p.date.slice(0,7)===key);
+  let status=received.length?'deposit-only':'none';
   if(inMonth.length){
    const covered=inMonth.every(r=>r.remainingCents===0);
    const direct=inMonth.every(r=>r.receipts.length&&r.receipts.every(p=>p.date.slice(0,7)===key));
@@ -134,12 +154,13 @@ function pmCalendar(root,sales){
    const applied=inMonth.some(r=>r.appliedCents>0);
    status=covered?(direct?'paid':'excess-covered'):hasOverdue?'late':applied?'partial':'pending';
   }
-  const glyph={'paid':'✓','paid-late':'✓','excess-covered':'↗✓','advance-covered':'↗✓','advance':'↗','late':'!','pending':'◷','partial':'◐','mixed':'◐',none:'—'}[status];
+  const glyph={'paid':'✓','paid-late':'✓','excess-covered':'↗✓','advance-covered':'↗✓','advance':'↗','late':'!','pending':'◷','partial':'◐','mixed':'◐','deposit-only':'✓',none:'—'}[status];
   const cell=pmNode('button','pm-month '+status+(key===now.slice(0,7)?' current':'')+(pmSelectedMonth===key?' pm-month-selected':''));
   cell.type='button';cell.dataset.pmMonth=key;cell.setAttribute('aria-pressed',String(pmSelectedMonth===key));
-  cell.setAttribute('aria-label',names[m-1]+' '+pmYear+': '+(inMonth.length?inMonth.map(x=>pmReportPaymentStatus(x,now)).join('; '):'sin cuota programada'));
-  cell.title=inMonth.length?inMonth.map(x=>'Cuota '+x.number+' · '+x.dueDate+' · '+pmReportPaymentStatus(x,now)).join('\n'):'Sin cuota programada';
+  cell.setAttribute('aria-label',names[m-1]+' '+pmYear+': '+(inMonth.length?inMonth.map(x=>pmReportPaymentStatus(x,now)).join('; '):received.length?'Depósito registrado, sin cuota programada':'sin cuota programada'));
+  cell.title=received.length?received.map(p=>p.date+' · #'+(p.reference||'Sin folio')+' · '+money(p.amountCents/100)).join('\n'):inMonth.length?inMonth.map(x=>'Cuota '+x.number+' · '+x.dueDate+' · '+pmReportPaymentStatus(x,now)).join('\n'):'Sin cuota programada';
   cell.append(pmNode('strong','',names[m-1]),pmNode('small','',glyph));
+  if(received.length){const onlyPrima=received.every(p=>p.primaCents===p.amountCents);cell.append(pmNode('small','pm-deposit-label',onlyPrima?'Prima recibida':received.length+' recibo(s)'));cell.append(pmNode('small','pm-deposit-label',money(received.reduce((n,p)=>n+p.amountCents,0)/100)));}
   if(inMonth.length)cell.append(pmNode('small','pm-due-day',inMonth.length===1?'Vence '+inMonth[0].dueDate.slice(8,10):inMonth.length+' cuotas'));
   if(key===now.slice(0,7))cell.append(pmNode('small','pm-today-day','Hoy '+now.slice(8,10)));
   months.append(cell);
@@ -154,6 +175,9 @@ function pmCalendar(root,sales){
   const details=pmNode('section','pm-month-details'),title=pmNode('h4','','Detalle de '+pmSelectedMonth);
   details.append(title);
   if(!selected.length)details.append(pmNode('p','pm-help','No hay una cuota programada para este mes.'));
+  const received=deposits.filter(p=>p.date.slice(0,7)===pmSelectedMonth);
+  if(received.length){const cash=pmNode('div','pm-month-receipt');cash.append(pmNode('strong','','Recibos depositados en este mes (no duplicar con aplicaciones)'));
+   for(const p of received){const line=pmNode('div','pm-month-receipt-line');line.append(pmNode('span','',pmReadableDate(p.date)+' · Correlativo '+(p.reference||'Sin registrar')+' · '+money(p.amountCents/100)+(p.primaCents?' · Prima '+money(p.primaCents/100):'')));const link=pmNode('button','btn btn-outline btn-sm','Ver / imprimir recibo');link.type='button';link.dataset.action='receipt-preview';link.dataset.id=p.id;line.append(link);cash.append(line);}details.append(cash);}
   for(const row of selected){
    const sale=getSale(row.saleId),lot=getLot(sale?.lotId);
    const card=pmNode('div','pm-month-receipt');
@@ -606,7 +630,7 @@ document.addEventListener('click',e=>{
  }
  const yearBtn=e.target.closest('[data-pm-year]');
  if(yearBtn&&document.querySelector('.lg-payment-modern')){
-  const years=[...new Set(pmActualSchedule(pmSales()).map(r=>Number(r.dueDate.slice(0,4))))].sort((a,b)=>a-b);
+  const sales=pmSales().filter(s=>s?.type==='credit'&&Number(s.months)>0),years=pmCalendarYears(sales,pmActualSchedule(sales),pmCalendarDeposits(sales,db.payments||[],businessToday()));
   const index=years.indexOf(pmYear),next=years[index+(yearBtn.dataset.pmYear==='next'?1:-1)];
   if(next!==undefined){pmYear=next;const container=document.getElementById('pm-calendar-body');if(container)pmCalendar(container,pmSales());}return;
  }
