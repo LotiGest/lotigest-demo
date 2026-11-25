@@ -63,7 +63,8 @@ export function validateNewReceiptCorrelativos(previous,next){
   if(p.receiptReferenceNormalized!==key)throw Error('El correlativo normalizado del pago no coincide con el recibo.');
   const same=x=>p.groupId?x.groupId===p.groupId:x.id===p.id;
   if((next.payments||[]).some(x=>same(x)&&normalizeReceiptCorrelativo(x.receiptReference)!==key))throw Error('Todos los solares del recibo deben compartir el correlativo.');
-  if(findReceiptCorrelativo({...next,payments:(next.payments||[]).filter(x=>!same(x))},p.receiptReference))throw Error('El correlativo ya está registrado en otro pago.');
+  const duplicateState={...next,payments:(next.payments||[]).filter(x=>!same(x))};
+  const duplicate=receiptCorrelativoMessage(duplicateState,p.receiptReference);if(duplicate)throw Error(duplicate);
  }
  const oldSales=new Set(previousSales.keys());
  const oldOwners=new Set((previous.ownerPayments||[]).map(x=>x.id));
@@ -76,7 +77,7 @@ export function validateNewReceiptCorrelativos(previous,next){
  for(const p of fresh){
   const key=requireReceiptCorrelativo(p.raw);
   if(p.normalized!=null&&p.normalized!==key)throw Error('El correlativo normalizado del pago no coincide con el recibo.');
-  if(findReceiptCorrelativo(previous,p.raw))throw Error('El correlativo '+key+' ya está registrado en otro pago. No se guardaron cambios.');
+  const duplicate=receiptCorrelativoMessage(previous,p.raw);if(duplicate)throw Error(duplicate+' No se guardaron cambios.');
   const prior=seen.get(key);
   if(prior&&prior!==p.group)throw Error('El correlativo '+key+' aparece en dos pagos distintos. No se guardaron cambios.');
   seen.set(key,p.group);
