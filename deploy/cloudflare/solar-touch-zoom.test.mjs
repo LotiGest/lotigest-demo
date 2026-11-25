@@ -2,12 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
-function setup({width=360,zoom=100}={}){
+function setup({width=360,zoom=100,fit=false,box='0 0 100 200',yaw=-6}={}){
  const code=readFileSync(new URL('./solar-touch-zoom.js',import.meta.url),'utf8');
- const svg={style:{}};
+ const svg={style:{},getAttribute:key=>key==='viewBox'?box:null};
  const viewport={
   clientWidth:width,clientHeight:540,clientLeft:0,clientTop:0,
-  scrollLeft:200,scrollTop:250,style:{},
+  scrollLeft:200,scrollTop:250,style:{getPropertyValue:()=>String(yaw)+'deg'},classList:{contains:name=>fit&&['lg-scope-fit','lg-3d-mode'].includes(name)},
   contains:el=>el===svg,getBoundingClientRect:()=>({left:0,top:0})
  };
  const label={textContent:''},listeners=new Map();
@@ -77,4 +77,17 @@ test('el gesto de zoom también mantiene las teclas y ratón en el escritorio',(
  assert.equal(prevented,true);
  assert.ok(touch.zoom()>125&&touch.zoom()<=600);
  assert.equal(viewport.style.overscrollBehavior,'contain');
+});
+
+test('bloque seleccionado entra completo en una pantalla móvil y permite ampliar',()=>{
+ const {touch,svg,viewport}=setup({fit:true,box:'0 0 100 200',yaw:-6});
+ touch.render();
+ const width=parseFloat(svg.style.width),height=width*2;
+ const a=6*Math.PI/180;
+ assert.ok(width*Math.cos(a)+height*Math.sin(a)<=viewport.clientWidth);
+ assert.ok(width*Math.sin(a)+height*Math.cos(a)<=viewport.clientHeight);
+ assert.ok(width<360);
+ assert.ok(parseFloat(svg.style.marginTop)>=0);
+ touch.zoomAt(200);
+ assert.equal(parseFloat(svg.style.width),width*2);
 });
