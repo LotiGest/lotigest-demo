@@ -1,4 +1,4 @@
 {
-  "version": "1.0.32",
-  "notes": "Optimiza Cobros y Abonos con índices y reutilización de amortizaciones verificadas; reduce escrituras locales sin cambios y acelera validación de propietarios. No cambia reglas financieras."
+  "version": "1.0.33",
+  "notes": "Optimización móvil Android: menos efectos gráficos, menú y teclado con actualizaciones agrupadas, clientes en páginas de 40 y búsqueda con pausa breve. Sin cambios en pagos, contratos o sincronización."
 }

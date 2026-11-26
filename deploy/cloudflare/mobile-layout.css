@@ -283,3 +283,13 @@
  html body #app .lotigest-shell .lotigest-sidebar .lg-product{flex-direction:row!important;justify-content:center;gap:8px}
  html body #app .lotigest-shell .lotigest-sidebar .lg-product img{width:32px!important;height:32px!important}
 }
+
+/* Pantallas pequeñas: menos composición GPU, sin alterar escritorio. */
+@media screen and (max-width:900px){
+ html body #app :is(.lotigest-sidebar,.lg-topbar,.lg-popup,.lg-search-results,.login-card),
+ html body .modal-cover{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+ html body #app .login-page:before,html body #app .login-page:after{animation:none!important}
+ html body #app .lg-popup{animation:none!important}
+ html body #app .cc-mobile-pages{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 0}
+ html body #app .cc-mobile-pages button{min-height:44px}
+}

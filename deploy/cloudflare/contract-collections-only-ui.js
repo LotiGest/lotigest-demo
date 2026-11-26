@@ -182,7 +182,9 @@
  },true);
 
  // Workspace de cobros: lista ligera y detalle de un solo cliente.
- let ccSelection='',ccSearch='',ccMobileDetail=false,ccSort='az',ccLastScope='';
+ let ccSelection='',ccSearch='',ccMobileDetail=false,ccSort='az',ccLastScope='',ccPage=0,ccFilterKey='';
+ const ccPhone=()=>typeof matchMedia==='function'&&matchMedia('(max-width:760px)').matches;
+ function ccPageSlice(items,index,mobile){const size=40;if(!mobile)return {items,index:0,pages:1,start:0,end:items.length};const pages=Math.max(1,Math.ceil(items.length/size)),safe=Math.max(0,Math.min(pages-1,index));return {items:items.slice(safe*size,(safe+1)*size),index:safe,pages,start:safe*size,end:Math.min(items.length,(safe+1)*size)};}
  const ccNorm=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  const ccKey=(rid,id)=>JSON.stringify([rid,id]);
  const ccCash=n=>money(n/100);
@@ -284,10 +286,14 @@
  '</style>';
  collectionPage=function(){
   const state=db,rid=residence().id;
-  if(ccLastScope!==rid){ccLastScope=rid;ccSelection='';ccMobileDetail=false;}
+  if(ccLastScope!==rid){ccLastScope=rid;ccSelection='';ccMobileDetail=false;ccPage=0;}
+  const filterKey=JSON.stringify([rid,ccSearch,ccSort,collectionMonth,collectionFilter,collectionStageFilter,collectionOverdueMonths]);
+  if(filterKey!==ccFilterKey){ccFilterKey=filterKey;ccPage=0;}
   const all=ccGroups(state,rid),shown=all.filter(ccMatch);
   shown.sort((a,b)=>ccSort==='za'?b.client.name.localeCompare(a.client.name,'es'):ccSort==='activity'?String(b.model.m?.last||'').localeCompare(String(a.model.m?.last||'')):a.client.name.localeCompare(b.client.name,'es'));
-  const g=shown.find(x=>x.key===ccSelection)||shown[0];ccSelection=g?.key||'';
+  const slice=ccPageSlice(shown,ccPage,ccPhone());ccPage=slice.index;
+  const g=shown.find(x=>x.key===ccSelection)||slice.items[0];ccSelection=g?.key||'';
+  const pager=slice.pages>1?'<nav class="cc-mobile-pages" aria-label="Páginas de clientes"><button type="button" class="btn btn-outline" data-cc-page="-1" '+(slice.index===0?'disabled':'')+'>‹ Anterior</button><small>'+ (slice.start+1)+'–'+slice.end+' de '+shown.length+'</small><button type="button" class="btn btn-outline" data-cc-page="1" '+(slice.index===slice.pages-1?'disabled':'')+'>Siguiente ›</button></nav>':'';
   return ccStyle+'<div class="cc-toolbar"><input type="search" id="cc-search" placeholder="Buscar cliente, teléfono o solar…" aria-label="Buscar cliente" value="'+esc(ccSearch)+'"><details><summary class="btn btn-outline">Filtros ▾</summary><div class="cc-filter-grid">'+
    '<label>Residencial<select data-residence-picker>'+ccOptions(state.residences.filter(r=>!r.hidden).map(r=>[r.id,r.name]),rid)+'</select></label>'+
    '<label>Mes<input id="debt-month" type="month" value="'+esc(collectionMonth)+'"></label><label>Etapa<select id="collection-stage-filter">'+ccOptions([['all','Todas'],['1','Etapa 1'],['2','Etapa 2'],['pending','Por confirmar']],collectionStageFilter)+'</select></label>'+
@@ -295,14 +301,18 @@
    '<label>Meses vencidos<select id="debt-overdue-months">'+ccOptions([['all','Todos'],...Array.from({length:Math.max(5,...all.map(x=>x.model.m?.consolidated.monthsOverdue||0))},(_,i)=>[i+1,i+1])],collectionOverdueMonths)+'</select></label>'+
    '<button class="btn btn-outline" data-action="debt-csv">Exportar reporte Excel</button><button class="btn btn-outline" data-action="payments-excel">Exportar primas y abonos</button><button class="btn btn-outline" data-action="debt-print">Imprimir reporte</button><button class="btn btn-outline" data-collection-new-contract>Nuevo contrato</button></div></details>'+
    '<button class="btn btn-primary" data-action="new-payment">+ Registrar cobro</button><button type="button" class="btn btn-outline" data-cc-many-picker>+ Abonos varios</button></div>'+
-   '<div class="cc-workspace '+(ccMobileDetail&&g?'cc-mobile-detail':'')+'"><aside class="cc-pane cc-list-pane"><div class="cc-list-head"><strong>Clientes ('+shown.length+')</strong><select id="cc-sort" aria-label="Orden de clientes">'+ccOptions([['az','A–Z'],['za','Z–A'],['activity','Último pago']],ccSort)+'</select></div><div class="cc-list">'+shown.map(x=>{const status=ccStatus(x);return '<button type="button" class="cc-person '+(x.key===ccSelection?'active':'')+'" data-cc-select'+ccAttr(x)+'><span class="cc-avatar">'+ic('users')+'</span><span class="cc-person-text"><strong>'+esc(x.client.name)+'</strong><small>'+x.lots.length+' solar(es) · '+esc(x.lots.map(l=>l.id).join(', '))+'</small><span class="cc-status '+status[1]+'">'+esc(status[0])+'</span></span><span aria-hidden="true">›</span></button>';}).join('')+(!shown.length?'<p>No hay clientes con esos filtros.</p>':'')+'</div></aside>'+
+   '<div class="cc-workspace '+(ccMobileDetail&&g?'cc-mobile-detail':'')+'"><aside class="cc-pane cc-list-pane"><div class="cc-list-head"><strong>Clientes ('+shown.length+')</strong><select id="cc-sort" aria-label="Orden de clientes">'+ccOptions([['az','A–Z'],['za','Z–A'],['activity','Último pago']],ccSort)+'</select></div><div class="cc-list">'+slice.items.map(x=>{const status=ccStatus(x);return '<button type="button" class="cc-person '+(x.key===ccSelection?'active':'')+'" data-cc-select'+ccAttr(x)+'><span class="cc-avatar">'+ic('users')+'</span><span class="cc-person-text"><strong>'+esc(x.client.name)+'</strong><small>'+x.lots.length+' solar(es) · '+esc(x.lots.map(l=>l.id).join(', '))+'</small><span class="cc-status '+status[1]+'">'+esc(status[0])+'</span></span><span aria-hidden="true">›</span></button>';}).join('')+(!shown.length?'<p>No hay clientes con esos filtros.</p>':'')+'</div>'+pager+'</aside>'+
    '<section class="cc-pane cc-detail-pane"><button class="btn btn-soft cc-back" data-cc-back>‹ Volver a clientes</button>'+(g?ccDetail(g):'<p>Selecciona un cliente.</p>')+'</section></div>';
  };
- document.addEventListener('input',e=>{if(e.target.id!=='cc-search')return;ccSearch=e.target.value;const pos=e.target.selectionStart;render();const input=document.getElementById('cc-search');if(input){input.focus();if(pos!=null)input.setSelectionRange(pos,pos);}},true);
+ let ccSearchTimer;
+ document.addEventListener('input',e=>{if(e.target.id!=='cc-search')return;ccSearch=e.target.value;ccPage=0;const source=e.target;
+  const refresh=()=>{if(!source.isConnected||document.getElementById('cc-search')!==source)return;const pos=source.selectionStart,focused=document.activeElement===source;render();const input=document.getElementById('cc-search');if(input&&focused){input.focus();if(pos!=null)input.setSelectionRange(pos,pos);}};
+  clearTimeout(ccSearchTimer);if(ccPhone())ccSearchTimer=setTimeout(refresh,140);else refresh();},true);
  document.addEventListener('change',e=>{if(e.target.id==='cc-sort'){ccSort=e.target.value;render();}},true);
  document.addEventListener('click',e=>{
-  const b=e.target.closest?.('[data-cc-select],[data-cc-back],[data-cc-details],[data-cc-whatsapp],[data-cc-many-picker]');if(!b)return;
+  const b=e.target.closest?.('[data-cc-select],[data-cc-back],[data-cc-details],[data-cc-whatsapp],[data-cc-many-picker],[data-cc-page]');if(!b)return;
   e.preventDefault();e.stopImmediatePropagation();
+  if(b.hasAttribute('data-cc-page')){ccPage+=Number(b.dataset.ccPage);ccSelection='';ccMobileDetail=false;render();return;}
   if(b.hasAttribute('data-cc-many-picker')){window.lotigestMultiDate?.openMulti(true);return;}
   if(b.hasAttribute('data-cc-back')){ccMobileDetail=false;render();return;}
   const id=b.dataset.ccClient,rid=b.dataset.ccRid;
