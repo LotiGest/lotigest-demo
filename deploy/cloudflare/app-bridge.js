@@ -376,3 +376,37 @@ document.addEventListener('click',event=>{
 },true);
 
 setTimeout(cloudPrepareOffline,0);
+
+ 
+// Aviso automático de versiones; instalar sigue siendo una acción del usuario.
+let cloudVersionChecking=false,cloudVersionCheckedAt=0,cloudVersionSnoozedUntil=0,cloudAvailableVersion=null;
+function cloudVersionIsNewer(value){
+ if(typeof value!=='string'||!/^\d+\.\d+\.\d+$/.test(value))return false;
+ const latest=value.split('.').map(Number),current=CLOUD_BUILD_VERSION.split('.').map(Number);
+ for(let i=0;i<3;i++){if(latest[i]!==current[i])return latest[i]>current[i];}
+ return false;
+}
+async function cloudCheckAvailableVersion(){
+ if(cloudVersionChecking||navigator.onLine===false||document.visibilityState==='hidden'||Date.now()-cloudVersionCheckedAt<30000)return;
+ cloudVersionChecking=true;cloudVersionCheckedAt=Date.now();
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
+ try{
+  const response=await fetch('/version.json?check='+Date.now(),{cache:'no-store',signal:controller.signal});
+  if(!response.ok)return;
+  const info=await response.json();if(!cloudVersionIsNewer(info.version))return;
+  if(cloudAvailableVersion!==info.version){cloudAvailableVersion=info.version;cloudVersionSnoozedUntil=0;}
+  const notice=document.getElementById('lgUpdateNotice'),version=document.getElementById('lgUpdateVersion'),now=document.getElementById('lgUpdateNow'),later=document.getElementById('lgUpdateLater');
+  if(!notice||!now)return;
+  if(version)version.textContent='LOTIGEST '+info.version+' ya está disponible.';
+  now.dataset.action='cloud-manual-update';
+  if(later&&!later.dataset.cloudBound){later.dataset.cloudBound='true';later.addEventListener('click',()=>{cloudVersionSnoozedUntil=Date.now()+600000;notice.hidden=true;});}
+  notice.style.bottom='calc(115px + env(safe-area-inset-bottom, 0px))';
+  if(Date.now()>=cloudVersionSnoozedUntil)notice.hidden=false;
+ }catch{/* Una comprobación sin conexión no interrumpe el trabajo. */}
+ finally{clearTimeout(timer);cloudVersionChecking=false;}
+}
+window.addEventListener('focus',cloudCheckAvailableVersion);
+window.addEventListener('online',cloudCheckAvailableVersion);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')void cloudCheckAvailableVersion();});
+setInterval(cloudCheckAvailableVersion,120000);
+setTimeout(cloudCheckAvailableVersion,3500);
