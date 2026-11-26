@@ -25,4 +25,8 @@ test('el service worker descarga la aplicación, sirve el inicio sin red y no al
  result=null;events.fetch({request:{url:'https://lotigest.test/seleccionar-solar.html?map=abcdefabcdefabcdefabcdef',method:'GET',mode:'navigate'},respondWith(p){result=p;}});
  const noFallback=await result;assert.equal(noFallback.status,503);assert.ok(!(await noFallback.text()).includes('LOTIGEST shell'));
  const shell=await caches.open('lotigest-shell-__LOTIGEST_VERSION__');assert.ok(await shell.match('/offline-files.js'));assert.equal(await shell.match('/api/app/state'),undefined);
+ const old=await caches.open('lotigest-shell-previous');await old.put('/altos-arrayan-vista-proyecto.webp',new Response('old offline plan'));
+ events.activate({waitUntil(p){activation=p;}});await activation;
+ assert.equal(await (await (await caches.open('lotigest-resources-v1')).match('/altos-arrayan-vista-proyecto.webp')).text(),'old offline plan');
+ assert.equal((await caches.keys()).includes('lotigest-shell-previous'),false);
 });
