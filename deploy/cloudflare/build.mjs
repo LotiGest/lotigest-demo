@@ -40,6 +40,8 @@ for (const [path,name,exports] of [['ledger-import.mjs','lotigestLedger',['prepa
 const ownerScript='<script src="/lotigestOwnerPayments.js"></script>';
 if(!files['index.html'].includes(ownerScript)||!files['lotigestOwnerPayments.js'].includes('receiptCorrelativoMessage'))throw Error('Falta el módulo de validación de recibos.');
 files['index.html']=files['index.html'].replace(ownerScript,()=>'<script id="lotigest-owner-payments">'+files['lotigestOwnerPayments.js'].replace(/<\/script/gi,'<\\/script')+'</script>');
+// La barra usa CSS de la misma versión del HTML, incluso con caché anterior.
+files['index.html']=files['index.html'].replace('<link rel="stylesheet" href="/sidebar-click.css">',()=>'<style id="lotigest-sidebar-layout">'+files['sidebar-click.css']+'</style>');
 // Keep the payment layout in the same HTML release: an old service worker must not serve stale payment CSS to new markup.
 files['index.html']=files['index.html'].replace('<link rel="stylesheet" href="/payment-modal.css">',()=>'<style id="lotigest-payment-layout">'+files['payment-modal.css']+'</style>');
 const compactPanelsCss=await readFile(new URL('./compact-panels.css',import.meta.url),'utf8');
