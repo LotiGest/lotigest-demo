@@ -29,9 +29,10 @@ export function monthlyPaymentInfo(state,lotIds){
 export function assertMonthlyPayment(state,lotIds,amountCents,{prima=false}={}){
  const info=monthlyPaymentInfo(state,lotIds);
  if(prima||!info.known)return info;
- // La prima puede pagarse por partes; si se cruza a mensualidades, cubrir al menos una cuota.
- const pending=info.primaRemainingCents||0;
- if(pending&&amountCents<=pending)return info;
+ // La prima se registra aparte; no aceptar abonos mensuales antes de completarla.
+ if(info.primaRemainingCents==null)throw Error('Verifica la distribución de la prima por solar antes de registrar abonos.');
+ const pending=info.primaRemainingCents;
+ if(pending>0)throw Error('Primero completa la prima pendiente. Registra este pago como Prima, no como abono.');
  const monthlyAmount=amountCents-pending;
  const remaining=info.remainingCents==null?null:Math.max(0,info.remainingCents-pending);
  const minimum=remaining==null?info.monthlyCents:Math.min(info.monthlyCents,remaining);
@@ -57,7 +58,7 @@ export function validateNewMonthlyPayments(before,after){
   const importedContract=posted&&(after.historicalContracts||[]).find(c=>c.id===posted.contractId&&c.saleId===p.saleId);
   if(recorded&&posted&&importedContract){working.payments=working.payments.filter(x=>x.id!==p.id).concat(p);continue;}
   const sale=(after.sales||[]).find(s=>s.id===p.saleId);
-  if(sale){const test={...working,payments:working.payments.filter(x=>x.id!==p.id)};if(!prior&&p.paymentApplication==='prima')assertPrimaPayment(test,sale.lotId,monthlyCents(p.amount));else assertMonthlyPayment(test,[sale.lotId],monthlyCents(p.amount));}
+  if(sale){const test={...working,payments:working.payments.filter(x=>x.id!==p.id)};if(!prior&&p.paymentApplication==='prima')assertPrimaPayment(test,sale.lotId,monthlyCents(p.amount));else assertMonthlyPayment(test,[sale.lotId],monthlyCents(p.amount),{prima:/^PRIMA\b/i.test(p.concept||'')});}
   working.payments=working.payments.filter(x=>x.id!==p.id).concat(p);
  }
  const oldOwners=new Map((before.ownerPayments||[]).map(p=>[p.id,p]));
