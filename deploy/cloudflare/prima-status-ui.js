@@ -16,31 +16,38 @@ function lotigestPrimaStatus(clientId,rid,selectedLotIds=null){
   Number(d.structured?.down)>0);
  const agreedCents=contracted.reduce((sum,s)=>sum+cents(s.downPayment),0)+pending.reduce((sum,d)=>sum+cents(d.structured.down),0);
  const paidCents=contracted.reduce((sum,s)=>sum+Math.max(0,Math.min(cents(s.downPayment),cents(paidAmount(s.id)))),0);
- if(agreedCents>0){
-  const remainingCents=Math.max(0,agreedCents-paidCents);
-  return {
-   kind:remainingCents===0?'paid':paidCents===0?'missing':'partial',
-   label:remainingCents===0?'Prima pagada':paidCents===0?'Sin prima registrada':'Prima incompleta',
-   agreedCents,paidCents,remainingCents,contractVerified:pending.length===0
-  };
- }
+
  const docs=(db.ownershipStatements||[]).filter(s=>s.clientId===clientId&&s.residenceId===rid&&
   (s.references||[]).some(linked));
  const relatedOwner=(db.ownerPayments||[]).filter(p=>p.clientId===clientId&&p.residenceId===rid&&!p.voidedAt&&!p.deletedAt&&
   /^prima\b/i.test(String(p.concept||''))&&
   (p.allocations||[]).some(a=>(a.references||[]).some(linked)));
- const receiptCents=relatedOwner.reduce((sum,p)=>sum+Math.max(0,cents(Number(p.amountCents||0)/100)),0);
+ const receiptCents=relatedOwner.reduce((sum,p)=>sum+(p.allocations||[]).reduce((n,a)=>{
+  const refs=a.references||[];
+  // Un recibo conjunto sólo acredita esta selección si todos sus solares están incluidos.
+  return n+(refs.length&&refs.every(linked)?Math.max(0,Number(a.amountCents)||0):0);
+ },0),0);
  const statementIds=new Set(docs.flatMap(s=>s.paymentIds||[]));
- const imported=(db.historicalPayments||[]).filter(p=>p.residenceId===rid&&p.type==='PRIMA'&&
+ const imported=(db.historicalPayments||[]).filter(p=>p.residenceId===rid&&p.type==='PRIMA'&&!p.voidedAt&&!p.deletedAt&&!['voided','cancelled','annulled'].includes(p.status)&&
   (p.clientId===clientId||statementIds.has(p.id))&&
-  (ids.has(p.lotId)||(p.references||[]).some(linked)||statementIds.has(p.id))&&
+  (p.lotId?ids.has(p.lotId):(p.references||[]).length?(p.references||[]).every(linked):statementIds.has(p.id)&&docs.every(d=>(d.references||[]).every(linked)))&&
   Number.isSafeInteger(p.amountCents)&&p.amountCents>0);
  const importedCents=imported.reduce((sum,p)=>sum+p.amountCents,0);
  // Un valor de prima del Excel puede ser el mismo recibo histórico;
  // se toma el máximo y NO se suma dos veces la misma documentación.
- const documentCents=Math.max(0,...docs.filter(s=>Number.isSafeInteger(s.documentedDownPaymentCents)&&s.documentedDownPaymentCents>=0)
+ const documentCents=Math.max(0,...docs.filter(s=>(s.references||[]).every(linked)&&Number.isSafeInteger(s.documentedDownPaymentCents)&&s.documentedDownPaymentCents>=0)
   .map(s=>s.documentedDownPaymentCents));
  const recordedCents=Math.max(documentCents,receiptCents,importedCents);
+ if(agreedCents>0){
+  // Las fichas pendientes no tienen venta: el cobro puede estar en el historial.
+  const effectivePaidCents=contracted.length===0?Math.min(agreedCents,Math.max(paidCents,recordedCents)):paidCents;
+  const remainingCents=Math.max(0,agreedCents-effectivePaidCents);
+  return {
+   kind:remainingCents===0?'paid':effectivePaidCents===0?'missing':'partial',
+   label:remainingCents===0?'Prima pagada':effectivePaidCents===0?'Sin prima registrada':'Prima incompleta',
+   agreedCents,paidCents:effectivePaidCents,remainingCents,contractVerified:pending.length===0
+  };
+ }
  if(recordedCents>0)return {kind:'recorded',label:'Prima registrada',agreedCents:null,
   paidCents:recordedCents,remainingCents:null,contractVerified:false};
  // Un cero explícito del Excel significa "sin prima documentada", no
