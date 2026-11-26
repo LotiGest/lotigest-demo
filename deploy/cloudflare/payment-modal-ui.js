@@ -444,14 +444,18 @@ function pmCompactSales(form,shell,search,person,last,historyBar,summary,cal,ent
  const monthly=pmNode('section','notice-card');monthly.dataset.monthlyBanner='true';(fields.querySelector('.pm-payment-options')||fields).append(monthly);
  entry.querySelector('h3').textContent='Datos del abono';entry.classList.add('pm-reference-entry');
  const footer=modal.querySelector('.modal-footer');
- if(footer){footer.classList.add('pm-reference-actions');entry.append(footer);}
+ if(footer){
+  footer.classList.add('pm-reference-actions');entry.append(footer);
+  const more=pmNode('button','btn pm-mobile-details-toggle','Historial y opciones');more.type='button';more.setAttribute('aria-expanded','false');
+  more.addEventListener('click',()=>{const expanded=modal.classList.toggle('pm-mobile-expanded');more.setAttribute('aria-expanded',String(expanded));more.textContent=expanded?'Volver al abono':'Historial y opciones';});footer.append(more);
+ }
  const recent=pmCard('Últimos pagos registrados','fileCheck');recent.card.classList.add('pm-reference-history');recent.body.id='pm-reference-history';
  const progress=pmCard('Progreso del contrato','layers');progress.card.classList.add('pm-reference-progress');progress.body.id='pm-reference-progress';
  cal.classList.add('pm-reference-calendar');
  const layout=pmNode('div','pm-reference-layout');layout.append(left.card,entry,right,cal,recent.card,progress.card);
  shell.replaceChildren(layout);
  const header=modal.querySelector('.modal-header');if(header){historyBar.classList.add('pm-reference-toolbar');header.append(historyBar);}
- form.addEventListener('invalid',event=>{for(let el=event.target.parentElement;el&&el!==form;el=el.parentElement)if(el.tagName==='DETAILS')el.open=true;},true);
+ form.addEventListener('invalid',event=>{if(event.target.closest('.pm-payment-options')){modal.classList.add('pm-mobile-expanded');const more=modal.querySelector('.pm-mobile-details-toggle');if(more){more.setAttribute('aria-expanded','true');more.textContent='Volver al abono';}}for(let el=event.target.parentElement;el&&el!==form;el=el.parentElement)if(el.tagName==='DETAILS')el.open=true;},true);
 }
 function pmReferenceRefresh(sales){
  const history=document.getElementById('pm-reference-history'),progress=document.getElementById('pm-reference-progress');

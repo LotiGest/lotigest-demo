@@ -1,4 +1,4 @@
 {
-  "version": "1.0.16",
-  "notes": "Abonos celular: corregir ancho, altura de pantalla completa y tamaño de controles."
+  "version": "1.0.17",
+  "notes": "Abonos celular compacto: pantalla principal y acceso separado a historial y opciones."
 }
