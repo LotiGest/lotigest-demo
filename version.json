@@ -1,4 +1,4 @@
 {
-  "version": "1.0.25",
-  "notes": "Diseño de PC exclusivo de Abonos. Barra lateral compacta al iniciar y navegar, sin restaurar apertura antigua. Celular conserva su diseño."
+  "version": "1.0.26",
+  "notes": "Buscador de clientes de Abonos dentro del área de contenido, sin quedar detrás de las barras lateral e inferior en PC."
 }

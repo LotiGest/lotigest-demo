@@ -2,6 +2,15 @@
 .pd-toolbar,.pd-client-info,.pd-clear,.pd-month-amount{display:none}
 @media screen and (min-width:901px){
  body.cp-inline-payment{--pd-gap:12px}
+ /* Buscador y formulario comparten el espacio real del workspace, fuera de las barras fijas. */
+ html body.cp-inline-payment .workspace>#modal-root{position:relative!important;inset:auto!important;min-width:0!important;width:auto!important;max-width:100%!important;padding:0 0 24px!important;box-sizing:border-box!important}
+ html body.cp-inline-payment .workspace>#modal-root>.modal-cover:has(.lg-payment-modern){position:static!important;inset:auto!important;width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;display:block!important;margin:0!important;padding:0!important;transform:none!important;backdrop-filter:none!important}
+ html body.cp-inline-payment .workspace>#modal-root .lg-payment-modern{position:relative!important;inset:auto!important;transform:none!important;translate:none!important;min-width:0!important;width:100%!important;max-width:100%!important;max-height:none!important;height:auto!important;margin:0!important;box-sizing:border-box!important}
+ html body.cp-inline-payment .workspace>#modal-root .lg-payment-modern .modal-content{min-width:0!important;overflow:visible!important;flex:none!important}
+ html body.cp-inline-payment .workspace>#modal-root .pm-picker-results{max-height:calc(100dvh - 360px)!important;min-height:150px;overflow:auto!important;scroll-padding-block:12px;padding:6px 4px 18px;box-sizing:border-box}
+ html body.cp-inline-payment .workspace>#modal-root .pm-picker-results button{max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:left;min-height:52px}
+ html body.cp-inline-payment .workspace>#modal-root .pm-picker-results :is(strong,small){font-size:13px;line-height:1.5}
+
  html body.cp-inline-payment .workspace>#modal-root{margin:0 12px 115px!important}
  html body.cp-inline-payment #modal-root .pm-reference-payment{border:0!important;border-radius:0!important;background:transparent!important;overflow:visible!important}
  html body.cp-inline-payment #modal-root .pm-reference-payment .modal-content{padding:0!important;overflow:visible!important}
