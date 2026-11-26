@@ -34,6 +34,7 @@
    }
    modal.querySelector('.modal-header')?.append(toolbar);
   }
+  toolbar.hidden=true;
   toolbar.querySelectorAll('button').forEach(b=>b.disabled=!sales.length);
   let info=modal.querySelector('.pd-client-info');
   if(!info){info=pmNode('div','pd-client-info');modal.querySelector('.pm-reference-client .pm-card-body')?.append(info);}
@@ -44,15 +45,15 @@
   const conceptInput=options?.querySelector('[name="concept"]');
   const concept=conceptInput?.closest('.field-group')||conceptInput?.closest('label');
   move(concept,fields);
-  let clear=modal.querySelector('[data-pd-clear]');
-  if(!clear){
-   clear=pmNode('button','btn btn-outline pd-clear','Limpiar');clear.type='button';clear.dataset.pdClear='true';
-   clear.addEventListener('click',()=>{
-    for(const input of form.querySelectorAll('[data-payment-amount],#pm-client-total,.pm-currency-visible,[name="receiptRef"],[name="concept"]')){input.value=input.name==='concept'?input.defaultValue:'';input.dispatchEvent(new Event('input',{bubbles:true}));}
-    const error=form.querySelector('#multi-payment-error');if(error)error.textContent='';
-    form.querySelector('#pm-amount-slot input:not([type="hidden"])')?.focus();
-   });
-   modal.querySelector('.pm-reference-actions')?.append(clear);
+  const method=options?.querySelector('.pm-method-buttons')?.parentElement;
+  move(method,fields);
+  const monthly=form.querySelector('[data-monthly-banner]');
+  move(monthly,modal.querySelector('.pm-reference-client .pm-card-body'));
+  const actions=modal.querySelector('.pm-reference-actions');
+  if(actions){
+   for(const button of actions.querySelectorAll('button'))button.hidden=!button.matches('.pm-save,.pm-many-client,[data-pd-another]');
+   let another=actions.querySelector('[data-pd-another]');
+   if(!another){another=pmNode('button','btn btn-outline pd-another','Guardar y registrar otro');another.type='submit';another.setAttribute('form',form.id);another.dataset.pmSaveMode='save';another.dataset.pdAnother='true';actions.append(another);}
   }
   const calendar=modal.querySelector('#pm-calendar-body');
   if(calendar){
@@ -68,6 +69,20 @@
    }
   }
  }
+ // Reabrir solamente después de que el guardado original creó un pago.
+ if(typeof submitMultiPayment==='function'){
+  const submit=submitMultiPayment;
+  submitMultiPayment=async function(form,...args){
+   const another=form.dataset.pdAnother==='true';delete form.dataset.pdAnother;
+   const before=(db.payments||[]).length;
+   const result=await submit(form,...args);
+   if(another&&(db.payments||[]).length>before)newPayment(null,false);
+   return result;
+  };
+ }
+ document.addEventListener('submit',event=>{
+  if(event.target.id==='multi-payment-form')event.target.dataset.pdAnother=String(Boolean(event.submitter?.matches('[data-pd-another]')));
+ },true);
  const refresh=pmReferenceRefresh;
  pmReferenceRefresh=function(...args){const result=refresh(...args);decorate();return result;};
  // Los cambios de año reconstruyen el calendario, pero no el formulario.

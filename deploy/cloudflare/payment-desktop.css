@@ -93,3 +93,11 @@
   html body.cp-inline-payment #modal-root .pm-reference-payment .pm-reference-history{grid-area:4 / 1 / 5 / 3}
  }
 }
+
+@media(min-width:901px){
+ html body.cp-inline-payment #modal-root .pd-toolbar[hidden],
+ html body.cp-inline-payment #modal-root .pm-reference-actions button[hidden]{display:none!important}
+ html body.cp-inline-payment #modal-root .pm-reference-actions{display:grid!important;grid-template-columns:1fr 1fr;gap:10px}
+ html body.cp-inline-payment #modal-root .pd-another{grid-column:1 / -1;order:3}
+ html body.cp-inline-payment #modal-root .pm-reference-client [data-monthly-banner]{margin-top:16px;padding:14px;border-radius:12px;background:var(--cp-surface,var(--card));color:var(--cp-text,var(--text));border:1px solid var(--border)}
+}

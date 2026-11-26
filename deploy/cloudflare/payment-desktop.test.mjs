@@ -33,7 +33,7 @@ test('PC usa controles reales, muestra importe de cuota y conserva el borrador a
  assert.equal(amount.value,'3400');assert.equal(d.querySelector('[name=receiptRef]').value,'4421');
  assert.equal(d.querySelector('#pm-calendar-body>.pm-progress').textContent,'Conciliación');
  w.desktopMedia.matches=true;w.desktopMedia.change();
- d.querySelector('[data-pd-clear]').click();assert.equal(amount.value,'');assert.equal(d.querySelector('[name=receiptRef]').value,'');assert.equal(concept.value,'Abono a crédito');
+ assert.equal(d.querySelector('[data-pd-clear]'),null);assert.equal(d.querySelector('[data-pd-another]').textContent,'Guardar y registrar otro');assert.equal(d.querySelector('.pd-toolbar').hidden,true);
  assert.equal(w.db.payments.length,1);assert.equal(d.querySelectorAll('.pd-toolbar').length,1);
  dom.window.close();
 });
@@ -45,4 +45,17 @@ test('en celular el adaptador de PC no modifica el formulario ni agrega controle
 test('en Contratos y los demás módulos no se aplica la distribución de Abonos',()=>{
  const {dom,w,d}=fixture(true);w.page='contracts';const before=d.body.innerHTML;
  w.pmReferenceRefresh();assert.equal(d.body.innerHTML,before);dom.window.close();
+});
+
+test('PC deja tipo de pago visible y cuota mensual debajo del cliente',()=>{
+ const {dom,w,d}=fixture(true);
+ const options=d.querySelector('.pm-payment-options');
+ const method=d.createElement('div');method.innerHTML='<div class="pm-method-buttons"><button type="button">Efectivo</button></div>';options.append(method);
+ const monthly=d.createElement('section');monthly.dataset.monthlyBanner='true';monthly.textContent='Cuota mensual: L 3400';options.append(monthly);
+ w.pmReferenceRefresh();
+ assert.equal(method.closest('details'),null);
+ assert.equal(monthly.parentElement,d.querySelector('.pm-reference-client .pm-card-body'));
+ w.desktopMedia.matches=false;w.desktopMedia.change();
+ assert.equal(method.parentElement,options);assert.equal(monthly.parentElement,options);
+ dom.window.close();
 });
