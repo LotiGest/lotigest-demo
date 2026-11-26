@@ -1,4 +1,4 @@
 {
-  "version": "1.0.20",
-  "notes": "Abonos varios por pasos: ingreso individual, prelistado obligatorio y regreso a Abonos con el total."
+  "version": "1.0.21",
+  "notes": "Abonos varios: diseño de referencia con pasos superiores, último pago compacto e importes legibles."
 }
