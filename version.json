@@ -1,4 +1,4 @@
 {
-  "version": "1.0.13",
-  "notes": "Corrección del guardado de Abonos varios cuando el módulo de correlativos está desactualizado."
+  "version": "1.0.14",
+  "notes": "Abonos: distribución de referencia para PC y teléfono, modos día y noche."
 }

@@ -28,3 +28,48 @@ body.lotigest-dark #modal-root .lg-payment-modern .pm-summary-row{border-color:#
 @media(max-width:1000px){.cp-message-layout{grid-template-columns:1fr}.cp-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:700px){.cp-dock{left:12px;right:12px;transform:none;width:auto;bottom:max(9px,env(safe-area-inset-bottom));border-radius:23px;padding:5px}.cp-dock button{flex-direction:column;gap:5px;padding:9px 2px;font-size:12px;min-height:65px}.cp-dock svg{width:25px;height:25px}.cp-metrics{grid-template-columns:1fr 1fr;gap:8px}.cp-card{padding:12px}.cp-heading h1{font-size:23px}.cp-template-grid{grid-template-columns:1fr}.cp-filters>*{width:100%}.cp-heading p{font-size:13px}body.cp-inline-payment #modal-root{margin:8px 9px 20px}body.cp-inline-payment #modal-root .lg-payment-modern{border-radius:19px}body.cp-inline-payment #modal-root .pm-grid,body.cp-inline-payment #modal-root .pm-clientbar{grid-template-columns:1fr}body.cp-inline-payment #modal-root .modal-header{padding:14px}body.cp-inline-payment #modal-root .modal-header h2{font-size:21px}body.cp-inline-payment #modal-root .modal-content{padding:10px}body:has(.lotigest-shell){padding-bottom:105px}}
 @media print{.cp-dock{display:none!important}body:has(.lotigest-shell){padding-bottom:0}}
+/* Abonos: distribución de la referencia aprobada. */
+body.cp-inline-payment .lotigest-shell{min-height:0!important;height:auto!important}
+body.cp-inline-payment .lotigest-shell .workspace{min-height:0!important}
+body.cp-inline-payment #modal-root .modal-header{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+body.cp-inline-payment #modal-root .modal-header>div:before{display:none}
+body.cp-inline-payment #modal-root .modal-header>div{padding-left:0}
+body.cp-inline-payment #modal-root .pm-header-client{display:none}
+body.cp-inline-payment #modal-root .pm-reference-toolbar{margin:0}
+body.cp-inline-payment #modal-root .pm-reference-layout{display:grid;grid-template-columns:minmax(220px,1.05fr) minmax(260px,1.05fr) minmax(230px,.8fr);gap:14px;align-items:start}
+body.cp-inline-payment #modal-root .pm-reference-client{grid-column:1;grid-row:1}
+body.cp-inline-payment #modal-root .pm-reference-entry{grid-column:2;grid-row:1}
+body.cp-inline-payment #modal-root .pm-reference-side{grid-column:3;grid-row:1 / span 2;display:grid;gap:14px}
+body.cp-inline-payment #modal-root .pm-reference-calendar{grid-column:1 / span 2;grid-row:2}
+body.cp-inline-payment #modal-root .pm-reference-history{grid-column:1 / span 2;grid-row:3}
+body.cp-inline-payment #modal-root .pm-reference-progress{grid-column:3;grid-row:3}
+body.cp-inline-payment #modal-root .pm-reference-client .pm-clientbar{display:flex;flex-direction:column;gap:9px}
+body.cp-inline-payment #modal-root .pm-reference-client :is(.pm-clientbox,.pm-searchbox){border:0;background:transparent!important;padding:8px 0;box-shadow:none;min-height:0}
+body.cp-inline-payment #modal-root .pm-reference-client .pm-searchbox.has-selection:focus-within #multi-payment-results{max-height:220px;overflow:auto}
+body.cp-inline-payment #modal-root .pm-reference-client .pm-clientbox strong{font-size:15px}
+body.cp-inline-payment #modal-root .pm-reference-entry .pm-fields{display:flex;flex-direction:column;gap:12px}
+body.cp-inline-payment #modal-root .pm-reference-entry #pm-amount-slot input{font-weight:800;color:#087a35;font-size:20px}
+body.cp-inline-payment #modal-root .pm-reference-entry input[name=receiptRef]{color:#ce343f!important;font-weight:800;font-size:20px}
+body.cp-inline-payment #modal-root .pm-reference-actions{position:static!important;display:flex;flex-wrap:wrap;padding:12px;border:0;background:transparent!important;gap:8px}
+body.cp-inline-payment #modal-root .pm-reference-actions .pm-save{order:-1;flex:1 0 100%;font-size:18px;min-height:45px}
+body.cp-inline-payment #modal-root .pm-reference-actions .btn{min-height:38px;font-size:12px}
+body.cp-inline-payment #modal-root .pm-reference-side .pm-last-payment{margin:0;border:0;background:transparent!important;padding:0}
+body.cp-inline-payment #modal-root .pm-reference-summary .pm-summary-row{padding:7px 0;font-size:12px}
+body.cp-inline-payment #modal-root .pm-reference-summary .pm-summary-row strong{font-size:14px}
+body.cp-inline-payment #modal-root .pm-reference-summary h3 .pm-statement-launch{font-size:11px}
+body.cp-inline-payment #modal-root .pm-reference-history table{width:100%;font-size:12px;border-collapse:collapse}
+body.cp-inline-payment #modal-root .pm-reference-history :is(th,td){padding:9px 7px;border-bottom:1px solid var(--cp-border);text-align:left;color:inherit}
+.pm-reference-table{overflow:auto}.pm-folio{color:#e7515b!important;font-weight:800}.pm-value{color:#168448!important;font-weight:800}
+body.lotigest-dark #modal-root .pm-value,body.lotigest-dark #modal-root .pm-reference-entry #pm-amount-slot input{color:#83ee71!important}
+#pm-reference-progress{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.pm-reference-ring{width:112px;height:112px;border-radius:50%;background:conic-gradient(#39df55 var(--pm-percent),#9baaa5 0);display:flex;align-items:center;justify-content:center;flex-direction:column;position:relative;isolation:isolate;flex:none}
+.pm-reference-ring:before{content:'';position:absolute;inset:13px;border-radius:50%;background:var(--cp-surface);z-index:-1}.pm-reference-ring strong{font-size:25px}.pm-reference-progress-values{flex:1;min-width:150px}
+body:has(.cp-inline-payment) .lg-topbar{visibility:visible!important}
+body.cp-inline-payment .lotigest-shell .lg-topbar{visibility:visible!important}
+body.cp-inline-payment #modal-root .pm-reference-payment .pm-current-date small{display:none}
+@media(min-width:1100px){body.cp-inline-payment #modal-root .pm-reference-payment .pm-months{grid-template-columns:repeat(12,minmax(0,1fr))}}
+@media(max-width:1100px){body.cp-inline-payment #modal-root .pm-reference-layout{grid-template-columns:1fr 1fr}body.cp-inline-payment #modal-root .pm-reference-side{grid-column:1;grid-row:2}body.cp-inline-payment #modal-root .pm-reference-calendar{grid-column:1 / -1;grid-row:3}body.cp-inline-payment #modal-root .pm-reference-history{grid-column:1 / -1;grid-row:4}body.cp-inline-payment #modal-root .pm-reference-progress{grid-column:2;grid-row:2}}
+@media(max-width:700px){body.cp-inline-payment #modal-root .pm-reference-layout{display:flex;flex-direction:column;gap:14px}body.cp-inline-payment #modal-root .pm-reference-layout>*{width:100%;box-sizing:border-box}body.cp-inline-payment #modal-root .pm-reference-client{order:0}body.cp-inline-payment #modal-root .pm-reference-side{order:1}body.cp-inline-payment #modal-root .pm-reference-entry{order:2}body.cp-inline-payment #modal-root .pm-reference-calendar{order:3}body.cp-inline-payment #modal-root .pm-reference-history{order:4}body.cp-inline-payment #modal-root .pm-reference-progress{order:5}body.cp-inline-payment #modal-root .pm-reference-entry input{min-height:46px}body.cp-inline-payment #modal-root .pm-reference-client .pm-clientbar{display:block}}
+body.cp-inline-payment .workspace>#modal-root{margin:0 14px 20px!important;width:auto;min-width:0}
+body.cp-inline-payment:has(#modal-root .modal-cover) .lotigest-shell .lg-topbar{visibility:visible!important}
+@media(max-width:700px){body.cp-inline-payment .workspace>#modal-root{margin:8px 7px 20px!important}}

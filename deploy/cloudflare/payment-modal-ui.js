@@ -403,6 +403,7 @@ function pmRepaintSales(){
  const distribution=document.getElementById('pm-distribution');
  if(distribution)distribution.hidden=true;
  const calendar=document.getElementById('pm-calendar-body');if(calendar)pmCalendar(calendar,sales);
+ pmReferenceRefresh(sales);
 }
 // Diseño compacto: las secciones informativas conservan sus nodos y eventos.
 function pmFold(title,...nodes){
@@ -411,34 +412,51 @@ function pmFold(title,...nodes){
 }
 function pmCompactSales(form,shell,search,person,last,historyBar,summary,cal,entry,fields){
  const modal=form.closest('.lg-payment-modern');if(!modal)return;
- modal.classList.add('pm-compact-payment');
- // La búsqueda y los solares son accesibles sin desplazar el formulario de pago.
- const client=pmFold('Buscar cliente / solares',search,person);
- client.id='pm-fold-client';client.open=!pmSales().length;
- const lastFold=pmFold('Último pago registrado',last,historyBar);
- const contract=pmFold('Resumen del contrato',summary);
- const statement=summary.querySelector('.pm-statement-launch');
- if(statement)contract.firstElementChild.after(statement);
- const calendar=pmFold('Calendario de pagos (Cronograma)',cal);
- const monthly=pmNode('section','notice-card');monthly.dataset.monthlyBanner='true';
- const monthlyFold=pmFold('Cuota mensual de los solares',monthly);
- // El importe y el correlativo usan los inputs existentes, no copias.
- const amount=fields.querySelector('#pm-amount-slot');
- const reference=fields.querySelector('[name="receiptRef"]');
- const referenceField=reference&&[...fields.children].find(el=>el.contains(reference));
- if(amount)fields.prepend(amount);
- if(referenceField){referenceField.classList.add('pm-primary-reference');if(amount)amount.after(referenceField);}
- const date=fields.querySelector('.pm-date-group');
- if(date){date.classList.add('pm-primary-date');(referenceField||amount)?.after(date);}
- const secondary=Array.from(fields.children).filter(el=>el!==amount&&el!==referenceField&&el!==date);
- if(secondary.length){const options=pmFold('Opciones del pago',...secondary);options.classList.add('pm-payment-options');fields.append(options);}
- const sections=pmNode('div','pm-fold-list');
- sections.append(client,lastFold,monthlyFold,contract,calendar);
- // El panel Abono nunca se pliega y ocupa todo el ancho útil de la ventana.
- shell.prepend(entry,sections);
- entry.querySelector('h3').textContent='Abono';
- form.addEventListener('invalid',event=>{for(let el=event.target.parentElement;el&&el!==form;el=el.parentElement){if(el.tagName==='DETAILS')el.open=true;}},true);
+ modal.classList.add('pm-reference-payment');
+ const left=pmCard('Buscar contrato / cliente','users');
+ left.card.classList.add('pm-reference-client');left.body.append(search,person);
+ const right=pmNode('aside','pm-reference-side');
+ summary.classList.add('pm-reference-summary');
+ const lastCard=pmCard('Último pago registrado','calendar');lastCard.body.append(last);right.append(summary,lastCard.card);
+ const amount=fields.querySelector('#pm-amount-slot'),reference=fields.querySelector('[name="receiptRef"]');
+ const refField=reference&&[...fields.children].find(el=>el.contains(reference));
+ if(amount)fields.prepend(amount);if(refField){refField.classList.add('pm-primary-reference');amount?.after(refField);}
+ const date=fields.querySelector('.pm-date-group');if(date){date.classList.add('pm-primary-date');(refField||amount)?.after(date);}
+ const secondary=[...fields.children].filter(el=>el!==amount&&el!==refField&&el!==date);
+ if(secondary.length){const options=pmFold('Más opciones del abono',...secondary);options.classList.add('pm-payment-options');fields.append(options);}
+ entry.querySelector('h3').textContent='Datos del abono';entry.classList.add('pm-reference-entry');
+ const footer=modal.querySelector('.modal-footer');
+ if(footer){footer.classList.add('pm-reference-actions');entry.append(footer);}
+ const recent=pmCard('Últimos pagos registrados','fileCheck');recent.card.classList.add('pm-reference-history');recent.body.id='pm-reference-history';
+ const progress=pmCard('Progreso del contrato','layers');progress.card.classList.add('pm-reference-progress');progress.body.id='pm-reference-progress';
+ cal.classList.add('pm-reference-calendar');
+ const layout=pmNode('div','pm-reference-layout');layout.append(left.card,entry,right,cal,recent.card,progress.card);
+ shell.replaceChildren(layout);
+ const header=modal.querySelector('.modal-header');if(header){historyBar.classList.add('pm-reference-toolbar');header.append(historyBar);}
+ form.addEventListener('invalid',event=>{for(let el=event.target.parentElement;el&&el!==form;el=el.parentElement)if(el.tagName==='DETAILS')el.open=true;},true);
 }
+function pmReferenceRefresh(sales){
+ const history=document.getElementById('pm-reference-history'),progress=document.getElementById('pm-reference-progress');
+ if(!history||!progress)return;
+ const summary=document.getElementById('pm-summary');
+ if(summary){
+  const rows=[...summary.querySelectorAll(':scope > .pm-summary-row')],extra=[];
+  const visible=['Precio total del terreno','Precio total del terrenos','Prima aplicada en la contabilidad','Saldo inicial a financiar (precio − prima)','Abonos a cuotas identificadas','Saldo restante actual'];
+  for(const row of rows)if(!visible.includes(row.firstElementChild?.textContent))extra.push(row);
+  if(extra.length)summary.append(pmFold('Ver detalle del estado de cuenta',...extra));
+ }
+
+ const ids=new Set(sales.map(s=>s.id));
+ const payments=(db.payments||[]).filter(p=>ids.has(p.saleId)&&!p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&!['voided','cancelled','annulled'].includes(p.status)&&!/^prima/i.test(p.concept||''))
+ .slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.recordedAt||'').localeCompare(String(a.recordedAt||'')));
+ history.innerHTML='<div class="pm-reference-table"><table><thead><tr><th>Fecha de pago</th><th>Correlativo</th><th>Monto (L)</th><th>Tipo</th><th>Estado</th></tr></thead><tbody>'+payments.slice(0,5).map(p=>'<tr><td>'+esc(p.date)+'</td><td class="pm-folio">'+esc(p.receiptReference||p.receiptRef||'Sin correlativo')+'</td><td class="pm-value">'+esc(money(p.amount))+'</td><td>Abono</td><td>Pagado</td></tr>').join('')+'</tbody></table></div>';
+ if(!payments.length)history.append(pmNode('p','pm-help','No hay abonos registrados para la selección.'));
+ const total=sales.reduce((n,s)=>n+Number(s.price||0),0),remaining=sales.reduce((n,s)=>n+balance(s),0),paid=Math.max(0,total-remaining),percent=total?Math.min(100,Math.round(paid/total*100)):0;
+ progress.replaceChildren();const ring=pmNode('div','pm-reference-ring');ring.style.setProperty('--pm-percent',percent+'%');ring.append(pmNode('strong','',percent+'%'),pmNode('small','','Pagado'));
+ const values=pmNode('div','pm-reference-progress-values');values.append(pmSummaryRow('Total pagado (incluye prima)',money(paid)),pmSummaryRow('Saldo pendiente',money(remaining)),pmSummaryRow('Total del contrato',money(total)));
+ progress.append(ring,values);
+}
+
 function pmSalesDecorate(){
  const form=document.getElementById('multi-payment-form');
  if(!form)return;
