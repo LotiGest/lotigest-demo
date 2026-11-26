@@ -215,3 +215,25 @@ body.cp-inline-payment:has(#modal-root .modal-cover) .lotigest-shell .lg-topbar{
 /* Abonos varios is a primary action on both screen sizes. */
 body.cp-inline-payment #modal-root .pm-reference-actions .pm-many-client{display:inline-flex!important;align-items:center;justify-content:center;min-height:38px;border:1px solid #368b55;background:var(--cp-surface);color:var(--cp-text);font-weight:700}
 @media(max-width:700px){html body.cp-inline-payment #modal-root .pm-reference-payment .pm-reference-actions .pm-many-client{display:flex!important;flex:1 0 100%!important;min-height:34px!important;padding:6px!important;font-size:13px!important;order:0!important}html body.cp-inline-payment #modal-root .pm-reference-payment .pm-reference-actions .pm-mobile-details-toggle{order:1!important}}
+
+/* Superficies de formularios y fichas: el fondo y el texto cambian juntos. */
+@media screen{
+ body.lotigest-dark #modal-root :is(.card,.notice-card,.summary-card,.panel,.list-row,.table-wrap,.card-padding){background:#112b23!important;color:#f1f7f4!important;border-color:#426256!important}
+ body.lotigest-dark #modal-root :is(.card,.notice-card,.summary-card,.panel) :is(h2,h3,h4,label,legend){color:#f1f7f4!important}
+ body.lotigest-dark #modal-root :is(.card,.notice-card,.summary-card,.panel) :is(.sm,.muted,.helper-text,.hint){color:#bdcec8!important}
+ body.lotigest-dark :is(.workspace-inner,#modal-root) :is(.stat-caption,.stat-label,.card-subtitle,.map-legend,.map-note,.detail-line>span){color:#bdcec8!important}
+ body.lotigest-dark #modal-root #official-map-quote{background:#17392d!important;color:#f1f7f4!important;border-color:#426256!important}
+ body.lotigest-dark #modal-root #official-map-quote :is(p,label,small){color:#bdcec8!important}
+ body.lotigest-dark :is(.workspace-inner,#modal-root) :is(.notice-card,.summary-card,.panel,.list-row){background-color:#112b23;color:#f1f7f4;border-color:#426256}
+ body.lotigest-dark :is(.workspace-inner,#modal-root) :is(input,textarea)::placeholder{color:#b7cabf!important;opacity:1}
+ body:not(.lotigest-dark){color-scheme:light;--card:#fff;--cp-surface:#f7fbf8;--cp-text:#18372b;--cp-muted:#526b60}
+ body:not(.lotigest-dark) #modal-root .modal{background:#fff;color:#18372b}
+ body:not(.lotigest-dark) #modal-root :is(.card,.notice-card,.summary-card){background:#f7fbf8;color:#18372b;border-color:#cbded2}
+ body:not(.lotigest-dark) :is(.workspace-inner,#modal-root) :is(.stat-caption,.stat-label,.card-subtitle,.map-legend,.map-note,.detail-line>span){color:#526b60}
+ body:not(.lotigest-dark) #modal-root :is(input,select,textarea){background:#fff;color:#18372b;border-color:#8ba696;color-scheme:light}
+ body:not(.lotigest-dark) #modal-root :is(input,textarea)::placeholder{color:#526b60;opacity:1}
+ body:not(.lotigest-dark) #modal-root :is(select option,select optgroup){background:#fff;color:#18372b}
+ body:not(.lotigest-dark) #modal-root #official-map-quote{background:#edf5e9;color:#18372b;border-color:#b6cfba}
+ body:not(.lotigest-dark) #modal-root #official-map-quote :is(p,label,small){color:#365846}
+ body:not(.lotigest-dark) #modal-root .pm-reference-actions .pm-save{color:#fff!important}
+}
