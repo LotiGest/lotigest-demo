@@ -22,11 +22,12 @@
   const key=[page,document.querySelector('.lg-nav .active')?.dataset.page].join(':');
   if(dock.dataset.key!==key){dock.dataset.key=key;dock.innerHTML=[['dashboard','Inicio','home'],['contracts','Contratos','fileCheck'],['payments','Abonos','wallet'],['arrayan','Solares','map']].map(([id,label,icon])=>`<button type="button" data-page="${id}" ${page===id?'aria-current="page"':''}>${ic(icon)}<span>${label}</span></button>`).join('');}
   document.body.classList.toggle('cp-inline-payment',page==='payments'&&!!document.querySelector('#modal-root .lg-payment-modern'));
+  const root=document.getElementById('modal-root');if(page==='payments'&&root?.querySelector('.pm-reference-payment')){const phone=matchMedia('(max-width:700px)').matches,target=phone?document.body:document.querySelector('.workspace');if(target&&root.parentElement!==target){if(phone)target.prepend(root);else target.append(root);}}
  }
  function init(){
   pages.messages=['Mensajes y Notificaciones','bell'];
   const content=pageContent;pageContent=function(){return page==='messages'?messagePage():content();};
-  const oldRender=render;let lastPage=page;render=function(){const root=document.getElementById('modal-root');if(root?.closest('#app'))document.body.append(root);if(lastPage==='payments'&&page!=='payments'&&document.querySelector('#modal-root .pm-reference-payment'))closeModal();oldRender();if(page==='payments'&&!document.querySelector('#modal-root .modal-cover')&&document.querySelector('.lotigest-shell'))newPayment(null,false);lastPage=page;decorate();if(page==='payments'&&document.querySelector('#modal-root .pm-reference-payment'))document.querySelector('.workspace')?.append(root);};
+  const oldRender=render;let lastPage=page;render=function(){const root=document.getElementById('modal-root');if(root?.closest('#app'))document.body.append(root);if(lastPage==='payments'&&page!=='payments'&&document.querySelector('#modal-root .pm-reference-payment'))closeModal();oldRender();if(page==='payments'&&!document.querySelector('#modal-root .modal-cover')&&document.querySelector('.lotigest-shell'))newPayment(null,false);lastPage=page;decorate();if(page==='payments'&&document.querySelector('#modal-root .pm-reference-payment')){if(matchMedia('(max-width:700px)').matches)document.body.prepend(root);else document.querySelector('.workspace')?.append(root);}};
   document.addEventListener('click',e=>{const b=e.target.closest('[data-cp-tab],[data-cp-template],[data-cp-preview]');if(!b)return;
    if(b.dataset.cpTab){tab=b.dataset.cpTab;render();}
    if(b.dataset.cpTemplate)composer(b.dataset.cpTemplate);
@@ -40,6 +41,7 @@
    db.messageDrafts=[...drafts(),row];save();preview=body;closeModal();render();
   });
   new MutationObserver(decorate).observe(document.getElementById('modal-root'),{childList:true,subtree:true});
+  window.addEventListener('resize',decorate);
   render();
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
