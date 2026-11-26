@@ -105,8 +105,8 @@ export function intakeCheckValues(input,lot){
  const str=v=>String(v||'').trim();
  if(str(input.name).length<3)errors.push('Falta el nombre del cliente.');
  // Las fichas de Clientes ya verificadas por su identificador se reutilizan sin
- // exigir documento nuevo. Para un cliente nuevo/OCR se conservan 13 dígitos obligatorios.
- if(contractIdentityDigits(input.identity).length!==13&&input.existingClientVerified!==true)
+ // exigir documento nuevo. La identidad es opcional; si se proporciona se valida.
+ if(str(input.identity)&&contractIdentityDigits(input.identity).length!==13&&input.existingClientVerified!==true)
   errors.push('El DNI debe contener exactamente 13 dígitos. Revisa la lectura OCR o escríbelo manualmente.');
  const price=Number(input.price),down=Number(input.down),months=Number(input.months);
  if(!Number.isFinite(price)||price<=0||price>1e12)errors.push('El precio total debe ser positivo.');

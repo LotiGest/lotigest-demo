@@ -144,8 +144,8 @@ function contractIntakeManualFields(){
   // Un dato faltante se conserva vacío; nunca se toma de la persona anterior.
   info.map(k=>hidden(k,customer[k]??'')).join(''):
   '<div class="full"><strong>Cliente nuevo</strong><p class="sm muted">Solo llena estos datos si todavía no está registrado.</p></div>'+
-  field('Nombre completo','name','text',true)+field('Identidad / DNI (13 dígitos)','identity','text',true)+
-  field('Teléfono (+504 / +1)','phone')+field('Dirección','address')+
+  field('Nombre completo','name','text',true)+field('Identidad / DNI (opcional, 13 dígitos)','identity')+
+  field('Teléfono (opcional, +504 / +1)','phone')+field('Dirección (opcional)','address')+
   ['rtn','maritalStatus','occupation'].map(k=>hidden(k,v[k]||'')).join('');
  const term=Number(v.months)||0;
  const priceValues=[v.solarPrice_0??selected?.price??'',...extra.map((r,i)=>v['solarPrice_'+(i+1)]??r.price??all[i+1]?.price??'')];
@@ -431,7 +431,7 @@ document.addEventListener('click',event=>{
 function contractIntakeFields(){
  if(contractIntakeWorking?.mode==='manual')return contractIntakeManualFields();
  const c=contractIntakeWorking?.values||{};
- const input=(label,key,type='text',readonly=false)=>'<label class="field-group"><span>'+esc(label)+'</span><input name="'+key+'" type="'+type+'" '+(type==='number'?'step="'+(key==='months'?'1':'any')+'" min="0" ':'')+(key==='identity'?'inputmode="numeric" autocomplete="off" maxlength="19" placeholder="0000 0000 00000" required ':'')+(readonly?'readonly ':'')+'value="'+esc(c[key]??'')+'" style="width:100%;min-width:0"></label>';
+ const input=(label,key,type='text',readonly=false)=>'<label class="field-group"><span>'+esc(label)+'</span><input name="'+key+'" type="'+type+'" '+(type==='number'?'step="'+(key==='months'?'1':'any')+'" min="0" ':'')+(key==='identity'?'inputmode="numeric" autocomplete="off" maxlength="19" placeholder="0000 0000 00000" ':'')+(readonly?'readonly ':'')+'value="'+esc(c[key]??'')+'" style="width:100%;min-width:0"></label>';
  const rows=residenceLots().filter(l=>l.type!=='private'&&l.status!=='private').sort((a,b)=>(Number(a.stage||0)-Number(b.stage||0))||String(a.block||'').localeCompare(String(b.block||''),'es')||String(a.sourceNumber||a.id).localeCompare(String(b.sourceNumber||b.id),'es'));
  const stageChosen=[1,2].includes(Number(c.stage))?String(c.stage):'';
  const stageRows=stageChosen?rows.filter(l=>Number(l.stage)===Number(stageChosen)):[];
@@ -643,7 +643,7 @@ function contractIntakeFindClient(state,data){
  const client=selected||matches[0]||(sameName.length===1?sameName[0]:null);
  if(!client){
   const created={id:'C-'+crypto.randomUUID(),name:String(data.name).trim().toUpperCase(),
-   identity:String(data.identity).trim(),phone:String(data.phone||'').trim(),address:String(data.address||'').trim(),
+   identity:String(data.identity||'').trim(),phone:String(data.phone||'').trim(),address:String(data.address||'').trim(),
    email:'',rtn:String(data.rtn||'').trim(),maritalStatus:String(data.maritalStatus||'').trim(),
    occupation:String(data.occupation||'').trim()};
   state.clients.unshift(created);return created;
@@ -1101,7 +1101,7 @@ function contractDniEditOpen(documentId){
  showModal('Corregir DNI de la ficha contractual',
   '<p><strong>'+esc(client.name)+'</strong></p><p class="sm muted">Esta corrección actualizará el cliente y sus fichas contractuales, sin crear ventas ni abonos. Comprueba el documento original.</p>'+
   '<form id="contract-dni-edit-form"><input type="hidden" name="documentId" value="'+esc(doc.id)+'">'+
-  '<label>DNI del titular (13 dígitos)<input type="text" name="identity" required inputmode="numeric" maxlength="19" autocomplete="off" value="'+esc(contractIdentityFormat(client.identity||doc.structured?.identity||''))+'" placeholder="0000 0000 00000"></label>'+
+  '<label>DNI del titular (opcional, 13 dígitos)<input type="text" name="identity" inputmode="numeric" maxlength="19" autocomplete="off" value="'+esc(contractIdentityFormat(client.identity||doc.structured?.identity||''))+'" placeholder="0000 0000 00000"></label>'+
   '</form>',
   '<button class="btn btn-outline" data-action="close-modal" type="button">Cancelar</button>'+
   '<button class="btn btn-primary" type="submit" form="contract-dni-edit-form">Guardar DNI corregido</button>',true);
@@ -1110,12 +1110,12 @@ async function contractDniEditSave(form){
  if(!contractIntakeAdmin())throw Error('La sesión no está disponible o la nube no está sincronizada.');
  const data=Object.fromEntries(new FormData(form));
  const digits=contractIdentityDigits(data.identity);
- if(digits.length!==13)throw Error('El DNI debe tener 13 dígitos. Revisa la ficha contractual.');
+ if(String(data.identity||'').trim()&&digits.length!==13)throw Error('El DNI debe tener 13 dígitos. Revisa la ficha contractual.');
  const doc=(db.contractTexts||[]).find(d=>d.id===data.documentId&&['photo+ocr','manual'].includes(d.format)&&d.status!=='voided');
  if(!doc)throw Error('No existe la ficha contractual.');
  const client=getClient(doc.clientId);
  if(!client)throw Error('No se encontró al titular del contrato.');
- if(db.clients.some(c=>c.id!==client.id&&contractIdentityDigits(c.identity)===digits))throw Error('El DNI ya está asignado a otro cliente. Revisa duplicados.');
+ if(digits&&db.clients.some(c=>c.id!==client.id&&contractIdentityDigits(c.identity)===digits))throw Error('El DNI ya está asignado a otro cliente. Revisa duplicados.');
  const oldDigits=contractIdentityDigits(client.identity);
  if(oldDigits.length===13&&oldDigits!==digits&&!confirm('El cliente ya tenía una identidad registrada. ¿Confirmas la corrección de acuerdo con el contrato original?'))return;
  // Si el titular tiene otra ficha con una identidad diferente ya validada, bloquear la actualización.
