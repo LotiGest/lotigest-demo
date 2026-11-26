@@ -1234,14 +1234,34 @@ function contractManageTerms(state,doc,data,today){
  return {sale,terms:{price,down,months,financed:(cents(price)-cents(down))/100,monthly,monthlyCalculated:monthly,date,firstDueDate}};
 }
 // Correct the inventory reference without recreating the sale or its receipts.
+// Black is a map indicator, not a contractual lock. Only real links protect a lot.
 function contractRelocationCandidates(state,doc){
  const occupied=new Set((state.sales||[]).map(s=>s.lotId));
  const assigned=new Set((state.contractTexts||[]).filter(d=>d.id!==doc.id&&d.status!=='voided').map(d=>d.lotId));
+ const activeIds=new Set((state.contractTexts||[]).filter(d=>d.status!=='voided').map(d=>d.id));
  const reserved=new Set((state.reservations||[]).filter(r=>!['expired','cancelled','voided'].includes(r.status)).map(r=>r.lotId));
  const requests=new Set((state.clientRequests||[]).filter(r=>!['rejected','cancelled','voided'].includes(r.status)).map(r=>r.lotId));
- return (state.lots||[]).filter(l=>l.residenceId===doc.residenceId&&(l.id===doc.lotId||(
-  l.status==='available'&&l.type!=='private'&&!l.ownerClientId&&!l.clientId&&!l.pendingContractId&&!l.contractId&&!l.purchaseFromPlan&&!l.mapDebtFlag&&
-  !occupied.has(l.id)&&!assigned.has(l.id)&&!reserved.has(l.id)&&!requests.has(l.id))));
+ const protectedLots=new Set(),ambiguous=new Set();
+ for(const key of ['historicalContracts','historicalPayments','ownershipStatements','ownerPayments','payments','cashEntries','receipts']){
+  for(const p of state[key]||[]){
+   const ids=[p.lotId,...(p.lotIds||[]),...(p.references||[]).map(r=>r.lotId),...(p.allocations||[]).flatMap(a=>[a.lotId,...(a.references||[]).map(r=>r.lotId)])].filter(Boolean);
+   for(const id of ids)protectedLots.add(id);
+   if(p.clientId&&!p.saleId&&!ids.length&&(!p.residenceId||p.residenceId===doc.residenceId))ambiguous.add(p.clientId);
+  }
+ }
+ const maps=state.residences?.find(r=>r.id===doc.residenceId)?.records||{};
+ return (state.lots||[]).filter(l=>{
+  if(l.residenceId!==doc.residenceId)return false;
+  if(l.id===doc.lotId)return true;
+  const map=maps[l.sourceFeatureKey];
+  return ['available','sold','reserved','debt','unregistered'].includes(l.status)&&l.type!=='private'&&
+   (!map?.lotId||map.lotId===l.id)&&map?.status!=='private'&&
+   !occupied.has(l.id)&&!assigned.has(l.id)&&!reserved.has(l.id)&&!requests.has(l.id)&&!protectedLots.has(l.id)&&
+   !activeIds.has(l.pendingContractId)&&!activeIds.has(l.contractId)&&
+   !ambiguous.has(l.ownerClientId)&&!ambiguous.has(l.clientId)&&
+   (!l.ownerClientId||!l.clientId||l.ownerClientId===l.clientId)&&
+   !l.historyRequiresReview;
+ });
 }
 function contractRelocateSolar(state,id,newLotId,actor,reason,at){
  const d=(state.contractTexts||[]).find(x=>x.id===id&&x.status!=='voided'),old=state.lots.find(l=>l.id===d?.lotId),target=state.lots.find(l=>l.id===newLotId);
@@ -1259,7 +1279,7 @@ function contractRelocateSolar(state,id,newLotId,actor,reason,at){
  if((state.reservations||[]).some(r=>(affected.has(r.lotId)||sale&&r.saleId===sale.id)&&!['expired','cancelled','voided'].includes(r.status)))throw Error('Hay una reserva vinculada; revisa antes de cambiar solar.');
  if((state.clientRequests||[]).some(r=>affected.has(r.lotId)&&!['rejected','cancelled','voided'].includes(r.status)))throw Error('Hay una solicitud pendiente asociada al terreno.');
  const residence=state.residences?.find(r=>r.id===d.residenceId);
- for(const l of [old,target]){const map=residence?.records?.[l.sourceFeatureKey];if(map?.lotId&&map.lotId!==l.id)throw Error('La figura del plano corresponde a otro solar.');if(l===target&&map?.status&&map.status!=='available')throw Error('El nuevo solar figura ocupado en el plano.');}
+ for(const l of [old,target]){const map=residence?.records?.[l.sourceFeatureKey];if(map?.lotId&&map.lotId!==l.id)throw Error('La figura del plano corresponde a otro solar.');if(l===target&&map?.status==='private')throw Error('El nuevo solar es una propiedad privada.');}
  const describe=l=>({lotId:l.id,stage:l.stage,block:l.block,number:String(l.sourceNumber||l.number||l.id)});
  const previous={...describe(old),status:old.status},after=describe(target),debt=Boolean(old.mapDebtFlag);
  d.lotEditHistory??=[];d.lotEditHistory.push({before:previous,after,reason:String(reason).trim(),by:String(actor),at,saleId:sale?.id||null,paymentIds:state.payments.filter(p=>sale&&p.saleId===sale.id).map(p=>p.id)});
@@ -1276,7 +1296,12 @@ function contractRelocateSolar(state,id,newLotId,actor,reason,at){
  if(sale)sale.lotId=target.id;
  for(const k of ['ownerClientId','clientId','pendingContractId','contractId'])delete old[k];
  old.status='available';old.purchaseFromPlan=false;delete old.mapDebtFlag;
- target.ownerClientId=d.clientId;
+ // Preserve the previous provisional assignment in the audit; never delete payments.
+ if(target.status!=='available'||target.ownerClientId||target.clientId||target.purchaseFromPlan||target.mapDebtFlag||target.pendingContractId||target.contractId){
+  target.ownerUnlinkHistory??=[];target.ownerUnlinkHistory.push({at,by:String(actor),reason:String(reason).trim(),previousOwnerClientId:target.ownerClientId||target.clientId||null,previousStatus:target.status,previousPurchaseFromPlan:Boolean(target.purchaseFromPlan),previousMapDebtFlag:Boolean(target.mapDebtFlag),previousPendingContractId:target.pendingContractId||null,previousContractId:target.contractId||null});
+ }
+ for(const k of ['clientId','pendingContractId','contractId','mapDebtFlag'])delete target[k];
+ target.purchaseFromPlan=false;target.ownerClientId=d.clientId;
  if(sale){target.status='sold';target.mapDebtFlag=debt;delete target.pendingContractId;}
  else{target.pendingContractId=d.id;target.status='available';}
  if(residence){residence.records??={};for(const l of [old,target])if(l.sourceFeatureKey){residence.records[l.sourceFeatureKey]={...(residence.records[l.sourceFeatureKey]||{}),lotId:l.id,block:l.block,status:l.status};}}
@@ -1286,7 +1311,7 @@ function contractRelocationOptions(doc){
  const stages=[...new Set(choices.map(l=>String(l.stage??'')))].sort((a,b)=>a.localeCompare(b,'es',{numeric:true}));
  const label=l=>'Etapa '+(l.stage??'—')+' · Bloque '+(l.block||'—')+' · Solar '+(l.sourceNumber||l.number||l.id);
  const option=(value,name,selected=false)=>'<option value="'+esc(value)+'" '+(selected?'selected':'')+'>'+esc(name)+'</option>';
- return '<section class="notice-card" style="margin:12px 0"><strong>Corregir ubicación del contrato</strong><p class="sm muted">Elige el solar correcto de la misma residencial. Se conservan los pagos y las condiciones pactadas.</p>'+
+ return '<section class="notice-card" style="margin:12px 0"><strong>Corregir ubicación del contrato</strong><p class="sm muted">Elige el solar correcto de la misma residencial. Los solares negros sin contrato ni vínculos protegidos también se pueden seleccionar. Se conservan los pagos.</p>'+
   '<div class="form-grid"><label class="field-group"><span>Etapa</span><select name="relocationStage">'+option('','Todas')+stages.map(x=>option(x,'Etapa '+x,String(current?.stage??'')===x)).join('')+'</select></label>'+
   '<label class="field-group"><span>Bloque</span><select name="relocationBlock">'+option('','Todos')+'</select></label>'+
   '<label class="field-group full"><span>Solar</span><select name="relocationLotId" required>'+choices.map(l=>option(l.id,label(l),l.id===doc.lotId)).join('')+'</select></label></div>'+

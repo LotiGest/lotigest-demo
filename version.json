@@ -1,4 +1,4 @@
 {
-  "version": "1.0.34",
-  "notes": "Editar contrato permite corregir etapa, bloque y solar disponible en la misma residencial, conserva venta y recibos, actualiza inventario y plano, solicita PIN y conserva auditoría."
+  "version": "1.0.35",
+  "notes": "Editar contrato incluye solares negros sin contrato ni vínculos protegidos; ignora marcas visuales heredadas, conserva auditoría y protege pagos, reservas reales y propiedades privadas."
 }
