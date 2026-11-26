@@ -155,6 +155,11 @@ function pmCalendar(root,sales){
   cell.title=inMonth.length?inMonth.map(x=>'Cuota '+x.number+' · '+x.dueDate+' · '+pmReportPaymentStatus(x,now)).join('\n'):'Sin cuota programada';
   cell.append(pmNode('strong','',names[m-1]),pmNode('small','',glyph));
   if(inMonth.length)cell.append(pmNode('small','pm-due-day',inMonth.length===1?'Vence '+inMonth[0].dueDate.slice(8,10):inMonth.length+' cuotas'));
+  if(inMonth.length){
+   const paid=inMonth.reduce((n,r)=>n+r.appliedCents,0),pending=inMonth.reduce((n,r)=>n+r.remainingCents,0);
+   cell.append(pmNode('small','pm-month-paid','Pagado '+money(paid/100)),pmNode('small','pm-month-balance','Falta '+money(pending/100)));
+   if(paid>0&&pending>0)cell.append(pmNode('small','pm-month-partial',inMonth.some(r=>r.remainingCents>0&&r.dueDate<now)?'Parcial vencida':'Pago parcial'));
+  }
   if(key===now.slice(0,7))cell.append(pmNode('small','pm-today-day','Hoy '+now.slice(8,10)));
   months.append(cell);
  }
