@@ -5,7 +5,7 @@ import {JSDOM} from 'jsdom';
 const source=await readFile(new URL('./control-panels-ui.js',import.meta.url),'utf8');
 function setup(){
  const dom=new JSDOM('<body><div id="app"></div><div id="modal-root"></div></body>',{runScripts:'outside-only',url:'https://example.test'});
- dom.window.eval(`var db={clients:[{id:'c1',name:'Ana <Lopez>',phone:'+50412345678'}]},pages={},page='messages',saved=0;function esc(s){return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;')}function ic(){return '<svg></svg>'}function getClient(id){return db.clients.find(c=>c.id===id)}function pageContent(){return ''}function render(){document.getElementById('app').innerHTML='<div class="lotigest-shell">'+pageContent()+'</div>'}function showModal(t,b,f){document.getElementById('modal-root').innerHTML=b+f}function closeModal(){document.getElementById('modal-root').innerHTML=''}function save(){saved++}`);
+ dom.window.eval(`var db={clients:[{id:'c1',name:'Ana <Lopez>',phone:'+50412345678'}]},pages={},page='messages',saved=0;function esc(s){return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;')}function ic(){return '<svg></svg>'}function getClient(id){return db.clients.find(c=>c.id===id)}function pageContent(){return ''}function render(){document.getElementById('app').innerHTML='<div class="lotigest-shell"><div class="workspace">'+pageContent()+'</div></div>'}function showModal(t,b,f){document.getElementById('modal-root').innerHTML=b+f}function closeModal(){document.getElementById('modal-root').innerHTML=''}function save(){saved++}`);
  dom.window.eval(source);dom.window.document.dispatchEvent(new dom.window.Event('DOMContentLoaded'));return dom;
 }
 test('message drafts use real clients, remain unsent, and escape preview',()=>{
@@ -25,4 +25,15 @@ test('phone payment root stays at the start of body outside the workspace layout
  w.page='payments';w.render();
  assert.equal(d.body.firstElementChild.id,'modal-root');assert.equal(d.getElementById('modal-root').closest('.workspace'),null);assert.ok(d.body.classList.contains('cp-inline-payment'));
  w.page='clients';w.render();assert.equal(d.querySelector('#modal-root .modal-cover'),null);assert.equal(d.querySelectorAll('#modal-root').length,1);dom.window.close();
+});
+
+test('el buscador de clientes de Abonos queda dentro del workspace y se cierra al salir',()=>{
+ const dom=setup(),w=dom.window,d=w.document;
+ w.matchMedia=()=>({matches:false});w.newPayment=()=>{d.getElementById('modal-root').innerHTML='<div class="modal-cover"><div class="lg-payment-modern"><input id="owner-payment-search"><div class="pm-picker-results">Cliente de prueba</div></div></div>';};
+ w.page='payments';w.render();
+ assert.ok(d.querySelector('.workspace>#modal-root #owner-payment-search'));
+ assert.equal(d.querySelectorAll('#modal-root').length,1);
+ assert.ok(d.body.classList.contains('cp-inline-payment'));
+ w.page='contracts';w.render();assert.equal(d.querySelector('#modal-root .lg-payment-modern'),null);
+ dom.window.close();
 });
