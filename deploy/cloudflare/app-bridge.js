@@ -130,7 +130,11 @@ function cloudUnpack(raw){
 function cloudWrite(raw){
  if(!cloudReady||cloudUser?.role==='sales')return;
  if(cloudBlocked)throw Error('Guardado pausado. Descarga el respaldo pendiente y carga los datos del servidor.');
- const old=cloudQueue.latest;cloudQueue.latest=raw;
+ const old=cloudQueue.latest;
+ // Navigation often calls save() without changing any record. Avoid a full
+ // synchronous localStorage rewrite only when the same state is confirmed.
+ if(raw===old&&raw===cloudQueue.confirmed&&!cloudQueue.pending)return;
+ cloudQueue.latest=raw;
  try{cloudPersist();}catch(e){cloudQueue.latest=old;cloudStatus('No hay espacio para conservar cambios. Descarga un respaldo.',true);throw e;}
  cloudStatus('Pendiente de guardar en D1…');clearTimeout(cloudTimer);cloudTimer=setTimeout(cloudFlush,350);
 }
@@ -185,7 +189,8 @@ async function cloudLoad({discardPending=false,preservePage=true}={}){
  }
  if(saved&&saved.owner!==cloudUser.name&&(saved.pending||saved.latest!==saved.confirmed))localStorage.setItem(CLOUD_CACHE+'_recovery_'+crypto.randomUUID(),JSON.stringify(saved));
  db=remote.state?readStoredLotigest(JSON.stringify(remote.state)):cloudEmpty();
- cloudQueue={owner:cloudUser.name,revision:remote.revision,confirmed:remote.state?JSON.stringify(db):null,latest:JSON.stringify(db),pending:null};
+ const raw=JSON.stringify(db);
+ cloudQueue={owner:cloudUser.name,revision:remote.revision,confirmed:remote.state?raw:null,latest:raw,pending:null};
  cloudPersist();await prepareOfficialBackgrounds();cloudReady=true;sessionStorage.setItem(SESSION,'yes');page=preservePage?previousPage:'dashboard';if(page==='dashboard')cloudRestorePage(cloudUser.name);cloudOffline=false;render();
  // render may initialize the built-in inventory; persist the resulting state.
  cloudWrite(JSON.stringify(db));await cloudFlush();

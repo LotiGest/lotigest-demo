@@ -486,15 +486,17 @@ function pmConsolidatedMonths(rows,payments,asOf){
   currentMonth:scheduled.find(m=>m.month===cutoff)||null,nextMonth:scheduled.find(m=>m.pending>0)||null,
   noDepositCovered:scheduled.filter(m=>m.noDeposit&&m.covered),unpaid,overdueAmount:unpaid.reduce((n,m)=>n+m.overdue,0)};
 }
-function pmAmortizationModel(state,clientId,rid,asOf,reconcile,dueCents,addMonth,lotId=null){
- const scope=contractCollectionsScope(state,rid),client=scope.clients.find(x=>x.id===clientId),sales=scope.sales.filter(x=>x.clientId===clientId&&(lotId===null||x.lotId===lotId));
+function pmAmortizationModel(state,clientId,rid,asOf,reconcile,dueCents,addMonth,lotId=null,prepared=null){
+ const scope=prepared?.scope||contractCollectionsScope(state,rid),client=scope.clients.find(x=>x.id===clientId),sales=scope.sales.filter(x=>x.clientId===clientId&&(lotId===null||x.lotId===lotId));
  if(!client||!sales.length)throw Error(lotId===null?'Selecciona un cliente con contrato registrado.':'El solar seleccionado no pertenece a un contrato vigente de este cliente.');
- const ids=new Set(sales.map(s=>s.id)),posted=new Set((state.historicalPayments||[]).map(p=>p.postedPaymentId).filter(Boolean));
+ const ids=new Set(sales.map(s=>s.id)),posted=prepared?.posted||new Set((state.historicalPayments||[]).map(p=>p.postedPaymentId).filter(Boolean));
  const all=scope.payments.filter(p=>ids.has(p.saleId)&&!['voided','cancelled'].includes(p.status)&&!p.voidedAt&&!p.deletedAt&&!p.cancelledAt);
  if(all.some(p=>p.historicalImportId||posted.has(p.id)))throw Error('Concilia los cobros importados contabilizados antes de emitir el reporte.');
  const cents=x=>Math.round(Number(x||0)*100),sum=(arr,fn)=>arr.reduce((n,x)=>n+fn(x),0);
  if(all.some(p=>!p.date||!Number.isSafeInteger(cents(p.amount))||cents(p.amount)<=0))throw Error('Hay pagos sin fecha o importe válido.');
  const payments=all.filter(p=>p.date<=asOf),ledger=reconcile(sales,payments,asOf,dueCents,addMonth,{requireReference:true}),projected=pmReportCurrentMonthFirst(ledger.rows,payments,asOf);
+ const applicationsByPayment=new Map();
+ for(const row of ledger.rows)for(const id of new Set(row.receipts.map(r=>r.paymentId))){if(!applicationsByPayment.has(id))applicationsByPayment.set(id,[]);applicationsByPayment.get(id).push(row);}
  const status=x=>!x.dueCents?'Sin importe':!x.remainingCents?(x.lastPaidAt>x.dueDate?'Pagada atrasada':x.lastPaidAt<x.dueDate?'Pagada adelantada':'Pagada'):x.dueDate<asOf?(x.appliedCents?'Vencida parcial':'Vencida sin pagar'):x.appliedCents?'Parcial':'Pendiente';
  const details=sales.map(s=>{
   const lot=scope.lots.find(l=>l.id===s.lotId),rows=projected.filter(x=>x.saleId===s.id).map(x=>({...x,displayStatus:status(x),reportStatus:pmReportPaymentStatus(x,asOf)}));
@@ -504,7 +506,7 @@ function pmAmortizationModel(state,clientId,rid,asOf,reconcile,dueCents,addMonth
   let balance=price-opening;
   const history=list.map(p=>{
    balance-=cents(p.amount);
-   const app=ledger.rows.filter(x=>x.saleId===s.id&&x.receipts.some(a=>a.paymentId===p.id)).map(x=>'C'+x.number+' '+x.dueDate.slice(0,7));
+   const app=(applicationsByPayment.get(p.id)||[]).filter(x=>x.saleId===s.id).map(x=>'C'+x.number+' '+x.dueDate.slice(0,7));
    const prima=sum((p.receiptInfo?.allocations||[]).filter(a=>!a.number&&/prima/i.test(String(a.label||''))),a=>cents(a.amount));
    if(prima)app.unshift('Prima L '+(prima/100).toFixed(2));
    return {date:p.date,reference:pmHistoryReference(p)||'Sin folio',concept:p.concept||'Pago',amount:cents(p.amount),balance,application:app.join('; ')||'Aplicación por verificar'};

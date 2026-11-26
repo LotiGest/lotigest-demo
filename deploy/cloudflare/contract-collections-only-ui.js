@@ -186,12 +186,11 @@
  const ccNorm=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  const ccKey=(rid,id)=>JSON.stringify([rid,id]);
  const ccCash=n=>money(n/100);
- function ccModel(state,id,rid){
+ function ccModel(state,id,rid,asOf,prepared){
   try{
-   const m=pmAmortizationModel(state,id,rid,businessToday(),reconcileInstallments,installmentDueCents,(date,i)=>dateKey(addMonths(date,i)));
+   const m=pmAmortizationModel(state,id,rid,asOf,reconcileInstallments,installmentDueCents,(date,i)=>dateKey(addMonths(date,i)),null,prepared);
    if(m.unmatched)throw Error('Hay recibos pendientes de conciliar.');
-   const statement=pmStatementModel(m);
-   return {m,statement};
+   return {m};
   }catch(e){return {error:e.message};}
  }
  function ccMetrics(m,month){
@@ -228,15 +227,35 @@
     (extra&&m?'<details class="cc-extra" open><summary>Primas y abonos</summary><p>Prima pagada: <b>'+ccCash(m.prima)+'</b> · Abonos: <b>'+ccCash(m.abonos)+'</b></p><p>Último pago: '+esc(m.last||'Sin pagos registrados')+'</p><p>La mora y el pendiente del mes pueden coincidir; no se suman dos veces.</p></details>':'')+
     (extra?g.lots.map(l=>'<p><strong>'+esc(l.id)+'</strong> <button class="btn btn-outline btn-sm" data-action="geo-bind" data-id="'+esc(l.id)+'">GPS</button> <button class="btn btn-soft btn-sm" data-action="view-lot" data-id="'+esc(l.id)+'">Detalle solar</button></p>').join(''):'');
  }
+ // Cache only derived figures. Rebuild indexes each time, and reuse a model
+ // only when every input affecting that client's amortization is identical.
+ let ccModels=new Map(),ccCacheState=null,ccCacheOwner=null;
  function ccGroups(state,rid){
-  const scope=contractCollectionsScope(state,rid),groups=new Map();
+  const owner=typeof cloudUser==='undefined'?'':cloudUser?.name||'';
+  if(ccCacheState!==state||ccCacheOwner!==owner){ccModels.clear();ccCacheState=state;ccCacheOwner=owner;}
+  const scope=contractCollectionsScope(state,rid),groups=new Map(),asOf=businessToday();
+  const clients=new Map(scope.clients.map(c=>[c.id,c])),salesByLot=new Map(scope.sales.map(s=>[s.lotId,s]));
+  const residences=new Map((state.residences||[]).map(r=>[r.id,r.name]));
+  const posted=new Set((state.historicalPayments||[]).map(p=>p.postedPaymentId).filter(Boolean)),paymentsBySale=new Map(),paymentOrder=new Map(scope.payments.map((p,i)=>[p,i]));
+  for(const p of scope.payments){if(!paymentsBySale.has(p.saleId))paymentsBySale.set(p.saleId,[]);paymentsBySale.get(p.saleId).push(p);}
   for(const lot of scope.lots){
    const id=lot.ownerClientId,key=ccKey(lot.residenceId,id);
-   if(!groups.has(key))groups.set(key,{key,id,rid:lot.residenceId,lots:[],sales:[],client:scope.clients.find(c=>c.id===id),residenceName:state.residences.find(r=>r.id===lot.residenceId)?.name||''});
+   if(!groups.has(key))groups.set(key,{key,id,rid:lot.residenceId,lots:[],sales:[],client:clients.get(id),residenceName:residences.get(lot.residenceId)||''});
    const g=groups.get(key);g.lots.push(lot);
-   const sale=scope.sales.find(s=>s.lotId===lot.id&&s.clientId===id);if(sale)g.sales.push(sale);
+   const sale=salesByLot.get(lot.id);if(sale?.clientId===id)g.sales.push(sale);
   }
-  for(const g of groups.values())g.model=g.sales.length?ccModel(state,g.id,g.rid):{};
+  const nextCache=new Map();
+  for(const g of groups.values()){
+   if(!g.sales.length){g.model={};continue;}
+   const payments=g.sales.flatMap(s=>paymentsBySale.get(s.id)||[]).sort((a,b)=>paymentOrder.get(a)-paymentOrder.get(b));
+   const prepared={scope:{clients:[g.client],lots:g.lots,sales:g.sales,payments},posted};
+   const key=JSON.stringify([asOf,g.client.name,g.residenceName,state.company?.name,g.lots,g.sales,payments,payments.filter(p=>posted.has(p.id)).map(p=>p.id)]);
+   const cached=ccModels.get(g.key);
+   // Do not cache errors: a transient dependency may become available.
+   g.model=cached?.key===key?cached.model:ccModel(state,g.id,g.rid,asOf,prepared);
+   if(g.model.m)nextCache.set(g.key,{key,model:g.model});
+  }
+  ccModels=nextCache;
   return [...groups.values()];
  }
  function ccMatch(g){

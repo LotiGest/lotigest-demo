@@ -22,7 +22,7 @@ export function validate(state){
   const ids=new Set();for(const row of state[key]){if(!row||typeof row.id!=='string'||!row.id||row.id.length>150||ids.has(row.id))invalid('Código duplicado o inválido en '+key);ids.add(row.id);}
  }
  for(const key of ['cashEntries','contractTexts','residences','historicalPayments','historicalContracts','ledgerImportBatches','ownershipStatements'])if(state[key]!==undefined&&!Array.isArray(state[key]))invalid('Colección incompatible: '+key);
- const lots=new Map(state.lots.map(r=>[r.id,r])),clients=new Set(state.clients.map(r=>r.id)),sales=new Map(state.sales.map(r=>[r.id,r])),sold=new Set(),identities=new Set(),totals=new Map(),prices=new Map();
+ const lots=new Map(state.lots.map(r=>[r.id,r])),clients=new Set(state.clients.map(r=>r.id)),sales=new Map(state.sales.map(r=>[r.id,r])),saleByLot=new Map(state.sales.map(r=>[r.lotId,r])),sold=new Set(),identities=new Set(),totals=new Map(),prices=new Map();
  for(const c of state.clients){
   if(typeof c.name!=='string'||!c.name.trim()||c.name.length>200)invalid('Nombre de cliente inválido.');
   if(c.identity!=null&&typeof c.identity!=='string')invalid('Identidad inválida.');const identity=(c.identity||'').replace(/[\s-]/g,'').toUpperCase();
@@ -74,7 +74,7 @@ export function validate(state){
  }
  for(const c of historyContracts.values())if(c.paymentIds.some(id=>!historyIds.has(id)))invalid('Contrato histórico con movimientos inexistentes.');
  const ownershipIds=new Set();for(const s of state.ownershipStatements||[]){if(!s||typeof s.id!=='string'||ownershipIds.has(s.id)||s.clientId!=null&&!clients.has(s.clientId)||!Array.isArray(s.references)||!Array.isArray(s.paymentIds))invalid('Ficha de propietario incompatible.');ownershipIds.add(s.id);for(const ref of s.references)if(ref.lotId&&!lots.has(ref.lotId))invalid('Propietario sin solar válido.');for(const id of s.paymentIds)if(!historyIds.has(id))invalid('Ficha con abono inexistente.');}
- for(const l of state.lots){if(l.ownerClientId&&!clients.has(l.ownerClientId))invalid('Solar con propietario inexistente.');if(l.ownerClientId){const sale=state.sales.find(s=>s.lotId===l.id);if(sale&&sale.clientId!==l.ownerClientId)invalid('El propietario no coincide con la venta existente.');}}
+ for(const l of state.lots){if(l.ownerClientId&&!clients.has(l.ownerClientId))invalid('Solar con propietario inexistente.');if(l.ownerClientId){const sale=saleByLot.get(l.id);if(sale&&sale.clientId!==l.ownerClientId)invalid('El propietario no coincide con la venta existente.');}}
  const receiptRefs=new Map();let receiptIndex=0;
  const addReceipt=(rid,raw,group)=>{
   const reference=String(raw||'').trim().toUpperCase();

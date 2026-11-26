@@ -1,4 +1,4 @@
 {
-  "version": "1.0.31",
-  "notes": "Valida correlativos numéricos obligatorios de primas iniciales en formulario y servidor. Bloquea duplicados del historial sin afectar pagos existentes ni anulación 1.0.30."
+  "version": "1.0.32",
+  "notes": "Optimiza Cobros y Abonos con índices y reutilización de amortizaciones verificadas; reduce escrituras locales sin cambios y acelera validación de propietarios. No cambia reglas financieras."
 }
