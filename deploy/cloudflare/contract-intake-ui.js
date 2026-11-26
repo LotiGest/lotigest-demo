@@ -7,6 +7,7 @@ function contractIntakeAdmin(){
 function contractIntakeFormatMoney(n){return Number(n||0).toLocaleString('es-HN',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function contractIntakeRememberExtras(form){
  if(!form||!contractIntakeWorking)return;
+ if(contractIntakeWorking.mode==='manual')contractTotalsApply(form);
  const data=contractIntakeData(form);
  if(contractIntakeWorking.mode==='manual'){
   data.primaPaid=form.querySelector('[name="primaPaid"]')?.checked?'on':'off';
@@ -299,8 +300,58 @@ function contractIntakeShowLotSearch(input){
   box.append(button);
  }
 }
+// Distribución exacta en centavos; el remanente se asigna por mayor fracción.
+function contractSplitCents(total,weights){
+ if(!Number.isSafeInteger(total)||total<0||!weights.length||weights.some(w=>!Number.isSafeInteger(w)||w<=0))throw Error('Importes de distribución inválidos.');
+ const sum=weights.reduce((n,w)=>n+BigInt(w),0n),amount=BigInt(total);
+ const rows=weights.map((w,i)=>({i,value:Number(amount*BigInt(w)/sum),rest:amount*BigInt(w)%sum}));
+ let left=total-rows.reduce((n,r)=>n+r.value,0);
+ for(const row of [...rows].sort((a,b)=>a.rest===b.rest?a.i-b.i:a.rest>b.rest?-1:1)){if(!left)break;row.value++;left--;}
+ return rows.map(r=>r.value);
+}
+function contractTotalsApply(form){
+ const mode=form.elements.namedItem('contractPriceMode'),total=form.elements.namedItem('contractTotalPrice'),prima=form.elements.namedItem('contractTotalPrima');
+ if(!mode||!total||!prima)return;
+ const count=1+(contractIntakeWorking.extraLots?.length||0),different=mode.value==='different';
+ const cents=input=>{const raw=String(input?.value??'').trim(),n=Number(raw),v=Math.round(n*100);return raw!==''&&Number.isFinite(n)&&Number.isSafeInteger(v)&&Math.abs(v/100-n)<0.0000001?v:null;};
+ const prices=Array.from({length:count},(_,i)=>form.elements.namedItem('solarPrice_'+i));
+ const downs=Array.from({length:count},(_,i)=>form.elements.namedItem(count>1?'solarDown_'+i:'down'));
+ for(const input of prices){if(!input)continue;const wrap=input.closest('.field-group');if(wrap)wrap.hidden=!different;input.readOnly=!different;}
+ for(const input of downs){const wrap=input?.closest('.field-group');if(wrap)wrap.hidden=true;if(input)input.readOnly=true;}
+ total.readOnly=different;total.setCustomValidity('');prima.setCustomValidity('');
+ let values=prices.map(cents),priceCents=cents(total),primaCents=cents(prima);
+ if(different){priceCents=values.every(v=>v!==null&&v>0)?values.reduce((a,b)=>a+b,0):null;total.value=priceCents===null?'':(priceCents/100).toFixed(2);}
+ else if(priceCents!==null&&priceCents>=count)values=contractSplitCents(priceCents,Array(count).fill(1));
+ else values=Array(count).fill(null);
+ if(priceCents===null||priceCents<count)total.setCustomValidity('Ingresa un precio total positivo con máximo dos decimales.');
+ if(primaCents===null||primaCents<0||priceCents===null||primaCents>=priceCents)prima.setCustomValidity('La prima total debe ser igual o mayor que cero y menor que el precio total.');
+ const valid=values.every(v=>v!==null&&v>0)&&primaCents!==null&&primaCents>=0&&priceCents!==null&&primaCents<priceCents;
+ const allocation=valid?contractSplitCents(primaCents,values):Array(count).fill(null);
+ for(let i=0;i<count;i++){
+  if(!different&&prices[i])prices[i].value=values[i]===null?'':(values[i]/100).toFixed(2);
+  if(downs[i])downs[i].value=allocation[i]===null?'':(allocation[i]/100).toFixed(2);
+ }
+ const preview=form.querySelector('[data-contract-total-preview]');
+ if(preview){preview.replaceChildren();for(let i=0;i<count;i++){
+  const row=document.createElement('p'),lot=getLot(form.elements.namedItem(i?'extraLotId_'+(i-1):'lotId')?.value);
+  row.textContent='Solar '+(i+1)+(lot?' · Etapa '+lot.stage+' · Bloque '+lot.block+' · '+(lot.sourceNumber||lot.number||lot.id):' · Pendiente de seleccionar')+' · Precio: '+(values[i]===null?'—':'L '+contractIntakeManualCash(values[i]/100))+' · Prima: '+(allocation[i]===null?'—':'L '+contractIntakeManualCash(allocation[i]/100));preview.append(row);
+ }}
+}
+function contractTotalsMount(form,lots){
+ const values=contractIntakeWorking.values||{},box=document.createElement('section');box.className='notice-card full';box.dataset.contractTotals='true';
+ box.innerHTML='<h3>Total del contrato</h3><div class="form-grid"><label class="field-group"><span>Cómo acordar los precios</span><select name="contractPriceMode"><option value="equal">Precio total · repartir entre los solares</option><option value="different">Precios diferentes por solar</option></select></label><label class="field-group"><span>Precio total acordado (L)</span><input type="number" name="contractTotalPrice" min="0.01" step="0.01" required></label><label class="field-group"><span>Prima total pactada (L)</span><input type="number" name="contractTotalPrima" min="0" step="0.01" required></label></div><p>La prima se distribuye proporcionalmente al precio de cada solar. Pactarla no registra un pago.</p><div data-contract-total-preview aria-live="polite"></div>';
+ lots.append(box);
+ form.elements.namedItem('contractPriceMode').value=values.contractPriceMode||'equal';
+ form.elements.namedItem('contractTotalPrice').value=values.contractTotalPrice??'';
+ form.elements.namedItem('contractTotalPrima').value=values.contractTotalPrima??'';
+ const refresh=()=>{contractIntakeManualRecalculate(form);const check=form.querySelector('#cq-reviewed');if(check)check.checked=false;};
+ box.addEventListener('input',refresh);box.addEventListener('change',refresh);
+ contractIntakeManualRecalculate(form);
+}
+
 function contractIntakeManualRecalculate(form){
  if(!form||contractIntakeWorking?.mode!=='manual')return;
+ contractTotalsApply(form);
  const get=k=>form.elements.namedItem(k)?.value??'';
  const primary=getLot(get('lotId'));
  const n=Number(get('months')),count=contractIntakeWorking.extraLots?.length||0;
@@ -1349,6 +1400,7 @@ function contractQuickMount(){
  if(price){price.classList.add('cq-solar-price');const label=price.querySelector('span');if(label)label.textContent='Precio acordado de este solar (L)';grid.append(price);}
  if(prima){const label=prima.querySelector?.('span');if(label)label.textContent='Prima pactada de este solar (L)';grid.append(prima);}
  residenceCard.after(primary);
+ contractTotalsMount(form,lots);
  const nav=document.createElement('nav');nav.className='cq-steps';nav.setAttribute('aria-label','Pasos del contrato');nav.innerHTML=[['1','Cliente'],['2','Solares'],['3','Revisar']].map(([n,label])=>'<button type="button" data-cq-step="'+n+'"><i>'+n+'</i>'+label+'</button>').join('');form.prepend(nav);
  const quick=document.createElement('div');quick.className='cq-client-actions';quick.innerHTML='<button type="button" class="btn btn-outline" data-contract-client-clear>+ Cliente nuevo</button>'+'<button type="button" class="btn btn-outline" data-cq-last-client '+(contractQuickLastClient&&getClient(contractQuickLastClient)?'':'disabled')+'>Usar último cliente</button>';client.append(quick);
  const summary=document.createElement('div');summary.className='cq-review-summary';terms.querySelector('h3')?.after(summary);
