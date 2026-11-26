@@ -5,9 +5,8 @@
   const menu=document.querySelector('.lg-mobile-menu'),sidebar=document.getElementById('lgSidebar');
   if(sidebar){
    const opened=mobile.matches && sidebar.classList.contains('open');
-   // La preferencia de barra fija se aplica solo en computadoras.
+   // En PC el estado se controla por navegación, sin restaurar una barra abierta antigua.
    if(mobile.matches)sidebar.classList.remove('pinned');
-   else sidebar.classList.toggle('pinned',localStorage.getItem('lotigest-v08-pin')==='true');
    sidebar.inert=mobile.matches&&!opened;
    sidebar.setAttribute('aria-hidden',String(mobile.matches&&!opened));
    if(mobile.matches){
