@@ -1,4 +1,4 @@
 {
-  "version": "1.0.36",
-  "notes": "Abonos varios: cuota mínima conjunta, reparto por solar y excedente visibles en revisión; valida cada recibo antes de guardar y excluye solares liquidados. Conserva la regla de prima."
+  "version": "1.0.37",
+  "notes": "Acepta abonos parciales y conserva el faltante mensual visible en el calendario; mantiene prima, correlativos y límites de saldo."
 }
