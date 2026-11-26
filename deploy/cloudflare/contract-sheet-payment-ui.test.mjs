@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {writeFile} from 'node:fs/promises';
 import {setup,boot,login,until,saved} from './test-ui.mjs';
-test('ficha PDF de datos existentes y abonos: mensualidad visible, menor bloqueado y cuota exacta guardada',async()=>{
+test('ficha PDF de datos existentes y abonos: mensualidad visible y abono parcial guardado',async()=>{
  const server=await setup();let app=boot(server);
  try{
   await login(app,server);const snapshot=await server.read(),s=snapshot.state,rid=s.currentResidence||s.residences[0].id;
@@ -21,8 +21,9 @@ test('ficha PDF de datos existentes y abonos: mensualidad visible, menor bloquea
   if(!app.d.querySelector('#pm-amount-slot [data-payment-amount]'))app.click('[data-action=multi-payment-add][data-id="PDF-V"]');
   assert.match(app.d.querySelector('[data-monthly-banner]').textContent,/6,220.33/);
   app.input('#pm-amount-slot [data-pm-currency]','5000');app.submit('#multi-payment-form',{date:'2024-02-01',concept:'Abono de prueba',receiptRef:'880001'});
-  assert.match(app.d.querySelector('#multi-payment-error').textContent,/mínimo/);assert.equal((await server.read()).state.payments.filter(p=>p.saleId==='PDF-V').length,1);
-  app.input('#pm-amount-slot [data-pm-currency]','6220.33');app.submit('#multi-payment-form',{date:'2024-02-01',concept:'Abono de prueba',receiptRef:'880001'});await saved(app);
-  assert.equal((await server.read()).state.payments.filter(p=>p.saleId==='PDF-V').length,2);assert.deepEqual(server.errors,[]);
+  await saved(app);
+  const payments=(await server.read()).state.payments.filter(p=>p.saleId==='PDF-V');
+  assert.equal(payments.length,2);const partial=payments.find(p=>p.id!=='PDF-PRIMA');
+  assert.equal(partial.amount,5000);assert.equal(partial.receiptInfo.allocations[0].amount,5000);assert.equal(partial.receiptInfo.allocations[0].complete,false);assert.deepEqual(server.errors,[]);
  }finally{app.close();}
 });
