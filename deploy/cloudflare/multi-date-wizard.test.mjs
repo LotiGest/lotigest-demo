@@ -60,3 +60,9 @@ test('unrelated client update does not discard an open payment draft',()=>{
 test('payment change on the selected contract blocks the draft before saving',()=>{
  const dom=boot(),w=dom.window,d=w.document;w.db.payments.push({id:'other',saleId:'s1',amount:100,date:'2026-11-24'});w.wizardTest.review();assert.equal(d.querySelector('#md-review').hidden,true);assert.match(w.errors.at(-1),/Cambió un pago/);dom.window.close();
 });
+test('retry sends the existing pending batch without adding duplicate payments',async()=>{
+ const dom=boot(),w=dom.window,d=w.document;w.cloudFlush=async()=>{w.cloudQueue.pending=true;};w.wizardTest.review();d.getElementById('md-review-confirm').checked=true;await w.wizardTest.save();
+ assert.equal(w.writes,1);assert.equal(w.db.payments.length,2);
+ w.cloudFlush=async()=>{w.cloudQueue.pending=false;};d.querySelector('[data-md-sync]').click();
+ await new Promise(resolve=>setTimeout(resolve,0));assert.equal(w.writes,1);assert.equal(w.db.payments.length,2);assert.ok(d.querySelector('[data-md-share-all]'));dom.window.close();
+});
