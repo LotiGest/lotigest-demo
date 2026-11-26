@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {monthlyPaymentInfo,assertMonthlyPayment,validateNewMonthlyPayments,splitClientPayment,assertPrimaPayment} from '../monthly-payment-rules.mjs';
+import {monthlyPaymentInfo,assertMonthlyPayment,validateNewMonthlyPayments,splitClientPayment,assertPrimaPayment,planMonthlyClientPayment} from '../monthly-payment-rules.mjs';
 const base=()=>({sales:[{id:'V',lotId:'G16',type:'credit',price:580564.16,downPayment:58056.42,months:84,openingPaid:58056.42}],payments:[],ownerPayments:[]});
 test('mensualidad de contrato existente, monto exacto y mayor; rechaza menor',()=>{const s=base();assert.equal(monthlyPaymentInfo(s,['G16']).monthlyCents,622033);assert.throws(()=>assertMonthlyPayment(s,['G16'],622032),/6,220.33/);assert.doesNotThrow(()=>assertMonthlyPayment(s,['G16'],622033));assert.doesNotThrow(()=>assertMonthlyPayment(s,['G16'],800000));});
 test('pago final inferior a cuota, prima pendiente y contrato sin activar',()=>{
@@ -47,4 +47,23 @@ test('abono a prima de varios solares respeta la prima faltante individual y no 
  assert.throws(()=>assertPrimaPayment(s,'LA',100001),/supera la prima/);
  const filled=structuredClone(s);filled.sales[0].openingPaid=100000;
  assert.equal(splitClientPayment(filled,['A','B'],10000,null,'prima')[0].saleId,'B');
+});
+
+const twoSolarExample=()=>({sales:[{id:'A',lotId:'LA',clientId:'C',type:'credit',price:430000,downPayment:10000,months:60,openingPaid:10000,date:'2025-01-01'},{id:'B',lotId:'LB',clientId:'C',type:'credit',price:460000,downPayment:10000,months:60,openingPaid:10000,date:'2025-01-01'}],lots:[{id:'LA',residenceId:'R'},{id:'LB',residenceId:'R'}],payments:[],ownerPayments:[]});
+test('dos solares: 14,500 exactos y 19,500 con excedente de 5,000 sin duplicar el recibo',()=>{
+ const s=twoSolarExample(),exact=planMonthlyClientPayment(s,['A','B'],1450000),extra=planMonthlyClientPayment(s,['A','B'],1950000);
+ assert.equal(exact.minimumCents,1450000);assert.equal(exact.excessCents,0);assert.deepEqual(exact.allocations.map(a=>a.cents),[700000,750000]);
+ assert.equal(extra.excessCents,500000);assert.equal(extra.allocations.reduce((n,a)=>n+a.cents,0),1950000);
+ assert.doesNotThrow(()=>validateNewMonthlyPayments(s,{...s,payments:extra.allocations.map((r,i)=>({...r,id:'P'+i,concept:'Abono mensual'}))}));
+ assert.throws(()=>planMonthlyClientPayment(s,['A','B'],1400000),/mínimo total para 2 solar\(es\) es L 14,500.00/);
+});
+test('abonos sucesivos: excluir solar liquidado y reducir cuota mínima al saldo final',()=>{
+ const s=twoSolarExample();s.sales[0].openingPaid=429500;
+ const first=planMonthlyClientPayment(s,['A','B'],800000);assert.equal(first.minimumCents,800000);
+ s.payments.push(...first.allocations.map((a,i)=>({...a,id:'P'+i})));
+ const second=planMonthlyClientPayment(s,['A','B'],750000);assert.equal(second.minimumCents,750000);assert.equal(second.allocations.length,1);assert.equal(second.allocations[0].saleId,'B');
+});
+test('abono conjunto conserva la regla de prima y el límite del saldo',()=>{
+ const s=twoSolarExample();s.sales[0].openingPaid=0;assert.throws(()=>planMonthlyClientPayment(s,['A','B'],1950000),/Completa primero la prima/);
+ s.sales[0].openingPaid=10000;assert.throws(()=>planMonthlyClientPayment(s,['A','B'],87000001),/supera el saldo/);
 });

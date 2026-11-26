@@ -102,3 +102,32 @@ export function splitClientPayment(state,saleIds,totalCents,date=null,applicatio
  if(date&&allocated.some(r=>date<r.date))throw Error('La fecha del abono es anterior a uno de los contratos.');
  return allocated.map(r=>({saleId:r.saleId,amount:r.cents/100,cents:r.cents}));
 }
+
+/* Abonos por fechas: validar la cuota conjunta antes de dividir el recibo. */
+export function planMonthlyClientPayment(state,saleIds,totalCents,date=null){
+ const ids=[...new Set(saleIds)],rows=[];
+ if(!ids.length||!Number.isSafeInteger(totalCents)||totalCents<=0)throw Error('Ingresa un monto válido.');
+ for(const id of ids){
+  const sale=(state.sales||[]).find(s=>s.id===id),lot=(state.lots||[]).find(l=>l.id===sale?.lotId);
+  if(!sale||!lot||sale.type!=='credit')throw Error('Contrato de crédito no válido.');
+  const info=monthlyPaymentInfo(state,[lot.id]);
+  if(!info.known||info.remainingCents==null||info.primaRemainingCents==null)throw Error('Verifica la cuota, saldo y distribución de la prima del solar '+(lot.sourceNumber||lot.id)+'.');
+  if(info.remainingCents===0)continue;
+  if(info.primaRemainingCents>0)throw Error('Completa primero la prima del solar '+(lot.sourceNumber||lot.id)+'. Registra ese pago como Prima.');
+  rows.push({saleId:id,lotId:lot.id,clientId:sale.clientId,residenceId:lot.residenceId,minimumCents:Math.min(info.monthlyCents,info.remainingCents),remainingCents:info.remainingCents});
+ }
+ if(!rows.length)throw Error('Los solares seleccionados ya están pagados.');
+ if(new Set(rows.map(r=>r.clientId)).size!==1||new Set(rows.map(r=>r.residenceId)).size!==1)throw Error('Selecciona solares de un mismo cliente y residencial.');
+ const minimumCents=rows.reduce((n,r)=>n+r.minimumCents,0),remainingCents=rows.reduce((n,r)=>n+r.remainingCents,0);
+ const format=n=>'L '+(n/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+ if(totalCents<minimumCents)throw Error('El abono mínimo total para '+rows.length+' solar(es) es '+format(minimumCents)+'; ingresaste '+format(totalCents)+'.');
+ if(totalCents>remainingCents)throw Error('El abono supera el saldo pendiente total de '+format(remainingCents)+'.');
+ // Preserve the existing proportional allocation and enforce the individual limits.
+ const allocations=splitClientPayment(state,rows.map(r=>r.saleId),totalCents,date,'monthly');
+ for(const row of rows){
+  const allocation=allocations.find(a=>a.saleId===row.saleId);
+  if(!allocation||allocation.cents<row.minimumCents)throw Error('Revisa el reparto del abono total: el solar '+row.lotId+' requiere '+format(row.minimumCents)+'.');
+  assertMonthlyPayment(state,[row.lotId],allocation.cents);
+ }
+ return {minimumCents,remainingCents,excessCents:totalCents-minimumCents,allocations};
+}

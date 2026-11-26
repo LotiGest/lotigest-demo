@@ -1,4 +1,4 @@
 {
-  "version": "1.0.35",
-  "notes": "Editar contrato incluye solares negros sin contrato ni vínculos protegidos; ignora marcas visuales heredadas, conserva auditoría y protege pagos, reservas reales y propiedades privadas."
+  "version": "1.0.36",
+  "notes": "Abonos varios: cuota mínima conjunta, reparto por solar y excedente visibles en revisión; valida cada recibo antes de guardar y excluye solares liquidados. Conserva la regla de prima."
 }

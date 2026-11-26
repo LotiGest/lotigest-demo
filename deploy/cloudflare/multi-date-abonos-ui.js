@@ -194,10 +194,10 @@
  }
  function mdReview(){
   try{
-   const rows=mdValidate();mdReviewedKey=mdReviewSignature(rows);mdStage='review';
+   const rows=mdValidate();const plans=mdPreviewAllocations(rows);mdReviewedKey=mdReviewSignature(rows);mdStage='review';
    const host=document.getElementById('md-review');if(!host)return;
    const cents=rows.reduce((n,r)=>n+r.cents,0);
-   host.innerHTML='<h3>Revisar abonos</h3><p>Verifica fechas, correlativos y montos antes de guardar.</p><div class="md-review-table"><table><thead><tr><th>Fecha</th><th>Correlativo</th><th>Monto</th><th>Acciones</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+mdSafe(mdHumanDate(r.date))+'</td><td class="md-review-ref">'+mdSafe(r.raw)+'</td><td class="md-review-money">'+mdSafe(mdFmt(r.cents/100))+'</td><td><button type="button" data-md-goto="'+mdSafe(r.id)+'">Editar</button><button type="button" data-md-review-remove="'+mdSafe(r.id)+'">Quitar</button></td></tr>').join('')+'</tbody></table></div><div class="md-review-total">'+rows.length+' abono(s) · Total a registrar <strong>'+mdSafe(mdFmt(cents/100))+'</strong></div><p>Aún no se ha registrado ningún pago.</p><label class="md-review-confirm"><input type="checkbox" id="md-review-confirm"> He revisado la información</label>';
+   host.innerHTML='<h3>Revisar abonos</h3><p>Verifica fechas, correlativos y montos antes de guardar.</p><div class="md-review-table"><table><thead><tr><th>Fecha</th><th>Correlativo</th><th>Monto</th><th>Acciones</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+mdSafe(mdHumanDate(r.date))+'</td><td class="md-review-ref">'+mdSafe(r.raw)+'</td><td class="md-review-money">'+mdSafe(mdFmt(r.cents/100))+(plans.has(r.id)?'<div class="sm muted">Cuota conjunta: '+mdSafe(mdFmt(plans.get(r.id).minimumCents/100))+'<br>Excedente: '+mdSafe(mdFmt(plans.get(r.id).excessCents/100))+'<br>'+plans.get(r.id).allocations.map(a=>{const s=db.sales.find(s=>s.id===a.saleId),l=getLot(s?.lotId);return mdSafe('B '+(l?.block||'—')+' / S '+(l?.sourceNumber||l?.id||'—')+': '+mdFmt(a.amount));}).join('<br>')+'</div>':'')+'</td><td><button type="button" data-md-goto="'+mdSafe(r.id)+'">Editar</button><button type="button" data-md-review-remove="'+mdSafe(r.id)+'">Quitar</button></td></tr>').join('')+'</tbody></table></div><div class="md-review-total">'+rows.length+' abono(s) · Total a registrar <strong>'+mdSafe(mdFmt(cents/100))+'</strong></div><p>Aún no se ha registrado ningún pago.</p><label class="md-review-confirm"><input type="checkbox" id="md-review-confirm"> He revisado la información</label>';
    mdWizardPaint();host.scrollIntoView?.({block:'start',behavior:'smooth'});
   }catch(e){mdError(e.message||'Revisa los abonos antes de continuar.');}
  }
@@ -454,6 +454,16 @@
   }
   return result.sort((a,b)=>a.date.localeCompare(b.date)||a.position-b.position);
  }
+ function mdPreviewAllocations(rows){
+  const plans=new Map();if(mdState.kind!=='sale')return plans;
+  const working=JSON.parse(JSON.stringify(db));
+  for(const row of rows){
+   let plan;try{plan=planMonthlyClientPayment(working,mdState.saleIds||[mdState.saleId],row.cents,row.date);}catch(e){throw Error('Abono '+(row.position+1)+' · Recibo '+row.raw+': '+e.message);}
+   plans.set(row.id,plan);
+   for(const a of plan.allocations)working.payments.push({id:'preview-'+row.id+'-'+a.saleId,saleId:a.saleId,amount:a.amount,date:row.date,concept:'Abono mensual'});
+  }
+  return plans;
+ }
  async function mdSave(){
   if(mdSaving||!mdState)return;
   if(mdStage!=='review'){mdReview();return;}
@@ -468,7 +478,7 @@
     let id;
     const photoKey=row.photo?'AbonoFoto_'+crypto.randomUUID().replace(/-/g,''):null;
     if(mdState.kind==='sale'){
-     const allocations=splitClientPayment(next,mdState.saleIds||[sale.id],row.cents,row.date);
+     const {allocations}=planMonthlyClientPayment(next,mdState.saleIds||[sale.id],row.cents,row.date);
      const groupId=uid('RC');
      // Un recibo por fecha: todas sus distribuciones deben compartir el QR.
      const verifyToken=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
