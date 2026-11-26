@@ -156,3 +156,48 @@ body.cp-inline-payment:has(#modal-root .modal-cover) .lotigest-shell .lg-topbar{
  html body.cp-inline-payment .cp-dock{left:12px!important;right:12px!important;width:auto!important;max-width:calc(100% - 24px)!important;box-sizing:border-box!important}
  html body.cp-inline-payment .cp-dock button{font-size:12px!important;min-height:58px!important;padding:7px 2px!important}
 }
+/* One-screen primary task on a phone; expanded details and keyboard can scroll. */
+.pm-mobile-details-toggle{display:none!important}
+@media screen and (max-width:700px){
+ html body.cp-inline-payment{height:var(--lg-visible-height,100dvh)!important;min-height:0!important;overflow:hidden!important;padding-bottom:0!important}
+ html body.cp-inline-payment .lotigest-shell{height:auto!important;min-height:0!important;padding-top:0!important}
+ html body.cp-inline-payment .workspace>#modal-root{position:fixed!important;top:max(5px,env(safe-area-inset-top))!important;left:8px!important;right:8px!important;bottom:calc(72px + env(safe-area-inset-bottom))!important;width:auto!important;max-width:none!important;margin:0!important;overflow:auto!important;overscroll-behavior:contain;scroll-padding:12px;max-height:calc(var(--lg-visible-height,100dvh) - 78px - env(safe-area-inset-bottom))!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-mobile-brand{padding:8px!important;min-height:40px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-mobile-brand strong{font-size:18px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-mobile-brand small{font-size:8px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-mobile-mark{font-size:29px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .modal-header{padding:8px 10px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .modal-header h2{font-size:20px!important;margin:0!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .modal-header p{font-size:10px!important;margin:3px 0 0!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .modal-content{padding:7px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-reference-layout{gap:7px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-reference-client #pm-searchbox{padding:4px 9px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-mobile-selectors{gap:6px!important;margin-top:6px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-mobile-select-row{padding:4px 9px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment label{font-size:11px!important;line-height:1.25!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment :is(input:not([type=hidden]),select){height:36px!important;min-height:36px!important;padding:5px 8px!important;margin-top:1px!important;font-size:16px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-reference-client #pm-searchbox input{height:33px!important;min-height:33px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-mobile-balance{padding:8px 10px 3px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-mobile-balance h3{font-size:16px!important;padding-bottom:5px!important;margin:0!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-mobile-balance .pm-summary-row{font-size:12px!important;padding:3px 0!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-mobile-balance .pm-summary-row strong{font-size:14px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-reference-side>.pm-card>h3{font-size:12px!important;padding:5px 0!important;margin:0 10px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-reference-side .pm-card-body{padding:5px 10px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-last-payment-main>strong{font-size:11px!important;line-height:1.3!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-last-payment-details{padding:4px 6px!important;font-size:12px!important;gap:5px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-reference-entry>h3{font-size:16px!important;padding:8px 10px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-reference-entry>.pm-card-body{padding:7px 10px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-fields{gap:7px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-currency-control{min-height:36px!important;padding:1px 6px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-currency-control input.pm-currency-visible{height:30px!important;min-height:30px!important;font-size:16px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-reference-actions{padding:6px 10px!important;gap:3px!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-reference-actions .pm-save{min-height:42px!important;font-size:17px!important;margin:0!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-mobile-details-toggle{display:block!important;min-height:28px!important;flex:1 0 100%!important;padding:4px!important;font-size:11px!important;background:transparent!important;border:0!important;color:inherit!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment:not(.pm-mobile-expanded) :is(.pm-reference-calendar,.pm-reference-history,.pm-reference-progress,.pm-payment-options,.pm-date-today,.pm-fields .pm-help,.pm-last-payment-solares,.pm-last-payment-main~.pm-last-payment-main){display:none!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment:not(.pm-mobile-expanded) .pm-reference-actions>.btn:not(.pm-save):not(.pm-mobile-details-toggle){display:none!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment.pm-mobile-expanded .pm-reference-toolbar{display:flex!important}
+ html body.cp-inline-payment .nexora-footer{display:none!important}
+ html body.cp-inline-payment .cp-dock{bottom:max(5px,env(safe-area-inset-bottom))!important;padding:3px!important}
+ html body.cp-inline-payment .cp-dock button{min-height:54px!important;font-size:11px!important;gap:3px!important}
+ html body.cp-inline-payment .cp-dock svg{width:23px!important;height:23px!important}
+}

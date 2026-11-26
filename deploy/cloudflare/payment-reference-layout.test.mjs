@@ -15,7 +15,8 @@ test('reference layout retains the original payment controls and visible client,
  assert.equal(d.querySelector('[name=amount]'),amount);assert.equal(d.querySelector('[name=receiptRef]'),ref);assert.equal(d.querySelector('[name=date]'),date);
  assert.equal(d.querySelector('.pm-reference-layout').children.length,6);
  assert.ok(d.querySelector('.pm-reference-client').contains(search));assert.ok(d.querySelector('.pm-reference-side').contains(last));assert.ok(d.querySelector('.pm-reference-entry').contains(d.querySelector('button[type=submit]')));
- assert.equal(summary.closest('details'),null);assert.equal(cal.closest('details'),null);dom.window.close();
+ assert.equal(summary.closest('details'),null);assert.equal(cal.closest('details'),null);
+ const more=d.querySelector('.pm-mobile-details-toggle');assert.ok(more);more.click();assert.equal(more.getAttribute('aria-expanded'),'true');assert.ok(d.querySelector('.pm-reference-payment').classList.contains('pm-mobile-expanded'));more.click();assert.equal(more.getAttribute('aria-expanded'),'false');assert.ok(d.querySelector('.pm-reference-calendar').isConnected);dom.window.close();
 });
 test('mobile solar selection scopes the existing draft and all restores the client selection',()=>{
  const dom=new JSDOM('',{runScripts:'outside-only'});
