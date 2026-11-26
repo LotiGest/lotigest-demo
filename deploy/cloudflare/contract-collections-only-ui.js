@@ -190,7 +190,8 @@
   try{
    const m=pmAmortizationModel(state,id,rid,asOf,reconcileInstallments,installmentDueCents,(date,i)=>dateKey(addMonths(date,i)),null,prepared);
    if(m.unmatched)throw Error('Hay recibos pendientes de conciliar.');
-   return {m};
+   const statement=pmStatementModel(m);
+   return {m,statement};
   }catch(e){return {error:e.message};}
  }
  function ccMetrics(m,month){
@@ -234,7 +235,7 @@
   const owner=typeof cloudUser==='undefined'?'':cloudUser?.name||'';
   if(ccCacheState!==state||ccCacheOwner!==owner){ccModels.clear();ccCacheState=state;ccCacheOwner=owner;}
   const scope=contractCollectionsScope(state,rid),groups=new Map(),asOf=businessToday();
-  const clients=new Map(scope.clients.map(c=>[c.id,c])),salesByLot=new Map(scope.sales.map(s=>[s.lotId,s]));
+  const clients=new Map(scope.clients.map(c=>[c.id,c])),salesByLot=new Map(scope.sales.map(s=>[s.lotId,s])),saleOrder=new Map(scope.sales.map((s,i)=>[s,i]));
   const residences=new Map((state.residences||[]).map(r=>[r.id,r.name]));
   const posted=new Set((state.historicalPayments||[]).map(p=>p.postedPaymentId).filter(Boolean)),paymentsBySale=new Map(),paymentOrder=new Map(scope.payments.map((p,i)=>[p,i]));
   for(const p of scope.payments){if(!paymentsBySale.has(p.saleId))paymentsBySale.set(p.saleId,[]);paymentsBySale.get(p.saleId).push(p);}
@@ -248,8 +249,9 @@
   for(const g of groups.values()){
    if(!g.sales.length){g.model={};continue;}
    const payments=g.sales.flatMap(s=>paymentsBySale.get(s.id)||[]).sort((a,b)=>paymentOrder.get(a)-paymentOrder.get(b));
-   const prepared={scope:{clients:[g.client],lots:g.lots,sales:g.sales,payments},posted};
-   const key=JSON.stringify([asOf,g.client.name,g.residenceName,state.company?.name,g.lots,g.sales,payments,payments.filter(p=>posted.has(p.id)).map(p=>p.id)]);
+   const orderedSales=[...g.sales].sort((a,b)=>saleOrder.get(a)-saleOrder.get(b));
+   const prepared={scope:{clients:[g.client],lots:g.lots,sales:orderedSales,payments},posted};
+   const key=JSON.stringify([asOf,g.client.name,g.residenceName,state.company?.name,g.lots,orderedSales,payments,payments.filter(p=>posted.has(p.id)).map(p=>p.id)]);
    const cached=ccModels.get(g.key);
    // Do not cache errors: a transient dependency may become available.
    g.model=cached?.key===key?cached.model:ccModel(state,g.id,g.rid,asOf,prepared);
