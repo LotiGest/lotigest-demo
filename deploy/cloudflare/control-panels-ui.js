@@ -27,6 +27,23 @@
  function init(){
   pages.messages=['Mensajes y Notificaciones','bell'];
   const content=pageContent;pageContent=function(){return page==='messages'?messagePage():content();};
+ // Índices temporales: se descartan al terminar cada render para no retener datos antiguos.
+ const lookupOriginals={getClient,getLot,getSale};
+ let renderLookups=null;
+ function renderLookup(kind,rows,id){
+  if(!renderLookups)return lookupOriginals[kind](id);
+  let entry=renderLookups.get(rows);
+  if(!entry){entry=new Map();for(const row of rows)if(!entry.has(row.id))entry.set(row.id,row);renderLookups.set(rows,entry);}
+  return entry.get(id);
+ }
+ getClient=function(id){return renderLookup('getClient',db.clients,id);};
+ getLot=function(id){return renderLookup('getLot',db.lots,id);};
+ getSale=function(id){return renderLookup('getSale',db.sales,id);};
+ const lookupRender=render;
+ render=function(){
+  const previous=renderLookups;renderLookups=new Map();
+  try{return lookupRender.apply(this,arguments);}finally{renderLookups=previous;}
+ };
   const oldRender=render;let lastPage=page;render=function(){const root=document.getElementById('modal-root');if(root?.closest('#app'))document.body.append(root);if(lastPage==='payments'&&page!=='payments'&&document.querySelector('#modal-root .lg-payment-modern'))closeModal();oldRender();if(page==='payments'&&!document.querySelector('#modal-root .modal-cover')&&document.querySelector('.lotigest-shell'))newPayment(null,false);lastPage=page;decorate();if(page==='payments'&&document.querySelector('#modal-root .lg-payment-modern')&&(!matchMedia('(max-width:700px)').matches||root?.querySelector('.pm-reference-payment'))){if(matchMedia('(max-width:700px)').matches)document.body.prepend(root);else document.querySelector('.workspace')?.append(root);}};
   document.addEventListener('click',e=>{const b=e.target.closest('[data-cp-tab],[data-cp-template],[data-cp-preview]');if(!b)return;
    if(b.dataset.cpTab){tab=b.dataset.cpTab;render();}
