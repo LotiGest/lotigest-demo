@@ -1,3 +1,4 @@
+import {ensureContractNumbers} from '../../../contract-numbers.mjs';
 import {validateNewMonthlyPayments} from '../../../monthly-payment-rules.mjs';
 import {validateOwnerPayments,validateNewReceiptCorrelativos} from '../../../owner-payments.mjs';
 import {correctConfirmedBlocks} from './block-corrections.js';
@@ -120,7 +121,7 @@ export async function onRequest({request,env}){
   const user=await actor(request,db);if(!user)return json({error:'La sesión terminó. Vuelve a iniciar sesión; tus cambios se conservan.'},401);
   if(user.role!=='admin'&&(user.role!=='sales'||request.method!=='GET'))return json({error:'Se requiere una cuenta administradora para modificar datos.'},403);
   if(request.method==='GET'&&new URL(request.url).searchParams.get('revision')==='1'){const meta=await db.prepare('SELECT revision FROM app_meta WHERE id=1').first();return json({revision:meta.revision,user});}
-  if(request.method==='GET'){const s=await snapshot(db);return json({revision:s.revision,state:user.role==='sales'?sellerCatalog(correctConfirmedBlocks(decode(s.rows))):correctConfirmedBlocks(decode(s.rows)),user});}
+  if(request.method==='GET'){const s=await snapshot(db);return json({revision:s.revision,state:user.role==='sales'?sellerCatalog(ensureContractNumbers(correctConfirmedBlocks(decode(s.rows)))):ensureContractNumbers(correctConfirmedBlocks(decode(s.rows))),user});}
   if(request.method!=='PUT')return json({error:'Método no permitido.'},405);
   const {state,revision,mutation}=await body(request,limit);
   if(!Number.isSafeInteger(revision)||revision<0||typeof mutation!=='string'||!(/^[a-f0-9-]{36}$/).test(mutation))invalid('Revisión o solicitud inválida.');
@@ -128,7 +129,7 @@ export async function onRequest({request,env}){
   const prior=await db.prepare('SELECT revision,digest FROM app_mutations WHERE id=?').bind(mutation).first();
   if(prior)return prior.digest===digest?json({revision:prior.revision,mutation}):json({error:'La solicitud ya existe con otros datos.'},409);
   const old=await snapshot(db);if(old.revision!==revision)return json({error:'Otra sesión guardó cambios. Descarga tu respaldo pendiente y vuelve a cargar los datos del servidor antes de continuar.'},409);
-  try{const previous=decode(old.rows);validateNewMonthlyPayments(previous,state);validateNewReceiptCorrelativos(previous,state);}catch(e){invalid(e.message);}
+  try{const previous=decode(old.rows);validateNewMonthlyPayments(previous,state);validateNewReceiptCorrelativos(previous,state);ensureContractNumbers(state,previous);}catch(e){invalid(e.message);}
   const priorShape=JSON.parse(old.rows.find(r=>r.key==='$shape')?.payload||'{}');
   for(const collection of ['historicalPayments','historicalContracts','ownershipStatements','ownerPayments'])if(priorShape[collection]>0&&!Array.isArray(state[collection]))return json({error:'Esta copia no contiene el historial guardado. Carga los datos del servidor antes de guardar.'},409);
   const next=encode(state),previous=new Map(old.rows.map(r=>[r.key,r.payload])),keys=new Set(next.map(r=>r.key));

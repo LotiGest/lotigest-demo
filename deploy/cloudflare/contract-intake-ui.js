@@ -812,7 +812,8 @@ async function contractIntakeSave(form){
    if(original.mode!=='manual'&&!(Number(target.price)>0))target.price=fields.price;
   }
   // El estado de venta sólo se actualizará al activar el crédito.
-  cloudWrite(JSON.stringify(next));db=next;
+  if(typeof ensureContractNumbers==='function')ensureContractNumbers(next);
+ cloudWrite(JSON.stringify(next));db=next;
   await cloudFlush();
   if(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed){
    toast('La ficha se conserva pendiente de sincronizar. Comprueba el indicador de nube antes de ingresar otro contrato.','error');
@@ -877,6 +878,7 @@ async function contractIntakeConfirmActivation(form){
  target.price=price;target.status='sold';target.mapDebtFlag=false;target.ownerClientId=d.clientId;delete target.pendingContractId;
  const r=next.residences?.find(r=>r.id===target.residenceId);
  if(r&&target.sourceFeatureKey){r.records??={};r.records[target.sourceFeatureKey]={...(r.records[target.sourceFeatureKey]||{}),lotId:target.id,block:target.block,status:'sold'};}
+ if(typeof ensureContractNumbers==='function')ensureContractNumbers(next);
  cloudWrite(JSON.stringify(next));db=next;await cloudFlush();
  closeModal();render();
  if(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed)toast('Crédito pendiente de sincronización. No registres pagos hasta confirmar la nube.','error');
@@ -1000,6 +1002,7 @@ function contractIntakeDescription(d){
  const confirmed=!!sale&&Number(sale.downPayment)>0&&Math.round(paidAmount(sale.id)*100)>=Math.round(Number(sale.downPayment)*100);
  const paidLabel=sale?'<p><strong>'+(confirmed?'💚 Prima pagada':'Prima pendiente / incompleta')+'</strong> · '+esc(String(sale.downPayment))+' L pactados. Verifica los recibos en Abonos.</p>':'';
  return '<section class="card" style="padding:15px;margin-bottom:15px"><h3>Descripción completa del contrato</h3>'+
+  '<p><strong>Contrato '+esc(d.number||d.id)+'</strong></p>'+
   '<p class="sm muted">'+(d.format==='manual'?'Ficha ingresada manualmente':'Documento leído y revisado por OCR')+' · Etapa, bloque y solar vinculados al inventario.</p>'+
   (d.contractLotIds?.length>1?'<p><b>Ficha compartida:</b> '+esc(d.contractLotIds.map(id=>{const l=getLot(id);return 'Etapa '+l?.stage+' · Bloque '+l?.block+' · Solar '+(l?.sourceNumber||l?.number||id);}).join('; '))+'. Los importes de abajo corresponden solo a este solar.</p>':'')+list+measure+paidLabel+delta+'<p class="sm muted">La prima del contrato no se registra como pagada al importar. Consulta Abonos para verificar los cobros posteriores.</p>'+
   (d.documentKey?'<a class="btn btn-outline" target="_blank" rel="noopener noreferrer" href="/api/app/file?key='+encodeURIComponent(d.documentKey)+'">Ver fotografía original</a>':'')+
@@ -1061,6 +1064,7 @@ async function clientRegisterResetExecute(){
     throw Error('La limpieza cambió las medidas o referencias de un solar. Operación cancelada.');
  }
  if(before!==JSON.stringify(db))throw Error('Los datos cambiaron durante la revisión.');
+ if(typeof ensureContractNumbers==='function')ensureContractNumbers(next);
  cloudWrite(JSON.stringify(next));db=next;
  await cloudFlush();
  closeModal();render();
@@ -1125,6 +1129,7 @@ async function contractDniEditSave(form){
    d.structured??={};d.structured.identity=found.identity;d.updatedAt=new Date().toISOString();
   }
  }
+ if(typeof ensureContractNumbers==='function')ensureContractNumbers(next);
  cloudWrite(JSON.stringify(next));db=next;
  await cloudFlush();
  closeModal();render();
@@ -1233,6 +1238,7 @@ async function contractManageEditSave(form){
   p.negotiatedPrice=Number(terms.price)!==Number(lot.price);
  }
  record.structured=p;record.updatedAt=new Date().toISOString();
+ if(typeof ensureContractNumbers==='function')ensureContractNumbers(next);
  cloudWrite(JSON.stringify(next));db=next;await cloudFlush();
  closeModal();render();
  if(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed)
@@ -1245,7 +1251,7 @@ function contractManageDeleteOpen(id){
  const sale=d.saleId?getSale(d.saleId):null;
  const count=sale?(db.payments||[]).filter(p=>p.saleId===sale.id).length:0;
  showModal('Eliminar contrato',
-  '<p>Contrato <strong>'+esc(d.id)+'</strong> de '+esc(getClient(d.clientId)?.name||'cliente')+'.</p>'+
+  '<p>Contrato <strong>'+esc(d.number||d.id)+'</strong> de '+esc(getClient(d.clientId)?.name||'cliente')+'.</p>'+
   '<p><strong>La eliminación será una anulación recuperable en el historial.</strong> No borra clientes, medidas, mapas, recibos, primas ni abonos.</p>'+
   (sale?'<p class="sm">Ya existe venta vinculada'+(count?' con '+count+' pago(s).':'')+'; seguirá en Residenciales y Cobros para preservar el dinero y la deuda.</p>':
   '<p class="sm">La ficha no tiene venta. Se liberará la reserva contractual del solar, si no existen otras asignaciones.</p>')+
@@ -1270,6 +1276,7 @@ async function contractManageDeleteSave(form){
   const ownership=(next.ownershipStatements||[]).some(x=>x.clientId===record.clientId&&(x.references||[]).some(r=>r.lotId===lot.id));
   if(!other&&!ownership&&lot.ownerClientId===record.clientId)delete lot.ownerClientId;
  }
+ if(typeof ensureContractNumbers==='function')ensureContractNumbers(next);
  cloudWrite(JSON.stringify(next));db=next;await cloudFlush();closeModal();render();
  if(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed)
   toast('Anulación pendiente de sincronizar. Comprueba el estado de la nube.','error');

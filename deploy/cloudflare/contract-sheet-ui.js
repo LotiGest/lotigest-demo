@@ -6,7 +6,7 @@ function contractSheetModel(clientId,{documentId='',lotId=''}={}){
  const p=document?.structured||documents.find(d=>ids.includes(d.lotId))?.structured||{};
  const present=(...values)=>values.find(v=>v!=null&&String(v).trim()!=='');
  const showMoney=v=>v==null||v===''||!Number.isFinite(Number(v))?'No registrado':money(Number(v));
- const sections=[{title:'GENERALES DE CLIENTE',rows:[['NOMBRE DE CLIENTE',client.name||p.name],['DNI',client.identity||p.identity],['RTN',client.rtn||p.rtn],['ESTADO CIVIL',client.maritalStatus||p.maritalStatus],['PROFESIÓN U OFICIO',client.occupation||p.occupation],['DIRECCIÓN',client.address||p.address]]}];
+ const sections=[{title:'GENERALES DE CLIENTE',rows:[['NÚMERO DE CONTRATO',document?.number||documents.find(d=>ids.includes(d.lotId))?.number||'—'],['NOMBRE DE CLIENTE',client.name||p.name],['DNI',client.identity||p.identity],['RTN',client.rtn||p.rtn],['ESTADO CIVIL',client.maritalStatus||p.maritalStatus],['PROFESIÓN U OFICIO',client.occupation||p.occupation],['DIRECCIÓN',client.address||p.address]]}];
  for(const id of [...new Set(ids)]){
   const lot=getLot(id);if(!lot)continue;
   const doc=documents.find(d=>d.lotId===id&&(!document||d.id===document.id||d.contractGroupId&&d.contractGroupId===document.contractGroupId)),fields=doc?.structured||{},sale=db.sales.find(s=>s.lotId===id&&s.clientId===clientId),terms=monthlyLotTerms(db,id);
@@ -41,7 +41,7 @@ document.addEventListener('click',event=>{
 
 function lawyerPhone(value){const raw=String(value||'').trim();if(!raw)return '';if(!/^\+?[\d ()-]+$/.test(raw))return '';let n=raw.replace(/\D/g,'');if(n.length===8)n='504'+n;return /^[1-9]\d{7,14}$/.test(n)?n:'';}
 function lawyerContact(rid){return db.company?.lawyerContacts?.[rid]||{name:'',phone:''};}
-function lawyerSheetName(doc){return 'Ficha-contractual-'+String(doc.id).replace(/[^a-zA-Z0-9_-]/g,'')+'.pdf';}
+function lawyerSheetName(doc){return 'Ficha-contractual-'+String(doc.number||doc.id).replace(/[^a-zA-Z0-9_-]/g,'')+'.pdf';}
 function lawyerSheetOpen(id){
  if(!contractIntakeAdmin())throw Error('Se requiere administrador con guardado confirmado.');
  const doc=contractManageRecord(id);if(!doc)throw Error('No se encontró la ficha vigente.');

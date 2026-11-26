@@ -53,3 +53,14 @@ test('administrador crea vendedor y el servidor filtra datos personales y financ
  result=await session({env:f.env,request:new Request('https://test/api/app/session',{method:'POST',headers:{Origin:'https://test','Content-Type':'application/json'},body:JSON.stringify({credential})})});assert.equal(result.status,200);const cookie=result.headers.get('Set-Cookie').split(';')[0];const seller={...f,cookie};const catalog=await (await request(seller)).json();assert.equal(catalog.user.role,'sales');assert.equal(catalog.state.lots[0].price,1000);assert.deepEqual(catalog.state.clients,[]);assert.deepEqual(catalog.state.payments,[]);assert.ok(!JSON.stringify(catalog).includes('CLIENTE PRIVADO'));assert.equal((await put(seller,s,1)).status,403);
  result=await accounts({env:f.env,request:new Request('https://test/api/app/users',{headers:{Cookie:cookie}})});assert.equal(result.status,403);
 });
+
+test('contratos CM: asignación por registro, reintento, conflicto y no reutilización al eliminar',async()=>{
+ const f=await fixture(),s=empty();
+ s.contractTexts=[{id:'b',createdAt:'2026-11-25T10:00:00Z'},{id:'a',createdAt:'2026-11-20T10:00:00Z'}];
+ const mutation=crypto.randomUUID();assert.equal((await put(f,s,0,mutation)).status,200);assert.equal((await put(f,s,0,mutation)).status,200);
+ let data=await (await request(f)).json();assert.equal(data.state.contractTexts.find(d=>d.id==='a').number,'CM-0001');assert.equal(data.state.contractTexts.find(d=>d.id==='b').number,'CM-0002');
+ data.state.contractTexts=data.state.contractTexts.filter(d=>d.id!=='b');data.state.contractTexts[0].number='CM-9999';data.state.contractTexts.unshift({id:'c',createdAt:'2026-01-01',number:'CM-0002'});
+ assert.equal((await put(f,data.state,data.revision)).status,200);
+ const stored=await (await request(f)).json();assert.equal(stored.state.contractTexts.find(d=>d.id==='a').number,'CM-0001');assert.equal(stored.state.contractTexts.find(d=>d.id==='c').number,'CM-0003');
+ assert.equal((await put(f,data.state,data.revision)).status,409);
+});

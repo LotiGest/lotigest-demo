@@ -41,7 +41,7 @@
  }
  function filtered(all){return all.filter(r=>locationMatch(r,'stage',state.stage)&&locationMatch(r,'block',state.block)&&locationMatch(r,'solar',state.solar)&&
   (state.status==='all'||state.status===r.status)&&
-  (!state.query||norm([r.id,r.client?.name,r.client?.identity,r.doc?.title,r.doc?.voidReason,
+  (!state.query||norm([r.doc?.number,r.id,r.client?.name,r.client?.identity,r.doc?.title,r.doc?.voidReason,
    r.status==='voided'?'etapa '+contractRecordedLocation(r.doc).stage+' bloque '+contractRecordedLocation(r.doc).block+' solar '+contractRecordedLocation(r.doc).number:'',
    ...r.lots.flatMap(l=>['etapa '+l.stage,'bloque '+l.block,'solar '+num(l),l.id])].join(' ')).includes(norm(state.query))));}
  function contractRecordedLocation(doc){
@@ -91,7 +91,7 @@
   const info=d.structured||{},sale=d.saleId?getSale(d.saleId):null;
   const body='<div class="ct-void-detail" role="region" aria-label="Detalle de contrato anulado">'+
    '<p class="ct-void-alert"><strong>Contrato anulado · Solo lectura.</strong> Consultar esta ficha no vuelve a activar el contrato ni modifica el solar o los pagos.</p>'+
-   '<div class="detail-line"><span>Número de ficha</span><strong>'+esc(d.id)+'</strong></div>'+
+   '<div class="detail-line"><span>Número de ficha</span><strong>'+esc(d.number||d.id)+'</strong></div>'+
    '<div class="detail-line"><span>Cliente</span><strong>'+esc(client?.name||info.name||'Sin nombre')+'</strong></div>'+
    '<div class="detail-line"><span>Identidad</span><strong>'+esc(client?.identity||info.identity||'—')+'</strong></div>'+
    '<div class="detail-line"><span>Fecha del contrato</span><strong>'+esc(date(info.date||d.createdAt))+'</strong></div>'+
@@ -190,7 +190,7 @@
   try{
    const d=activationRecord(id);refreshActivationPin();
    showModal('Activar contrato',
-    '<p>Reactivar contrato <strong>'+esc(d.id)+'</strong> de '+esc(getClient(d.clientId)?.name)+'.</p><p>Introduce el PIN vigente de Contratos en cualquier equipo con una cuenta administradora.</p>'+
+    '<p>Reactivar contrato <strong>'+esc(d.number||d.id)+'</strong> de '+esc(getClient(d.clientId)?.name)+'.</p><p>Introduce el PIN vigente de Contratos en cualquier equipo con una cuenta administradora.</p>'+
     '<form id="ct-activation-form"><input type="hidden" name="documentId" value="'+esc(id)+'"><label>PIN de 4 dígitos<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" minlength="4" maxlength="4" autocomplete="off" required></label><p id="ct-activation-error" role="alert"></p></form>',
     '<button type="button" class="btn btn-outline" data-action="close-modal">Cancelar</button><button type="submit" form="ct-activation-form" class="btn btn-primary">Activar contrato</button>',true);
   }catch(e){toast(e.message,'error');}
@@ -309,7 +309,7 @@
   const table='<section class="card"><div class="panel-table-head"><h2>'+(state.status==='voided'?'Contratos anulados':'Registro de contratos')+'</h2><span class="sm muted">'+list.length+' resultado(s)</span></div>'+
     '<div class="table-scroll ct-scroll" role="region" aria-label="Tabla de contratos" tabindex="0"><table class="ct-table"><thead><tr>'+
     '<th>N.º contrato / ficha</th><th>Cliente</th><th>Terreno (etapa / bloque / solar)</th><th>Fecha / registro</th><th>Monto (L)</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>'+
-    subset.map(r=>'<tr><td class="strong">'+(r.type==='doc'?esc(r.id):'—'+ '<small class="ct-more">Venta '+esc(r.id)+'</small>')+'</td>'+
+    subset.map(r=>'<tr><td class="strong">'+(r.type==='doc'?esc(r.doc.number||r.id):'—'+ '<small class="ct-more">Venta '+esc(r.id)+'</small>')+'</td>'+
       '<td>'+esc(r.client?.name||r.doc?.structured?.name||'Cliente por completar')+'</td>'+
       '<td>'+where(r)+'</td><td>'+(r.date&&/^\d{4}-\d{2}-\d{2}/.test(String(r.date))?fmtDate(String(r.date).slice(0,10)):'—')+'</td>'+
       '<td class="tabular">'+(r.amount==null||r.amount===''||!Number.isFinite(Number(r.amount))?'—':money(Number(r.amount)))+'</td>'+
