@@ -49,7 +49,11 @@ function pmHeaderClient(modal,client){
  }
  row.querySelector('.pm-header-client-name').textContent=client?.name||'Selecciona un cliente';
  row.querySelector('.pm-change-client').hidden=!client;
- row.querySelector('.pm-many-client').hidden=!client;
+ const manyControl=modal.querySelector('.pm-many-client'),actions=modal.querySelector('.pm-reference-actions');
+ if(manyControl){
+  if(actions){if(manyControl.parentElement!==actions)actions.append(manyControl);manyControl.hidden=false;manyControl.disabled=!client;manyControl.title=client?'Registrar varios abonos con fechas y correlativos distintos':'Selecciona primero un cliente';}
+  else manyControl.hidden=!client;
+ }
 }
 function pmIcon(name){return typeof ic==='function'?ic(name):'';}
 function pmCard(title,icon){

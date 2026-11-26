@@ -25,3 +25,12 @@ test('mobile solar selection scopes the existing draft and all restores the clie
  dom.window.pmIncludeClientSales();assert.deepEqual(Object.keys(dom.window.paymentDraft.amounts),['s2']);assert.equal(dom.window.paymentDraft.amounts.s2,'200');
  dom.window.paymentDraft.referenceSaleId=null;dom.window.pmIncludeClientSales();assert.deepEqual(Object.keys(dom.window.paymentDraft.amounts).sort(),['s1','s2']);assert.equal(dom.window.paymentDraft.amounts.s1,'');dom.window.close();
 });
+test('Abonos varios remains visible in primary actions and retains its existing handler',()=>{
+ const dom=new JSDOM('<div class="lg-payment-modern"><div class="modal-header"><div></div></div><form id="multi-payment-form"></form><div class="pm-reference-actions"></div></div>',{runScripts:'outside-only'}),w=dom.window,d=w.document;
+ w.eval(`function pmNode(tag,cls='',text){const el=document.createElement(tag);el.className=cls;if(text)el.textContent=text;return el;}var cloudBlocked=false,cloudBusy=false,cloudQueue={pending:false,latest:1,confirmed:1},pmActive='sale',opened=null;function pmSales(){return [{id:'sale-1',type:'credit'}]}function balance(){return 100}function closeModal(){}function toast(){throw Error('Unexpected block')}function newPayment(){}`);
+ w.lotigestMultiDate={openSale:id=>{w.opened=id;}};
+ w.eval(source.slice(source.indexOf('function pmHeaderClient('),source.indexOf('function pmIcon(')));
+ const modal=d.querySelector('.lg-payment-modern');w.pmHeaderClient(modal,null);
+ const button=d.querySelector('.pm-reference-actions .pm-many-client');assert.ok(button);assert.equal(button.hidden,false);assert.equal(button.disabled,true);
+ w.pmHeaderClient(modal,{id:'c1',name:'Cliente de prueba'});assert.equal(d.querySelectorAll('.pm-many-client').length,1);assert.equal(button.disabled,false);button.click();assert.equal(w.opened,'sale-1');dom.window.close();
+});
