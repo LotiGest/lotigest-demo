@@ -31,7 +31,7 @@ function environment(){
  const document={addEventListener:(name,fn)=>(listeners[name]??=[]).push(fn),
   getElementById:id=>id==='lgSidebar'?sidebar:null};
  const localStorage={getItem:key=>saved[key]||null,setItem:(key,value)=>{saved[key]=value}};
- new Function('document','localStorage',behavior)(document,localStorage);
+ new Function('document','localStorage','let lgSidebarExpanded=false;'+behavior)(document,localStorage);
  const click=button=>listeners.click.forEach(fn=>fn({target:button,stopPropagation(){},preventDefault(){}}));
  const leave=()=>listeners.pointerleave.forEach(fn=>fn({target:sidebar}));
  return {click,leave,buttons,sidebar,saved,states};

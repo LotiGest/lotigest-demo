@@ -6,7 +6,7 @@ const source=readFileSync(new URL('./payment-desktop-ui.js',import.meta.url),'ut
 function fixture(desktop){
  const dom=new JSDOM(`<div id="modal-root"><div class="pm-reference-payment"><div class="modal-header"></div><form id="multi-payment-form"><div class="pm-reference-client"><div class="pm-card-body"></div></div><div class="pm-reference-entry"><div class="pm-fields"><div id="pm-amount-slot"><input data-payment-amount value="3400"></div><details class="pm-payment-options"><summary>Opciones</summary><div class="field-group"><label for="concept">Observación</label><input id="concept" name="concept" value="Abono a crédito"></div></details><input name="receiptRef" value="4421"></div><div class="pm-reference-actions"></div></div><div id="pm-calendar-body"><div class="pm-progress">Conciliación</div><div class="pm-current-date">Hoy</div><button data-pm-month="2026-11"></button></div></form></div></div>`,{runScripts:'outside-only'});
  const w=dom.window;
- w.eval(`var desktopMedia={matches:${desktop},addEventListener(type,fn){this.change=fn}};window.matchMedia=()=>desktopMedia;
+ w.eval(`var page='payments';var desktopMedia={matches:${desktop},addEventListener(type,fn){this.change=fn}};window.matchMedia=()=>desktopMedia;
  function pmNode(t,c='',text){const el=document.createElement(t);el.className=c;if(text)el.textContent=text;return el;}
  function pmSummaryRow(label,value){const el=pmNode('div','pm-summary-row');el.append(pmNode('span','',label),pmNode('strong','',value));return el;}
  function pmFold(label){const el=pmNode('details');el.append(pmNode('summary','',label));return el;}
@@ -39,5 +39,10 @@ test('PC usa controles reales, muestra importe de cuota y conserva el borrador a
 });
 test('en celular el adaptador de PC no modifica el formulario ni agrega controles',()=>{
  const {dom,w,d}=fixture(false),before=d.body.innerHTML;
+ w.pmReferenceRefresh();assert.equal(d.body.innerHTML,before);dom.window.close();
+});
+
+test('en Contratos y los demás módulos no se aplica la distribución de Abonos',()=>{
+ const {dom,w,d}=fixture(true);w.page='contracts';const before=d.body.innerHTML;
  w.pmReferenceRefresh();assert.equal(d.body.innerHTML,before);dom.window.close();
 });

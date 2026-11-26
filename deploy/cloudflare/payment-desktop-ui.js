@@ -12,7 +12,7 @@
  }
  function decorate(){
   const modal=document.querySelector('#modal-root .pm-reference-payment');
-  if(!modal||!desktop.matches){restore();return;}
+  if(!modal||!desktop.matches||page!=='payments'){restore();return;}
   for(const [node,anchor] of moved)if(!anchor.isConnected){moved.delete(node);}
   const form=modal.querySelector('#multi-payment-form');if(!form)return;
   const sales=pmSales(),client=sales.length?getClient(sales[0].clientId):null;
