@@ -43,3 +43,14 @@ test('queue confirmation without the actual receipts stays pending',async()=>{
  const dom=boot(),w=dom.window,d=w.document;w.cloudApi=async()=>({revision:0,state:{...w.db,payments:[]}});w.wizardTest.review();d.getElementById('md-review-confirm').checked=true;await w.wizardTest.save();
  assert.equal(w.writes,1);assert.equal(d.querySelector('.md-result-banner'),null);assert.match(d.querySelector('.md-success').textContent,/pendientes de sincronización/);dom.window.close();
 });
+test('date amount and correlativo accept typed digits and paste without losing focus',()=>{
+ const dom=boot(),w=dom.window,d=w.document;
+ const row=d.querySelector('[data-md-row="a"]');
+ for(const [field,value,expected] of [['date','251125','25/11/25'],['amount','12000.50','12000.50'],['receiptRef','00006159','00006159']]){
+  const input=row.querySelector(`[data-md-field="${field}"]`);input.value='';input.focus();
+  for(const digit of value){input.value+=digit;input.dispatchEvent(new w.Event('input',{bubbles:true}));assert.equal(d.activeElement,input,field+' focus');}
+  assert.equal(input.value,expected,field);
+ }
+ const amount=row.querySelector('[data-md-field="amount"]');amount.value='1,234.56';amount.dispatchEvent(new w.Event('input',{bubbles:true}));assert.equal(amount.value,'1,234.56');assert.equal(d.activeElement,row.querySelector('[data-md-field="receiptRef"]'));
+ dom.window.close();
+});
