@@ -26,7 +26,7 @@
  function init(){
   pages.messages=['Mensajes y Notificaciones','bell'];
   const content=pageContent;pageContent=function(){return page==='messages'?messagePage():content();};
-  const oldRender=render;render=function(){oldRender();decorate();};
+  const oldRender=render;let lastPage=page;render=function(){const root=document.getElementById('modal-root');if(root?.closest('#app'))document.body.append(root);if(lastPage==='payments'&&page!=='payments'&&document.querySelector('#modal-root .pm-reference-payment'))closeModal();oldRender();if(page==='payments'&&!document.querySelector('#modal-root .modal-cover')&&document.querySelector('.lotigest-shell'))newPayment(null,false);lastPage=page;decorate();if(page==='payments'&&document.querySelector('#modal-root .pm-reference-payment'))document.querySelector('.workspace')?.append(root);};
   document.addEventListener('click',e=>{const b=e.target.closest('[data-cp-tab],[data-cp-template],[data-cp-preview]');if(!b)return;
    if(b.dataset.cpTab){tab=b.dataset.cpTab;render();}
    if(b.dataset.cpTemplate)composer(b.dataset.cpTemplate);
