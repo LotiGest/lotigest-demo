@@ -7,9 +7,9 @@ function boot(){
  const dom=new JSDOM('<div id="modal-root"></div><div class="workspace-inner"></div>',{runScripts:'outside-only',url:'https://example.test'}),w=dom.window;
  w.HTMLElement.prototype.scrollIntoView=()=>{};
  w.eval(`var db={sales:[{id:'s1',clientId:'c1',lotId:'l1',type:'credit',price:10000,downPayment:0}],lots:[{id:'l1',residenceId:'r1'}],clients:[{id:'c1',name:'Ana'}],payments:[]},cloudReady=true,cloudUser={role:'admin'},cloudBlocked=false,cloudBusy=false,cloudOffline=false,cloudQueue={pending:false,latest:1,confirmed:1},writes=0,page='collections',errors=[],seq=0;
- function businessToday(){return '2026-11-25'}function money(n){return 'L '+Number(n).toFixed(2)}function esc(x){return String(x).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;')}function toast(x){errors.push(x)}function paymentReceiptPreview(){}function ownerPaymentPreview(){}function getSale(id){return db.sales.find(s=>s.id===id)}function getLot(id){return db.lots.find(s=>s.id===id)}function getClient(id){return db.clients.find(s=>s.id===id)}function balance(s){return s.price-db.payments.reduce((n,p)=>n+p.amount,0)}function uid(){return 'G'+(++seq)}function planMonthlyClientPayment(state,ids,cents){return {minimumCents:100000,excessCents:cents-100000,allocations:[{saleId:'s1',cents,amount:cents/100}]}}function buildReceiptInfo(){return {}}function cloudWrite(){writes++}async function cloudFlush(){}function closeModal(){document.getElementById('modal-root').innerHTML=''}function render(){}function newPayment(){}function showModal(title,body,footer){document.getElementById('modal-root').innerHTML='<div class="modal-cover"><section class="modal"><div class="modal-header"><h2>'+title+'</h2></div><div class="modal-content">'+body+'</div><div class="modal-footer">'+footer+'</div></section></div>'}`);
+ function businessToday(){return '2026-11-25'}function money(n){return 'L '+Number(n).toFixed(2)}function esc(x){return String(x).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;')}function toast(x){errors.push(x)}function paymentReceiptPreview(){}function ownerPaymentPreview(){}function getSale(id){return db.sales.find(s=>s.id===id)}function getLot(id){return db.lots.find(s=>s.id===id)}function getClient(id){return db.clients.find(s=>s.id===id)}function balance(s){return s.price-db.payments.reduce((n,p)=>n+p.amount,0)}function uid(){return 'G'+(++seq)}function planMonthlyClientPayment(state,ids,cents){return {minimumCents:100000,excessCents:cents-100000,allocations:[{saleId:'s1',cents,amount:cents/100}]}}function buildReceiptInfo(){return {}}function cloudWrite(){writes++}async function cloudFlush(){}async function cloudApi(){return {revision:0,state:db}}function closeModal(){document.getElementById('modal-root').innerHTML=''}function render(){}function newPayment(){}function showModal(title,body,footer){document.getElementById('modal-root').innerHTML='<div class="modal-cover"><section class="modal"><div class="modal-header"><h2>'+title+'</h2></div><div class="modal-content">'+body+'</div><div class="modal-footer">'+footer+'</div></section></div>'}`);
  w.lotigestOwnerPayments={requireReceiptCorrelativo:x=>{if(!/^\d+$/.test(x))throw Error('Correlativo inválido');return String(BigInt(x));},normalizeReceiptCorrelativo:x=>/^\d+$/.test(x)?String(BigInt(x)):'',findReceiptCorrelativo:()=>null};
- w.eval(source.replace(/\}\)\(\);\s*$/,`window.wizardTest={start(state){mdState=state;mdShow();},save:mdSave,review:mdReview};})();`));
+ w.eval(source.replace(/\}\)\(\);\s*$/,`window.wizardTest={start(state){mdState=state;mdState.snapshot=mdRelevantSnapshot(db);mdShow();},save:mdSave,review:mdReview};})();`));
  const rows=[{id:'a',date:'2026-10-25',dateText:'25 Octubre 2026',amount:'2500',receiptRef:'4421',expanded:true},{id:'b',date:'2026-11-25',dateText:'25 Noviembre 2026',amount:'2500',receiptRef:'4422',expanded:false}];
  w.wizardTest.start({kind:'sale',saleId:'s1',saleIds:['s1'],clientId:'c1',residenceId:'r1',clientName:'Ana',lotLabel:'Etapa 1 • A-12',docs:[],snapshot:JSON.stringify(w.db),rows});return dom;
 }
@@ -37,4 +37,37 @@ test('unconfirmed cloud save keeps receipts pending and does not show successful
 
 test('reference skin puts the stepper before client and keeps last payment compact',()=>{
  const dom=boot(),d=dom.window.document,modal=d.querySelector('.md-reference-wizard');assert.ok(modal);assert.equal(modal.classList.contains('lg-payment-modern'),false);assert.equal(modal.querySelector('.modal-content').firstElementChild.className,'md-wizard-steps');assert.equal(modal.querySelectorAll('.md-wizard-steps [data-md-step-label]').length,3);assert.ok(modal.querySelector('.md-client-reference'));assert.ok(modal.querySelector('.md-last-inline'));assert.equal(modal.querySelector('.modal-footer [data-action="close-modal"]'),null);assert.match(modal.querySelector('.md-row-toggle strong').textContent,/Abono 1 de 2/);dom.window.close();
+});
+
+test('queue confirmation without the actual receipts stays pending',async()=>{
+ const dom=boot(),w=dom.window,d=w.document;w.cloudApi=async()=>({revision:0,state:{...w.db,payments:[]}});w.wizardTest.review();d.getElementById('md-review-confirm').checked=true;await w.wizardTest.save();
+ assert.equal(w.writes,1);assert.equal(d.querySelector('.md-result-banner'),null);assert.match(d.querySelector('.md-success').textContent,/pendientes de sincronización/);dom.window.close();
+});
+test('date amount and correlativo accept typed digits and paste without losing focus',()=>{
+ const dom=boot(),w=dom.window,d=w.document;
+ const row=d.querySelector('[data-md-row="a"]');
+ for(const [field,value,expected] of [['date','251125','25/11/25'],['amount','12000.50','12000.50'],['receiptRef','00006159','00006159']]){
+  const input=row.querySelector(`[data-md-field="${field}"]`);input.value='';input.focus();
+  for(const digit of value){input.value+=digit;input.dispatchEvent(new w.Event('input',{bubbles:true}));assert.equal(d.activeElement,input,field+' focus');}
+  assert.equal(input.value,expected,field);
+ }
+ const amount=row.querySelector('[data-md-field="amount"]');amount.value='1,234.56';amount.dispatchEvent(new w.Event('input',{bubbles:true}));assert.equal(amount.value,'1,234.56');assert.equal(d.activeElement,row.querySelector('[data-md-field="receiptRef"]'));
+ dom.window.close();
+});
+test('unrelated client update does not discard an open payment draft',()=>{
+ const dom=boot(),w=dom.window,d=w.document;w.db.clients.push({id:'c2',name:'Otro cliente'});w.wizardTest.review();assert.equal(d.querySelector('#md-review').hidden,false);dom.window.close();
+});
+test('payment change on the selected contract blocks the draft before saving',()=>{
+ const dom=boot(),w=dom.window,d=w.document;w.db.payments.push({id:'other',saleId:'s1',amount:100,date:'2026-11-24'});w.wizardTest.review();assert.equal(d.querySelector('#md-review').hidden,true);assert.match(w.errors.at(-1),/Cambió un pago/);dom.window.close();
+});
+test('retry sends the existing pending batch without adding duplicate payments',async()=>{
+ const dom=boot(),w=dom.window,d=w.document;w.cloudFlush=async()=>{w.cloudQueue.pending=true;};w.wizardTest.review();d.getElementById('md-review-confirm').checked=true;await w.wizardTest.save();
+ assert.equal(w.writes,1);assert.equal(w.db.payments.length,2);
+ w.cloudFlush=async()=>{w.cloudQueue.pending=false;};d.querySelector('[data-md-sync]').click();
+ await new Promise(resolve=>setTimeout(resolve,0));assert.equal(w.writes,1);assert.equal(w.db.payments.length,2);assert.ok(d.querySelector('[data-md-share-all]'));dom.window.close();
+});
+test('calendar button opens picker without covering editable date on PC',()=>{
+ const dom=boot(),w=dom.window,d=w.document,button=d.querySelector('[data-md-open-picker="a"]'),picker=d.querySelector('[data-md-picker="a"]'),input=d.querySelector('[data-md-field="date"][data-md-id="a"]');let opened=0;
+ picker.showPicker=()=>{opened++};button.click();assert.equal(opened,1);assert.equal(button.type,'button');assert.equal(picker.tabIndex,-1);
+ input.focus();input.value='251125';input.dispatchEvent(new w.Event('input',{bubbles:true}));assert.equal(input.value,'25/11/25');assert.equal(d.activeElement,input);dom.window.close();
 });

@@ -95,13 +95,25 @@
  function mdCreateEntry(){
   return {id:'MDR'+crypto.randomUUID().replace(/-/g,''),date:'',dateText:'',amount:'',receiptRef:'',statementId:mdState?.docs?.[0]?.id||'',photo:null,preview:null,status:'',dateEdited:false,amountEdited:false,amountSuggested:false,refEdited:false,refSuggested:false,expanded:false};
  }
+ function mdRelevantSnapshot(state){
+  const ids=new Set(mdState?.saleIds||[]),docs=new Set(mdState?.docs?.map(d=>d.id)||[]);
+  const sales=(state.sales||[]).filter(s=>ids.has(s.id)),lotIds=new Set(sales.map(s=>s.lotId));
+  return JSON.stringify(mdState?.kind==='sale'?{
+   sales,
+   lots:(state.lots||[]).filter(l=>lotIds.has(l.id)),
+   payments:(state.payments||[]).filter(p=>ids.has(p.saleId))
+  }:{
+   statements:(state.ownershipStatements||[]).filter(s=>docs.has(s.id)),
+   payments:(state.ownerPayments||[]).filter(p=>p.clientId===mdState.clientId&&p.residenceId===mdState.residenceId)
+  });
+ }
  function mdStartSale(saleId){
   if(!cloudReady||cloudUser?.role!=='admin')return toast('Se requiere acceso de administrador para registrar abonos.','error');
   const sale=getSale(saleId),lot=getLot(sale?.lotId),client=getClient(sale?.clientId);
   if(!sale||!lot||!client||sale.type!=='credit'||balance(sale)<.01)return toast('Selecciona un solar con crédito y saldo pendiente.','error');
   if(cloudBlocked||cloudBusy||cloudQueue?.pending||cloudQueue?.latest!==cloudQueue?.confirmed)return toast('Sincroniza primero los cambios pendientes antes de registrar varios pagos.','error');
   const clientSales=db.sales.filter(x=>x.clientId===client.id&&x.type==='credit'&&getLot(x.lotId)?.residenceId===lot.residenceId&&balance(x)>.009);
-  mdState={kind:'sale',saleId:sale.id,saleIds:clientSales.map(x=>x.id),clientId:client.id,residenceId:lot.residenceId,clientName:client.name,lotLabel:clientSales.map(x=>{const l=getLot(x.lotId);return 'Etapa '+(l.stage||'—')+' · Bloque '+l.block+' · Solar '+(l.sourceNumber||l.id);}).join(' / ')+' · Abono total repartido según las cuotas',snapshot:JSON.stringify(db),rows:[],docs:[]};
+  mdState={kind:'sale',saleId:sale.id,saleIds:clientSales.map(x=>x.id),clientId:client.id,residenceId:lot.residenceId,clientName:client.name,lotLabel:clientSales.map(x=>{const l=getLot(x.lotId);return 'Etapa '+(l.stage||'—')+' · Bloque '+l.block+' · Solar '+(l.sourceNumber||l.id);}).join(' / ')+' · Abono total repartido según las cuotas',rows:[],docs:[]};mdState.snapshot=mdRelevantSnapshot(db);
   mdState.rows.push(mdCreateEntry());mdState.rows.push(mdCreateEntry());
   mdState.rows[0].expanded=true;
   mdLastPaymentTarget={kind:'sale',saleId:sale.id};
@@ -117,7 +129,7 @@
    return toast('No existen fichas de solares con saldo para registrar varios abonos.','error');
   }
   if(cloudBlocked||cloudBusy||cloudQueue?.pending||cloudQueue?.latest!==cloudQueue?.confirmed)return toast('Sincroniza primero los cambios pendientes antes de registrar varios pagos.','error');
-  mdState={kind:'owner',clientId,residenceId:rid,clientName:client.name,lotLabel:'Fichas de propietario · '+docs.length+' documento(s)',docs,snapshot:JSON.stringify(db),rows:[]};
+  mdState={kind:'owner',clientId,residenceId:rid,clientName:client.name,lotLabel:'Fichas de propietario · '+docs.length+' documento(s)',docs,rows:[]};mdState.snapshot=mdRelevantSnapshot(db);
   mdState.rows.push(mdCreateEntry());mdState.rows.push(mdCreateEntry());
   mdState.rows[0].expanded=true;
   mdLastPaymentTarget={kind:'owner',clientId,residenceId:rid};
@@ -142,7 +154,7 @@
    '<div class="md-row-body" id="md-row-body-'+mdSafe(row.id)+'"'+(open?'':' hidden')+'>'+options+
     (mdState.kind==='owner'&&mdState.docs.length>1?mdLastPaymentMarkup(mdState,db,row.statementId,row.id):'')+
    '<div class="md-manual-head"><span>Escribe la fecha del recibo · Enter avanza al siguiente abono.</span></div>'+
-   '<div class="md-fields"><label class="md-date-label">Fecha *<span class="md-date-control"><input type="text" inputmode="numeric" autocomplete="off" spellcheck="false" data-md-field="date" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.dateText??mdHumanDate(row.date))+'" placeholder="DD/MM/AA · sin /" enterkeyhint="next" aria-label="Escribe los seis números de la fecha sin plecas; ejemplo 251125 es 25 de noviembre de 2025" required><span class="md-date-calendar" aria-hidden="true">▦</span><input type="date" class="md-native-date" data-md-picker="'+mdSafe(row.id)+'" aria-label="Elegir fecha en calendario" value="'+mdSafe(row.date||'')+'" max="'+mdSafe(mdToday())+'" tabindex="0"></span></label>'+
+   '<div class="md-fields"><label class="md-date-label">Fecha *<span class="md-date-control"><input type="text" inputmode="numeric" autocomplete="off" spellcheck="false" data-md-field="date" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.dateText??mdHumanDate(row.date))+'" placeholder="DD/MM/AA · sin /" enterkeyhint="next" aria-label="Escribe los seis números de la fecha sin plecas; ejemplo 251125 es 25 de noviembre de 2025" required><button type="button" class="md-date-calendar" data-md-open-picker="'+mdSafe(row.id)+'" aria-label="Elegir fecha en calendario">▦</button><input type="date" class="md-native-date" data-md-picker="'+mdSafe(row.id)+'" aria-label="Calendario de fecha" value="'+mdSafe(row.date||'')+'" max="'+mdSafe(mdToday())+'" tabindex="-1"></span></label>'+
    '<label class="md-amount-label">Monto (L) *<span class="md-money-control"><span class="md-money-symbol" aria-hidden="true">L</span><input type="text" inputmode="decimal" autocomplete="off" data-md-field="amount" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(mdMoneyText(row.amount))+'" placeholder="Ej. 12,000.00" enterkeyhint="next" aria-label="Escribir monto manual del abono en lempiras" required></span></label>'+
    '<label class="md-ref-label">Correlativo *<span class="md-ref-line"><span aria-hidden="true" class="md-ref-symbol">#</span><input type="text" inputmode="numeric" maxlength="80" pattern="[0-9]+" data-md-field="receiptRef" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.receiptRef)+'" placeholder="Ej. 00006159" enterkeyhint="done" aria-label="Correlativo editable. Enter propone el siguiente correlativo y avanza al siguiente abono" required></span></label></div>'+
    '<div class="md-photo-row"><label class="md-scan-icon" title="Escanear o seleccionar foto" aria-label="Escanear recibo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3H5a2 2 0 0 0-2 2v2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="8" width="10" height="9" rx="2"/><circle cx="12" cy="12.5" r="1.7"/></svg><span class="md-scan-caption">Escanear recibo</span><input type="file" accept="image/jpeg,image/png,image/webp" data-md-photo="'+mdSafe(row.id)+'" hidden></label>'+
@@ -436,7 +448,7 @@
  function mdValidate(){
   if(!mdState||!mdState.rows.length)throw Error('Agrega al menos un abono.');
   if(!cloudReady||cloudUser?.role!=='admin'||cloudBlocked||cloudBusy||cloudQueue?.pending||cloudQueue?.latest!==cloudQueue?.confirmed)throw Error('Sincroniza la aplicación antes de registrar varios abonos.');
-  if(JSON.stringify(db)!==mdState.snapshot)throw Error('Los datos cambiaron. Vuelve a abrir el formulario para evitar duplicaciones.');
+  if(mdRelevantSnapshot(db)!==mdState.snapshot)throw Error('Cambió un pago o contrato de estos solares. Conserva este borrador y revisa el estado actualizado antes de registrar los abonos.');
   const existingKeys=new Set(),result=[];
   const lastFilled=mdState.rows.findLastIndex(mdRowHasPayment);
   if(lastFilled<0)throw Error('Ingresa al menos un abono antes de guardar.');
@@ -464,11 +476,25 @@
   }
   return plans;
  }
+ async function mdReceiptsConfirmed(items){
+  try{
+   const remote=await cloudApi('state');
+   if(!remote?.state||remote.revision<cloudQueue.revision)return false;
+   return items.every(item=>{
+    const rows=item.kind==='owner'?(remote.state.ownerPayments||[]).filter(p=>p.id===item.id)
+     :(remote.state.payments||[]).filter(p=>p.id===item.id||p.groupId&&p.groupId===item.id.replace(/-\d+$/,''));
+    if(!rows.length)return false;
+    const reference=item.kind==='owner'?rows[0].receiptRef||rows[0].receiptReference:rows[0].receiptReference;
+    const amount=item.kind==='owner'?Number(rows[0].amountCents)/100:rows.reduce((n,p)=>n+Number(p.amount||0),0);
+    return rows.every(p=>p.date===item.date)&&reference===item.ref&&Math.abs(amount-item.amount)<.001;
+   });
+  }catch{return false;}
+ }
  async function mdSave(){
   if(mdSaving||!mdState)return;
   if(mdStage!=='review'){mdReview();return;}
   try{if(mdReviewSignature(mdValidate())!==mdReviewedKey){mdReview();return;}if(!document.getElementById('md-review-confirm')?.checked){mdError('Confirma que has revisado el prelistado antes de guardar.');return;}}catch(e){mdError(e.message);return;}
-  mdSaving=true;const btn=document.querySelector('[data-md-save]');if(btn)btn.disabled=true;
+  mdSaving=true;const btn=document.querySelector('[data-md-save]');if(btn){btn.disabled=true;btn.textContent='Guardando…';}
   try{
    const ordered=mdValidate();let next=JSON.parse(JSON.stringify(db)),saved=[],attachments=[];
    const sale=mdState.kind==='sale'?next.sales.find(s=>s.id===mdState.saleId):null;
@@ -502,7 +528,7 @@
    for(const {key,file} of attachments)await window.lotigestFiles.queue(key,file);
    cloudWrite(JSON.stringify(next));db=next;
    await cloudFlush();
-   const confirmed=!!cloudQueue&&!cloudBlocked&&!cloudOffline&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed;
+   const confirmed=!!cloudQueue&&!cloudBlocked&&!cloudOffline&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed&&await mdReceiptsConfirmed(saved);
    mdSaved={items:saved,confirmed,client:mdState.clientName,kind:mdState.kind,saleId:mdState.saleId,clientId:mdState.clientId,residenceId:mdState.residenceId};
    for(const row of mdState.rows)if(row.preview&&String(row.preview).startsWith('blob:'))URL.revokeObjectURL(row.preview);
    mdState=null;
@@ -511,7 +537,7 @@
    if(!confirmed)toast('Los abonos quedaron en este dispositivo pendientes de sincronización. No compartas comprobantes hasta confirmar el guardado en Cloudflare.','error');
    else toast(saved.length+' abonos individuales guardados en Cloudflare.');
   }catch(e){mdError(e.message||'No se pudieron guardar los abonos.');}
-  finally{mdSaving=false;if(btn?.isConnected)btn.disabled=false;}
+  finally{mdSaving=false;if(btn?.isConnected){btn.disabled=false;btn.textContent='Guardar abonos';}}
  }
  function mdShowSaved(){
   if(!mdSaved)return;
@@ -519,7 +545,7 @@
   const body='<div class="md-success"><h3>'+(confirmed?'✓ Pagos guardados por separado':'Pagos pendientes de sincronización')+'</h3><p>'+mdSafe(mdSaved.client)+' · '+mdSaved.items.length+' recibo(s) individuales</p>'+
    (confirmed?'<p>Ya puedes descargarlos por separado o generar un solo PDF con todas las fechas para compartirlo.</p>':'<p>Se conservó una copia local. Verifica la sincronización de Cloudflare antes de enviar los recibos.</p>')+'</div>'+
    '<div class="md-saved-list">'+mdSaved.items.map((p,i)=>'<div class="md-saved-item"><span>Abono '+(i+1)+' · '+mdSafe(p.date)+' · '+mdFmt(p.amount)+'<small>Correlativo '+mdSafe(p.ref)+'</small></span><span class="md-saved-actions">'+(confirmed?'<button type="button" data-md-pdf="'+mdSafe(p.id)+'" data-md-kind="'+mdSafe(p.kind)+'">PDF</button>':'')+(p.photoKey?'<button type="button" data-md-view-photo="'+mdSafe(p.photoKey)+'">Foto</button>':'')+'</span></div>').join('')+'</div>';
-  const footer=confirmed?'<button class="btn btn-outline" type="button" data-md-download-all>Descargar todos (PDF)</button><button class="btn btn-primary" type="button" data-md-share-all>Enviar todos</button><button class="btn btn-outline" type="button" data-md-another>Guardar y registrar otro</button><button class="btn btn-soft" type="button" data-action="close-modal">Cerrar</button>':'<button class="btn btn-soft" type="button" data-action="close-modal">Cerrar</button>';
+  const footer=confirmed?'<button class="btn btn-outline" type="button" data-md-download-all>Descargar todos (PDF)</button><button class="btn btn-primary" type="button" data-md-share-all>Enviar todos</button><button class="btn btn-outline" type="button" data-md-another>Guardar y registrar otro</button><button class="btn btn-soft" type="button" data-action="close-modal">Cerrar</button>':'<button class="btn btn-primary" type="button" data-md-sync>Reintentar sincronización</button><button class="btn btn-soft" type="button" data-action="close-modal">Cerrar</button>';
   showModal('Abonos · Recibos separados',body,footer,true);
   document.querySelector('#modal-root .modal')?.classList.add('lg-multi-date-modal','lg-payment-modern');
  }
@@ -727,12 +753,16 @@
   else if(control.hasAttribute('data-md-goto'))mdBackToData(control.dataset.mdGoto);
   else if(control.hasAttribute('data-md-review-remove')){mdStage='data';mdReviewedKey=null;mdRemove(control.dataset.mdReviewRemove);mdReview();mdWizardPaint();}
  },true);
- document.addEventListener('click',event=>{
+ document.addEventListener('click',async event=>{
   mdRememberPayment(event.target);
-  const action=event.target.closest?.('[data-md-start-sale],[data-md-start-owner],[data-md-shortcut-sale],[data-md-pick-owner],[data-md-edit],[data-md-toggle-row],[data-md-add],[data-md-remove],[data-md-retry],[data-md-one],[data-md-many],[data-md-save],[data-md-pdf],[data-md-download-all],[data-md-share-all],[data-md-another],[data-md-view-photo]');
+  const action=event.target.closest?.('[data-md-start-sale],[data-md-start-owner],[data-md-shortcut-sale],[data-md-pick-owner],[data-md-edit],[data-md-toggle-row],[data-md-add],[data-md-remove],[data-md-retry],[data-md-one],[data-md-many],[data-md-save],[data-md-sync],[data-md-open-picker],[data-md-pdf],[data-md-download-all],[data-md-share-all],[data-md-another],[data-md-view-photo]');
   if(!action)return;
   event.preventDefault();event.stopImmediatePropagation();
-  if(action.hasAttribute('data-md-start-sale'))mdStartSale(action.dataset.mdStartSale);
+  if(action.hasAttribute('data-md-open-picker')){
+   const picker=document.querySelector('[data-md-picker="'+action.dataset.mdOpenPicker+'"]');
+   if(picker){try{if(picker.showPicker)picker.showPicker();else picker.click();}catch{picker.focus();}}
+  }
+  else if(action.hasAttribute('data-md-start-sale'))mdStartSale(action.dataset.mdStartSale);
   else if(action.hasAttribute('data-md-start-owner'))mdStartOwnerToken(action.dataset.mdStartOwner);
   else if(action.hasAttribute('data-md-pick-owner'))mdStartOwner(action.dataset.mdPickOwner,action.dataset.mdRid);
   else if(action.hasAttribute('data-md-shortcut-sale'))mdStartSale(action.dataset.mdShortcutSale);
@@ -755,6 +785,12 @@
   }
   else if(action.hasAttribute('data-md-one')){if(mdState?.kind==='sale'){const id=mdState.saleId;mdState=null;baseNewPayment(id,false);}else if(mdState?.kind==='owner'){const {clientId,residenceId}=mdState;mdState=null;openOwnerAbono(clientId,residenceId);}}
   else if(action.hasAttribute('data-md-save'))mdSave();
+  else if(action.hasAttribute('data-md-sync')){
+   if(mdSaving)return;
+   mdSaving=true;action.disabled=true;action.textContent='Sincronizando…';
+   try{await cloudFlush();if(cloudQueue&&!cloudBlocked&&!cloudOffline&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed&&await mdReceiptsConfirmed(mdSaved.items)){mdSaved.confirmed=true;mdShowSaved();toast('Abonos confirmados en Cloudflare D1.');}else{toast('No se han confirmado estos recibos en Cloudflare. No los ingreses nuevamente; revisa la sincronización.','error');}}
+   finally{mdSaving=false;if(action.isConnected){action.disabled=false;action.textContent='Reintentar sincronización';}}
+  }
   else if(action.hasAttribute('data-md-pdf')){if(action.dataset.mdKind==='owner')deliverOwnerPayment(action.dataset.mdPdf,false);else deliverPaymentReceipt(action.dataset.mdPdf,false);}
   else if(action.hasAttribute('data-md-another')){if(mdSaved?.kind==='sale')mdStartSale(mdSaved.saleId);else if(mdSaved?.kind==='owner')mdStartOwner(mdSaved.clientId,mdSaved.residenceId);}
   else if(action.hasAttribute('data-md-download-all'))mdShareAll(false);

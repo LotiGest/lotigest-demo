@@ -10,7 +10,11 @@ test('el service worker descarga la aplicación, sirve el inicio sin red y no al
  const self={location:{origin:'https://lotigest.test'},addEventListener(name,fn){events[name]=fn;},clients:{async claim(){active=true;}},skipWaiting(){}};
  vm.runInNewContext(readFileSync(new URL('./service-worker.js',import.meta.url),'utf8'),{self,caches,fetch:fetcher,URL,Response,AbortController,setTimeout,clearTimeout});
  let install;events.install({waitUntil(p){install=p;}});await install;let activation;events.activate({waitUntil(p){activation=p;}});await activation;assert.ok(active);
- offline=true;let result;events.fetch({request:{url:'https://lotigest.test/',method:'GET',mode:'navigate'},respondWith(p){result=p;}});assert.ok((await (await result).text()).includes('LOTIGEST shell'));
+ const shellBeforeMap=await caches.open('lotigest-shell-__LOTIGEST_VERSION__');assert.equal(await shellBeforeMap.match('/altos-arrayan-vista-proyecto.webp'),undefined);
+ let result;events.fetch({request:{url:'https://lotigest.test/altos-arrayan-vista-proyecto.webp',method:'GET'},respondWith(p){result=p;}});assert.equal(await (await result).text(),'resource');
+ const resourceCache=await caches.open('lotigest-resources-v1');assert.ok(await resourceCache.match('/altos-arrayan-vista-proyecto.webp'));
+ offline=true;result=null;events.fetch({request:{url:'https://lotigest.test/altos-arrayan-vista-proyecto.webp',method:'GET'},respondWith(p){result=p;}});assert.equal(await (await result).text(),'resource');
+ result=null;events.fetch({request:{url:'https://lotigest.test/',method:'GET',mode:'navigate'},respondWith(p){result=p;}});assert.ok((await (await result).text()).includes('LOTIGEST shell'));
  result=null;events.fetch({request:{url:'https://lotigest.test/api/app/state',method:'GET'},respondWith(p){result=p;}});assert.equal(result,null);
  offline=false;release='2';events.fetch({request:{url:'https://lotigest.test/version.json?check=1',method:'GET'},respondWith(p){result=p;}});assert.equal((await (await result).json()).version,'2');offline=true;events.fetch({request:{url:'https://lotigest.test/version.json?check=2',method:'GET'},respondWith(p){result=p;}});assert.equal((await (await result).json()).version,'2');
  // Un enlace recibido por WhatsApp nunca puede mostrar el inicio de sesión como página de respaldo.
@@ -21,4 +25,8 @@ test('el service worker descarga la aplicación, sirve el inicio sin red y no al
  result=null;events.fetch({request:{url:'https://lotigest.test/seleccionar-solar.html?map=abcdefabcdefabcdefabcdef',method:'GET',mode:'navigate'},respondWith(p){result=p;}});
  const noFallback=await result;assert.equal(noFallback.status,503);assert.ok(!(await noFallback.text()).includes('LOTIGEST shell'));
  const shell=await caches.open('lotigest-shell-__LOTIGEST_VERSION__');assert.ok(await shell.match('/offline-files.js'));assert.equal(await shell.match('/api/app/state'),undefined);
+ const old=await caches.open('lotigest-shell-previous');await old.put('/altos-arrayan-vista-proyecto.webp',new Response('old offline plan'));
+ events.activate({waitUntil(p){activation=p;}});await activation;
+ assert.equal(await (await (await caches.open('lotigest-resources-v1')).match('/altos-arrayan-vista-proyecto.webp')).text(),'old offline plan');
+ assert.equal((await caches.keys()).includes('lotigest-shell-previous'),false);
 });
