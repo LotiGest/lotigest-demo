@@ -350,3 +350,23 @@ body.lotigest-dark #modal-root .lg-contract-modern .lg-contract-payment-row>stro
 }
 #modal-root .lg-contract-modern input:is([name="down"],[name^="solarPrice_"],[name^="solarDown_"]):focus{outline:2px solid #46a65d;outline-offset:1px}
 #modal-root .lg-contract-modern input[name="primaRef"]{color:#b51f35;font-weight:750;font-variant-numeric:tabular-nums}
+/* Three-step registration keeps all original fields in the same form. */
+html body #modal-root .cq-modal{width:min(960px,calc(100vw - 20px))!important;max-width:960px!important;max-height:calc(100dvh - 88px)!important}
+html body #modal-root .cq-modal .lg-contract-brand{color:#e6f8eb}.cq-modal .lg-contract-brand strong:after{content:' PRO';color:#6ed583}
+html body #modal-root .cq-modal [data-cq-panel][hidden],html body #modal-root .cq-modal .modal-footer>[hidden]{display:none!important}
+html body #modal-root .cq-modal .lg-contract-lead{display:none}
+.cq-steps{display:flex;align-items:center;gap:10px;margin:0 0 6px}.cq-steps button{flex:1;display:flex;justify-content:center;align-items:center;gap:8px;padding:10px;border:1px solid var(--lgc-line);border-radius:24px;background:var(--lgc-card);color:var(--lgc-ink);font-weight:750;font-size:15px;cursor:pointer}.cq-steps i{display:grid;place-items:center;font-style:normal;width:28px;height:28px;border:1px solid var(--lgc-line);border-radius:50%}.cq-steps [aria-current=step]{background:#9ce09d;color:#143f24;border-color:#60b76b}.cq-steps [aria-current=step] i{background:#248644;color:white;border:0}
+html body #modal-root .cq-modal .lg-contract-step{padding:16px!important;margin:0!important;box-shadow:none!important}
+html body #modal-root .cq-modal .lg-contract-step-heading{font-size:22px!important;margin-bottom:14px!important}
+html body #modal-root .cq-modal .lg-contract-step-heading>span{display:none}
+.cq-client-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}.cq-client-actions .btn{flex:1}
+.cq-solar-price{margin-top:12px;padding:12px;border:1px solid var(--lgc-line);border-radius:12px;background:var(--lgc-green)}
+.cq-review-summary{display:grid;gap:5px;padding:13px;border:1px solid var(--lgc-line);border-radius:13px;background:var(--lgc-green);margin-bottom:14px;color:var(--lgc-ink)}.cq-review-summary strong{font-size:18px}.cq-review-summary span,.cq-review-summary small{font-size:13px}.cq-review-summary p{margin:4px 0 0}
+.cq-review-check{display:grid;gap:12px;margin-top:16px}.cq-review-check p{padding:10px;background:var(--lgc-green);border-radius:10px;font-size:12px;margin:0}.cq-review-check label{display:flex;gap:9px;align-items:center;font-size:13px}.cq-review-check input{flex:none;width:20px!important;height:20px!important;min-height:20px!important}
+html body #modal-root .cq-modal .modal-footer{flex-wrap:wrap;gap:8px;padding:11px 16px!important}
+html body #modal-root .cq-modal [data-cq-next],html body #modal-root .cq-modal #contract-intake-save{margin-left:auto;background:linear-gradient(#249f48,#117b36)!important;color:white!important}
+html body #modal-root .cq-modal .lg-contract-customer-loaded{background:var(--lgc-green)!important;color:var(--lgc-ink)!important}
+@media(max-width:700px){html body #modal-root .cq-modal{width:calc(100vw - 12px)!important;border-radius:17px!important}html body #modal-root .cq-modal .modal-header{padding:12px!important}html body #modal-root .cq-modal .modal-content{padding:12px!important}html body #modal-root .cq-modal .lg-contract-step{padding:12px!important}.cq-steps{gap:5px}.cq-steps button{font-size:13px;padding:7px 5px;gap:5px}.cq-steps i{width:23px;height:23px}html body #modal-root .cq-modal .lg-contract-client-layout,html body #modal-root .cq-modal .lg-contract-terms-grid{grid-template-columns:1fr!important}html body #modal-root .cq-modal .modal-footer .btn{min-width:0!important;min-height:40px!important;flex:1 1 100px!important;font-size:13px!important}html body #modal-root .cq-modal .lg-contract-step-heading{font-size:20px!important}}
+.cq-residence-card{display:flex;flex-direction:column;gap:5px;border:1px solid var(--lgc-line);border-radius:11px;padding:11px;margin:0 0 12px;color:var(--lgc-ink);background:var(--lgc-green)}.cq-residence-card small{font-size:11px}.cq-residence-card span{font-size:12px;color:var(--lgc-muted)}
+html body #modal-root .cq-modal .cq-form{display:flex!important;flex-direction:column!important;gap:14px!important}
+html body #modal-root .cq-modal .cq-form>[data-cq-panel]{width:100%!important;box-sizing:border-box!important;min-width:0!important}
