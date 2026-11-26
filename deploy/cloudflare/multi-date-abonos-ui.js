@@ -468,7 +468,7 @@
   if(mdSaving||!mdState)return;
   if(mdStage!=='review'){mdReview();return;}
   try{if(mdReviewSignature(mdValidate())!==mdReviewedKey){mdReview();return;}if(!document.getElementById('md-review-confirm')?.checked){mdError('Confirma que has revisado el prelistado antes de guardar.');return;}}catch(e){mdError(e.message);return;}
-  mdSaving=true;const btn=document.querySelector('[data-md-save]');if(btn)btn.disabled=true;
+  mdSaving=true;const btn=document.querySelector('[data-md-save]');if(btn){btn.disabled=true;btn.textContent='Guardando…';}
   try{
    const ordered=mdValidate();let next=JSON.parse(JSON.stringify(db)),saved=[],attachments=[];
    const sale=mdState.kind==='sale'?next.sales.find(s=>s.id===mdState.saleId):null;
@@ -511,7 +511,7 @@
    if(!confirmed)toast('Los abonos quedaron en este dispositivo pendientes de sincronización. No compartas comprobantes hasta confirmar el guardado en Cloudflare.','error');
    else toast(saved.length+' abonos individuales guardados en Cloudflare.');
   }catch(e){mdError(e.message||'No se pudieron guardar los abonos.');}
-  finally{mdSaving=false;if(btn?.isConnected)btn.disabled=false;}
+  finally{mdSaving=false;if(btn?.isConnected){btn.disabled=false;btn.textContent='Guardar abonos';}}
  }
  function mdShowSaved(){
   if(!mdSaved)return;
@@ -519,7 +519,7 @@
   const body='<div class="md-success"><h3>'+(confirmed?'✓ Pagos guardados por separado':'Pagos pendientes de sincronización')+'</h3><p>'+mdSafe(mdSaved.client)+' · '+mdSaved.items.length+' recibo(s) individuales</p>'+
    (confirmed?'<p>Ya puedes descargarlos por separado o generar un solo PDF con todas las fechas para compartirlo.</p>':'<p>Se conservó una copia local. Verifica la sincronización de Cloudflare antes de enviar los recibos.</p>')+'</div>'+
    '<div class="md-saved-list">'+mdSaved.items.map((p,i)=>'<div class="md-saved-item"><span>Abono '+(i+1)+' · '+mdSafe(p.date)+' · '+mdFmt(p.amount)+'<small>Correlativo '+mdSafe(p.ref)+'</small></span><span class="md-saved-actions">'+(confirmed?'<button type="button" data-md-pdf="'+mdSafe(p.id)+'" data-md-kind="'+mdSafe(p.kind)+'">PDF</button>':'')+(p.photoKey?'<button type="button" data-md-view-photo="'+mdSafe(p.photoKey)+'">Foto</button>':'')+'</span></div>').join('')+'</div>';
-  const footer=confirmed?'<button class="btn btn-outline" type="button" data-md-download-all>Descargar todos (PDF)</button><button class="btn btn-primary" type="button" data-md-share-all>Enviar todos</button><button class="btn btn-outline" type="button" data-md-another>Guardar y registrar otro</button><button class="btn btn-soft" type="button" data-action="close-modal">Cerrar</button>':'<button class="btn btn-soft" type="button" data-action="close-modal">Cerrar</button>';
+  const footer=confirmed?'<button class="btn btn-outline" type="button" data-md-download-all>Descargar todos (PDF)</button><button class="btn btn-primary" type="button" data-md-share-all>Enviar todos</button><button class="btn btn-outline" type="button" data-md-another>Guardar y registrar otro</button><button class="btn btn-soft" type="button" data-action="close-modal">Cerrar</button>':'<button class="btn btn-primary" type="button" data-md-sync>Reintentar sincronización</button><button class="btn btn-soft" type="button" data-action="close-modal">Cerrar</button>';
   showModal('Abonos · Recibos separados',body,footer,true);
   document.querySelector('#modal-root .modal')?.classList.add('lg-multi-date-modal','lg-payment-modern');
  }
@@ -727,9 +727,9 @@
   else if(control.hasAttribute('data-md-goto'))mdBackToData(control.dataset.mdGoto);
   else if(control.hasAttribute('data-md-review-remove')){mdStage='data';mdReviewedKey=null;mdRemove(control.dataset.mdReviewRemove);mdReview();mdWizardPaint();}
  },true);
- document.addEventListener('click',event=>{
+ document.addEventListener('click',async event=>{
   mdRememberPayment(event.target);
-  const action=event.target.closest?.('[data-md-start-sale],[data-md-start-owner],[data-md-shortcut-sale],[data-md-pick-owner],[data-md-edit],[data-md-toggle-row],[data-md-add],[data-md-remove],[data-md-retry],[data-md-one],[data-md-many],[data-md-save],[data-md-pdf],[data-md-download-all],[data-md-share-all],[data-md-another],[data-md-view-photo]');
+  const action=event.target.closest?.('[data-md-start-sale],[data-md-start-owner],[data-md-shortcut-sale],[data-md-pick-owner],[data-md-edit],[data-md-toggle-row],[data-md-add],[data-md-remove],[data-md-retry],[data-md-one],[data-md-many],[data-md-save],[data-md-sync],[data-md-pdf],[data-md-download-all],[data-md-share-all],[data-md-another],[data-md-view-photo]');
   if(!action)return;
   event.preventDefault();event.stopImmediatePropagation();
   if(action.hasAttribute('data-md-start-sale'))mdStartSale(action.dataset.mdStartSale);
@@ -755,6 +755,12 @@
   }
   else if(action.hasAttribute('data-md-one')){if(mdState?.kind==='sale'){const id=mdState.saleId;mdState=null;baseNewPayment(id,false);}else if(mdState?.kind==='owner'){const {clientId,residenceId}=mdState;mdState=null;openOwnerAbono(clientId,residenceId);}}
   else if(action.hasAttribute('data-md-save'))mdSave();
+  else if(action.hasAttribute('data-md-sync')){
+   if(mdSaving)return;
+   mdSaving=true;action.disabled=true;action.textContent='Sincronizando…';
+   try{await cloudFlush();if(cloudQueue&&!cloudBlocked&&!cloudOffline&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed){mdSaved.confirmed=true;mdShowSaved();toast('Abonos confirmados en Cloudflare D1.');}else{toast('Los abonos siguen pendientes de sincronización. No los ingreses nuevamente.','error');}}
+   finally{mdSaving=false;if(action.isConnected){action.disabled=false;action.textContent='Reintentar sincronización';}}
+  }
   else if(action.hasAttribute('data-md-pdf')){if(action.dataset.mdKind==='owner')deliverOwnerPayment(action.dataset.mdPdf,false);else deliverPaymentReceipt(action.dataset.mdPdf,false);}
   else if(action.hasAttribute('data-md-another')){if(mdSaved?.kind==='sale')mdStartSale(mdSaved.saleId);else if(mdSaved?.kind==='owner')mdStartOwner(mdSaved.clientId,mdSaved.residenceId);}
   else if(action.hasAttribute('data-md-download-all'))mdShareAll(false);
