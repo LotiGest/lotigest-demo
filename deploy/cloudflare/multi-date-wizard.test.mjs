@@ -34,3 +34,7 @@ test('duplicates block review without registering payments',()=>{
 test('unconfirmed cloud save keeps receipts pending and does not show successful return',async()=>{
  const dom=boot(),w=dom.window,d=w.document;w.cloudFlush=async()=>{w.cloudQueue.pending=true;};w.wizardTest.review();d.getElementById('md-review-confirm').checked=true;await w.wizardTest.save();assert.equal(w.writes,1);assert.equal(d.querySelector('.md-result-banner'),null);assert.match(d.querySelector('.md-success').textContent,/pendientes de sincronización/);assert.equal(d.querySelector('[data-md-share-all]'),null);dom.window.close();
 });
+
+test('reference skin puts the stepper before client and keeps last payment compact',()=>{
+ const dom=boot(),d=dom.window.document,modal=d.querySelector('.md-reference-wizard');assert.ok(modal);assert.equal(modal.classList.contains('lg-payment-modern'),false);assert.equal(modal.querySelector('.modal-content').firstElementChild.className,'md-wizard-steps');assert.equal(modal.querySelectorAll('.md-wizard-steps [data-md-step-label]').length,3);assert.ok(modal.querySelector('.md-client-reference'));assert.ok(modal.querySelector('.md-last-inline'));assert.equal(modal.querySelector('.modal-footer [data-action="close-modal"]'),null);assert.match(modal.querySelector('.md-row-toggle strong').textContent,/Abono 1 de 2/);dom.window.close();
+});
