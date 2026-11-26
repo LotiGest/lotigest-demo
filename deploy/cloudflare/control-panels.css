@@ -201,3 +201,13 @@ body.cp-inline-payment:has(#modal-root .modal-cover) .lotigest-shell .lg-topbar{
  html body.cp-inline-payment .cp-dock button{min-height:54px!important;font-size:11px!important;gap:3px!important}
  html body.cp-inline-payment .cp-dock svg{width:23px!important;height:23px!important}
 }
+/* Keep the phone payment viewport outside the application layout ancestors. */
+@media screen and (max-width:700px){
+ html body.cp-inline-payment>#modal-root{position:fixed!important;inset:0 8px auto!important;top:0!important;left:8px!important;right:8px!important;bottom:auto!important;z-index:400!important;width:auto!important;height:calc(var(--lg-visible-height,100dvh) - 72px - env(safe-area-inset-bottom))!important;max-height:calc(var(--lg-visible-height,100dvh) - 72px - env(safe-area-inset-bottom))!important;min-height:0!important;margin:0!important;padding:0!important;display:block!important;overflow-y:auto!important;overflow-x:hidden!important;transform:none!important;translate:none!important;filter:none!important;box-sizing:border-box!important}
+ html body.cp-inline-payment>#modal-root>.modal-cover:has(.pm-reference-payment){position:static!important;inset:auto!important;display:block!important;width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;padding:0!important;margin:0!important;align-items:flex-start!important;justify-content:flex-start!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;transform:none!important;background:transparent!important}
+ html body.cp-inline-payment>#modal-root>.modal-cover>.pm-reference-payment{position:relative!important;inset:auto!important;top:auto!important;bottom:auto!important;margin:0!important;transform:none!important;translate:none!important;align-self:flex-start!important;justify-content:flex-start!important;height:auto!important;min-height:0!important;animation:none!important}
+ html body.cp-inline-payment>#app .lotigest-shell{min-height:0!important;height:0!important;padding:0!important;margin:0!important}
+ html body.cp-inline-payment>#app .workspace{min-height:0!important;height:0!important;padding-top:0!important;margin-top:0!important}
+ html body.cp-inline-payment .cp-dock{z-index:450!important}
+}
+@media screen and (max-width:700px){html body.cp-inline-payment #app .lotigest-sidebar.open{z-index:800!important}html body.cp-inline-payment #app .mobile-backdrop{z-index:799!important}}

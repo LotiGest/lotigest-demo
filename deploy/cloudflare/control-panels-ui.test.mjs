@@ -19,3 +19,10 @@ test('message drafts use real clients, remain unsent, and escape preview',()=>{
 test('message filters and rules do not activate sending',()=>{
  const dom=setup(),d=dom.window.document;d.querySelector('[data-cp-tab="rules"]').click();assert.equal(d.querySelectorAll('.cp-rule').length,4);assert.equal(dom.window.saved,0);assert.equal(d.querySelector('aside button').disabled,true);dom.window.close();
 });
+test('phone payment root stays at the start of body outside the workspace layout',()=>{
+ const dom=setup(),w=dom.window,d=w.document;
+ w.matchMedia=()=>({matches:true});w.newPayment=()=>{d.getElementById('modal-root').innerHTML='<div class="modal-cover"><div class="lg-payment-modern pm-reference-payment"></div></div>';};
+ w.page='payments';w.render();
+ assert.equal(d.body.firstElementChild.id,'modal-root');assert.equal(d.getElementById('modal-root').closest('.workspace'),null);assert.ok(d.body.classList.contains('cp-inline-payment'));
+ w.page='clients';w.render();assert.equal(d.querySelector('#modal-root .modal-cover'),null);assert.equal(d.querySelectorAll('#modal-root').length,1);dom.window.close();
+});

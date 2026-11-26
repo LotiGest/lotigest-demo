@@ -1,4 +1,4 @@
 {
-  "version": "1.0.17",
-  "notes": "Abonos celular compacto: pantalla principal y acceso separado a historial y opciones."
+  "version": "1.0.18",
+  "notes": "Abonos celular: eliminar espacio superior y anclar formulario al inicio de la pantalla."
 }
