@@ -1,4 +1,4 @@
 {
-  "version": "1.0.33",
-  "notes": "Optimización móvil Android: menos efectos gráficos, menú y teclado con actualizaciones agrupadas, clientes en páginas de 40 y búsqueda con pausa breve. Sin cambios en pagos, contratos o sincronización."
+  "version": "1.0.34",
+  "notes": "Editar contrato permite corregir etapa, bloque y solar disponible en la misma residencial, conserva venta y recibos, actualiza inventario y plano, solicita PIN y conserva auditoría."
 }

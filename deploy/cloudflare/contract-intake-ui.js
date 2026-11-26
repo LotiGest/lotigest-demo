@@ -1233,6 +1233,78 @@ function contractManageTerms(state,doc,data,today){
  const monthly=Math.round((cents(price)-cents(down))/months)/100;
  return {sale,terms:{price,down,months,financed:(cents(price)-cents(down))/100,monthly,monthlyCalculated:monthly,date,firstDueDate}};
 }
+// Correct the inventory reference without recreating the sale or its receipts.
+function contractRelocationCandidates(state,doc){
+ const occupied=new Set((state.sales||[]).map(s=>s.lotId));
+ const assigned=new Set((state.contractTexts||[]).filter(d=>d.id!==doc.id&&d.status!=='voided').map(d=>d.lotId));
+ const reserved=new Set((state.reservations||[]).filter(r=>!['expired','cancelled','voided'].includes(r.status)).map(r=>r.lotId));
+ const requests=new Set((state.clientRequests||[]).filter(r=>!['rejected','cancelled','voided'].includes(r.status)).map(r=>r.lotId));
+ return (state.lots||[]).filter(l=>l.residenceId===doc.residenceId&&(l.id===doc.lotId||(
+  l.status==='available'&&l.type!=='private'&&!l.ownerClientId&&!l.clientId&&!l.pendingContractId&&!l.contractId&&!l.purchaseFromPlan&&!l.mapDebtFlag&&
+  !occupied.has(l.id)&&!assigned.has(l.id)&&!reserved.has(l.id)&&!requests.has(l.id))));
+}
+function contractRelocateSolar(state,id,newLotId,actor,reason,at){
+ const d=(state.contractTexts||[]).find(x=>x.id===id&&x.status!=='voided'),old=state.lots.find(l=>l.id===d?.lotId),target=state.lots.find(l=>l.id===newLotId);
+ if(!d||!old||!target||old.residenceId!==d.residenceId||!d.clientId)throw Error('No se pudo identificar el contrato o solar.');
+ if(old.id===target.id)return;
+ if(!String(actor||'').trim()||!String(reason||'').trim()||String(reason).length>300)throw Error('Indica el motivo de la corrección del solar.');
+ if(!contractRelocationCandidates(state,d).some(l=>l.id===target.id))throw Error('El nuevo solar no está disponible o pertenece a otra residencial.');
+ if(old.type==='private'||old.status==='private'||(old.ownerClientId&&old.ownerClientId!==d.clientId)||(old.clientId&&old.clientId!==d.clientId)||(old.pendingContractId&&old.pendingContractId!==d.id)||(old.contractId&&old.contractId!==d.id))throw Error('El solar anterior tiene otra asignación; requiere revisión.');
+ if(state.contractTexts.some(x=>x.id!==d.id&&x.status!=='voided'&&x.lotId===old.id))throw Error('El solar anterior tiene otro contrato vigente.');
+ const linked=state.sales.filter(s=>s.lotId===old.id||s.id===d.saleId||s.documentId===d.id);
+ if(linked.length>1||linked.some(s=>s.lotId!==old.id||s.clientId!==d.clientId||(d.saleId&&s.id!==d.saleId))||(d.saleId&&!linked.length)||(d.status==='active'&&!linked.length))throw Error('La venta vinculada requiere revisión.');
+ const sale=linked[0],affected=new Set([old.id,target.id]);
+ const references=x=>affected.has(x?.lotId)||(x?.lotIds||[]).some(l=>affected.has(l))||(x?.references||[]).some(r=>affected.has(r.lotId))||(x?.allocations||[]).some(a=>affected.has(a.lotId)||(a.references||[]).some(r=>affected.has(r.lotId)))||(sale&&x?.saleId===sale.id);
+ for(const key of ['historicalContracts','historicalPayments','ownershipStatements','ownerPayments','cashEntries'])if((state[key]||[]).some(references))throw Error('Existen movimientos históricos o de caja vinculados; requiere conciliación antes de cambiar solar.');
+ if((state.reservations||[]).some(r=>(affected.has(r.lotId)||sale&&r.saleId===sale.id)&&!['expired','cancelled','voided'].includes(r.status)))throw Error('Hay una reserva vinculada; revisa antes de cambiar solar.');
+ if((state.clientRequests||[]).some(r=>affected.has(r.lotId)&&!['rejected','cancelled','voided'].includes(r.status)))throw Error('Hay una solicitud pendiente asociada al terreno.');
+ const residence=state.residences?.find(r=>r.id===d.residenceId);
+ for(const l of [old,target]){const map=residence?.records?.[l.sourceFeatureKey];if(map?.lotId&&map.lotId!==l.id)throw Error('La figura del plano corresponde a otro solar.');if(l===target&&map?.status&&map.status!=='available')throw Error('El nuevo solar figura ocupado en el plano.');}
+ const describe=l=>({lotId:l.id,stage:l.stage,block:l.block,number:String(l.sourceNumber||l.number||l.id)});
+ const previous={...describe(old),status:old.status},after=describe(target),debt=Boolean(old.mapDebtFlag);
+ d.lotEditHistory??=[];d.lotEditHistory.push({before:previous,after,reason:String(reason).trim(),by:String(actor),at,saleId:sale?.id||null,paymentIds:state.payments.filter(p=>sale&&p.saleId===sale.id).map(p=>p.id)});
+ d.lotId=target.id;
+ const p=d.structured??={};Object.assign(p,after);
+ for(const key of ['areaM2','areaVaras','pricePerVara','north','south','east','west','documentAreaM2','documentAreaVaras'])delete p[key];
+ const geometry={areaM2:target.area,areaVaras:target.areaVaras2,pricePerVara:target.priceVara2,north:target.north||target.colindancias?.north||target.dimensions?.north,south:target.south||target.colindancias?.south||target.dimensions?.south,east:target.east||target.colindancias?.east||target.dimensions?.east,west:target.west||target.colindancias?.west||target.dimensions?.west};
+ for(const [k,v] of Object.entries(geometry))if(v!=null&&v!=='')p[k]=v;
+ p.inventoryPriceAtContract=Number(target.price)>0?Number(target.price):null;
+ p.negotiatedPrice=Number(p.price)!==Number(target.price);
+ if(d.contractGroupId)for(const member of state.contractTexts.filter(x=>x.contractGroupId===d.contractGroupId&&x.clientId===d.clientId&&x.residenceId===d.residenceId&&x.status!=='voided')){
+  if(Array.isArray(member.contractLotIds))member.contractLotIds=[...new Set(member.contractLotIds.map(x=>x===old.id?target.id:x))];
+ }
+ if(sale)sale.lotId=target.id;
+ for(const k of ['ownerClientId','clientId','pendingContractId','contractId'])delete old[k];
+ old.status='available';old.purchaseFromPlan=false;delete old.mapDebtFlag;
+ target.ownerClientId=d.clientId;
+ if(sale){target.status='sold';target.mapDebtFlag=debt;delete target.pendingContractId;}
+ else{target.pendingContractId=d.id;target.status='available';}
+ if(residence){residence.records??={};for(const l of [old,target])if(l.sourceFeatureKey){residence.records[l.sourceFeatureKey]={...(residence.records[l.sourceFeatureKey]||{}),lotId:l.id,block:l.block,status:l.status};}}
+}
+function contractRelocationOptions(doc){
+ const choices=contractRelocationCandidates(db,doc),current=choices.find(l=>l.id===doc.lotId);
+ const stages=[...new Set(choices.map(l=>String(l.stage??'')))].sort((a,b)=>a.localeCompare(b,'es',{numeric:true}));
+ const label=l=>'Etapa '+(l.stage??'—')+' · Bloque '+(l.block||'—')+' · Solar '+(l.sourceNumber||l.number||l.id);
+ const option=(value,name,selected=false)=>'<option value="'+esc(value)+'" '+(selected?'selected':'')+'>'+esc(name)+'</option>';
+ return '<section class="notice-card" style="margin:12px 0"><strong>Corregir ubicación del contrato</strong><p class="sm muted">Elige el solar correcto de la misma residencial. Se conservan los pagos y las condiciones pactadas.</p>'+
+  '<div class="form-grid"><label class="field-group"><span>Etapa</span><select name="relocationStage">'+option('','Todas')+stages.map(x=>option(x,'Etapa '+x,String(current?.stage??'')===x)).join('')+'</select></label>'+
+  '<label class="field-group"><span>Bloque</span><select name="relocationBlock">'+option('','Todos')+'</select></label>'+
+  '<label class="field-group full"><span>Solar</span><select name="relocationLotId" required>'+choices.map(l=>option(l.id,label(l),l.id===doc.lotId)).join('')+'</select></label></div>'+
+  '<small>Actual: '+esc(current?label(current):doc.lotId)+'</small></section>';
+}
+function contractRelocationFilter(form,changed){
+ const doc=contractManageRecord(form.elements.namedItem('documentId')?.value);if(!doc)return;
+ const stage=form.elements.namedItem('relocationStage'),block=form.elements.namedItem('relocationBlock'),select=form.elements.namedItem('relocationLotId');if(!stage||!block||!select)return;
+ const choices=contractRelocationCandidates(db,doc),current=choices.find(l=>l.id===doc.lotId),before=select.value;
+ const within=choices.filter(l=>!stage.value||String(l.stage??'')===stage.value);
+ const blocks=[...new Set(within.map(l=>String(l.block||'')))].sort((a,b)=>a.localeCompare(b,'es',{numeric:true}));
+ const prior=changed==='relocationStage'?'':block.value||(!changed?String(current?.block||''):'');
+ const option=(value,label)=>'<option value="'+esc(value)+'">'+esc(label)+'</option>';
+ block.innerHTML=option('','Todos')+blocks.map(b=>option(b,b)).join('');block.value=blocks.includes(prior)?prior:'';
+ const filtered=within.filter(l=>!block.value||String(l.block||'')===block.value);
+ select.innerHTML=option('','Selecciona un solar')+filtered.map(l=>option(l.id,'Etapa '+(l.stage??'—')+' · Bloque '+(l.block||'—')+' · Solar '+(l.sourceNumber||l.number||l.id))).join('');
+ select.value=filtered.some(l=>l.id===before)?before:'';
+}
 function contractManageEditOpen(id){
  if(!contractIntakeAdmin()){toast('Solo un administrador con sincronización confirmada puede editar contratos.','error');return;}
  const d=contractManageRecord(id);
@@ -1246,15 +1318,17 @@ function contractManageEditOpen(id){
   ['Norte','north'],['Sur','south'],['Este','east'],['Oeste','west']].map(([label,key])=>field(label,key)).join('');
  const credit=financial?field('Precio pactado (L)','price','number')+field('Prima pactada (L)','down','number')+
   '<label class="field-group"><span>Plazo (meses)</span><input name="months" type="number" min="1" max="360" step="1" required value="'+esc(v.months??'')+'"></label>'+
-  field('Fecha del contrato','date','date')+field('Primera cuota','firstDueDate','date')+(sale&&!d.structured?.firstDueDate?'<p class="sm muted">La ficha no contiene la primera cuota pactada. Vencimiento sugerido sin período especial: '+esc(contractSuggestedFirstDue(v.date))+'. Verifica el documento original antes de guardar.</p>':'')+(sale?'<label class="field-group"><span>Motivo de la corrección de condiciones</span><input name="termsReason" maxlength="300" autocomplete="off"></label><label class="field-group"><span>PIN de administrador (para cambios de condiciones)</span><input name="termsPin" type="password" inputmode="numeric" maxlength="4" autocomplete="off"></label>':''):'';
+  field('Fecha del contrato','date','date')+field('Primera cuota','firstDueDate','date')+(sale&&!d.structured?.firstDueDate?'<p class="sm muted">La ficha no contiene la primera cuota pactada. Vencimiento sugerido sin período especial: '+esc(contractSuggestedFirstDue(v.date))+'. Verifica el documento original antes de guardar.</p>':''):'';
  showModal('Editar contrato',
   '<p><strong>'+esc(client?.name||v.name||'Cliente')+'</strong> · DNI '+esc(client?.identity||v.identity||'')+'</p>'+
   '<p>Etapa '+esc(lot?.stage||'—')+' · Bloque '+esc(lot?.block||'—')+' · Solar '+esc(lot?.sourceNumber||'—')+'</p>'+
-  '<p class="sm muted">Las medidas y el solar se conservan del inventario. '+(sale&&financial?'Puedes corregir precio, prima pactada, plazo y ambas fechas. Los recibos se conservan; se recalcula la amortización. Fecha de venta registrada: '+esc(sale.date)+'. Los cambios financieros requieren motivo y PIN.':financial?'Puedes corregir precio, prima pactada, fechas y plazo.':'Venta de contado: condiciones financieras protegidas.')+'</p>'+
-  '<form id="contract-manage-edit"><input name="documentId" type="hidden" value="'+esc(id)+'"><div class="form-grid">'+basic+credit+'</div>'+
+  '<p class="sm muted">Las medidas se obtienen del inventario del solar seleccionado. '+(sale&&financial?'Puedes corregir precio, prima pactada, plazo y ambas fechas. Los recibos se conservan; se recalcula la amortización. Fecha de venta registrada: '+esc(sale.date)+'. Los cambios financieros requieren motivo y PIN.':financial?'Puedes corregir precio, prima pactada, fechas y plazo.':'Venta de contado: condiciones financieras protegidas.')+'</p>'+
+  '<form id="contract-manage-edit"><input name="documentId" type="hidden" value="'+esc(id)+'">'+contractRelocationOptions(d)+'<div class="form-grid">'+basic+credit+'</div>'+
+  '<label class="field-group"><span>Motivo de la corrección de solar o condiciones</span><input name="termsReason" maxlength="300" autocomplete="off"></label><label class="field-group"><span>PIN de administrador (para cambiar solar o condiciones de un contrato activo)</span><input name="termsPin" type="password" inputmode="numeric" maxlength="4" autocomplete="off"></label>'+
   '<label>Observaciones<textarea name="observations" maxlength="5000" rows="3">'+esc(v.observations||'')+'</textarea></label></form>',
   '<button class="btn btn-outline" data-action="close-modal" type="button">Cancelar</button>'+
   '<button class="btn btn-primary" type="submit" form="contract-manage-edit">Guardar cambios</button>',true);
+ const form=document.getElementById('contract-manage-edit');if(form)contractRelocationFilter(form);
 }
 async function contractManageEditSave(form){
  if(contractManageEditBusy)return;
@@ -1265,6 +1339,8 @@ async function contractManageEditSave(form){
  if(!contractManageEditSnapshot||contractManageEditSnapshot.id!==d.id||contractManageEditSnapshot.raw!==JSON.stringify(db))throw Error('Los datos cambiaron. Vuelve a abrir Editar contrato para evitar sobrescribir información.');
  if(!lot)throw Error('El solar vinculado ya no existe.');
  const next=JSON.parse(JSON.stringify(db)),record=next.contractTexts.find(x=>x.id===d.id),p=record.structured||{};
+ const newLotId=String(data.relocationLotId??d.lotId);if(!newLotId)throw Error('Selecciona el solar correcto.');
+ const moving=newLotId!==d.lotId;let pinConfirmed=false;
  for(const key of ['rtn','maritalStatus','occupation','address','phone','north','south','east','west','observations']){
   const value=String(data[key]||'').trim();
   if(value.length>(key==='observations'?5000:500))throw Error('Campo demasiado largo: '+key);
@@ -1274,28 +1350,39 @@ async function contractManageEditSave(form){
   const {sale:target,terms}=contractManageTerms(next,record,data,businessToday());
   const previous={price:target?.price??p.price,down:target?.downPayment??p.down,months:target?.months??p.months,date:target?.date??p.date,firstDueDate:target?.firstDueDate??p.firstDueDate};
   const changed=Object.keys(previous).some(key=>String(previous[key]??'')!==String(terms[key]??''));
-  if(target&&changed){
+  if((target&&changed)||moving){
    const reason=String(data.termsReason||'').trim(),pin=String(data.termsPin||'');
    if(!reason||reason.length>300)throw Error('Indica el motivo de la corrección.');
    if(!/^\d{4}$/.test(pin)||typeof window.lotigestConfirmAdminPin!=='function')throw Error('Introduce el PIN vigente de administrador.');
    contractManageEditBusy=true;
    try{await window.lotigestConfirmAdminPin(pin);
     if(!form.isConnected||!contractIntakeAdmin()||contractManageEditSnapshot?.id!==d.id||contractManageEditSnapshot.raw!==JSON.stringify(db))throw Error('La ventana o los datos cambiaron durante la confirmación. Abre nuevamente el contrato.');
-    const after={price:terms.price,down:terms.down,months:terms.months,date:terms.date,firstDueDate:terms.firstDueDate};
+    pinConfirmed=true;
+    if(target&&changed){const after={price:terms.price,down:terms.down,months:terms.months,date:terms.date,firstDueDate:terms.firstDueDate};
     record.termsEditHistory??=[];record.termsEditHistory.push({before:previous,after,reason,by:String(cloudUser.name),at:new Date().toISOString()});
-    Object.assign(target,{price:terms.price,downPayment:terms.down,months:terms.months,date:terms.date,firstDueDate:terms.firstDueDate});
+    Object.assign(target,{price:terms.price,downPayment:terms.down,months:terms.months,date:terms.date,firstDueDate:terms.firstDueDate});}
    }finally{contractManageEditBusy=false;}
   }
   Object.assign(p,terms);
   p.negotiatedPrice=Number(terms.price)!==Number(lot.price);
  }
- record.structured=p;record.updatedAt=new Date().toISOString();
+ record.structured=p;
+ if(moving){
+  const reason=String(data.termsReason||'').trim(),pin=String(data.termsPin||'');
+  if(!reason||reason.length>300)throw Error('Indica el motivo de la corrección del solar.');
+  if(!pinConfirmed){if(!/^\d{4}$/.test(pin)||typeof window.lotigestConfirmAdminPin!=='function')throw Error('Introduce el PIN vigente de administrador.');
+   contractManageEditBusy=true;try{await window.lotigestConfirmAdminPin(pin);
+    if(!form.isConnected||!contractIntakeAdmin()||contractManageEditSnapshot?.id!==d.id||contractManageEditSnapshot.raw!==JSON.stringify(db))throw Error('Los datos cambiaron durante la confirmación.');
+   }finally{contractManageEditBusy=false;}}
+  contractRelocateSolar(next,d.id,newLotId,cloudUser.name,reason,new Date().toISOString());
+ }
+ record.updatedAt=new Date().toISOString();
  if(typeof ensureContractNumbers==='function')ensureContractNumbers(next);
  cloudWrite(JSON.stringify(next));db=next;await cloudFlush();
  closeModal();render();
  if(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed)
   toast('Contrato modificado localmente; falta confirmar su sincronización.','error');
- else toast('Contrato editado. Cuotas y saldo recalculados; recibos y medidas conservados.');
+ else toast(moving?'Solar corregido. Recibos conservados y mapa actualizado.':'Contrato editado. Cuotas y saldo recalculados; recibos y medidas conservados.');
 }
 // Anular una ficha concreta sin tocar otras ventas ni liberar recibos compartidos.
 function contractCancelFinancialRecords(state,id,actor,reason,at){
@@ -1396,6 +1483,7 @@ document.addEventListener('click',event=>{
  if(edit)contractManageEditOpen(edit.dataset.contractEdit);
  else contractManageDeleteOpen(del.dataset.contractDelete);
 },true);
+document.addEventListener('change',event=>{const form=event.target.closest?.('#contract-manage-edit');if(form&&['relocationStage','relocationBlock'].includes(event.target.name))contractRelocationFilter(form,event.target.name);},true);
 document.addEventListener('submit',event=>{
  if(event.target.id==='contract-manage-edit'){
   event.preventDefault();event.stopImmediatePropagation();
