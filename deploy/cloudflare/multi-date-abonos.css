@@ -495,3 +495,41 @@ body.lotigest-dark #modal-root .lg-multi-date-modal .md-row-body{
 body.lotigest-dark #modal-root .lg-multi-date-modal .md-summary-ref{color:#ff8296!important}
 body.lotigest-dark #modal-root .lg-multi-date-modal .md-summary-amount{color:#80dda3!important}
 @media(max-width:650px){#modal-root .lg-multi-date-modal .md-row-summary{flex-basis:100%;font-size:12px;gap:4px 10px}#modal-root .lg-multi-date-modal .md-row-top{align-items:flex-start}}
+/* Horizontal wizard: one editable receipt, then a mandatory review. */
+html body #modal-root .modal-cover:has(.md-wizard){inset:0 0 78px!important;height:auto!important;align-items:stretch!important;justify-content:center!important;padding:8px!important}
+html body #modal-root .md-wizard{height:100%!important;max-height:100%!important;width:min(100%,1000px)!important;margin:0 auto!important;border-radius:18px!important;display:flex!important;flex-direction:column!important;overflow:hidden!important}
+html body #modal-root .md-wizard .modal-header{padding:12px 16px!important;flex:none!important}
+html body #modal-root .md-wizard .modal-content{overflow-y:auto!important;min-height:0!important;flex:1 1 auto!important;padding:12px 16px!important}
+html body #modal-root .md-wizard .modal-footer{position:static!important;flex:none!important;padding:9px 14px!important;display:flex!important;flex-wrap:wrap;gap:8px;background:var(--cp-surface,#f7fbf8)!important}
+html body #modal-root .md-wizard .modal-footer>[hidden],html body #modal-root .md-wizard [data-md-row][hidden],html body #modal-root .md-wizard #md-review[hidden]{display:none!important}
+.md-wizard-steps{display:flex;gap:8px;justify-content:space-between;margin:10px 0 14px;font-weight:700;font-size:13px}.md-wizard-steps span{padding:8px 12px;border:1px solid #648e78;border-radius:20px}.md-wizard-steps .active{background:#a8f4a5;color:#123e22}
+.md-wizard-tabs{display:flex;gap:7px;overflow-x:auto;padding:4px 0 10px}.md-wizard-tabs button{flex:none;border:1px solid #568c69;background:transparent;color:inherit;border-radius:10px;padding:9px 15px;min-height:38px}.md-wizard-tabs [aria-current=step]{background:#a8f4a5;color:#153c24;font-weight:800}
+html body #modal-root .md-wizard .md-heading,html body #modal-root .md-wizard .md-note,html body #modal-root .md-wizard .md-manual-head,html body #modal-root .md-wizard .md-row-summary,html body #modal-root .md-wizard .md-row-chevron{display:none!important}
+html body #modal-root .md-wizard .md-client{margin:0 0 9px!important;padding:10px 12px;border:1px solid #56896b;border-radius:12px;font-size:16px;color:inherit}
+html body #modal-root .md-wizard .md-client small{font-size:12px;color:inherit;opacity:.8}
+html body #modal-root .md-wizard .md-last-payment{margin:6px 0!important;padding:8px 10px!important;border-radius:12px!important}
+html body #modal-root .md-wizard .md-last-heading{font-size:13px!important;padding:0!important;margin:0!important}
+html body #modal-root .md-wizard .md-last-heading-icon{width:25px!important;height:25px!important;font-size:16px!important}
+html body #modal-root .md-wizard .md-last-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important;margin:4px 0 0!important}
+html body #modal-root .md-wizard .md-last-cell{padding:2px!important;min-width:0!important;border:0!important}
+html body #modal-root .md-wizard .md-last-cell-icon,html body #modal-root .md-wizard .md-last-description{display:none!important}
+html body #modal-root .md-wizard .md-last-cell strong{font-size:12px!important;overflow-wrap:anywhere}
+html body #modal-root .md-wizard .md-last-cell small{font-size:10px!important}
+html body #modal-root .md-wizard .md-row{margin:0!important;padding:12px!important;animation:mdWizardArrive .18s ease-out}
+html body #modal-root .md-wizard .md-row-top{margin-bottom:10px!important}
+html body #modal-root .md-wizard .md-row-toggle{color:inherit!important}
+html body #modal-root .md-wizard .md-fields{display:grid;grid-template-columns:1fr;gap:12px}
+html body #modal-root .md-wizard .md-fields input{font-size:17px!important;min-height:40px!important}
+html body #modal-root .md-wizard .md-money-control,html body #modal-root .md-wizard .md-ref-line{min-height:43px!important}
+html body #modal-root .md-wizard .md-money-symbol,html body #modal-root .md-wizard .md-ref-symbol{font-size:22px!important;width:36px!important;min-height:38px!important}
+html body #modal-root .md-wizard [data-md-next],html body #modal-root .md-wizard [data-md-save]{margin-left:auto!important;background:linear-gradient(#17bd43,#078b39)!important;color:#fff!important;font-weight:800!important;order:1;min-width:155px}
+html body #modal-root .md-wizard [data-action=close-modal]{flex:0 1 auto!important;min-height:30px!important;font-size:11px!important;order:2}
+html body #modal-root .md-wizard .md-total{padding:9px!important;margin:9px 0!important}
+html body #modal-root .md-wizard[data-md-stage=review] :is(.md-wizard-tabs,.md-add,.md-total,[data-md-last-payment]){display:none!important}
+.md-review-table{overflow:auto}.md-review-table table{width:100%;border-collapse:collapse;font-size:14px}.md-review-table :is(th,td){padding:12px 9px;border-bottom:1px solid #658772;text-align:left;color:inherit}.md-review-ref{color:#e44960!important;font-weight:800}.md-review-money{color:#218d43!important;font-weight:800;white-space:nowrap}.md-review-table button{background:transparent;color:inherit;border:1px solid #648e78;border-radius:7px;padding:6px;margin:2px}
+.md-review-total{padding:16px;border:1px solid #4c9d64;border-radius:12px;margin-top:15px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.md-review-total strong{color:#17843c;font-size:22px}.md-review-confirm{display:flex;align-items:center;gap:10px;margin:18px 0;font-weight:700}.md-review-confirm input{width:22px!important;height:22px!important;min-height:22px!important}
+.md-result-banner{padding:12px 16px;border:1px solid #379b55;border-radius:12px;background:#d7f3dc;color:#14512e;margin:10px 12px}.md-result-banner strong{font-size:19px}.md-result-banner p{margin:7px 0}.md-result-banner small{display:block}.md-result-banner button{margin-top:8px}
+body.lotigest-dark #modal-root .md-wizard{background:#0a211b!important;color:#eff8f1!important}body.lotigest-dark #modal-root .md-wizard :is(.md-row,.md-client,.md-last-payment){background:#133829!important;color:#eff8f1!important;border-color:#416d56!important}body.lotigest-dark #modal-root .md-wizard .md-fields label{color:#e8f6ec!important}body.lotigest-dark #modal-root .md-wizard :is(.md-review-money,.md-review-total strong){color:#7bea79!important}body.lotigest-dark .md-result-banner{background:#103d27;color:#d7ffdc}
+@keyframes mdWizardArrive{from{opacity:.5;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+@media(prefers-reduced-motion:reduce){html body #modal-root .md-wizard .md-row{animation:none}}
+@media(max-width:700px){html body #modal-root .modal-cover:has(.md-wizard){padding:4px!important;bottom:calc(72px + env(safe-area-inset-bottom))!important}html body #modal-root .md-wizard .modal-content{padding:9px!important}.md-wizard-steps{font-size:11px;gap:4px}.md-wizard-steps span{padding:7px 9px}.md-review-table :is(th,td){font-size:12px;padding:8px 5px}html body #modal-root .md-wizard .modal-footer>.btn{flex:1 1 100px!important;min-height:40px!important;font-size:13px!important}}
