@@ -1,5 +1,5 @@
 /* LOTIGEST PRO · Arreglo de barra lateral contraída.
-   El botón H abre/cierra con clic; en escritorio también admite hover.
+   El botón H abre/cierra con clic; permanece pequeña al pasar el cursor.
    El estado .pinned tiene prioridad sobre reglas antiguas de colapso. */
 body .lotigest-shell .lotigest-sidebar .lg-sidebar-launcher{
  appearance:none;-webkit-appearance:none;position:relative;
@@ -57,31 +57,17 @@ body .lotigest-shell .lotigest-sidebar.pinned .lg-nav .nav-symbol{
 body .lotigest-shell .lotigest-sidebar.pinned .lg-pin{
  display:grid!important;opacity:1!important;pointer-events:auto!important;
 }
-@media(hover:hover) and (pointer:fine){
- body .lotigest-shell .lotigest-sidebar:not(.pinned):not(.lg-sidebar-just-closed):hover,
- body[data-panel-theme] .lotigest-shell .lotigest-sidebar:not(.pinned):not(.lg-sidebar-just-closed):hover{
-  width:var(--lg-side-wide)!important;flex-basis:var(--lg-side-wide)!important;
- }
- body .lotigest-shell .lotigest-sidebar:not(.pinned):not(.lg-sidebar-just-closed):hover .lg-side-label,
- body .lotigest-shell .lotigest-sidebar:not(.pinned):not(.lg-sidebar-just-closed):hover .lg-nav .nav-btn em,
- body .lotigest-shell .lotigest-sidebar:not(.pinned):not(.lg-sidebar-just-closed):hover .lg-product small{
-  display:block!important;opacity:1!important;visibility:visible!important;
- }
- body .lotigest-shell .lotigest-sidebar:not(.pinned):not(.lg-sidebar-just-closed):hover .lg-company{
-  justify-content:flex-start!important;gap:12px!important;
- }
- body .lotigest-shell .lotigest-sidebar:not(.pinned):not(.lg-sidebar-just-closed):hover .lg-side-head{
-  justify-content:space-between!important;gap:4px!important;
- }
- body .lotigest-shell .lotigest-sidebar:not(.pinned):not(.lg-sidebar-just-closed):hover .lg-sidebar-launcher:after{
-  display:none!important;
- }
- body .lotigest-shell .lotigest-sidebar:not(.pinned):not(.lg-sidebar-just-closed):hover .lg-pin{
-  display:grid!important;opacity:1!important;pointer-events:auto!important;
- }
- body .lotigest-shell .lotigest-sidebar:not(.pinned):not(.lg-sidebar-just-closed):hover .lg-nav .nav-btn{
-  justify-content:flex-start!important;padding:0 13px!important;gap:16px!important;
- }
+/* Contraída incluso con el cursor encima; solo el botón de marca la abre. */
+body .lotigest-shell .lotigest-sidebar:not(.pinned),
+body[data-panel-theme] .lotigest-shell .lotigest-sidebar:not(.pinned),
+body.sidebar-collapsed[data-panel-theme] .lotigest-shell .lotigest-sidebar:not(.pinned):hover{
+ width:var(--lg-side-small)!important;flex-basis:var(--lg-side-small)!important;
+ padding:16px 9px!important;
+}
+body .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-side-label,
+body .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-nav .nav-btn em,
+body .lotigest-shell .lotigest-sidebar:not(.pinned) .lg-product small{
+ display:none!important;opacity:0!important;
 }
 @media(max-width:700px){
  body .lotigest-shell .lotigest-sidebar.pinned,
