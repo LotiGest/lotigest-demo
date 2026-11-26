@@ -185,13 +185,13 @@ async function cloudLoad({discardPending=false,preservePage=true}={}){
  const remote=await cloudApi('state');cloudUser=remote.user;
  let saved=null;if(!discardPending){try{saved=cloudUnpack(localStorage.getItem(CLOUD_CACHE));}catch{throw Object.assign(Error('La copia local pendiente no pudo leerse y se conservó intacta. Descárgala antes de recuperar los datos del servidor.'),{status:422});}}
  if(!discardPending&&saved&&saved.owner===cloudUser.name&&(saved.pending||saved.latest!==saved.confirmed)){
-  cloudQueue=saved;db=readStoredLotigest(saved.latest);await prepareOfficialBackgrounds();cloudReady=true;sessionStorage.setItem(SESSION,'yes');if(page==='dashboard')cloudRestorePage(cloudUser.name);render();await cloudFlush();if(!cloudBlocked&&cloudReady&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed)await cloudLoad();return;
+  cloudQueue=saved;db=readStoredLotigest(saved.latest);cloudReady=true;sessionStorage.setItem(SESSION,'yes');if(page==='dashboard')cloudRestorePage(cloudUser.name);render();await cloudFlush();if(!cloudBlocked&&cloudReady&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed)await cloudLoad();return;
  }
  if(saved&&saved.owner!==cloudUser.name&&(saved.pending||saved.latest!==saved.confirmed))localStorage.setItem(CLOUD_CACHE+'_recovery_'+crypto.randomUUID(),JSON.stringify(saved));
  db=remote.state?readStoredLotigest(JSON.stringify(remote.state)):cloudEmpty();
  const raw=JSON.stringify(db);
  cloudQueue={owner:cloudUser.name,revision:remote.revision,confirmed:remote.state?raw:null,latest:raw,pending:null};
- cloudPersist();await prepareOfficialBackgrounds();cloudReady=true;sessionStorage.setItem(SESSION,'yes');page=preservePage?previousPage:'dashboard';if(page==='dashboard')cloudRestorePage(cloudUser.name);cloudOffline=false;render();
+ cloudPersist();cloudReady=true;sessionStorage.setItem(SESSION,'yes');page=preservePage?previousPage:'dashboard';if(page==='dashboard')cloudRestorePage(cloudUser.name);cloudOffline=false;render();
  // render may initialize the built-in inventory; persist the resulting state.
  cloudWrite(JSON.stringify(db));await cloudFlush();
  if(cloudUser?.role==='admin')setTimeout(refreshClientRequests,250);
@@ -296,7 +296,7 @@ async function cloudOfflineUnlock(username,password){
  const credential=await derive(password,profile.salt),actual=await cloudVerifier(credential,profile.nonce);let difference=actual.length^profile.verifier.length;for(let i=0;i<actual.length;i++)difference|=actual.charCodeAt(i)^profile.verifier.charCodeAt(i);
  if(difference)throw Error('Usuario o contraseña incorrectos para la copia sin conexión.');
  const saved=cloudUnpack(localStorage.getItem(CLOUD_CACHE));if(!saved||saved.owner!==username)throw Error('No hay datos guardados de esta cuenta en el equipo.');
- cloudQueue=saved;cloudUser={name:username,role:profile.role};cloudCredential=credential;cloudOffline=true;cloudReady=true;cloudBlocked=false;db=readStoredLotigest(saved.latest);await prepareOfficialBackgrounds();sessionStorage.setItem(SESSION,'yes');cloudRestorePage(username);render();cloudStatus('Sin conexión. Puedes trabajar; los cambios se enviarán automáticamente al volver internet.');
+ cloudQueue=saved;cloudUser={name:username,role:profile.role};cloudCredential=credential;cloudOffline=true;cloudReady=true;cloudBlocked=false;db=readStoredLotigest(saved.latest);sessionStorage.setItem(SESSION,'yes');cloudRestorePage(username);render();cloudStatus('Sin conexión. Puedes trabajar; los cambios se enviarán automáticamente al volver internet.');
 }
 async function cloudRefresh(){
  if(cloudAuthBusy||cloudRefreshBusy||cloudBusy||cloudBlocked||navigator.onLine===false)return;
