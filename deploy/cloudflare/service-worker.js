@@ -4,7 +4,14 @@ const RESOURCES='lotigest-resources-v1';
 const CORE=['/','/acceso-nube.js','/payment-fields.mjs','/version.json','/manifest.webmanifest','/offline-files.js','/mobile-layout.css','/mobile-layout.js','/lotigestLedger.js','/lotigestCadastre.js','/lotigestOwnerPayments.js','/qr-generator.js','/payment-modal.css','/multi-date-abonos.css','/shortcut-settings.css','/sidebar-click.css','/finance-dashboard.css','/global-money.css','/verificar-recibo.html','/seleccionar-solar.html','/app-icon.svg'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(SHELL).then(cache=>cache.addAll(CORE))));
 self.addEventListener('message',event=>{if(event.data?.type==='ACTIVATE_UPDATE')self.skipWaiting();});
-self.addEventListener('activate',event=>event.waitUntil((async()=>{for(const name of await caches.keys())if(name.startsWith('lotigest-shell-')&&name!==SHELL)await caches.delete(name);await self.clients.claim();})()));
+self.addEventListener('activate',event=>event.waitUntil((async()=>{
+ for(const name of await caches.keys())if(name.startsWith('lotigest-shell-')&&name!==SHELL){
+  const old=await caches.open(name),image=await old.match('/altos-arrayan-vista-proyecto.webp');
+  if(image)await (await caches.open(RESOURCES)).put('/altos-arrayan-vista-proyecto.webp',image);
+  await caches.delete(name);
+ }
+ await self.clients.claim();
+})()));
 async function network(request,ms=5000){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),ms);try{return await fetch(request,{signal:controller.signal});}finally{clearTimeout(timer);}}
 self.addEventListener('fetch',event=>{
  const request=event.request,url=new URL(request.url);
