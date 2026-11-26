@@ -1,4 +1,4 @@
 {
-  "version": "1.0.28",
-  "notes": "Corrección de lectura de primas históricas en fichas pendientes, distribución de precio y prima total por solares, datos opcionales y optimización de paneles."
+  "version": "1.0.29",
+  "notes": "Corrige el filtro que ocultaba recibos de fichas con contrato en el historial, última cuota y prima pagada. Incluye aviso automático de actualización."
 }
