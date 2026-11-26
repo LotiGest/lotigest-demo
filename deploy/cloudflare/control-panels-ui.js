@@ -39,10 +39,34 @@
  getClient=function(id){return renderLookup('getClient',db.clients,id);};
  getLot=function(id){return renderLookup('getLot',db.lots,id);};
  getSale=function(id){return renderLookup('getSale',db.sales,id);};
+ // La campana no debe reconstruir toda la cartera en cada navegación.
+ if(typeof debtClients==='function'){
+  const debtCount=debtClients;
+  debtClients=function(){return renderLookups?'…':debtCount.apply(this,arguments);};
+  document.addEventListener('click',event=>{
+   if(!event.target.closest?.('[data-lg-action="notifications"]'))return;
+   const count=document.querySelector('#lgNotifications p b');
+   if(count)count.textContent=debtCount();
+  },true);
+ }
+ // Reutilizar sumas sólo dentro del mismo render y del mismo ámbito de datos.
+ let renderPaymentTotals=null;
+ if(typeof paidAmount==='function'){
+  const originalPaidAmount=paidAmount;
+  paidAmount=function(id){
+   if(!renderPaymentTotals)return originalPaidAmount.apply(this,arguments);
+   let payments=renderPaymentTotals.get(db.payments);
+   if(!payments){payments=new Map();renderPaymentTotals.set(db.payments,payments);}
+   let sales=payments.get(db.sales);
+   if(!sales){sales=new Map();payments.set(db.sales,sales);}
+   if(!sales.has(id))sales.set(id,originalPaidAmount.apply(this,arguments));
+   return sales.get(id);
+  };
+ }
  const lookupRender=render;
  render=function(){
-  const previous=renderLookups;renderLookups=new Map();
-  try{return lookupRender.apply(this,arguments);}finally{renderLookups=previous;}
+  const previous=renderLookups,previousTotals=renderPaymentTotals;renderLookups=new Map();renderPaymentTotals=new Map();
+  try{return lookupRender.apply(this,arguments);}finally{renderLookups=previous;renderPaymentTotals=previousTotals;}
  };
   const oldRender=render;let lastPage=page;render=function(){const root=document.getElementById('modal-root');if(root?.closest('#app'))document.body.append(root);if(lastPage==='payments'&&page!=='payments'&&document.querySelector('#modal-root .lg-payment-modern'))closeModal();oldRender();if(page==='payments'&&!document.querySelector('#modal-root .modal-cover')&&document.querySelector('.lotigest-shell'))newPayment(null,false);lastPage=page;decorate();if(page==='payments'&&document.querySelector('#modal-root .lg-payment-modern')&&(!matchMedia('(max-width:700px)').matches||root?.querySelector('.pm-reference-payment'))){if(matchMedia('(max-width:700px)').matches)document.body.prepend(root);else document.querySelector('.workspace')?.append(root);}};
   document.addEventListener('click',e=>{const b=e.target.closest('[data-cp-tab],[data-cp-template],[data-cp-preview]');if(!b)return;
