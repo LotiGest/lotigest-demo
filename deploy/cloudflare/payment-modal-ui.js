@@ -441,6 +441,7 @@ function pmCompactSales(form,shell,search,person,last,historyBar,summary,cal,ent
  const date=fields.querySelector('.pm-date-group');if(date){date.classList.add('pm-primary-date');(refField||amount)?.after(date);}
  const secondary=[...fields.children].filter(el=>el!==amount&&el!==refField&&el!==date);
  if(secondary.length){const options=pmFold('Más opciones del abono',...secondary);options.classList.add('pm-payment-options');fields.append(options);}
+ const monthly=pmNode('section','notice-card');monthly.dataset.monthlyBanner='true';(fields.querySelector('.pm-payment-options')||fields).append(monthly);
  entry.querySelector('h3').textContent='Datos del abono';entry.classList.add('pm-reference-entry');
  const footer=modal.querySelector('.modal-footer');
  if(footer){footer.classList.add('pm-reference-actions');entry.append(footer);}
