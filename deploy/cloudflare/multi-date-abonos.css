@@ -590,3 +590,11 @@ html body #modal-root .md-reference-wizard[data-md-stage=review] :is(.md-last-in
 @media(max-width:380px){html body #modal-root .md-reference-wizard .md-wizard-steps{font-size:10px!important;gap:2px!important}.md-reference-wizard .md-wizard-steps i{width:21px;height:21px}.md-reference-wizard .md-client-reference strong{font-size:15px!important}}
 html body #modal-root .md-reference-wizard .md-wizard-footer-note{flex:1 0 100%;order:2;text-align:center;font-size:11px;color:var(--md-ink);opacity:.8;padding:2px 0 0}
 html body #modal-root .md-reference-wizard[data-md-stage=review] .md-wizard-footer-note{display:none!important}
+/* Amounts are always legible inside the dedicated wizard and its review. */
+html body #modal-root .md-reference-wizard .md-money-control{display:flex!important;align-items:center!important;width:100%!important;min-width:0!important}
+html body #modal-root .md-reference-wizard .md-money-control input[data-md-field=amount]{display:block!important;visibility:visible!important;opacity:1!important;flex:1 1 0%!important;width:auto!important;min-width:0!important;max-width:calc(100% - 38px)!important;height:40px!important;-webkit-text-fill-color:#145b29!important;color:#145b29!important;background:#e5f5e7!important;font-size:19px!important;font-weight:800!important}
+html body.lotigest-dark #modal-root .md-reference-wizard .md-money-control input[data-md-field=amount]{-webkit-text-fill-color:#94f296!important;color:#94f296!important;background:#092c20!important}
+html body #modal-root .md-reference-wizard .md-money-control input::placeholder{color:#54785c!important;-webkit-text-fill-color:#54785c!important;opacity:1!important}
+html body.lotigest-dark #modal-root .md-reference-wizard .md-money-control input::placeholder{color:#9bbca5!important;-webkit-text-fill-color:#9bbca5!important}
+html body #modal-root .md-reference-wizard .md-review-money,html body #modal-root .md-reference-wizard [data-md-total]{color:#145b29!important;-webkit-text-fill-color:#145b29!important}
+html body.lotigest-dark #modal-root .md-reference-wizard .md-review-money,html body.lotigest-dark #modal-root .md-reference-wizard [data-md-total]{color:#94f296!important;-webkit-text-fill-color:#94f296!important}

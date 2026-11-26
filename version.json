@@ -1,4 +1,4 @@
 {
-  "version": "1.0.21",
-  "notes": "Abonos varios: diseño de referencia con pasos superiores, último pago compacto e importes legibles."
+  "version": "1.0.22",
+  "notes": "Contratos en 3 pasos: Cliente, Solares y Revisar. Corregida visibilidad de montos en Abonos varios."
 }
