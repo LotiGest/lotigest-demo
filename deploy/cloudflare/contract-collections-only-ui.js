@@ -13,6 +13,14 @@
  // allí el mismo alcance de contratos, sin tocar la base ni los recibos.
  const withContractPaymentView=(rid,fn)=>{
   const original=db,scope=contractCollectionsScope(original,rid);
+  // Los pagos de fichas vinculadas a contratos siguen siendo recibos reales.
+  const lotIds=new Set(scope.lots.map(l=>l.id)),clientIds=new Set(scope.clients.map(c=>c.id));
+  const hasContractRefs=refs=>Array.isArray(refs)&&refs.length>0&&refs.every(r=>r.lotId&&lotIds.has(r.lotId));
+  scope.ownershipStatements=(original.ownershipStatements||[]).filter(s=>s.residenceId===rid&&clientIds.has(s.clientId)&&hasContractRefs(s.references));
+  const statements=new Set(scope.ownershipStatements.map(s=>s.id));
+  scope.ownerPayments=(original.ownerPayments||[]).filter(p=>p.residenceId===rid&&clientIds.has(p.clientId)&&
+   !p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&(p.allocations||[]).length>0&&
+   p.allocations.every(a=>statements.has(a.statementId)&&hasContractRefs(a.references)));
   const posted=new Set((original.historicalPayments||[]).map(p=>p.postedPaymentId).filter(Boolean));
   scope.payments=scope.payments.filter(p=>!p.historicalImportId&&!posted.has(p.id));
   db=scope;
