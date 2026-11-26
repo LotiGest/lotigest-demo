@@ -105,7 +105,7 @@ test('rechaza una prima superior al precio negociado',async()=>{
 });
 test('prima pagada crea venta y recibo por el importe negociado',async()=>{
  const x=setup();Object.assign(x.fields,{solarPrice_0:'180000',down:'40000',
- primaPaid:'on',primaDate:'2026-11-02',primaMethod:'Efectivo'});
+ primaPaid:'on',primaDate:'2026-11-02',primaMethod:'Efectivo',primaRef:'990003'});
  await x.save({fields:x.fields});
  assert.equal(x.db().sales[0].price,180000);assert.equal(x.db().sales[0].downPayment,40000);
  assert.equal(x.db().payments[0].amount,40000);

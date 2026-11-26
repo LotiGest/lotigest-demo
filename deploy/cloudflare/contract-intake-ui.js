@@ -773,7 +773,7 @@ async function contractIntakeSave(form){
   if(!['Efectivo','Transferencia','Tarjeta'].includes(data.primaMethod))throw Error('Selecciona un método de pago.');
   if(!(Number(data.down)>0))throw Error('La prima pactada debe ser mayor que cero para registrar el cobro.');
   contractIntakeValidatePrimaReceived(data.primaReceivedTotal,data.down);
-  if(String(data.primaRef||'').length>80)throw Error('Número de recibo demasiado largo.');
+  if(!/^\d{1,80}$/.test(String(data.primaRef||'').trim()))throw Error('Ingresa el correlativo numérico del recibo de prima (hasta 80 dígitos).');
 
  }
  if(original.mode!=='manual'&&!original.file)throw Error('Debes subir primero la foto del documento original.');
@@ -805,6 +805,7 @@ async function contractIntakeSave(form){
    const code=normalize(receiptRaw),matches=p=>[p.receiptReference,p.receiptRef,p.originalReceiptRef,p.receiptReferenceNormalized].some(value=>/^\d+$/.test(String(value??'').trim())&&normalize(value)===code);
    const existing=next.payments.filter(matches);
    if((next.ownerPayments||[]).some(matches))throw Error('El correlativo ya pertenece a otro pago; revisa su distribución.');
+   if((next.historicalPayments||[]).some(p=>matches(p)||matches({receiptReference:p.sourceRaw?.receiptRef||p.sourceRaw?.folio})))throw Error('El correlativo ya está registrado en el historial de pagos.');
    const compatible=p=>{
     const sale=next.sales.find(s=>s.id===p.saleId),lot=sale&&next.lots.find(l=>l.id===sale.lotId);
     return /^prima\b/i.test(String(p.concept||''))&&!p.voidedAt&&!['voided','cancelled'].includes(p.status)&&sale?.clientId===client.id&&lot?.residenceId===original.residenceId&&p.date===data.primaDate&&p.method===data.primaMethod;

@@ -67,6 +67,24 @@ export function validateNewReceiptCorrelativos(previous,next){
   if(findReceiptCorrelativo({...next,payments:(next.payments||[]).filter(x=>!same(x))},p.receiptReference))throw Error('El correlativo ya está registrado en otro pago.');
  }
  const oldSales=new Set(previousSales.keys());
+ // Las primas iniciales de contratos nuevos requieren folio igual que los abonos.
+ // Permitir repartir un mismo recibo únicamente entre solares del mismo cliente,
+ // residencial, fecha y método, sin reactivar folios históricos.
+ const oldSaleIds=new Set((previous.sales||[]).map(s=>s.id));
+ const saleIndex=new Map((next.sales||[]).map(s=>[s.id,s]));
+ const lotIndex=new Map((next.lots||[]).map(l=>[l.id,l]));
+ for(const p of next.payments||[]){
+  const sale=saleIndex.get(p.saleId);
+  if(oldSales.has(p.id)||oldSaleIds.has(p.saleId)||sale?.source!=='contract-manual'||!/^prima\b/i.test(String(p.concept||''))||p.historicalImportId)continue;
+  const key=requireReceiptCorrelativo(p.receiptReference);
+  if(p.receiptReferenceNormalized!==key)throw Error('El correlativo normalizado de la prima no coincide con el recibo.');
+  const same=x=>x.id===p.id||Boolean(p.groupId&&x.groupId===p.groupId);
+  const grouped=(next.payments||[]).filter(same);
+  if(grouped.some(x=>{const other=saleIndex.get(x.saleId);return !other||other.clientId!==sale.clientId||lotIndex.get(other.lotId)?.residenceId!==lotIndex.get(sale.lotId)?.residenceId||x.date!==p.date||x.method!==p.method||!/^prima\b/i.test(String(x.concept||''))||normalizeReceiptCorrelativo(x.receiptReference)!==key;}))throw Error('El recibo de prima contiene pagos incompatibles.');
+  if(findReceiptCorrelativo({...next,payments:(next.payments||[]).filter(x=>!same(x))},p.receiptReference))throw Error('El correlativo ya está registrado en otro pago.');
+  const oldMatch=findReceiptCorrelativo(previous,p.receiptReference);
+  if(oldMatch&&(oldMatch.kind!=='venta'||!grouped.some(x=>x.id===oldMatch.id)))throw Error('El correlativo ya está registrado en otro pago.');
+ }
  const oldOwners=new Set((previous.ownerPayments||[]).map(x=>x.id));
  const fresh=[];
  for(const p of next.payments||[])if(!oldSales.has(p.id)&&String(p.groupId||'').startsWith('RC-')&&!p.historicalImportId)

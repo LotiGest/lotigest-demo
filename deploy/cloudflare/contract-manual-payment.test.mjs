@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {intakeCheckValues,intakePlanLots,contractIdentityFormat,contractIdentityDigits} from '../../contract-intake-core.mjs';
 import {validate} from '../../functions/api/app/state.js';
 import {validateNewMonthlyPayments} from '../../monthly-payment-rules.mjs';
+import {validateNewReceiptCorrelativos} from '../../owner-payments.mjs';
 
 const ui=readFileSync(new URL('./contract-intake-ui.js',import.meta.url),'utf8');
 const saveSource=ui.slice(ui.indexOf('function contractIntakeData(form){'),ui.indexOf('function contractIntakeActivate('));
@@ -48,7 +49,7 @@ test('nuevo contrato manual guarda medidas del inventario y no inventa pagos',as
  assert.equal(x.writes(),1);
 });
 test('al marcar prima recibida crea una única venta y pago validado por el servidor',async()=>{
- const x=setup();Object.assign(x.data,{primaPaid:'on',primaDate:'2026-11-02',primaRef:'FICTICIO-001'});
+ const x=setup();Object.assign(x.data,{primaPaid:'on',primaDate:'2026-11-02',primaRef:'990001'});
  await x.run(form(x.data));const next=x.db();validate(next);validateNewMonthlyPayments(x.before,next);
  assert.equal(next.contractTexts[0].status,'active');
  assert.equal(next.sales.length,1);assert.equal(next.payments.length,1);
@@ -60,7 +61,7 @@ test('al marcar prima recibida crea una única venta y pago validado por el serv
 });
 test('una sola ficha de dos solares registra primas separadas con el mismo recibo sin duplicarlo',async()=>{
  const x=setup();
- Object.assign(x.data,{price:'450000',down:'100000',primaPaid:'on',primaDate:'2026-11-02',primaRef:'FICTICIO-002',
+ Object.assign(x.data,{price:'450000',down:'100000',primaPaid:'on',primaDate:'2026-11-02',primaRef:'990002',
   solarPrice_0:'200000',solarDown_0:'50000',extraLotId_0:'L2',extraStage_0:'2',solarPrice_1:'250000',solarDown_1:'50000'});
  await x.run(form(x.data));const next=x.db();validate(next);validateNewMonthlyPayments(x.before,next);
  assert.equal(next.contractTexts.length,2);assert.equal(next.sales.length,2);assert.equal(next.payments.length,2);
@@ -117,4 +118,24 @@ test('anulación previa libera correlativo y conserva pagos de otro solar',()=>{
  assert.deepEqual(next.contractTexts[0].financialCancellation.receiptRefs,['7155']);
  assert.equal(next.lots[0].status,'available');
  assert.equal(state.payments.length,2);
+});
+
+test('prima inicial exige correlativo numérico y no crea datos si falta',async()=>{
+ for(const primaRef of ['', 'ABC-123']){
+  const x=setup();Object.assign(x.data,{primaPaid:'on',primaDate:'2026-11-02',primaRef});
+  await assert.rejects(x.run(form(x.data)),/correlativo numérico/);assert.equal(x.writes(),0);
+ }
+});
+test('prima inicial no puede reutilizar un folio histórico con ceros iniciales',async()=>{
+ const x=setup();x.env.db.historicalPayments=[{id:'H',sourceRaw:{folio:'0007155'}}];
+ Object.assign(x.data,{primaPaid:'on',primaDate:'2026-11-02',primaRef:'7155'});
+ await assert.rejects(x.run(form(x.data)),/historial de pagos/);assert.equal(x.writes(),0);
+});
+test('servidor rechaza una prima inicial sin correlativo o duplicada y acepta la válida',async()=>{
+ const x=setup();Object.assign(x.data,{primaPaid:'on',primaDate:'2026-11-02',primaRef:'0007155'});
+ await x.run(form(x.data));const next=x.db();validateNewReceiptCorrelativos(x.before,next);
+ const invalid=JSON.parse(JSON.stringify(next));delete invalid.payments[0].receiptReference;
+ assert.throws(()=>validateNewReceiptCorrelativos(x.before,invalid),/correlativo/);
+ const dup={...x.before,historicalPayments:[{id:'H',receiptReference:'7155'}]};
+ assert.throws(()=>validateNewReceiptCorrelativos(dup,{...next,historicalPayments:dup.historicalPayments}),/correlativo/);
 });

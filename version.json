@@ -1,4 +1,4 @@
 {
-  "version": "1.0.30",
-  "notes": "Anulación administrativa: retira primas y abonos del contrato, libera correlativos y solar, conserva auditoría y protege recibos compartidos. Permite sanear contratos ya anulados."
+  "version": "1.0.31",
+  "notes": "Valida correlativos numéricos obligatorios de primas iniciales en formulario y servidor. Bloquea duplicados del historial sin afectar pagos existentes ni anulación 1.0.30."
 }
