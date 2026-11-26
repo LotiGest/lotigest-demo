@@ -464,6 +464,20 @@
   }
   return plans;
  }
+ async function mdReceiptsConfirmed(items){
+  try{
+   const remote=await cloudApi('state');
+   if(!remote?.state||remote.revision<cloudQueue.revision)return false;
+   return items.every(item=>{
+    const rows=item.kind==='owner'?(remote.state.ownerPayments||[]).filter(p=>p.id===item.id)
+     :(remote.state.payments||[]).filter(p=>p.id===item.id||p.groupId&&p.groupId===item.id.replace(/-\d+$/,''));
+    if(!rows.length)return false;
+    const reference=item.kind==='owner'?rows[0].receiptRef||rows[0].receiptReference:rows[0].receiptReference;
+    const amount=item.kind==='owner'?Number(rows[0].amountCents)/100:rows.reduce((n,p)=>n+Number(p.amount||0),0);
+    return rows.every(p=>p.date===item.date)&&reference===item.ref&&Math.abs(amount-item.amount)<.001;
+   });
+  }catch{return false;}
+ }
  async function mdSave(){
   if(mdSaving||!mdState)return;
   if(mdStage!=='review'){mdReview();return;}
@@ -502,7 +516,7 @@
    for(const {key,file} of attachments)await window.lotigestFiles.queue(key,file);
    cloudWrite(JSON.stringify(next));db=next;
    await cloudFlush();
-   const confirmed=!!cloudQueue&&!cloudBlocked&&!cloudOffline&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed;
+   const confirmed=!!cloudQueue&&!cloudBlocked&&!cloudOffline&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed&&await mdReceiptsConfirmed(saved);
    mdSaved={items:saved,confirmed,client:mdState.clientName,kind:mdState.kind,saleId:mdState.saleId,clientId:mdState.clientId,residenceId:mdState.residenceId};
    for(const row of mdState.rows)if(row.preview&&String(row.preview).startsWith('blob:'))URL.revokeObjectURL(row.preview);
    mdState=null;
@@ -758,7 +772,7 @@
   else if(action.hasAttribute('data-md-sync')){
    if(mdSaving)return;
    mdSaving=true;action.disabled=true;action.textContent='Sincronizando…';
-   try{await cloudFlush();if(cloudQueue&&!cloudBlocked&&!cloudOffline&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed){mdSaved.confirmed=true;mdShowSaved();toast('Abonos confirmados en Cloudflare D1.');}else{toast('Los abonos siguen pendientes de sincronización. No los ingreses nuevamente.','error');}}
+   try{await cloudFlush();if(cloudQueue&&!cloudBlocked&&!cloudOffline&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed&&await mdReceiptsConfirmed(mdSaved.items)){mdSaved.confirmed=true;mdShowSaved();toast('Abonos confirmados en Cloudflare D1.');}else{toast('No se han confirmado estos recibos en Cloudflare. No los ingreses nuevamente; revisa la sincronización.','error');}}
    finally{mdSaving=false;if(action.isConnected){action.disabled=false;action.textContent='Reintentar sincronización';}}
   }
   else if(action.hasAttribute('data-md-pdf')){if(action.dataset.mdKind==='owner')deliverOwnerPayment(action.dataset.mdPdf,false);else deliverPaymentReceipt(action.dataset.mdPdf,false);}
