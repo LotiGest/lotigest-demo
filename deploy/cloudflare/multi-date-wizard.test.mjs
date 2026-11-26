@@ -9,7 +9,7 @@ function boot(){
  w.eval(`var db={sales:[{id:'s1',clientId:'c1',lotId:'l1',type:'credit',price:10000,downPayment:0}],lots:[{id:'l1',residenceId:'r1'}],clients:[{id:'c1',name:'Ana'}],payments:[]},cloudReady=true,cloudUser={role:'admin'},cloudBlocked=false,cloudBusy=false,cloudOffline=false,cloudQueue={pending:false,latest:1,confirmed:1},writes=0,page='collections',errors=[],seq=0;
  function businessToday(){return '2026-11-25'}function money(n){return 'L '+Number(n).toFixed(2)}function esc(x){return String(x).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;')}function toast(x){errors.push(x)}function paymentReceiptPreview(){}function ownerPaymentPreview(){}function getSale(id){return db.sales.find(s=>s.id===id)}function getLot(id){return db.lots.find(s=>s.id===id)}function getClient(id){return db.clients.find(s=>s.id===id)}function balance(s){return s.price-db.payments.reduce((n,p)=>n+p.amount,0)}function uid(){return 'G'+(++seq)}function planMonthlyClientPayment(state,ids,cents){return {minimumCents:100000,excessCents:cents-100000,allocations:[{saleId:'s1',cents,amount:cents/100}]}}function buildReceiptInfo(){return {}}function cloudWrite(){writes++}async function cloudFlush(){}async function cloudApi(){return {revision:0,state:db}}function closeModal(){document.getElementById('modal-root').innerHTML=''}function render(){}function newPayment(){}function showModal(title,body,footer){document.getElementById('modal-root').innerHTML='<div class="modal-cover"><section class="modal"><div class="modal-header"><h2>'+title+'</h2></div><div class="modal-content">'+body+'</div><div class="modal-footer">'+footer+'</div></section></div>'}`);
  w.lotigestOwnerPayments={requireReceiptCorrelativo:x=>{if(!/^\d+$/.test(x))throw Error('Correlativo inválido');return String(BigInt(x));},normalizeReceiptCorrelativo:x=>/^\d+$/.test(x)?String(BigInt(x)):'',findReceiptCorrelativo:()=>null};
- w.eval(source.replace(/\}\)\(\);\s*$/,`window.wizardTest={start(state){mdState=state;mdShow();},save:mdSave,review:mdReview};})();`));
+ w.eval(source.replace(/\}\)\(\);\s*$/,`window.wizardTest={start(state){mdState=state;mdState.snapshot=mdRelevantSnapshot(db);mdShow();},save:mdSave,review:mdReview};})();`));
  const rows=[{id:'a',date:'2026-10-25',dateText:'25 Octubre 2026',amount:'2500',receiptRef:'4421',expanded:true},{id:'b',date:'2026-11-25',dateText:'25 Noviembre 2026',amount:'2500',receiptRef:'4422',expanded:false}];
  w.wizardTest.start({kind:'sale',saleId:'s1',saleIds:['s1'],clientId:'c1',residenceId:'r1',clientName:'Ana',lotLabel:'Etapa 1 • A-12',docs:[],snapshot:JSON.stringify(w.db),rows});return dom;
 }
@@ -53,4 +53,10 @@ test('date amount and correlativo accept typed digits and paste without losing f
  }
  const amount=row.querySelector('[data-md-field="amount"]');amount.value='1,234.56';amount.dispatchEvent(new w.Event('input',{bubbles:true}));assert.equal(amount.value,'1,234.56');assert.equal(d.activeElement,row.querySelector('[data-md-field="receiptRef"]'));
  dom.window.close();
+});
+test('unrelated client update does not discard an open payment draft',()=>{
+ const dom=boot(),w=dom.window,d=w.document;w.db.clients.push({id:'c2',name:'Otro cliente'});w.wizardTest.review();assert.equal(d.querySelector('#md-review').hidden,false);dom.window.close();
+});
+test('payment change on the selected contract blocks the draft before saving',()=>{
+ const dom=boot(),w=dom.window,d=w.document;w.db.payments.push({id:'other',saleId:'s1',amount:100,date:'2026-11-24'});w.wizardTest.review();assert.equal(d.querySelector('#md-review').hidden,true);assert.match(w.errors.at(-1),/Cambió un pago/);dom.window.close();
 });
