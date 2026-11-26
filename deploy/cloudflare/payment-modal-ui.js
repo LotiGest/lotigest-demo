@@ -300,7 +300,9 @@ function pmRenderAssignedLots(tags,clientId){
 }
 function pmIncludeClientSales(){
  if(!paymentDraft?.clientId)return;
- for(const sale of pmAssignedSales(paymentDraft.clientId))paymentDraft.amounts[sale.id]??='';
+ const assigned=pmAssignedSales(paymentDraft.clientId),chosen=assigned.find(s=>s.id===paymentDraft.referenceSaleId);
+ if(chosen){for(const id of Object.keys(paymentDraft.amounts))if(id!==chosen.id)delete paymentDraft.amounts[id];paymentDraft.amounts[chosen.id]??='';}
+ else{paymentDraft.referenceSaleId=null;for(const sale of assigned)paymentDraft.amounts[sale.id]??='';}
 }
 function pmApplyClientTotal(raw){
  const total=String(raw??'').replace(/,/g,'').trim(),sales=pmSales();
@@ -413,8 +415,23 @@ function pmFold(title,...nodes){
 function pmCompactSales(form,shell,search,person,last,historyBar,summary,cal,entry,fields){
  const modal=form.closest('.lg-payment-modern');if(!modal)return;
  modal.classList.add('pm-reference-payment');
+ const brand=pmNode('div','pm-mobile-brand');
+ const mark=pmNode('span','pm-mobile-mark','⌂'),word=pmNode('div');word.innerHTML='<strong>LOTIGEST <b>PRO</b></strong><small>Sistema de Gestión de Lotificaciones</small>';
+ const menu=pmNode('button','pm-mobile-menu','☰');menu.type='button';menu.dataset.action='menu';menu.setAttribute('aria-label','Abrir menú');
+ const theme=pmNode('button','pm-mobile-theme','◐');theme.type='button';theme.dataset.lgAction='theme';theme.setAttribute('aria-label','Cambiar modo día o noche');
+ brand.append(menu,mark,word,theme);modal.prepend(brand);
+ const heading=modal.querySelector('.modal-header h2');if(heading)heading.textContent='Registrar abono';
+ const subtitle=modal.querySelector('.modal-header p');if(subtitle)subtitle.textContent='Registra un nuevo pago (abono) a un contrato.';
+ const selectors=pmNode('div','pm-mobile-selectors');
+ for(const [id,label] of [['pm-mobile-solar','Solar *'],['pm-mobile-contract','Contrato *']]){
+  const row=pmNode('label','pm-mobile-select-row',label),select=pmNode('select');select.id=id;select.setAttribute('aria-label',label);row.append(select);selectors.append(row);
+  select.addEventListener('change',()=>{paymentDraft.referenceSaleId=select.value||null;renderPaymentSelected();});
+ }
+ 
+
  const left=pmCard('Buscar contrato / cliente','users');
- left.card.classList.add('pm-reference-client');left.body.append(search,person);
+ left.card.classList.add('pm-reference-client');left.body.append(search,person,selectors);
+ const searchLabel=search.querySelector('label');if(searchLabel)searchLabel.textContent='Cliente *';
  const right=pmNode('aside','pm-reference-side');
  summary.classList.add('pm-reference-summary');
  const lastCard=pmCard('Último pago registrado','calendar');lastCard.body.append(last);right.append(summary,lastCard.card);
@@ -438,6 +455,27 @@ function pmCompactSales(form,shell,search,person,last,historyBar,summary,cal,ent
 function pmReferenceRefresh(sales){
  const history=document.getElementById('pm-reference-history'),progress=document.getElementById('pm-reference-progress');
  if(!history||!progress)return;
+ const clientId=sales[0]?.clientId||paymentDraft?.clientId,assigned=pmAssignedSales(clientId);
+ for(const id of ['pm-mobile-solar','pm-mobile-contract']){
+  const select=document.getElementById(id);if(!select)continue;
+  select.replaceChildren();const all=pmNode('option','','Todos los solares / contratos');all.value='';select.append(all);
+  for(const sale of assigned){
+   const lot=getLot(sale.lotId),doc=(db.contractTexts||[]).find(d=>d.saleId===sale.id&&d.status!=='voided');
+   const label=id==='pm-mobile-solar'?'Etapa '+(lot?.stage||'—')+' · Bloque '+(lot?.block||'—')+' · Solar '+(lot?.sourceNumber||lot?.id||'—'):String(doc?.number||doc?.id||sale.id);
+   const option=pmNode('option','',label);option.value=sale.id;select.append(option);
+  }
+  select.value=paymentDraft.referenceSaleId||'';select.disabled=!assigned.length;
+ }
+ const compact=document.getElementById('pm-mobile-balance');
+ if(compact)compact.remove();
+ const side=document.querySelector('.pm-reference-side'),summaryCard=side?.querySelector('.pm-reference-summary');
+ if(summaryCard){
+  const compact=pmNode('div','pm-mobile-balance');compact.id='pm-mobile-balance';
+  const total=sales.reduce((n,s)=>n+Number(s.price||0),0),remaining=sales.reduce((n,s)=>n+balance(s),0);
+  compact.append(pmNode('h3','','Estado de cuenta'),pmSummaryRow('Saldo del contrato',money(total)),pmSummaryRow('Total pagado (incluye prima)',money(Math.max(0,total-remaining))),pmSummaryRow('Saldo pendiente',money(remaining),'pm-good'));
+  summaryCard.before(compact);
+ }
+
  const summary=document.getElementById('pm-summary');
  if(summary){
   const rows=[...summary.querySelectorAll(':scope > .pm-summary-row')],extra=[];
