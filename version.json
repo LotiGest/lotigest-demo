@@ -1,4 +1,4 @@
 {
-  "version": "1.0.23",
-  "notes": "Correcciones tras pruebas de contratos y pagos: primera carga de datos y atajos de abonos. Recorrido completo verificado en base aislada."
+  "version": "1.0.24",
+  "notes": "Barra lateral compacta al navegar; diseño de Abonos para PC conservando celular; Inicio rápido abre mapa de solares."
 }

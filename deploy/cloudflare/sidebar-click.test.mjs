@@ -56,13 +56,13 @@ test('el icono H abre y cierra la barra lateral y el botón de fijar también fu
  assert.equal(ui.states.has('lg-sidebar-just-closed'),false);
 });
 test('estilos de barra desplegada prevalecen sobre reglas de colapso antiguas',()=>{
- assert.match(styles,/\\.lotigest-sidebar\\.pinned[\\s\\S]*?width:var\\(--lg-side-wide\\)!important/);
- assert.match(styles,/\\.lotigest-sidebar\\.pinned \\.lg-nav \\.nav-btn em/);
- assert.match(styles,/\\.lotigest-sidebar\\.pinned \\.lg-side-label/);
- assert.match(styles,/@media\\(hover:hover\\) and \\(pointer:fine\\)/);
- assert.match(styles,/\\.lotigest-sidebar:not\\(\\.pinned\\) \\.lg-sidebar-launcher/);
- assert.match(build,/files\\['sidebar-click.css'\\]/);
- assert.match(build,/href="\\/sidebar-click.css"/);
+ assert.match(styles,/\.lotigest-sidebar\.pinned[\s\S]*?width:var\(--lg-side-wide\)!important/);
+ assert.match(styles,/\.lotigest-sidebar\.pinned \.lg-nav \.nav-btn em/);
+ assert.match(styles,/\.lotigest-sidebar\.pinned \.lg-side-label/);
+ assert.ok(!styles.includes('@media(hover:hover)'));
+ assert.match(styles,/\.lotigest-sidebar:not\(\.pinned\) \.lg-sidebar-launcher/);
+ assert.match(build,/files\['sidebar-click.css'\]/);
+ assert.match(build,/href="\/sidebar-click.css"/);
 });
 
 test('logo empresarial ajustado sin sustituir el botón de navegación',()=>{
@@ -75,4 +75,14 @@ test('logo empresarial ajustado sin sustituir el botón de navegación',()=>{
  assert.equal(logo({company:{logo:{data:'javascript:alert(1)'}}}),logo({}));
  assert.ok(source.includes('class="lg-sidebar-company-logo"'));
  assert.match(styles,/\.lg-sidebar-company-logo\{[^}]*object-fit:contain/);
+});
+
+test('al elegir un acceso la barra se contrae y no restaura el estado abierto',()=>{
+ const ui=environment();
+ ui.click(ui.buttons.launcher);
+ const access={closest:selector=>selector==='[data-page]'?access:null};
+ ui.click(access);
+ assert.equal(ui.states.has('pinned'),false);
+ assert.equal(ui.saved['lotigest-v08-pin'],'false');
+ assert.equal(ui.buttons.launcher.getAttribute('aria-expanded'),'false');
 });

@@ -1899,6 +1899,19 @@ body .lotigest-shell .lg-popup,body .lotigest-shell .lg-search-results{z-index:4
 /* Presentation-only actions; original data-page and data-action events remain unchanged. */
 (function(){
  const byId=id=>document.getElementById(id);
+ // Contraer antes de que la navegación vuelva a dibujar el panel.
+ document.addEventListener('click',function(e){
+   if(!e.target.closest('[data-page]'))return;
+   try{localStorage.setItem('lotigest-v08-pin','false');}catch{}
+   const bar=byId('lgSidebar');
+   bar?.classList.remove('pinned');bar?.classList.remove('open');
+   bar?.querySelectorAll('[data-lg-action="pin"]').forEach(toggle=>{
+     toggle.setAttribute('aria-expanded','false');
+     toggle.setAttribute('aria-label','Expandir barra lateral');toggle.title='Expandir barra lateral';
+     if(!toggle.classList.contains('lg-sidebar-launcher'))toggle.textContent='›';
+   });
+ },true);
+
  document.addEventListener('pointerleave',function(e){if(e.target?.id==='lgSidebar')e.target.classList.remove('lg-sidebar-just-closed');},true);
  document.addEventListener('click',function(e){
    const btn=e.target.closest('[data-lg-action]');
