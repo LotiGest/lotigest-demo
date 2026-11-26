@@ -73,3 +73,45 @@ body.cp-inline-payment #modal-root .pm-reference-payment .pm-current-date small{
 body.cp-inline-payment .workspace>#modal-root{margin:0 14px 20px!important;width:auto;min-width:0}
 body.cp-inline-payment:has(#modal-root .modal-cover) .lotigest-shell .lg-topbar{visibility:visible!important}
 @media(max-width:700px){body.cp-inline-payment .workspace>#modal-root{margin:8px 7px 20px!important}}
+/* Mobile follows the approved vertical abono screen; desktop keeps its grid. */
+.pm-mobile-brand,.pm-mobile-selectors,.pm-mobile-balance{display:none}
+@media(max-width:700px){
+ body.cp-inline-payment .lotigest-shell .lg-topbar{display:none!important}
+ body.cp-inline-payment #modal-root .pm-mobile-brand{display:flex;align-items:center;gap:12px;padding:20px 16px;background:linear-gradient(150deg,#124f35,#051e15);color:white;border-bottom:1px solid #278844}
+ .pm-mobile-mark{font-size:44px;color:#62ec65;line-height:1}.pm-mobile-brand strong{font-size:23px;letter-spacing:.4px}.pm-mobile-brand b{color:#56e75e}.pm-mobile-brand small{display:block;font-size:10px;margin-top:3px}
+ body.cp-inline-payment #modal-root .modal-header{padding:17px 14px;border-bottom:0;gap:8px}
+ body.cp-inline-payment #modal-root .modal-header h2{font-size:23px}
+ body.cp-inline-payment #modal-root .modal-header p{font-size:12px}
+ body.cp-inline-payment #modal-root .pm-reference-toolbar{display:none}
+ body.cp-inline-payment #modal-root .pm-reference-client{border:0;box-shadow:none;background:transparent!important}
+ body.cp-inline-payment #modal-root .pm-reference-client>h3,body.cp-inline-payment #modal-root .pm-reference-client .pm-clientbar{display:none}
+ body.cp-inline-payment #modal-root .pm-reference-client>.pm-card-body{padding:0}
+ body.cp-inline-payment #modal-root .pm-reference-client #pm-searchbox{display:block!important;border:1px solid var(--cp-border);border-radius:14px;padding:8px 13px;background:var(--cp-surface)!important}
+ body.cp-inline-payment #modal-root .pm-reference-client #pm-searchbox>label{font-size:13px}
+ body.cp-inline-payment #modal-root .pm-reference-client #pm-searchbox input{height:42px;min-height:42px;margin-top:3px;width:100%}
+ body.cp-inline-payment #modal-root .pm-mobile-selectors{display:grid;gap:10px;margin-top:10px}
+ body.cp-inline-payment #modal-root .pm-mobile-select-row{border:1px solid var(--cp-border);border-radius:14px;padding:8px 13px;background:var(--cp-surface);font-size:13px}
+ body.cp-inline-payment #modal-root .pm-mobile-select-row select{width:100%;height:42px;margin-top:3px}
+ body.cp-inline-payment #modal-root .pm-reference-side{border:1px solid var(--cp-border);border-radius:16px;background:var(--cp-surface);overflow:hidden;gap:0}
+ body.cp-inline-payment #modal-root .pm-reference-side .pm-reference-summary{display:none}
+ body.cp-inline-payment #modal-root .pm-mobile-balance{display:block;padding:12px 14px 6px}
+ body.cp-inline-payment #modal-root .pm-mobile-balance h3{background:transparent!important;border:0;padding:0 0 12px;color:var(--cp-text);font-size:20px}
+ body.cp-inline-payment #modal-root .pm-mobile-balance .pm-summary-row{padding:5px 0;border:0;font-size:14px}
+ body.cp-inline-payment #modal-root .pm-mobile-balance .pm-summary-row strong{font-size:16px}
+ body.cp-inline-payment #modal-root .pm-reference-side>.pm-card:not(.pm-reference-summary){border:0;border-radius:0;box-shadow:none;background:transparent!important}
+ body.cp-inline-payment #modal-root .pm-reference-side>.pm-card>h3{background:transparent!important;margin:0 14px;padding:9px 0;border-top:1px solid var(--cp-border);border-bottom:0;font-size:15px}
+ body.cp-inline-payment #modal-root .pm-last-payment-main>p,body.cp-inline-payment #modal-root .pm-last-payment-main>small{display:none}
+ body.cp-inline-payment #modal-root .pm-last-payment-main>strong{font-size:13px}
+ body.cp-inline-payment #modal-root .pm-last-payment-details{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:9px;border-radius:10px;background:#76ba8d14}
+ body.cp-inline-payment #modal-root .pm-reference-entry h3{font-size:20px}
+ body.cp-inline-payment #modal-root .pm-reference-entry .pm-card-body{padding:12px 14px}
+ body.cp-inline-payment #modal-root .pm-reference-entry .pm-fields{gap:12px}
+ body.cp-inline-payment #modal-root .pm-reference-actions .pm-save{font-size:20px;min-height:52px;border-radius:12px;background:linear-gradient(#2bcd42,#00972c);border:1px solid #55e765}
+ body.cp-inline-payment #modal-root .pm-reference-entry .pm-payment-options{margin-top:4px}
+ body.cp-inline-payment #modal-root .pm-reference-calendar,body.cp-inline-payment #modal-root .pm-reference-history,body.cp-inline-payment #modal-root .pm-reference-progress{margin-top:2px}
+ body.cp-inline-payment .cp-dock{background:var(--cp-surface);border-radius:25px;padding:6px}
+ body.cp-inline-payment #modal-root .pm-reference-entry input[name=receiptRef]{font-size:18px}
+ body.lotigest-dark.cp-inline-payment #modal-root .pm-mobile-balance .pm-good{color:#83ed6d!important;background:transparent!important}
+ body.lotigest-dark.cp-inline-payment #modal-root .pm-reference-client #pm-searchbox,body.lotigest-dark.cp-inline-payment #modal-root .pm-mobile-select-row{background:linear-gradient(135deg,#173b2d,#0a201b)!important}
+}
+@media(max-width:700px){body.cp-inline-payment #modal-root .pm-mobile-brand{gap:8px;padding:15px 10px}body.cp-inline-payment #modal-root .pm-mobile-brand :is(.pm-mobile-menu,.pm-mobile-theme){border:1px solid #47815c;border-radius:10px;background:#ffffff0b;color:#c7edcf;min-width:32px;min-height:36px;padding:4px;cursor:pointer}body.cp-inline-payment #modal-root .pm-mobile-brand .pm-mobile-theme{margin-left:auto}.pm-mobile-brand strong{font-size:20px}.pm-mobile-mark{font-size:36px}}

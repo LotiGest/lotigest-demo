@@ -17,3 +17,10 @@ test('reference layout retains the original payment controls and visible client,
  assert.ok(d.querySelector('.pm-reference-client').contains(search));assert.ok(d.querySelector('.pm-reference-side').contains(last));assert.ok(d.querySelector('.pm-reference-entry').contains(d.querySelector('button[type=submit]')));
  assert.equal(summary.closest('details'),null);assert.equal(cal.closest('details'),null);dom.window.close();
 });
+test('mobile solar selection scopes the existing draft and all restores the client selection',()=>{
+ const dom=new JSDOM('',{runScripts:'outside-only'});
+ dom.window.eval(`var paymentDraft={clientId:'c1',referenceSaleId:'s2',amounts:{s1:'100',s2:'200'}};function pmAssignedSales(){return [{id:'s1'},{id:'s2'}];}`);
+ dom.window.eval(source.slice(source.indexOf('function pmIncludeClientSales('),source.indexOf('function pmApplyClientTotal(')));
+ dom.window.pmIncludeClientSales();assert.deepEqual(Object.keys(dom.window.paymentDraft.amounts),['s2']);assert.equal(dom.window.paymentDraft.amounts.s2,'200');
+ dom.window.paymentDraft.referenceSaleId=null;dom.window.pmIncludeClientSales();assert.deepEqual(Object.keys(dom.window.paymentDraft.amounts).sort(),['s1','s2']);assert.equal(dom.window.paymentDraft.amounts.s1,'');dom.window.close();
+});
