@@ -66,3 +66,8 @@ test('retry sends the existing pending batch without adding duplicate payments',
  w.cloudFlush=async()=>{w.cloudQueue.pending=false;};d.querySelector('[data-md-sync]').click();
  await new Promise(resolve=>setTimeout(resolve,0));assert.equal(w.writes,1);assert.equal(w.db.payments.length,2);assert.ok(d.querySelector('[data-md-share-all]'));dom.window.close();
 });
+test('calendar button opens picker without covering editable date on PC',()=>{
+ const dom=boot(),w=dom.window,d=w.document,button=d.querySelector('[data-md-open-picker="a"]'),picker=d.querySelector('[data-md-picker="a"]'),input=d.querySelector('[data-md-field="date"][data-md-id="a"]');let opened=0;
+ picker.showPicker=()=>{opened++};button.click();assert.equal(opened,1);assert.equal(button.type,'button');assert.equal(picker.tabIndex,-1);
+ input.focus();input.value='251125';input.dispatchEvent(new w.Event('input',{bubbles:true}));assert.equal(input.value,'25/11/25');assert.equal(d.activeElement,input);dom.window.close();
+});
