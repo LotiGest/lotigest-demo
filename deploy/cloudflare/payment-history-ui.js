@@ -10,7 +10,13 @@ function pmHistoryMatches(p,q){
 }
 function pmHistoryRows(){
  const out=[];
- if(pmActive==='sale'){
+ // Resolver la ficha visible; los reportes no deben depender sólo del modo temporal.
+ const ownerForm=document.getElementById('owner-abono-form');
+ const statementId=ownerForm?.querySelector('[data-owner-statement]')?.dataset.ownerStatement;
+ const statement=(db.ownershipStatements||[]).find(row=>row.id===statementId);
+ const ownerContext=ownerForm&&statement?{clientId:statement.clientId,residenceId:statement.residenceId}:
+  pmActive==='owner'?ownerPaymentDraft:null;
+ if(pmActive==='sale'&&!ownerContext){
   const sales=pmSales(),byId=new Map(sales.map(s=>[s.id,s]));
   const groups=new Map();
   for(const p of db.payments||[]){
@@ -36,8 +42,8 @@ function pmHistoryRows(){
    }else entry.parts.push('Aplicación mensual no identificada · verificar recibo');
   }
   out.push(...groups.values());
- }else if(pmActive==='owner'){
-  const clientId=ownerPaymentDraft?.clientId,rid=ownerPaymentDraft?.residenceId;
+ }else if(ownerContext){
+  const clientId=ownerContext.clientId,rid=ownerContext.residenceId;
   if(!clientId||!rid)return [];
   for(const p of db.ownerPayments||[]){
    if(p.clientId!==clientId||p.residenceId!==rid||p.voidedAt||p.deletedAt)continue;
