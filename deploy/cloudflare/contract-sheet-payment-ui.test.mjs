@@ -20,9 +20,9 @@ test('ficha PDF de datos existentes y abonos: mensualidad visible, menor bloquea
   if(app.d.querySelector('#owner-payment-search')){app.input('#owner-payment-search','CLIENTE FICTICIO');app.click('[data-action=owner-payment-person][data-id="PDF-C"]');}
   if(!app.d.querySelector('#pm-amount-slot [data-payment-amount]'))app.click('[data-action=multi-payment-add][data-id="PDF-V"]');
   assert.match(app.d.querySelector('[data-monthly-banner]').textContent,/6,220.33/);
-  app.input('#pm-amount-slot [data-pm-currency]','5000');app.submit('#multi-payment-form',{date:'2024-02-01',concept:'Abono de prueba'});
+  app.input('#pm-amount-slot [data-pm-currency]','5000');app.submit('#multi-payment-form',{date:'2024-02-01',concept:'Abono de prueba',receiptRef:'880001'});
   assert.match(app.d.querySelector('#multi-payment-error').textContent,/mínimo/);assert.equal((await server.read()).state.payments.filter(p=>p.saleId==='PDF-V').length,1);
-  app.input('#pm-amount-slot [data-pm-currency]','6220.33');app.submit('#multi-payment-form',{date:'2024-02-01',concept:'Abono de prueba'});await saved(app);
+  app.input('#pm-amount-slot [data-pm-currency]','6220.33');app.submit('#multi-payment-form',{date:'2024-02-01',concept:'Abono de prueba',receiptRef:'880001'});await saved(app);
   assert.equal((await server.read()).state.payments.filter(p=>p.saleId==='PDF-V').length,2);assert.deepEqual(server.errors,[]);
  }finally{app.close();}
 });

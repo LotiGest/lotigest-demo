@@ -1,4 +1,4 @@
 {
-  "version": "1.0.26",
-  "notes": "Buscador de clientes de Abonos dentro del área de contenido, sin quedar detrás de las barras lateral e inferior en PC."
+  "version": "1.0.27",
+  "notes": "Correlativos cortos de contratos CM-0001 en orden de registro, conservando vínculos y números asignados al editar o anular."
 }
