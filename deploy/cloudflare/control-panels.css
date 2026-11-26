@@ -194,7 +194,7 @@ body.cp-inline-payment:has(#modal-root .modal-cover) .lotigest-shell .lg-topbar{
  html body.cp-inline-payment #modal-root .pm-reference-payment .pm-reference-actions .pm-save{min-height:42px!important;font-size:17px!important;margin:0!important}
  html body.cp-inline-payment #modal-root .pm-reference-payment .pm-mobile-details-toggle{display:block!important;min-height:28px!important;flex:1 0 100%!important;padding:4px!important;font-size:11px!important;background:transparent!important;border:0!important;color:inherit!important}
  html body.cp-inline-payment #modal-root .pm-reference-payment:not(.pm-mobile-expanded) :is(.pm-reference-calendar,.pm-reference-history,.pm-reference-progress,.pm-payment-options,.pm-date-today,.pm-fields .pm-help,.pm-last-payment-solares,.pm-last-payment-main~.pm-last-payment-main){display:none!important}
- html body.cp-inline-payment #modal-root .pm-reference-payment:not(.pm-mobile-expanded) .pm-reference-actions>.btn:not(.pm-save):not(.pm-mobile-details-toggle){display:none!important}
+ html body.cp-inline-payment #modal-root .pm-reference-payment:not(.pm-mobile-expanded) .pm-reference-actions>.btn:not(.pm-save):not(.pm-mobile-details-toggle):not(.pm-many-client){display:none!important}
  html body.cp-inline-payment #modal-root .pm-reference-payment.pm-mobile-expanded .pm-reference-toolbar{display:flex!important}
  html body.cp-inline-payment .nexora-footer{display:none!important}
  html body.cp-inline-payment .cp-dock{bottom:max(5px,env(safe-area-inset-bottom))!important;padding:3px!important}
@@ -211,3 +211,7 @@ body.cp-inline-payment:has(#modal-root .modal-cover) .lotigest-shell .lg-topbar{
  html body.cp-inline-payment .cp-dock{z-index:450!important}
 }
 @media screen and (max-width:700px){html body.cp-inline-payment #app .lotigest-sidebar.open{z-index:800!important}html body.cp-inline-payment #app .mobile-backdrop{z-index:799!important}}
+
+/* Abonos varios is a primary action on both screen sizes. */
+body.cp-inline-payment #modal-root .pm-reference-actions .pm-many-client{display:inline-flex!important;align-items:center;justify-content:center;min-height:38px;border:1px solid #368b55;background:var(--cp-surface);color:var(--cp-text);font-weight:700}
+@media(max-width:700px){html body.cp-inline-payment #modal-root .pm-reference-payment .pm-reference-actions .pm-many-client{display:flex!important;flex:1 0 100%!important;min-height:34px!important;padding:6px!important;font-size:13px!important;order:0!important}html body.cp-inline-payment #modal-root .pm-reference-payment .pm-reference-actions .pm-mobile-details-toggle{order:1!important}}
