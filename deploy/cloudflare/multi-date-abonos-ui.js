@@ -95,13 +95,25 @@
  function mdCreateEntry(){
   return {id:'MDR'+crypto.randomUUID().replace(/-/g,''),date:'',dateText:'',amount:'',receiptRef:'',statementId:mdState?.docs?.[0]?.id||'',photo:null,preview:null,status:'',dateEdited:false,amountEdited:false,amountSuggested:false,refEdited:false,refSuggested:false,expanded:false};
  }
+ function mdRelevantSnapshot(state){
+  const ids=new Set(mdState?.saleIds||[]),docs=new Set(mdState?.docs?.map(d=>d.id)||[]);
+  const sales=(state.sales||[]).filter(s=>ids.has(s.id)),lotIds=new Set(sales.map(s=>s.lotId));
+  return JSON.stringify(mdState?.kind==='sale'?{
+   sales,
+   lots:(state.lots||[]).filter(l=>lotIds.has(l.id)),
+   payments:(state.payments||[]).filter(p=>ids.has(p.saleId))
+  }:{
+   statements:(state.ownershipStatements||[]).filter(s=>docs.has(s.id)),
+   payments:(state.ownerPayments||[]).filter(p=>p.clientId===mdState.clientId&&p.residenceId===mdState.residenceId)
+  });
+ }
  function mdStartSale(saleId){
   if(!cloudReady||cloudUser?.role!=='admin')return toast('Se requiere acceso de administrador para registrar abonos.','error');
   const sale=getSale(saleId),lot=getLot(sale?.lotId),client=getClient(sale?.clientId);
   if(!sale||!lot||!client||sale.type!=='credit'||balance(sale)<.01)return toast('Selecciona un solar con crédito y saldo pendiente.','error');
   if(cloudBlocked||cloudBusy||cloudQueue?.pending||cloudQueue?.latest!==cloudQueue?.confirmed)return toast('Sincroniza primero los cambios pendientes antes de registrar varios pagos.','error');
   const clientSales=db.sales.filter(x=>x.clientId===client.id&&x.type==='credit'&&getLot(x.lotId)?.residenceId===lot.residenceId&&balance(x)>.009);
-  mdState={kind:'sale',saleId:sale.id,saleIds:clientSales.map(x=>x.id),clientId:client.id,residenceId:lot.residenceId,clientName:client.name,lotLabel:clientSales.map(x=>{const l=getLot(x.lotId);return 'Etapa '+(l.stage||'—')+' · Bloque '+l.block+' · Solar '+(l.sourceNumber||l.id);}).join(' / ')+' · Abono total repartido según las cuotas',snapshot:JSON.stringify(db),rows:[],docs:[]};
+  mdState={kind:'sale',saleId:sale.id,saleIds:clientSales.map(x=>x.id),clientId:client.id,residenceId:lot.residenceId,clientName:client.name,lotLabel:clientSales.map(x=>{const l=getLot(x.lotId);return 'Etapa '+(l.stage||'—')+' · Bloque '+l.block+' · Solar '+(l.sourceNumber||l.id);}).join(' / ')+' · Abono total repartido según las cuotas',rows:[],docs:[]};mdState.snapshot=mdRelevantSnapshot(db);
   mdState.rows.push(mdCreateEntry());mdState.rows.push(mdCreateEntry());
   mdState.rows[0].expanded=true;
   mdLastPaymentTarget={kind:'sale',saleId:sale.id};
@@ -117,7 +129,7 @@
    return toast('No existen fichas de solares con saldo para registrar varios abonos.','error');
   }
   if(cloudBlocked||cloudBusy||cloudQueue?.pending||cloudQueue?.latest!==cloudQueue?.confirmed)return toast('Sincroniza primero los cambios pendientes antes de registrar varios pagos.','error');
-  mdState={kind:'owner',clientId,residenceId:rid,clientName:client.name,lotLabel:'Fichas de propietario · '+docs.length+' documento(s)',docs,snapshot:JSON.stringify(db),rows:[]};
+  mdState={kind:'owner',clientId,residenceId:rid,clientName:client.name,lotLabel:'Fichas de propietario · '+docs.length+' documento(s)',docs,rows:[]};mdState.snapshot=mdRelevantSnapshot(db);
   mdState.rows.push(mdCreateEntry());mdState.rows.push(mdCreateEntry());
   mdState.rows[0].expanded=true;
   mdLastPaymentTarget={kind:'owner',clientId,residenceId:rid};
@@ -436,7 +448,7 @@
  function mdValidate(){
   if(!mdState||!mdState.rows.length)throw Error('Agrega al menos un abono.');
   if(!cloudReady||cloudUser?.role!=='admin'||cloudBlocked||cloudBusy||cloudQueue?.pending||cloudQueue?.latest!==cloudQueue?.confirmed)throw Error('Sincroniza la aplicación antes de registrar varios abonos.');
-  if(JSON.stringify(db)!==mdState.snapshot)throw Error('Los datos cambiaron. Vuelve a abrir el formulario para evitar duplicaciones.');
+  if(mdRelevantSnapshot(db)!==mdState.snapshot)throw Error('Cambió un pago o contrato de estos solares. Conserva este borrador y revisa el estado actualizado antes de registrar los abonos.');
   const existingKeys=new Set(),result=[];
   const lastFilled=mdState.rows.findLastIndex(mdRowHasPayment);
   if(lastFilled<0)throw Error('Ingresa al menos un abono antes de guardar.');
