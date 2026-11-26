@@ -74,7 +74,7 @@ test('si se marca prima recibida pero falta fecha de cobro se rechaza sin guarda
  await assert.rejects(x.run(form(x.data)),/fecha real de la prima/);
  assert.equal(x.writes(),0);
 });
-test('eliminar contrato lo anula, pero no elimina la venta ni el pago existente',async()=>{
+test('anular contrato retira venta y pago y conserva auditoría',async()=>{
  let db=fixture();db.clients.push({id:'C',name:'CLIENTE FICTICIO'});
  db.lots[0].ownerClientId='C';db.lots[0].status='sold';
  db.sales.push({id:'V',clientId:'C',lotId:'L1',type:'credit',price:200000,downPayment:50000,months:84,date:'2026-11-01'});
@@ -83,12 +83,38 @@ test('eliminar contrato lo anula, pero no elimina la venta ni el pago existente'
  const queue={latest:JSON.stringify(db),confirmed:JSON.stringify(db)};
  const env={db,FormData:InputFormData,contractIntakeAdmin:()=>true,cloudUser:{name:'ADMIN'},
   getLot:id=>db.lots.find(l=>l.id===id),getClient:id=>db.clients.find(c=>c.id===id),
+  window:{lotigestConfirmAdminPin:async pin=>{assert.equal(pin,'1234');}},
   cloudWrite:raw=>{db=JSON.parse(raw);queue.latest=raw;},cloudFlush:async()=>{queue.confirmed=queue.latest;},
   cloudQueue:queue,cloudBlocked:false,cloudOffline:false,toast(){},closeModal(){},render(){}};
  const del=new Function(...Object.keys(env),manageSource+';return contractManageDeleteSave;')(...Object.values(env));
- await del(form({documentId:'D',confirmation:'ELIMINAR',reason:'Prueba controlada'}));
+ await del(form({documentId:'D',confirmation:'ELIMINAR',reason:'Prueba controlada',pin:'1234'}));
  validate(db);
  assert.equal(db.contractTexts[0].status,'voided');
- assert.equal(db.sales.length,1);assert.equal(db.payments.length,1);
+ assert.equal(db.sales.length,0);assert.equal(db.payments.length,0);
+ assert.equal(db.lots[0].status,'available');assert.equal(db.lots[0].ownerClientId,undefined);
+ assert.deepEqual(db.contractTexts[0].financialCancellation.paymentIds,['P']);
  assert.equal(db.lots[0].area,170);
+});
+
+test('anulación de un recibo compartido no modifica ningún contrato',()=>{
+ const cancel=new Function(manageSource+';return contractCancelFinancialRecords;')();
+ const state=fixture();state.clients.push({id:'C',name:'FICTICIO'});
+ state.contractTexts.push({id:'D',clientId:'C',lotId:'L1',residenceId:'R',saleId:'V',status:'active'});
+ state.sales.push({id:'V',clientId:'C',lotId:'L1'},{id:'V2',clientId:'C',lotId:'L2'});
+ state.payments.push({id:'P',saleId:'V',groupId:'G',receiptReference:'7155',amount:100},{id:'P2',saleId:'V2',groupId:'G',receiptReference:'7155',amount:100});
+ const before=JSON.stringify(state);
+ assert.throws(()=>cancel(state,'D','ADMIN','Prueba','2026-11-26'),/recibo compartido/);
+ assert.equal(JSON.stringify(state),before);
+});
+test('anulación previa libera correlativo y conserva pagos de otro solar',()=>{
+ const cancel=new Function(manageSource+';return contractCancelFinancialRecords;')();
+ const state=fixture();state.clients.push({id:'C',name:'FICTICIO'});
+ state.contractTexts.push({id:'D',clientId:'C',lotId:'L1',residenceId:'R',saleId:'V',status:'voided'});
+ state.sales.push({id:'V',clientId:'C',lotId:'L1'},{id:'V2',clientId:'C',lotId:'L2'});
+ state.payments.push({id:'P',saleId:'V',receiptReference:'7155',amount:100},{id:'P2',saleId:'V2',receiptReference:'7156',amount:100});
+ const next=cancel(state,'D','ADMIN','Prueba','2026-11-26');
+ assert.deepEqual(next.payments.map(p=>p.receiptReference),['7156']);
+ assert.deepEqual(next.contractTexts[0].financialCancellation.receiptRefs,['7155']);
+ assert.equal(next.lots[0].status,'available');
+ assert.equal(state.payments.length,2);
 });

@@ -1296,42 +1296,97 @@ async function contractManageEditSave(form){
   toast('Contrato modificado localmente; falta confirmar su sincronización.','error');
  else toast('Contrato editado. Cuotas y saldo recalculados; recibos y medidas conservados.');
 }
+// Anular una ficha concreta sin tocar otras ventas ni liberar recibos compartidos.
+function contractCancelFinancialRecords(state,id,actor,reason,at){
+ const next=JSON.parse(JSON.stringify(state));
+ const d=(next.contractTexts||[]).find(x=>x.id===id);
+ const lot=next.lots.find(l=>l.id===d?.lotId);
+ if(!d||!lot||lot.residenceId!==d.residenceId||!d.clientId)throw Error('No se pudo identificar el contrato y su solar.');
+ if(d.status==='voided'&&d.financialCancellation)throw Error('Los pagos de este contrato ya fueron retirados.');
+ if(next.contractTexts.some(x=>x.id!==id&&x.status!=='voided'&&x.lotId===lot.id))throw Error('Existe otro contrato vigente para este solar.');
+ if((lot.ownerClientId&&lot.ownerClientId!==d.clientId)||(lot.clientId&&lot.clientId!==d.clientId)||lot.type==='private'||lot.status==='private')throw Error('El solar tiene otra asignación. No se retiró ningún pago.');
+ const sales=next.sales.filter(s=>s.id===d.saleId||s.documentId===id);
+ if(sales.some(s=>s.clientId!==d.clientId||s.lotId!==lot.id)||next.sales.some(s=>s.lotId===lot.id&&!sales.includes(s)))throw Error('Existe una venta no identificada con esta ficha. Revisa antes de anular.');
+ if(d.saleId&&!sales.some(s=>s.id===d.saleId))throw Error('La venta original no está disponible.');
+ const saleIds=new Set(sales.map(s=>s.id)),payments=next.payments.filter(p=>saleIds.has(p.saleId)),paymentIds=new Set(payments.map(p=>p.id));
+ const groups=new Set(payments.map(p=>p.groupId).filter(Boolean));
+ if(next.payments.some(p=>!paymentIds.has(p.id)&&groups.has(p.groupId)))throw Error('Hay un recibo compartido con otro contrato. Revisa la distribución antes de anular.');
+ const refsOf=x=>x.references||[];
+ const touches=refs=>refs.some(r=>r.lotId===lot.id);
+ const only=refs=>refs.length>0&&refs.every(r=>r.lotId===lot.id);
+ const statements=(next.ownershipStatements||[]).filter(s=>s.clientId===d.clientId&&s.residenceId===d.residenceId&&touches(refsOf(s)));
+ if(statements.some(s=>!only(refsOf(s))||(s.paymentIds||[]).length||(s.contractIds||[]).length))throw Error('Hay una ficha histórica o compartida que requiere conciliación manual.');
+ const statementIds=new Set(statements.map(s=>s.id));
+ const owners=(next.ownerPayments||[]).filter(p=>p.clientId===d.clientId&&p.residenceId===d.residenceId&&(p.allocations||[]).some(a=>statementIds.has(a.statementId)||touches(refsOf(a))));
+ if(owners.some(p=>!(p.allocations||[]).every(a=>statementIds.has(a.statementId)&&only(refsOf(a)))))throw Error('Hay un recibo de propietario compartido. No se liberó el correlativo.');
+ const ownerIds=new Set(owners.map(p=>p.id));
+ if((next.historicalContracts||[]).some(c=>saleIds.has(c.saleId)||(c.clientId===d.clientId&&(c.lotId===lot.id||touches(refsOf(c)))))||
+    (next.historicalPayments||[]).some(p=>paymentIds.has(p.postedPaymentId)||(p.clientId===d.clientId&&(p.lotId===lot.id||touches(refsOf(p)))))||
+    payments.some(p=>p.historicalImportId))throw Error('Hay pagos históricos vinculados. Requieren conciliación manual antes de anular.');
+ if((next.reservations||[]).some(r=>r.lotId===lot.id&&r.status==='active')||
+    (next.clientRequests||[]).some(r=>r.lotId===lot.id&&!['rejected','cancelled','voided'].includes(r.status)))throw Error('El solar tiene un apartado o solicitud vigente.');
+ // D1 conserva las versiones anteriores de registros eliminados en app_history.
+ // El resumen queda en la ficha anulada; los folios no ocupan el índice de recibos.
+ const receiptRefs=[...new Set([...payments,...owners].map(p=>String(p.receiptReference||p.receiptReferenceNormalized||p.originalReceiptRef||'')).filter(Boolean))];
+ const audit={at,by:actor,reason,saleIds:[...saleIds],paymentIds:[...paymentIds],ownerPaymentIds:[...ownerIds],receiptRefs,amountCents:payments.reduce((n,p)=>n+Math.round(Number(p.amount||0)*100),0)+owners.reduce((n,p)=>n+Number(p.amountCents||0),0)};
+ d.financialCancellation=audit;
+ d.financialCancellationHistory=[...(d.financialCancellationHistory||[]),audit];
+ if(d.status!=='voided')d.statusBeforeVoid=d.status;
+ d.status='voided';d.voidedAt=d.voidedAt||at;d.voidedBy=d.voidedBy||actor;d.voidReason=d.voidReason||reason;d.updatedAt=at;
+ delete d.saleId;
+ next.payments=next.payments.filter(p=>!paymentIds.has(p.id));
+ next.sales=next.sales.filter(s=>!saleIds.has(s.id));
+ if(next.ownerPayments)next.ownerPayments=next.ownerPayments.filter(p=>!ownerIds.has(p.id));
+ if(next.ownershipStatements)next.ownershipStatements=next.ownershipStatements.filter(s=>!statementIds.has(s.id));
+ for(const r of next.reservations||[])if(saleIds.has(r.saleId)){r.status='cancelled';r.cancelledAt=at;delete r.saleId;}
+ if(lot.ownerClientId===d.clientId)delete lot.ownerClientId;
+ if(lot.clientId===d.clientId)delete lot.clientId;
+ if(lot.pendingContractId===id)delete lot.pendingContractId;
+ if(lot.contractId===id)delete lot.contractId;
+ if(lot.pendingContractId||lot.contractId)throw Error('El solar está asociado a otra ficha.');
+ lot.status='available';lot.purchaseFromPlan=false;delete lot.mapDebtFlag;
+ const map=next.residences?.find(r=>r.id===lot.residenceId)?.records?.[lot.sourceFeatureKey];
+ if(map&&(!map.lotId||map.lotId===lot.id))map.status='available';
+ return next;
+}
+let contractCancellationBusy=false;
+function contractCancellationRecord(id){
+ return (db.contractTexts||[]).find(d=>d.id===id&&['manual','photo+ocr'].includes(d.format)&&!(d.status==='voided'&&d.financialCancellation));
+}
 function contractManageDeleteOpen(id){
- if(!contractIntakeAdmin()){toast('Solo un administrador puede eliminar contratos.','error');return;}
- const d=contractManageRecord(id);if(!d){toast('El contrato no existe o ya fue anulado.','error');return;}
- const sale=d.saleId?getSale(d.saleId):null;
- const count=sale?(db.payments||[]).filter(p=>p.saleId===sale.id).length:0;
- showModal('Eliminar contrato',
+ if(!contractIntakeAdmin()){toast('Solo un administrador puede anular contratos.','error');return;}
+ const d=contractCancellationRecord(id);if(!d){toast('El contrato no existe o sus pagos ya fueron retirados.','error');return;}
+ showModal('Anular contrato y liberar recibos',
   '<p>Contrato <strong>'+esc(d.number||d.id)+'</strong> de '+esc(getClient(d.clientId)?.name||'cliente')+'.</p>'+
-  '<p><strong>La eliminación será una anulación recuperable en el historial.</strong> No borra clientes, medidas, mapas, recibos, primas ni abonos.</p>'+
-  (sale?'<p class="sm">Ya existe venta vinculada'+(count?' con '+count+' pago(s).':'')+'; seguirá en Residenciales y Cobros para preservar el dinero y la deuda.</p>':
-  '<p class="sm">La ficha no tiene venta. Se liberará la reserva contractual del solar, si no existen otras asignaciones.</p>')+
+  '<p><strong>Se retirarán las primas y abonos de este contrato, se liberarán sus correlativos y el solar, y se actualizarán los totales.</strong> Solo realiza esta acción si los registros deben revertirse. Se conserva la auditoría. Si hay dinero realmente recibido, concilia su devolución o aplicación antes de anular.</p>'+
+  '<p>Los recibos compartidos o históricos requieren revisión. Reactivar la ficha no restaurará los recibos retirados.</p>'+
   '<form id="contract-manage-delete"><input type="hidden" name="documentId" value="'+esc(id)+'"><label>Escribe ELIMINAR para confirmar<input name="confirmation" required autocomplete="off"></label>'+
-  '<label>Motivo de la anulación<textarea name="reason" maxlength="300" rows="2"></textarea></label></form>',
+  '<label>Motivo de la anulación<textarea name="reason" maxlength="300" rows="2" required></textarea></label>'+
+  '<label>PIN de administrador<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required autocomplete="off"></label></form>',
   '<button class="btn btn-outline" type="button" data-action="close-modal">Cancelar</button>'+
-  '<button class="btn btn-primary" type="submit" form="contract-manage-delete">Confirmar eliminación</button>',true);
+  '<button class="btn btn-primary" type="submit" form="contract-manage-delete">Confirmar anulación</button>',true);
 }
 async function contractManageDeleteSave(form){
+ if(contractCancellationBusy)return;
  if(!contractIntakeAdmin())throw Error('Solo un administrador con nube sincronizada puede anular.');
  const data=Object.fromEntries(new FormData(form));
  if(String(data.confirmation||'').trim().toUpperCase()!=='ELIMINAR')throw Error('Escribe ELIMINAR para confirmar.');
- const d=contractManageRecord(data.documentId);if(!d)throw Error('Contrato inexistente o ya anulado.');
- const next=JSON.parse(JSON.stringify(db)),record=next.contractTexts.find(x=>x.id===d.id),lot=next.lots.find(l=>l.id===d.lotId);
- const hasSale=next.sales.some(s=>s.id===record.saleId||s.lotId===record.lotId);
- record.statusBeforeVoid=record.status;record.status='voided';record.voidedAt=new Date().toISOString();record.voidedBy=String(cloudUser?.name||'Administrador');
- record.voidReason=String(data.reason||'Anulación solicitada por administrador').trim().slice(0,300);
- record.updatedAt=record.voidedAt;
- if(lot&&!hasSale){
-  if(lot.pendingContractId===record.id)delete lot.pendingContractId;
-  const other=next.contractTexts.some(x=>x.id!==record.id&&x.lotId===lot.id&&x.status!=='voided');
-  const ownership=(next.ownershipStatements||[]).some(x=>x.clientId===record.clientId&&(x.references||[]).some(r=>r.lotId===lot.id));
-  if(!other&&!ownership&&lot.ownerClientId===record.clientId)delete lot.ownerClientId;
- }
- if(typeof ensureContractNumbers==='function')ensureContractNumbers(next);
- cloudWrite(JSON.stringify(next));db=next;await cloudFlush();closeModal();render();
- if(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed)
-  toast('Anulación pendiente de sincronizar. Comprueba el estado de la nube.','error');
- else toast('Contrato anulado. Los datos financieros y las medidas permanecen intactos.');
+ const reason=String(data.reason||'').trim(),pin=String(data.pin||'');
+ if(!reason||reason.length>300)throw Error('Indica el motivo de la anulación.');
+ if(!/^\d{4}$/.test(pin)||typeof window.lotigestConfirmAdminPin!=='function')throw Error('Introduce el PIN vigente de administrador.');
+ const d=contractCancellationRecord(data.documentId);if(!d)throw Error('Contrato inexistente o ya procesado.');
+ const snapshot=JSON.stringify(db);
+ contractCancellationBusy=true;
+ try{
+  await window.lotigestConfirmAdminPin(pin);
+  if(!contractIntakeAdmin()||form.isConnected===false||snapshot!==JSON.stringify(db))throw Error('Los datos cambiaron. Abre nuevamente el contrato.');
+  const next=contractCancelFinancialRecords(db,d.id,String(cloudUser?.name||'Administrador'),reason,new Date().toISOString());
+  if(typeof ensureContractNumbers==='function')ensureContractNumbers(next);
+  cloudWrite(JSON.stringify(next));db=next;await cloudFlush();closeModal();render();
+  if(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed)
+   toast('Anulación pendiente de sincronizar. No reutilices los correlativos hasta confirmar la nube.','error');
+  else toast('Contrato anulado. Recibos retirados, correlativos y solar liberados.');
+ }finally{contractCancellationBusy=false;}
 }
 document.addEventListener('click',event=>{
  const edit=event.target.closest?.('[data-contract-edit]'),del=event.target.closest?.('[data-contract-delete]');

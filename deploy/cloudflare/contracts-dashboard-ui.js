@@ -205,6 +205,7 @@
    const next=JSON.parse(JSON.stringify(db)),record=next.contractTexts.find(x=>x.id===d.id),lot=next.lots.find(x=>x.id===d.lotId);
    const at=new Date().toISOString();
    record.status=record.saleId?'active':(record.statusBeforeVoid==='registered'?'registered':'pending-sale');
+   if(record.financialCancellation)delete record.financialCancellation;
    record.reactivationHistory=[...(record.reactivationHistory||[]),{at,by:cloudUser.name||'Administrador',voidedAt:record.voidedAt,voidReason:record.voidReason}];
    record.updatedAt=at;lot.ownerClientId=record.clientId;
    if(record.saleId){lot.status='sold';delete lot.pendingContractId;}else lot.pendingContractId=record.id;
@@ -268,7 +269,7 @@
     '<button class="btn btn-outline btn-sm" data-action="contract-scan" data-client="'+esc(r.clientId)+'" data-id="'+esc(r.id)+'">Escanear texto</button> '+
     '<button class="btn btn-outline btn-sm" data-action="contract-preview" data-id="'+esc(r.id)+'">Plantilla</button>';
   const d=r.doc;
-  if(d.status==='voided')return '<button type="button" class="btn btn-outline btn-sm" data-ct-voided-view="'+esc(d.id)+'">Ver anulación</button>'+ (activationAdmin()?' <button type="button" class="btn btn-primary btn-sm" data-ct-activate="'+esc(d.id)+'">Activar contrato</button>':'');
+  if(d.status==='voided')return '<button type="button" class="btn btn-outline btn-sm" data-ct-voided-view="'+esc(d.id)+'">Ver anulación</button>'+(!d.financialCancellation&&activationAdmin()?' <button type="button" class="btn btn-outline btn-sm" data-contract-delete="'+esc(d.id)+'">Retirar pagos y liberar correlativos</button>':'')+ (activationAdmin()?' <button type="button" class="btn btn-primary btn-sm" data-ct-activate="'+esc(d.id)+'">Activar contrato</button>':'');
   return '<button class="btn btn-outline btn-sm" data-contract-ficha-view="'+esc(d.id)+'">Ver</button> '+
    (d.status!=='voided'?'<button class="btn btn-outline btn-sm" data-contract-edit="'+esc(d.id)+'">Editar contrato</button> '+
     '<button class="btn btn-outline btn-sm" data-contract-delete="'+esc(d.id)+'">Eliminar</button> ':'')+
