@@ -1336,7 +1336,19 @@ function contractQuickMount(){
  const [client,lots,terms,dates]=panels;client.dataset.cqPanel='1';lots.dataset.cqPanel='2';terms.dataset.cqPanel='3';
  const dateTitle=dates.querySelector('h3');if(dateTitle)dateTitle.textContent='Fechas y opciones';terms.append(...dates.childNodes);dates.remove();
  const residenceCard=document.createElement('div');residenceCard.className='cq-residence-card';residenceCard.innerHTML='<small>Residencial</small><strong>'+esc(residence()?.name||'Residencial actual')+'</strong><span>✓ Solo solares disponibles</span>';lots.querySelector('h3')?.after(residenceCard);
- const price=form.querySelector('[name="solarPrice_0"]')?.closest('.field-group');if(price){price.classList.add('cq-solar-price');lots.append(price);}
+ const price=form.querySelector('[name="solarPrice_0"]')?.closest('.field-group');
+ const primaInput=form.querySelector('[name="solarDown_0"]')||form.querySelector('[name="down"]');
+ const prima=primaInput?.closest('.field-group')||primaInput;
+ const primary=document.createElement('fieldset');primary.className='full cq-primary-solar';
+ primary.style.cssText='border:1px solid var(--line,#cbd5d1);border-radius:12px;padding:12px;margin:12px 0';
+ const legend=document.createElement('legend');legend.textContent='Solar 1';primary.append(legend);
+ const grid=document.createElement('div');grid.className='form-grid';primary.append(grid);
+ const lotFields=lots.querySelector('.lg-contract-lot-fields'),metrics=lots.querySelector('.lg-contract-solar-info');
+ if(lotFields){lotFields.classList.add('full');grid.append(lotFields);}
+ if(metrics){metrics.classList.add('full');grid.append(metrics);}
+ if(price){price.classList.add('cq-solar-price');const label=price.querySelector('span');if(label)label.textContent='Precio acordado de este solar (L)';grid.append(price);}
+ if(prima){const label=prima.querySelector?.('span');if(label)label.textContent='Prima pactada de este solar (L)';grid.append(prima);}
+ residenceCard.after(primary);
  const nav=document.createElement('nav');nav.className='cq-steps';nav.setAttribute('aria-label','Pasos del contrato');nav.innerHTML=[['1','Cliente'],['2','Solares'],['3','Revisar']].map(([n,label])=>'<button type="button" data-cq-step="'+n+'"><i>'+n+'</i>'+label+'</button>').join('');form.prepend(nav);
  const quick=document.createElement('div');quick.className='cq-client-actions';quick.innerHTML='<button type="button" class="btn btn-outline" data-contract-client-clear>+ Cliente nuevo</button>'+'<button type="button" class="btn btn-outline" data-cq-last-client '+(contractQuickLastClient&&getClient(contractQuickLastClient)?'':'disabled')+'>Usar último cliente</button>';client.append(quick);
  const summary=document.createElement('div');summary.className='cq-review-summary';terms.querySelector('h3')?.after(summary);
