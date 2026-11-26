@@ -130,3 +130,14 @@ test('vista oficial exige correlativo, excluye prima, anulados y aplicaciones su
  assert.ok(result.rows.slice(1).every(x=>x.appliedCents===0));
  assert.equal(result.unmatched.length,3);
 });
+
+test('abonos parciales conservan faltante mensual y el siguiente recibo completa primero esa cuota',()=>{
+ const s=sale({firstDueDate:'2026-11-10',months:2});
+ const first={id:'P1',saleId:s.id,date:'2026-11-05',amount:600,receiptReference:'8001',receiptInfo:{allocations:[{number:1,amount:600}]}};
+ let result=reconcileInstallments([s],[first],'2026-11-26',installment,addMonth,{requireReference:true});
+ assert.equal(result.rows[0].appliedCents,60000);assert.equal(result.rows[0].remainingCents,40000);assert.equal(result.rows[0].status,'late');
+ const second={id:'P2',saleId:s.id,date:'2026-11-26',amount:700,receiptReference:'8002',receiptInfo:{allocations:[{number:1,amount:400},{number:2,amount:300}]}};
+ result=reconcileInstallments([s],[first,second],'2026-11-26',installment,addMonth,{requireReference:true});
+ assert.equal(result.rows[0].remainingCents,0);assert.equal(result.rows[0].status,'paid-late');assert.equal(result.rows[0].receipts.length,2);
+ assert.equal(result.rows[1].remainingCents,70000);assert.equal(result.rows[1].advanceCents,30000);
+});
