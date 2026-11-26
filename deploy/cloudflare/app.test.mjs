@@ -13,7 +13,8 @@ test('2000 clientes y todos los módulos se recuperan de D1; guardado incrementa
  assert.deepEqual(decode(encode(s)),s);
  const mutation=crypto.randomUUID();assert.equal((await put(f,s,0,mutation)).status,200);assert.deepEqual((await (await request(f)).json()).state,s);
  assert.equal((await put(f,s,0,mutation)).status,200);assert.equal(f.db.db.prepare('SELECT revision FROM app_meta').get().revision,1);
- const next=structuredClone(s);next.clients[0].name='ACTUALIZADO';next.payments.push({id:'P2',saleId:'V1',amount:1000,date:'2026-11-18'});
+ const next=structuredClone(s);next.clients[0].name='ACTUALIZADO';// La prima pendiente es L 9,500; el segundo movimiento la completa antes de cualquier cuota mensual.
+ next.payments.push({id:'P2',saleId:'V1',amount:9500,date:'2026-11-18',concept:'Prima',paymentApplication:'prima'});
  assert.equal((await put(f,next,1)).status,200);assert.deepEqual((await (await request(f)).json()).state,next);assert.ok(f.db.db.prepare('SELECT count(*) n FROM app_history').get().n>0);
  assert.equal((await put(f,s,1)).status,409);assert.deepEqual((await (await request(f)).json()).state,next);
 });
