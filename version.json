@@ -1,4 +1,4 @@
 {
-  "version": "1.0.22",
-  "notes": "Contratos en 3 pasos: Cliente, Solares y Revisar. Corregida visibilidad de montos en Abonos varios."
+  "version": "1.0.23",
+  "notes": "Correcciones tras pruebas de contratos y pagos: primera carga de datos y atajos de abonos. Recorrido completo verificado en base aislada."
 }

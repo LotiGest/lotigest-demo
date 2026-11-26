@@ -7,7 +7,7 @@ import {validateNewMonthlyPayments} from '../../monthly-payment-rules.mjs';
 
 const ui=readFileSync(new URL('./contract-intake-ui.js',import.meta.url),'utf8');
 const saveSource=ui.slice(ui.indexOf('function contractIntakeData(form){'),ui.indexOf('function contractIntakeActivate('));
-const manageSource=ui.slice(ui.indexOf('function contractManageRecord('),ui.lastIndexOf("document.addEventListener('click',event=>{"));
+const manageSource=ui.slice(ui.indexOf('function contractManageRecord('),ui.indexOf("document.addEventListener('click',event=>{",ui.indexOf('function contractManageRecord(')));
 if(!saveSource.includes('async function contractIntakeSave(')||!manageSource.includes('async function contractManageDeleteSave('))
  throw Error('No se pudo cargar el módulo de contratos.');
 const form=fields=>({fields});
@@ -25,7 +25,7 @@ function setup(){
  const queue={latest:JSON.stringify(db),confirmed:JSON.stringify(db),pending:null};
  const env={db,FormData:InputFormData,intakeCheckValues,intakePlanLots,contractIdentityFormat,contractIdentityDigits,
   contractIntakeWorking:{mode:'manual',residenceId:'R',file:null,values:{},busy:false},
-  document:{getElementById:()=>({disabled:false,isConnected:true})},
+  document:{addEventListener(){},getElementById:()=>({disabled:false,isConnected:true})},
   contractIntakeAdmin:()=>true,getLot:id=>db.lots.find(l=>l.id===id),getClient:id=>db.clients.find(c=>c.id===id),
   residence:()=>db.residences[0],activeReservation:()=>null,crypto:fakeUuid(),
   normalizeClientLookup:v=>String(v||'').replace(/[^A-Z0-9]/gi,'').toLowerCase(),
@@ -34,7 +34,7 @@ function setup(){
   cloudQueue:queue,cloudBlocked:false,cloudOffline:false,toast(){},closeModal(){},render(){}};
  const run=new Function(...Object.keys(env),saveSource+';return contractIntakeSave;')(...Object.values(env));
  const data={clientId:'',name:'CLIENTE FICTICIO',identity:'0801199000021',stage:'1',lotId:'L1',block:'A',number:'1',
-  price:'200000',down:'50000',months:'84',date:'2026-11-01',firstDueDate:'2026-12-01',primaMethod:'Efectivo',
+  price:'200000',solarPrice_0:'200000',down:'50000',months:'84',date:'2026-11-01',firstDueDate:'2026-12-01',primaMethod:'Efectivo',
   observations:'SIN DATOS PERSONALES REALES'};
  return {run,data,db:()=>db,before:fixture(),writes:()=>writes,env};
 }

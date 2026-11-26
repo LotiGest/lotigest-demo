@@ -667,7 +667,7 @@ async function contractIntakeStorePhoto(file){
  return body.key||key;
 }
 async function contractIntakeSave(form){
- if(form?.classList.contains('cq-form')&&!contractQuickReadyToSave(form))return;
+ if(form?.classList?.contains('cq-form')&&!contractQuickReadyToSave(form))return;
  const original=contractIntakeWorking,alert=document.getElementById('contract-intake-alert'),button=document.getElementById('contract-intake-save');
  if(!original||!form||original.busy||!contractIntakeAdmin())throw Error('La sesión está ocupada o sin autorización.');
  const data=contractIntakeData(form),quickAgainRequested=Boolean(original.quickAgain);original.quickAgain=false;
@@ -820,7 +820,7 @@ async function contractIntakeSave(form){
   else toast(received?'Contrato, crédito y prima pagada registrados en '+planned.length+' solar(es). Revisa Residenciales y Cobros.':'Ficha y DNI guardados para '+planned.length+' solar(es). Puedes activar cada crédito y registrar los abonos.');
   const quickConfirmed=!cloudBlocked&&!cloudOffline&&cloudQueue?.latest===cloudQueue?.confirmed&&contractIdentityDigits(getClient(client.id)?.identity)===contractIdentityDigits(data.identity);
   const quickAgain=quickConfirmed&&quickAgainRequested;
-  if(quickConfirmed){contractQuickLastClient=client.id;contractQuickDefaults=form.querySelector('#cq-keep-defaults')?.checked?{residenceId:original.residenceId,stage:data.stage,months:data.months}:null;}
+  if(quickConfirmed&&form.classList?.contains('cq-form')){contractQuickLastClient=client.id;contractQuickDefaults=form.querySelector('#cq-keep-defaults')?.checked?{residenceId:original.residenceId,stage:data.stage,months:data.months}:null;}
   contractIntakeWorking=null;closeModal();render();
   if(quickAgain){contractIntakeOpen('','manual');return;}
   if(!cloudBlocked&&!cloudOffline&&cloudQueue?.latest===cloudQueue?.confirmed&&contractIdentityDigits(getClient(client.id)?.identity)===contractIdentityDigits(data.identity)&&savedDocumentIds.length&&typeof lawyerSheetOpen==='function'){try{lawyerSheetOpen(savedDocumentIds[0]);}catch(err){toast('Contrato guardado. No se abrió la ficha: '+err.message,'error');}}
@@ -1350,6 +1350,6 @@ setTimeout(()=>{
   contractIntakeRememberExtras(form);contractIntakeManualRecalculate(form);
   const target=button.hasAttribute('data-cq-step')?Number(button.dataset.cqStep):button.hasAttribute('data-cq-back')?step-1:step+1;
   if(target>step)for(let i=step;i<target;i++)if(!contractQuickCheckPanel(form,i))return;
-  draft.quickStep=Math.max(1,Math.min(3,target));contractQuickPaint(form);form.closest('.modal-content')?.scrollTo({top:0,behavior:'smooth'});
+  draft.quickStep=Math.max(1,Math.min(3,target));contractQuickPaint(form);form.closest('.modal-content')?.scrollTo?.({top:0,behavior:'smooth'});
  },true);
 },0);
