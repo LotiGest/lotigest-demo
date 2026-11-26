@@ -580,7 +580,7 @@
  function mdOpenManyWithShortcut(forcePicker=false){
   if(!cloudReady||cloudUser?.role!=='admin')return toast('Se requiere una cuenta administradora para registrar abonos.','error');
   if(document.querySelector('#modal-root .modal'))return toast('Cierra la ventana actual antes de abrir abonos múltiples.','error');
-  const activeResidence=page==='collections'&&typeof residence==='function'?residence()?.id:null;
+  const activeResidence=['collections','payments'].includes(page)&&typeof residence==='function'?residence()?.id:null;
   const target=forcePicker?null:mdLastPaymentTarget;
   if(target?.kind==='sale'){
    const sale=getSale(target.saleId),lot=getLot(sale?.lotId);
@@ -697,10 +697,10 @@
   // Un contexto de otra residencial o de otra pantalla no se reutiliza a ciegas.
   const sale=chosen?.kind==='sale'?getSale(chosen.saleId):null;
   const saleResidence=sale?getLot(sale.lotId)?.residenceId:null;
-  if(page==='collections'&&sale&&balance(sale)>.01&&(!currentResidence||saleResidence===currentResidence)){
+  if(['collections','payments'].includes(page)&&sale&&balance(sale)>.01&&(!currentResidence||saleResidence===currentResidence)){
    newPayment(sale.id,false);return;
   }
-  if(page==='collections'&&chosen?.kind==='owner'&&getClient(chosen.clientId)&&(!currentResidence||chosen.residenceId===currentResidence)){
+  if(['collections','payments'].includes(page)&&chosen?.kind==='owner'&&getClient(chosen.clientId)&&(!currentResidence||chosen.residenceId===currentResidence)){
    openOwnerAbono(chosen.clientId,chosen.residenceId);return;
   }
   // Sin solar seleccionado abre el selector ordinario para elegir cliente.

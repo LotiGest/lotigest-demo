@@ -61,6 +61,7 @@ test('dos fechas desde + guardan dos movimientos, dos folios y dos recibos separ
   assert.equal(app.d.querySelectorAll('.md-date-control').length,2,'La fecha incluye escritura manual y calendario');
   assert.match(app.d.querySelector('[data-md-total]').textContent,/21,000/);
   function enter(input){const event=new app.w.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true});input.dispatchEvent(event);assert.equal(event.defaultPrevented,true,'Enter no debe registrar el pago');}
+  app.click('[data-md-goto="'+fields('date')[0].dataset.mdId+'"]');
   enter(fields('date')[0]);assert.equal(app.d.activeElement,fields('amount')[0],'Enter en fecha avanza al monto');
   enter(fields('amount')[0]);assert.equal(app.d.activeElement,fields('receiptRef')[0],'Enter en monto avanza al correlativo');
   enter(fields('receiptRef')[0]);assert.equal(app.d.activeElement,fields('date')[1],'Enter en correlativo avanza a Abono 2');

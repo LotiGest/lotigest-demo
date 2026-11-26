@@ -53,6 +53,7 @@ export function receiptCorrelativoMessage(state,raw){
 // Solo valida los recibos NUEVOS para no alterar legados sin correlativo.
 // Los pagos de una misma operación (varios solares) comparten un único correlativo.
 export function validateNewReceiptCorrelativos(previous,next){
+ previous??={};
  const previousSales=new Map((previous.payments||[]).map(x=>[x.id,x]));
  // Las correcciones de folio también deben respetar los ceros equivalentes
  // y la unicidad del recibo, aunque el identificador de pago no cambie.

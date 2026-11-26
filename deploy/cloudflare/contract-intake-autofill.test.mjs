@@ -21,7 +21,7 @@ function setup(){
  let db=base(),writes=0,n=0;
  const queue={latest:JSON.stringify(db),confirmed:JSON.stringify(db)};
  const env={db,contractIntakeWorking:{mode:'manual',residenceId:'R',values:{},busy:false,preferredClientId:'C'},
-  contractIntakeAdmin:()=>true,FormData:formData,document:{getElementById:()=>({disabled:false,isConnected:true})},
+  contractIntakeAdmin:()=>true,FormData:formData,document:{addEventListener(){},getElementById:()=>({disabled:false,isConnected:true})},
   intakePlanLots,intakeCheckValues,contractIdentityDigits,contractIdentityFormat,
   getLot:id=>db.lots.find(l=>l.id===id),getClient:id=>db.clients.find(c=>c.id===id),
   residence:()=>db.residences[0],activeReservation:()=>null,crypto:{randomUUID:()=>String(++n).padStart(8,'0')+'-0000-4000-8000-000000000000'},

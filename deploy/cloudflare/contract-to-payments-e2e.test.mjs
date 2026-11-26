@@ -1,0 +1,49 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {setup,boot,login,until,saved} from './test-ui.mjs';
+
+test('new client through three-step contract, paid prima, individual and multiple payments persist without duplicate folios',async()=>{
+ const server=await setup();let app=boot(server);
+ try{
+  await login(app,server);
+  const initial=await server.read(),rid=initial.state.currentResidence||initial.state.residences[0].id;
+  initial.state.lots.push({id:'E2E-LOT-12',residenceId:rid,stage:1,block:'QA',sourceNumber:'12',price:200000,area:200,areaMode:'manual',status:'available'});
+  initial.state.lots.push({id:'E2E-LOT-13',residenceId:rid,stage:1,block:'QA',sourceNumber:'13',price:200000,area:200,areaMode:'manual',status:'available'});
+  const seed=await server.write({state:initial.state,revision:initial.revision,mutation:randomUUID()});assert.equal(seed.status,200);app.close();app=boot(server);await login(app,server);
+  app.click('[data-page=contracts]');app.click('[data-contract-intake-open]');await until(()=>app.d.querySelector('.cq-form'),'three-step contract');
+  app.input('[name=name]','CLIENTE FICTICIO RECORRIDO');app.input('[name=identity]','0801199012345');app.input('[name=phone]','+504 9999-1234');app.click('[data-cq-next]');assert.equal(app.d.querySelector('.cq-form').dataset.quickStep,'2');
+  app.change('[name=stage]','1');await until(()=>app.d.querySelector('.cq-form'),'stage repaint');app.change('[name=block]','QA');await until(()=>app.d.querySelector('.cq-form'),'block repaint');app.change('[name=lotId]','E2E-LOT-12');await until(()=>app.d.querySelector('.cq-form'),'lot repaint');
+  assert.equal(app.d.querySelector('[name=solarPrice_0]').value,'200000');app.click('[data-cq-next]');assert.equal(app.d.querySelector('.cq-form').dataset.quickStep,'3');
+  app.input('[name=down]','30000');app.input('[name=months]','50');app.change('[name=date]','2026-07-25');app.change('[name=firstDueDate]','2026-08-25');
+  app.d.querySelector('[name=primaPaid]').checked=true;app.change('[name=primaPaid]','on');app.input('[name=primaReceivedTotal]','30000');app.change('[name=primaDate]','2026-07-25');app.input('[name=primaRef]','990001');
+  app.d.querySelector('#cq-reviewed').checked=true;app.d.querySelector('#cq-keep-defaults').checked=true;app.click('[data-cq-again]');
+  await until(async()=>((await server.read()).state.clients||[]).some(c=>c.name==='CLIENTE FICTICIO RECORRIDO'),'client persisted from contract');await saved(app);
+  await until(()=>app.d.querySelector('.cq-form [name=name]')?.value==='','fresh draft after save-and-create');assert.equal(app.d.querySelector('.cq-form [name=months]').value,'50');assert.equal(app.d.querySelector('.cq-form [name=stage]').value,'1');assert.equal(app.d.querySelector('.cq-form [name=lotId]').value,'');assert.equal(app.d.querySelector('.cq-form [name=primaPaid]').checked,false);assert.equal(app.d.querySelector('.cq-form [name=primaRef]').value,'');
+  let data=(await server.read()).state;const client=data.clients.find(c=>c.name==='CLIENTE FICTICIO RECORRIDO'),sale=data.sales.find(s=>s.clientId===client.id&&s.lotId==='E2E-LOT-12');assert.ok(sale,'paid prima activates credit');assert.equal(sale.price,200000);assert.equal(sale.downPayment,30000);assert.equal(data.contractTexts.find(c=>c.saleId===sale.id).structured.monthlyCalculated,3400);assert.equal(data.payments.filter(p=>p.saleId===sale.id).length,1);
+  app.d.querySelector('[data-action=close-modal]')?.click();app.click('[data-page=payments]');await until(()=>app.d.querySelector('#multi-payment-form,#owner-payment-search'),'payment picker');if(app.d.querySelector('#owner-payment-search')){app.input('#owner-payment-search',client.name);app.click('[data-action=owner-payment-person][data-id="'+client.id+'"]');}await until(()=>app.d.querySelector('#multi-payment-form'),'individual payment form');
+  app.input('#multi-payment-search','CLIENTE FICTICIO RECORRIDO');app.click('[data-action=multi-payment-add][data-id="'+sale.id+'"]');
+  app.input('#pm-amount-slot .pm-currency-visible','3,400.00');app.input('[name=receiptRef]','990002');app.change('#multi-payment-form [name=date]','2026-08-25');
+  app.submit('#multi-payment-form');await until(async()=>((await server.read()).state.payments||[]).some(p=>p.receiptReference==='990002'),'individual persisted');await saved(app);
+  app.d.querySelector('[data-action=close-modal]')?.click();app.click('[data-page=payments]');await until(()=>app.d.querySelector('#multi-payment-form,#owner-payment-search'));if(app.d.querySelector('#owner-payment-search')){app.input('#owner-payment-search',client.name);app.click('[data-action=owner-payment-person][data-id="'+client.id+'"]');}await until(()=>app.d.querySelector('#multi-payment-form'));app.input('#multi-payment-search','CLIENTE FICTICIO RECORRIDO');app.click('[data-action=multi-payment-add][data-id="'+sale.id+'"]');app.click('.pm-many-client');await until(()=>app.d.querySelector('.md-reference-wizard'),'multi receipt wizard');
+  const rowIds=[...app.d.querySelectorAll('[data-md-row]')].map(r=>r.dataset.mdRow);
+  for(const [i,date] of ['2026-09-25','2026-10-25'].entries()){
+   app.click('[data-md-goto="'+rowIds[i]+'"]');for(const [field,value] of Object.entries({date,amount:'3400',receiptRef:String(990003+i)}))app.input('[data-md-id="'+rowIds[i]+'"][data-md-field="'+field+'"]',value);
+  }
+  const before=server.writes;app.click('[data-md-next]');assert.equal(app.d.querySelector('#md-review').hidden,false);assert.equal(server.writes,before);assert.equal(app.d.querySelectorAll('#md-review tbody tr').length,2);app.d.querySelector('#md-review-confirm').checked=true;app.click('[data-md-save]');assert.equal(app.d.querySelector('[data-md-save]').disabled,true);app.click('[data-md-save]');
+  await until(()=>app.d.querySelector('.md-result-banner'),'batch confirmed');await saved(app);data=(await server.read()).state;
+  const payments=data.payments.filter(p=>p.saleId===sale.id);assert.equal(payments.length,4);assert.equal(payments.reduce((n,p)=>n+Number(p.amount),0),40200);assert.equal(sale.price-payments.reduce((n,p)=>n+Number(p.amount),0),159800);assert.equal(new Set(payments.map(p=>p.receiptReference)).size,4);assert.equal(data.clients.filter(c=>c.identity.replace(/\D/g,'')==='0801199012345').length,1);
+  const covered=[...app.d.querySelectorAll('#pm-calendar-body .pm-progress>div')].find(el=>el.querySelector('span')?.textContent==='Cuotas cubiertas (sin prima)');assert.ok(covered,'cronograma del contrato visible');assert.equal(covered.querySelector('strong').textContent,'3','prima no cuenta como cuarta cuota');
+  assert.match(app.d.querySelector('.md-result-banner').textContent,/6,800|6800/);app.click('[data-md-show-saved]');assert.equal(app.d.querySelectorAll('[data-md-pdf]').length,2);
+  const snapshot=await server.read(),duplicate=structuredClone(snapshot.state),priorCount=duplicate.payments.length;
+  duplicate.payments.push({...payments.find(p=>p.receiptReference==='990002'),id:'DUP-'+randomUUID(),verifyToken:randomUUID().replaceAll('-',''),groupId:'RC-'+randomUUID(),receiptReference:'000990002',receiptReferenceNormalized:'990002'});
+  const rejected=await server.write({state:duplicate,revision:snapshot.revision,mutation:randomUUID()});assert.equal(rejected.status,400);assert.match((await rejected.json()).error,/correlativo/i);const unchanged=await server.read();assert.equal(unchanged.revision,snapshot.revision);assert.equal(unchanged.state.payments.length,priorCount);
+  const overpaid=structuredClone(snapshot.state);overpaid.payments.push({...payments.find(p=>p.receiptReference==='990002'),id:'OVER-'+randomUUID(),verifyToken:randomUUID().replaceAll('-',''),groupId:'RC-'+randomUUID(),receiptReference:'990999',receiptReferenceNormalized:'990999',amount:159801});const tooMuch=await server.write({state:overpaid,revision:snapshot.revision,mutation:randomUUID()});assert.equal(tooMuch.status,400);assert.match((await tooMuch.json()).error,/saldo|precio/i);assert.equal((await server.read()).revision,snapshot.revision);
+  app.d.querySelector('[data-action=close-modal]')?.click();app.click('[data-page=contracts]');app.click('[data-contract-intake-open]');await until(()=>app.d.querySelector('.cq-form'));
+  app.input('#contract-intake-client-search','0801199012345');app.click('[data-contract-client-search]');await until(()=>app.d.querySelector('.cq-form'));app.click('[data-cq-next]');
+  app.change('[name=stage]','1');await until(()=>app.d.querySelector('.cq-form'));app.change('[name=block]','QA');await until(()=>app.d.querySelector('.cq-form'));app.change('[name=lotId]','E2E-LOT-13');await until(()=>app.d.querySelector('.cq-form'));app.click('[data-cq-next]');app.input('[name=down]','30000');app.input('[name=months]','50');app.d.querySelector('#cq-reviewed').checked=true;app.submit('#contract-intake-form');
+  await until(async()=>((await server.read()).state.contractTexts||[]).some(c=>c.lotId==='E2E-LOT-13'),'second contract without paid prima');await saved(app);const second=(await server.read()).state;
+  assert.equal(second.clients.filter(c=>c.id===client.id).length,1);assert.equal(second.payments.length,data.payments.length,'pactar prima no registra otro cobro');assert.equal(second.contractTexts.find(c=>c.lotId==='E2E-LOT-13').status,'pending-sale');assert.equal(second.sales.some(s=>s.lotId==='E2E-LOT-13'),false);
+  assert.deepEqual(server.errors,[]);app.close();app=boot(server);await login(app,server);const restored=(await server.read()).state;assert.equal(restored.payments.filter(p=>p.saleId===sale.id).length,4);
+ }finally{app.close();}
+});

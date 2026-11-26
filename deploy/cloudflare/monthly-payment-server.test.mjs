@@ -6,3 +6,8 @@ test('D1 rechaza abono menor a cuota después de prima y conserva revisión/dato
  const bad=await put(next,1);assert.equal(bad.status,400);assert.match((await bad.json()).error,/9,000.00/);assert.equal(f.db.db.prepare('SELECT revision FROM app_meta').get().revision,1);
  next.payments[1].amount=9000;assert.equal((await put(next,1)).status,200);
 });
+test('D1 accepts the first empty state without reading payments from a null predecessor',async()=>{
+ const f=await fixture();const state={version:3,company:{name:'PRUEBA'},clients:[],lots:[],sales:[],payments:[],reservations:[]};
+ const response=await onRequest({env:f.env,request:new Request('https://test/api/app/state',{method:'PUT',headers:{Cookie:f.cookie,Origin:'https://test','Content-Type':'application/json'},body:JSON.stringify({state,revision:0,mutation:crypto.randomUUID()})})});
+ assert.equal(response.status,200);assert.equal((await response.json()).revision,1);const restored=await onRequest({env:f.env,request:new Request('https://test/api/app/state',{headers:{Cookie:f.cookie}})});assert.deepEqual((await restored.json()).state,state);
+});
