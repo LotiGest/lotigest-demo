@@ -20,7 +20,7 @@
   let dock=document.querySelector('.cp-dock');
   if(!dock){dock=document.createElement('nav');dock.className='cp-dock';dock.setAttribute('aria-label','Accesos principales');document.body.append(dock);}
   const key=[page,document.querySelector('.lg-nav .active')?.dataset.page].join(':');
-  if(dock.dataset.key!==key){dock.dataset.key=key;dock.innerHTML=[['arrayan','Inicio','home'],['contracts','Contratos','fileCheck'],['payments','Abonos','wallet'],['arrayan','Solares','map']].map(([id,label,icon])=>`<button type="button" data-page="${id}" ${page===id&&label!=='Solares'?'aria-current="page"':''}>${ic(icon)}<span>${label}</span></button>`).join('');}
+  if(dock.dataset.key!==key){dock.dataset.key=key;dock.innerHTML=[['dashboard','Inicio','home'],['contracts','Contratos','fileCheck'],['payments','Abonos','wallet'],['arrayan','Solares','map']].map(([id,label,icon])=>`<button type="button" data-page="${id}" ${page===id?'aria-current="page"':''}>${ic(icon)}<span>${label}</span></button>`).join('');}
   document.body.classList.toggle('cp-inline-payment',page==='payments'&&!!document.querySelector('#modal-root .lg-payment-modern'));
   const root=document.getElementById('modal-root');if(page==='payments'&&root?.querySelector('.lg-payment-modern')&&(!matchMedia('(max-width:700px)').matches||root.querySelector('.pm-reference-payment'))){const phone=matchMedia('(max-width:700px)').matches,target=phone?document.body:document.querySelector('.workspace');if(target&&root.parentElement!==target){if(phone)target.prepend(root);else target.append(root);}}
  }
