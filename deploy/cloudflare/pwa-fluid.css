@@ -3,3 +3,9 @@
 html.lg-fluid-mode :is(.pm-card,.cc-person,.fn-kpi,.lg-panel-fold){animation:none!important;transition:none!important}
 html.lg-fluid-mode .modal-cover{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 @media(max-width:700px){.lg-app-actions>.btn{flex:1 1 150px}}
+/* Keep navigation stationary and avoid compositing translucent layers on low-power laptops. */
+html.lg-fluid-mode .lotigest-shell,
+html.lg-fluid-mode .lotigest-shell *,
+html.lg-fluid-mode .cp-dock,
+html.lg-fluid-mode .cp-dock *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+html.lg-fluid-mode :is(.lotigest-sidebar,.lg-topbar,.lg-popup,.lg-search-results,.cp-dock,#lgUpdateNotice){backdrop-filter:none!important;-webkit-backdrop-filter:none!important}

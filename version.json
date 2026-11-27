@@ -1,4 +1,4 @@
 {
-  "version": "1.0.39",
-  "notes": "Modo fluido e instalación desde Configuración; arranque local rápido, menos recálculos de montos y menos consultas en segundo plano. Mantiene el guardado y las actualizaciones manuales."
+  "version": "1.0.40",
+  "notes": "Modo fluido: navegación sin desplazamientos animados ni desenfoques de las barras, para reducir carga gráfica en equipos de pocos recursos."
 }
