@@ -15,7 +15,7 @@ function make(){
   querySelectorAll:()=>[]
  };
  const win={addEventListener:(type,fn)=>(listeners['window:'+type]??=[]).push(fn)};
- const summary='<strong>Cliente ya registrado</strong><small>Datos copiados directamente de Clientes. No debes adjuntar documentos ni volver a ingresar esta información; si faltan datos puedes completarlos posteriormente en Clientes.</small>';
+ const summary='<section class="full notice-card lg-contract-customer-loaded"><strong>CLIENTE PRUEBA</strong><small>Datos copiados directamente de Clientes. No debes adjuntar documentos ni volver a ingresar esta información; si faltan datos puedes completarlos posteriormente en Clientes.</small></section>';
  const base=()=>'<form id="contract-intake-form">'+summary+'<p>Solar J 1</p></form>';
  let current=db;
  const get=id=>current.clients.find(c=>c.id===id);
