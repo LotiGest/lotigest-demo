@@ -2,19 +2,21 @@
 (function installClientsSearchFast(){
  const collator=new Intl.Collator('es-HN',{sensitivity:'base',numeric:true});
  let cache=null,table=null,nodes=new Map();
+ const normalize=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es');
+ const digits=v=>String(v??'').replace(/\D/g,'');
  function index(state){
   const readState=typeof contractPaymentReadView==='function'?contractPaymentReadView(state):state;
   const paid=new Map(),sales=new Map();
-  for(const p of readState.payments||[])paid.set(p.saleId,(paid.get(p.saleId)||0)+Number(p.amount||0));
+  for(const p of readState.payments||[]){if(p.voidedAt||p.deletedAt||p.cancelledAt||['voided','cancelled','annulled'].includes(p.status))continue;paid.set(p.saleId,(paid.get(p.saleId)||0)+Math.round(Number(p.amount||0)*100));}
   for(const sale of state.sales||[]){
    const row=sales.get(sale.clientId)||{count:0,balance:0};
-   row.count++;row.balance+=Math.max(0,Math.round((Number(sale.price)-(Number(sale.openingPaid)||0)-(paid.get(sale.id)||0))*100)/100);
+   row.count++;row.balance+=Math.max(0,(Math.round(Number(sale.price)*100)-Math.round((Number(sale.openingPaid)||0)*100)-(paid.get(sale.id)||0))/100);
    sales.set(sale.clientId,row);
   }
-  return {state,items:(state.clients||[]).map(c=>({client:c,query:[c.name,c.identity,c.phone].map(v=>String(v??'')).join(' ').toLocaleLowerCase('es'),totals:sales.get(c.id)||{count:0,balance:0}}))};
+  return {state,items:(state.clients||[]).map(c=>({client:c,query:normalize([c.name,c.identity,c.phone].join(' ')),identity:digits(c.identity),phone:digits(c.phone),totals:sales.get(c.id)||{count:0,balance:0}}))};
  }
  function matches(data,query,order='default'){
-  const q=String(query||'').toLocaleLowerCase('es'),rows=data.items.filter(x=>!q||x.query.includes(q));
+  const q=normalize(query).trim(),numeric=/^[+\d\s().-]+$/.test(q)?digits(q):'',rows=data.items.filter(x=>!q||x.query.includes(q)||(numeric&&(x.identity.includes(numeric)||x.phone.includes(numeric))));
   if(order==='az'||order==='za')rows.sort((a,b)=>{
    const x=String(a.client.name||'').trim(),y=String(b.client.name||'').trim();
    if(!x||!y)return x? -1:y?1:0;
