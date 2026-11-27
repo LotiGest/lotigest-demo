@@ -249,7 +249,9 @@ test('Reactivación: PIN solo administrador, valida entrada, conserva pagos y ro
   const form=w.document.querySelector('#ct-activation-form');
   form.elements.pin.value='xxxx';form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
   assert.equal(w.db.contractTexts[0].status,'voided');
-  assert.match(w.document.querySelector('#ct-activation-error').textContent,/incorrecto/);
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.match(w.document.querySelector('#ct-activation-error').textContent,/cuatro dígitos/);
+  assert.equal(code,'1234','Un PIN inválido no consume ni rota el PIN');
   form.elements.pin.value=pin;form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
   await new Promise(resolve=>setTimeout(resolve,0));
   assert.equal(w.db.contractTexts[0].status,'pending-sale');
@@ -258,7 +260,8 @@ test('Reactivación: PIN solo administrador, valida entrada, conserva pagos y ro
   assert.equal(w.db.contractTexts[0].reactivationHistory[0].by,'Admin');
   assert.equal(w.db.contractTexts[0].voidReason,'Prueba');
   assert.deepEqual(JSON.parse(JSON.stringify(w.db.payments)),[{id:'P1',amount:100}]);
-  assert.notEqual(w.document.querySelector('[data-ct-pin-value]').textContent,pin);
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(w.document.querySelector('[data-ct-pin-value]').textContent,'5678','El PIN se rota después de usarlo');
   w.cloudUser.role='reader';w.render();
   assert.equal(w.document.querySelector('[data-ct-pin-value]'),null);
  }finally{close();}
