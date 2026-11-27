@@ -114,3 +114,23 @@
  html body.cp-inline-payment #modal-root .pd-history-icon svg{width:16px;height:16px;flex:none}
 }
 @media(max-width:900px){.pd-history-icon{display:none!important}}
+
+@media(min-width:901px){
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-reference-side{display:flex!important;flex-direction:column;align-self:start;min-width:0}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-reference-side>.pm-reference-progress{grid-area:auto!important;width:100%}
+ html body.cp-inline-payment #modal-root .pm-reference-summary>h3{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+ html body.cp-inline-payment #modal-root .pd-all-payments{display:inline-flex;align-items:center;gap:5px;font-size:11px;min-height:32px;white-space:normal;text-align:left;margin-left:auto}
+ html body.cp-inline-payment #modal-root .pd-all-payments svg{width:16px;height:16px;flex:none}
+ html body.cp-inline-payment #modal-root .pd-payment-notice{padding:12px;border:1px solid var(--cp-border);border-radius:12px;background:var(--cp-surface);display:grid;gap:6px;font-size:12px;overflow-wrap:anywhere}
+ html body.cp-inline-payment #modal-root .pd-payment-notice[hidden]{display:none!important}
+ html body.cp-inline-payment #modal-root .pd-payment-notice[data-tone=warning]{border-color:#bb9237;border-left:4px solid #bb9237}
+ html body.cp-inline-payment #modal-root .pd-payment-notice[data-tone=success]{border-color:#23874f;border-left:4px solid #23874f}
+ html body.cp-inline-payment #modal-root .pd-payment-notice[data-tone=warning]>strong{color:#a66d13}
+ html body.cp-inline-payment.lotigest-dark #modal-root .pd-payment-notice[data-tone=warning]>strong{color:#f2ce65}
+ html body.cp-inline-payment #modal-root .pd-payment-notice p{margin:0;line-height:1.45}
+ html body.cp-inline-payment #modal-root .pd-overdue-detail{font-weight:700}
+}
+@media(min-width:901px) and (max-width:1150px){
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-reference-side{grid-area:2 / 1 / 3 / 3!important}
+}
+@media(max-width:900px){.pd-payment-notice,.pd-all-payments{display:none!important}}

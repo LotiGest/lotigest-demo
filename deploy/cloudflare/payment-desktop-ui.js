@@ -70,6 +70,19 @@
    }
    history.disabled=!sales.length;
   }
+  const side=modal.querySelector('.pm-reference-side'),progress=modal.querySelector('.pm-reference-progress');
+  move(progress,side);
+  const summaryHeading=side?.querySelector('.pm-reference-summary > h3');
+  if(summaryHeading){
+   let report=summaryHeading.querySelector('[data-pd-all-payments]');
+   if(!report){
+    report=pmNode('button','btn btn-outline pd-all-payments');report.type='button';report.dataset.pdAllPayments='true';
+    report.innerHTML=pmIcon('fileCheck')+'<span>Todos los pagos · PDF / WhatsApp</span>';
+    report.setAttribute('aria-haspopup','dialog');report.title='Descargar o enviar el estado de cuenta completo';
+    report.addEventListener('click',()=>pmOpenStatement(report));summaryHeading.append(report);
+   }
+   report.disabled=!sales.length;
+  }
   const actions=modal.querySelector('.pm-reference-actions');
   if(actions){
    for(const button of actions.querySelectorAll('button'))button.hidden=!button.matches('.pm-save,.pm-many-client,[data-pd-another]');
@@ -83,6 +96,37 @@
    move(calendar.querySelector(':scope > .pm-progress'),fold);
    move(calendar.querySelector(':scope > .pm-current-date'),fold);
    const rows=pmActualSchedule(sales);
+   if(side&&progress){
+    let notice=side.querySelector('.pd-payment-notice');
+    if(!notice){notice=pmNode('section','pd-payment-notice');notice.setAttribute('role','status');side.append(notice);}
+    notice.replaceChildren();notice.hidden=!sales.length;notice.dataset.tone='neutral';
+    if(sales.length){
+     const today=businessToday(),month=today.slice(0,7),ids=new Set(sales.map(s=>s.id));
+     const payments=(db.payments||[]).filter(p=>ids.has(p.saleId)&&p.date&&p.date<=today&&!p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&!['voided','cancelled','annulled'].includes(p.status));
+     const last=payments.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.recordedAt||'').localeCompare(String(a.recordedAt||'')))[0];
+     const group=last&&(last.groupId||last.id),lastMonth=last?.date.slice(0,7);
+     const touched=last?rows.filter(r=>r.receipts.some(x=>(x.groupId||x.paymentId)===group)):[];
+     const partial=touched.filter(r=>r.remainingCents>0&&r.dueDate.slice(0,7)<=month);
+     const covered=touched.filter(r=>!r.remainingCents&&(r.receipts.at(-1)?.groupId||r.receipts.at(-1)?.paymentId)===group&&r.dueDate.slice(0,7)<lastMonth);
+     const future=touched.filter(r=>r.dueDate.slice(0,7)>lastMonth);
+     const overdue=rows.filter(r=>r.dueDate<today&&r.remainingCents>0);
+     const current=rows.filter(r=>r.dueDate.slice(0,7)===month&&r.remainingCents>0);
+     const amount=arr=>arr.reduce((n,r)=>n+r.remainingCents,0);
+     const months=arr=>[...new Set(arr.map(r=>pmStatementMonth(r.dueDate.slice(0,7))))].join(', ');
+     notice.append(pmNode('strong','','Notificación de abono'));
+     if(partial.length){
+      notice.dataset.tone='warning';notice.append(pmNode('b','','Faltan '+money(amount(partial)/100)+' para completar '+(partial.length===1?'la cuota':'las cuotas')+'.'),pmNode('p','',months(partial)+'. El faltante permanece en el calendario.'));
+     }else if(covered.length){
+      notice.dataset.tone='success';notice.append(pmNode('b','','El último abono cubrió '+covered.length+' cuota(s) de meses anteriores.'),pmNode('p','',months(covered)+' · Recibo '+(pmHistoryReference(last)||'sin correlativo')));
+     }else if(current.length){
+      notice.dataset.tone='warning';notice.append(pmNode('b','','Saldo pendiente del mes: '+money(amount(current)/100)),pmNode('p','','Consulta el calendario para completar las cuotas.'));
+     }else if(last&&touched.length){
+      notice.dataset.tone='success';notice.append(pmNode('b','','Último abono aplicado al calendario.'));
+     }else notice.append(pmNode('p','','Sin abonos mensuales aplicados para esta selección.'));
+     if(future.length)notice.append(pmNode('p','','Adelanto del último recibo: '+months(future)+'.'));
+     if(overdue.length)notice.append(pmNode('p','pd-overdue-detail',overdue.length+' cuota(s) vencida(s) con saldo: '+money(amount(overdue)/100)));
+    }
+   }
    for(const month of calendar.querySelectorAll('[data-pm-month]')){
     let amount=month.querySelector('.pd-month-amount');if(!amount){amount=pmNode('small','pd-month-amount');month.append(amount);}
     const scheduled=rows.filter(r=>r.dueDate.slice(0,7)===month.dataset.pmMonth);

@@ -1,4 +1,4 @@
 {
-  "version": "1.0.46",
-  "notes": "Icono de historial junto a Datos del abono y último pago al lado de cuota mensual en PC."
+  "version": "1.0.47",
+  "notes": "Progreso debajo del resumen, notificación de abonos y estado de cuenta completo con depósitos, cuotas y regularización."
 }

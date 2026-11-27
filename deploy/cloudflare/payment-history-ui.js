@@ -511,7 +511,8 @@ function pmAmortizationModel(state,clientId,rid,asOf,reconcile,dueCents,addMonth
    if(prima)app.unshift('Prima L '+(prima/100).toFixed(2));
    return {date:p.date,reference:pmHistoryReference(p)||'Sin folio',concept:p.concept||'Pago',amount:cents(p.amount),balance,application:app.join('; ')||'Aplicación por verificar'};
   });
-  return {sale:s,lot,rows,history,price,agreed,opening,paid,primaApplied:Math.min(agreed,paid),balance:price-paid};
+  const doc=(state.contractTexts||[]).find(d=>d.status!=='voided'&&(d.saleId===s.id||d.id===s.documentId));
+  return {sale:s,lot,rows,history,price,agreed,opening,paid,primaApplied:Math.min(agreed,paid),balance:price-paid,contractNumber:doc?.number||s.id};
  });
  const price=sum(details,x=>x.price),paid=sum(details,x=>x.paid),agreed=sum(details,x=>x.agreed),prima=sum(details,x=>x.primaApplied);
  const rows=details.flatMap(x=>x.rows),pending=rows.filter(x=>x.remainingCents>0).sort((a,b)=>a.dueDate.localeCompare(b.dueDate)),overdue=pending.filter(x=>x.dueDate<asOf);
@@ -688,7 +689,12 @@ function pmStatementModel(report){
  const normalized=report.residence.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  return {branding:report.branding,client:report.client,residence:report.residence,logo:/altos\s+del\s+arrayan/.test(normalized),asOf:report.asOf,
   properties:report.details.map(d=>'Etapa '+(d.lot.stage||'—')+' · Bloque '+(d.lot.block||'—')+' · Solar '+(d.lot.sourceNumber||d.lot.number||d.lot.id)),
-  price:report.price,paid:report.paid,abonos:report.abonos,paidPrima:report.prima,balance:report.balance,lastCovered:covered?pmStatementMonth(covered.month):'Sin mensualidad completa al corte',base,pending,total:pending.reduce((n,m)=>n+m.amount,0),prima:Math.max(0,report.agreed-report.prima)};
+  price:report.price,paid:report.paid,abonos:report.abonos,paidPrima:report.prima,balance:report.balance,lastCovered:covered?pmStatementMonth(covered.month):'Sin mensualidad completa al corte',base,pending,total:pending.reduce((n,m)=>n+m.amount,0),prima:Math.max(0,report.agreed-report.prima),
+  agreed:report.agreed,financed:report.price-report.agreed,creditCount:report.count,coveredCount:report.covered,pendingCount:report.count-report.covered,overdueCount:report.overdueCount,latePaid:report.latePaid,
+  contracts:report.details.map(d=>({number:d.contractNumber||d.sale.id,date:d.sale.date,months:Number(d.sale.months)||0})),
+  deposits:report.consolidated.receipts.map(g=>({date:g.date,reference:g.reference,received:g.received,nonMonthly:g.nonMonthly,targets:g.targets,prior:g.prior,future:g.future})),
+  missingDeposits:months.filter(m=>m.noDeposit&&m.closed).map(m=>({month:m.month,pending:m.pending,covered:m.covered,status:m.status,sources:m.sources})),
+  lateCoverage:months.filter(m=>m.rows.some(r=>r.receipts.some(x=>x.date.slice(0,7)>m.month))).map(m=>({month:m.month,pending:m.pending,covered:m.covered,sources:m.sources.filter(([k])=>k.slice(0,7)>m.month)}))};
 }
 function pmStatementPdf(m){
  const brand=m.branding||null,rl=brand?brand.residential:m.logo?{data:'data:image/jpeg;base64,'+pmStatementArrayanLogo,width:600,height:224}:null,cl=brand?.company||null;
@@ -709,7 +715,24 @@ function pmStatementPdf(m){
  m.pending.forEach((p,i)=>{if(y-25<100){footer();start();field('Cliente',m.client);tableHeader();}rect(62,y-24,488,24,i%2?white:light);txt(pmStatementMonth(p.month),74,y-15,11,false,gray);right(pmStatementCash(p.amount),y-15,11,false);y-=27;});
  y-=12;ensure(105);rect(62,y-52,488,52,green);txt('TOTAL PENDIENTE ('+m.pending.length+' MESES)',74,y-15,11,true,white);right(pmStatementCash(m.total),y-40,19,true,white);y-=70;
  txt('Saldo de mensualidades al corte, sin intereses ni recargos por mora.',65,y,9,false,gray);y-=15;
- if(m.prima)txt('Prima pendiente no incluida en el total: '+pmStatementCash(m.prima),65,y,9,false,gray);
+ if(m.prima){ensure(20);txt('Prima pendiente no incluida en el total: '+pmStatementCash(m.prima),65,y,9,false,gray);y-=20;}
+ const section=label=>{ensure(42);rect(62,y-20,488,24,green);txt(label,72,y-12,11,true,white);y-=32;};
+ const detail=(value,bold=false)=>{for(const line of wrap(value,87)){ensure(16);txt(line,68,y,9,bold,bold?green:gray);y-=14;}};
+ const sources=list=>list.map(([key,cents])=>key+' · '+pmStatementCash(cents)).join('; ')||'Sin recibos aplicados desde otros meses';
+ section('Resumen del crédito');
+ for(const contract of m.contracts||[])detail('Contrato '+contract.number+' · Fecha '+(contract.date||'Por verificar')+' · '+contract.months+' cuotas',true);
+ field('Precio del terreno',pmStatementCash(m.price));field('Prima pactada',pmStatementCash(m.agreed||0));field('Saldo financiado',pmStatementCash(m.financed||0));
+ field('Cuotas del crédito',String(m.creditCount??0));field('Cuotas cubiertas',String(m.coveredCount??0));field('Cuotas pendientes totales',String(m.pendingCount??0));field('Cuotas vencidas pendientes',String(m.overdueCount??0));field('Cuotas pagadas con atraso',String(m.latePaid??0));
+ section('Historial de depósitos y aplicación a cuotas');
+ if(!m.deposits?.length)detail('No hay depósitos registrados.');
+ for(const g of m.deposits||[]){ensure(42);detail(g.date+' · Recibo '+g.reference+' · '+pmStatementCash(g.received),true);detail(g.targets.length?'Aplicado a: '+g.targets.map(([month,cents])=>pmStatementMonth(month)+' '+pmStatementCash(cents)).join('; '):'Sin aplicación mensual verificada');if(g.nonMonthly)detail('Prima u otro importe no mensual: '+pmStatementCash(g.nonMonthly));}
+ section('Meses cerrados sin depósito');
+ if(!m.missingDeposits?.length)detail('No hay meses cerrados sin depósito con cuota programada.');
+ for(const mth of m.missingDeposits||[]){ensure(42);detail(pmStatementMonth(mth.month)+' · '+(mth.covered?'Cubierta':mth.status)+' · Saldo '+pmStatementCash(mth.pending),true);detail('Origen de la cobertura: '+sources(mth.sources));}
+ section('Regularización de cuotas con depósitos posteriores');
+ if(!m.lateCoverage?.length)detail('No hay cuotas cubiertas por depósitos de meses posteriores.');
+ for(const mth of m.lateCoverage||[]){ensure(42);detail(pmStatementMonth(mth.month)+' · '+(mth.covered?'Cubierta por completo':'Saldo pendiente '+pmStatementCash(mth.pending)),true);detail('Depósitos aplicados: '+sources(mth.sources));}
+ detail('Un mes sin depósito no equivale a mora si la cuota se cubrió con otro recibo. Los depósitos se muestran una sola vez, con su distribución por mes.');
  footer();
  const logo=rl?Array.from(atob(rl.data.split(',')[1]),ch=>ch.charCodeAt(0).toString(16).padStart(2,'0')).join('')+'>':null;
  const objects=['<< /Type /Catalog /Pages 2 0 R >>','<< /Type /Pages /Kids ['+pages.map((_,i)=>(6+i*2)+' 0 R').join(' ')+'] /Count '+pages.length+' >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',logo?'<< /Type /XObject /Subtype /Image /Width '+rl.width+' /Height '+rl.height+' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter [/ASCIIHexDecode /DCTDecode] /Length '+logo.length+' >>\nstream\n'+logo+'\nendstream':'<< >>'];
@@ -731,6 +754,13 @@ function pmStatementPreview(root,m){
  const total=pmNode('div','pm-statement-total');total.append(pmNode('span','','TOTAL PENDIENTE ('+m.pending.length+' MESES)'),pmNode('strong','',pmStatementCash(m.total)));root.append(total);
  root.append(pmNode('small','','Saldo de mensualidades al corte, sin intereses ni recargos por mora.'));
  if(m.prima)root.append(pmNode('small','','Prima pendiente no incluida: '+pmStatementCash(m.prima)));
+ root.append(pmNode('h3','','Resumen del crédito'));
+ for(const [label,value] of [['Cuotas del crédito',m.creditCount],['Cuotas cubiertas',m.coveredCount],['Cuotas pendientes totales',m.pendingCount],['Cuotas vencidas pendientes',m.overdueCount],['Cuotas pagadas con atraso',m.latePaid],['Meses cerrados sin depósito',m.missingDeposits?.length]]){const row=pmNode('div','pm-statement-field');row.append(pmNode('span','',label),pmNode('strong','',String(value??0)));root.append(row);}
+ root.append(pmNode('h3','','Historial de depósitos'));
+ for(const g of m.deposits||[]){const row=pmNode('div','pm-statement-month');row.append(pmNode('span','',g.date+' · #'+g.reference),pmNode('strong','',pmStatementCash(g.received)));root.append(row);root.append(pmNode('small','',g.targets.map(([month,cents])=>pmStatementMonth(month)+': '+pmStatementCash(cents)).join(' · ')||'Sin aplicación mensual verificada'));}
+ root.append(pmNode('h3','','Meses sin depósito y regularización'));
+ for(const mth of m.missingDeposits||[])root.append(pmNode('p','',pmStatementMonth(mth.month)+' · '+(mth.covered?'Cubierta':'Saldo '+pmStatementCash(mth.pending))+' · '+mth.sources.map(([key,cents])=>key+' '+pmStatementCash(cents)).join('; ')));
+ for(const mth of m.lateCoverage||[])root.append(pmNode('p','',pmStatementMonth(mth.month)+' · Depósitos posteriores: '+mth.sources.map(([key,cents])=>key+' '+pmStatementCash(cents)).join('; ')));
 }
 function pmOpenStatement(trigger,context=null){
  try{
