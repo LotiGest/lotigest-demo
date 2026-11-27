@@ -42,6 +42,31 @@ export function assertMonthlyPayment(state,lotIds,amountCents,{prima=false}={}){
  // Un pago parcial conserva el faltante de la cuota en su calendario.
  return info;
 }
+// A partial payment is not a discount, a new installment or a change to the contract.
+// The audit describes the actual cash received; it never applies advances twice.
+export function partialPaymentDetails(state,lotIds,amountCents,{prima=false}={}){
+ if(prima||!Number.isSafeInteger(amountCents)||amountCents<=0)return null;
+ const ids=[...new Set(lotIds)].sort(),info=monthlyPaymentInfo(state,ids);
+ if(!info.known||info.primaRemainingCents!==0||amountCents>=info.monthlyCents)return null;
+ return {lotIds:ids,contractualCents:info.monthlyCents,amountCents,differenceCents:info.monthlyCents-amountCents};
+}
+export function monthlyOwnerLotIds(state,statementId,referenceIndex){
+ const statement=(state.ownershipStatements||[]).find(s=>s.id===statementId);
+ const refs=referenceIndex==null?statement?.references:[statement?.references?.[Number(referenceIndex)]];
+ return refs?.length&&refs.every(r=>r?.lotId)?[...new Set(refs.map(r=>r.lotId))]:[];
+}
+export function makePartialPaymentConfirmation(details,{date,actor,note='',confirmedAt=new Date().toISOString()}={}){
+ if(!details)return null;
+ return {version:1,confirmed:true,...details,date,actor,note:String(note||'').trim().slice(0,300),confirmedAt};
+}
+export function assertPartialPaymentConfirmation(details,confirmation,date,actor){
+ if(!details)return;
+ const c=confirmation;
+ if(!c||c.version!==1||c.confirmed!==true||typeof actor!=='string'||!actor||c.actor!==actor||c.date!==date||
+  JSON.stringify(c.lotIds)!==JSON.stringify(details.lotIds)||c.contractualCents!==details.contractualCents||c.amountCents!==details.amountCents||c.differenceCents!==details.differenceCents||
+  typeof c.note!=='string'||c.note.length>300||typeof c.confirmedAt!=='string'||c.confirmedAt.length>30||!Number.isFinite(Date.parse(c.confirmedAt)))
+  throw Error('Confirma expresamente el abono inferior a la cuota contractual antes de guardarlo. El monto, contrato y usuario deben coincidir.');
+}
 // La clasificación se decide por solar, antes de validar la mensualidad.
 export function classifyAutomaticPayment(state,lotId,amountCents,application='auto'){
  const info=monthlyPaymentInfo(state,[lotId]);
