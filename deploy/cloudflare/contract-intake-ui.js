@@ -252,7 +252,7 @@ function contractIntakeManualFields(){
   '<div class="lg-contract-lot-actions"><button type="button" class="btn btn-outline" data-contract-intake-add>+ Agregar otro solar a este contrato</button></div></section>'+
   '<section class="lg-contract-step" aria-labelledby="lg-contract-step-terms"><h3 id="lg-contract-step-terms" class="lg-contract-step-heading"><span>3</span> Condiciones del contrato</h3>'+finances+'</section>'+
   '<section class="lg-contract-step" aria-labelledby="lg-contract-step-dates"><h3 id="lg-contract-step-dates" class="lg-contract-step-heading"><span>4</span> Fecha del contrato</h3>'+
-  '<div class="lg-contract-date-fields">'+field('Fecha del contrato','date','date',true)+field('Fecha de primera cuota','firstDueDate','date')+'</div><p class="sm muted">Primera cuota según el contrato; por defecto un mes después. No se mueve por pagar tarde.</p>'+
+  '<div class="lg-contract-date-fields">'+field('Fecha del contrato','date','date',true)+'</div><details class="full"><summary>Primera cuota especial (opcional)</summary>'+field('Fecha de primera cuota','firstDueDate','date')+'</details><p class="sm muted">La primera cuota se calcula un mes después del contrato y la última según el plazo. Solo modifica la primera si fue pactada en otra fecha.</p>'+
   payment+'<details class="lg-contract-notes"><summary>Observaciones (opcional)</summary><textarea name="observations" rows="2" style="width:100%">'+val(v.observations||'')+'</textarea></details></section>'+
   '<div id="contract-intake-alert" role="alert" class="lg-contract-alert"></div></form>';
 }
@@ -899,6 +899,7 @@ function contractSuggestDueInput(form,changed){
 document.addEventListener('change',event=>{
  const form=event.target.closest?.('#contract-intake-form,#contract-intake-activate-form');
  if(form&&['date','firstDueDate'].includes(event.target.name))contractSuggestDueInput(form,event.target.name);
+ if(form&&event.target.name==='primaPaid'&&event.target.checked&&typeof suggestReceiptField==='function')suggestReceiptField(form.elements.primaRef);
 },true);
 function contractIntakeActivate(id){
  if(!contractIntakeAdmin()){toast('Debes tener sesión de administrador y datos sincronizados.','error');return;}

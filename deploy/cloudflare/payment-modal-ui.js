@@ -28,6 +28,7 @@ function pmHeaderClient(modal,client){
    const dirty=[...form.querySelectorAll('input,textarea,select')].some(el=>{
     if(el.type==='file')return Boolean(el.files?.length);
     if(el.type==='checkbox'||el.type==='radio')return el.checked!==el.defaultChecked;
+    if(el.matches('[name="receiptRef"]')&&el.dataset.lgSuggestedReceipt===el.value)return false;
     if(el.matches('[data-payment-amount],[data-owner-statement],#pm-client-total,[name="receiptRef"]'))return Boolean(String(el.value||'').trim());
     if(el.matches('#multi-payment-search,[type="search"],[type="hidden"]'))return false;
     return el.tagName==='SELECT'?el.selectedIndex>0:el.value!==el.defaultValue;
@@ -367,6 +368,7 @@ function pmRepaintSales(){
   }
  }
  pmUpdateLastPayment(client?.id||'',residence().id);
+ if(client&&typeof suggestReceiptField==='function')suggestReceiptField(form.elements.receiptRef);
  const historyBtn=document.querySelector('#multi-payment-form .pm-history-launch');if(historyBtn)historyBtn.disabled=!sales.length;
  const selected=document.getElementById('multi-payment-selected'),slot=document.getElementById('pm-amount-slot'),search=document.getElementById('pm-searchbox');
  if(selected)selected.classList.toggle('hidden-single',single||!sales.length);
@@ -595,6 +597,7 @@ function pmOwnerDecorate(){
  shell.append(cal.card);form.replaceChildren(shell);pmFooter(modal,'owner-abono-form');
  pmHeaderClient(modal,client);
  pmUpdateLastPayment(client?.id||'',ownerPaymentDraft?.residenceId);
+ if(client&&typeof suggestReceiptField==='function')suggestReceiptField(form.elements.receiptRef);
 }
 // Interceptor único: cualquiera que sea el acceso (Cuotas, Clientes, Fichas, Cobros),
 // el formulario se estiliza al crearse. No dependemos del botón que lo abrió.

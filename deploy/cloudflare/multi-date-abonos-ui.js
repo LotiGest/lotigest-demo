@@ -104,6 +104,7 @@
   mdState={kind:'sale',saleId:sale.id,saleIds:clientSales.map(x=>x.id),clientId:client.id,residenceId:lot.residenceId,clientName:client.name,lotLabel:clientSales.map(x=>{const l=getLot(x.lotId);return 'Etapa '+(l.stage||'—')+' · Bloque '+l.block+' · Solar '+(l.sourceNumber||l.id);}).join(' / ')+' · Abono total repartido según las cuotas',snapshot:JSON.stringify(db),rows:[],docs:[]};
   mdState.rows.push(mdCreateEntry());mdState.rows.push(mdCreateEntry());
   mdState.rows[0].expanded=true;
+  if(typeof nextReceiptSuggestion==='function'){const ref=nextReceiptSuggestion(db);if(ref){mdState.rows[0].receiptRef=ref;mdState.rows[0].refSuggested=true;}}
   mdLastPaymentTarget={kind:'sale',saleId:sale.id};
   mdSaved=null;mdShow();
  }
@@ -120,6 +121,7 @@
   mdState={kind:'owner',clientId,residenceId:rid,clientName:client.name,lotLabel:'Fichas de propietario · '+docs.length+' documento(s)',docs,snapshot:JSON.stringify(db),rows:[]};
   mdState.rows.push(mdCreateEntry());mdState.rows.push(mdCreateEntry());
   mdState.rows[0].expanded=true;
+  if(typeof nextReceiptSuggestion==='function'){const ref=nextReceiptSuggestion(db);if(ref){mdState.rows[0].receiptRef=ref;mdState.rows[0].refSuggested=true;}}
   mdLastPaymentTarget={kind:'owner',clientId,residenceId:rid};
   mdSaved=null;mdShow();
  }

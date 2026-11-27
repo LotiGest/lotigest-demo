@@ -1,3 +1,31 @@
+function nextReceiptSuggestion(state){
+ const used=new Set();let latest=null,maximum=0n;
+ const inactive=p=>p.voidedAt||p.deletedAt||p.cancelledAt||['voided','cancelled','annulled','deleted'].includes(p.status);
+ const sales=new Map((state.sales||[]).map(s=>[s.id,s]));
+ for(const [rows,kind] of [[state.payments||[],'sale'],[state.ownerPayments||[],'owner'],[state.historicalPayments||[],'history']]){
+  for(const p of rows){
+   const raw=String(p.receiptReference||p.receiptReferenceNormalized||p.receiptRef||p.originalReceiptRef||p.sourceRaw?.receiptRef||p.sourceRaw?.folio||'').trim();
+   if(!/^\d{1,80}$/.test(raw))continue;
+   const n=BigInt(raw);used.add(n.toString());
+   if(kind==='history'||inactive(p)||(kind==='sale'&&inactive(sales.get(p.saleId)||{})))continue;
+   if(n>maximum)maximum=n;
+   const stamp=String(p.recordedAt||p.createdAt||'');
+   if(stamp&&(!latest||stamp>latest.stamp||(stamp===latest.stamp&&n>latest.n)))latest={stamp,n};
+  }
+ }
+ let candidate=latest?.n??maximum;
+ if(candidate===0n)return '';
+ do{candidate++;}while(used.has(candidate.toString()));
+ return candidate.toString().length<=80?candidate.toString():'';
+}
+function suggestReceiptField(input){
+ if(!input||input.value||typeof db==='undefined')return;
+ const suggestion=nextReceiptSuggestion(db);
+ if(!suggestion)return;
+ input.value=suggestion;
+ if(input.dataset)input.dataset.lgSuggestedReceipt=suggestion;
+ if(typeof receiptCorrelativoFeedback==='function')receiptCorrelativoFeedback(input);
+}
 // Reutiliza el OCR local existente del navegador; nunca guarda fotografías automáticamente.
 function receiptOcrWidget(){
  return `<fieldset class="card" style="padding:12px;margin:14px 0"><legend>Escanear recibo de caja · Grupo H (OCR)</legend>
@@ -40,6 +68,7 @@ baseNewPayment=function(saleId,useOcr=false){
  // La decoración del modal ocurrió antes de agregar el OCR: instalar el icono
  // inferior ahora, cuando el fieldset y los botones ya existen.
  if(typeof pmEnsureOcrFooter==='function')pmEnsureOcrFooter(form);
+ if(saleId||paymentDraft?.clientId)suggestReceiptField(form.elements.receiptRef);
  return result;
 };
 // El campo rojo valida al escribir; el guardado también se revisa en Cloudflare.

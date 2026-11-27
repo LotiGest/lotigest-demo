@@ -102,7 +102,7 @@ submitMultiPayment=function(form){
    .filter(id=>{const sale=getSale(id);return sale&&balance(sale)>.009;}).map(id=>[id,'']));
   paymentDraft=draft;
   form.elements.date.value=businessToday();
-  if(form.elements.receiptRef){form.elements.receiptRef.value='';form.elements.receiptRef.dispatchEvent(new Event('input',{bubbles:true}));}
+  if(form.elements.receiptRef){form.elements.receiptRef.value='';if(typeof suggestReceiptField==='function')suggestReceiptField(form.elements.receiptRef);form.elements.receiptRef.dispatchEvent(new Event('input',{bubbles:true}));}
   if(form.elements.concept)form.elements.concept.value='Abono a crédito';
   if(error)error.textContent='';
   pmBatchRemember('sale',draft.clientId,draft.residenceId,payments[0].id,reference,d.date,
