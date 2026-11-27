@@ -32,7 +32,7 @@ export function contractCollectionsScope(state,residenceId){
  });
  const saleIds=new Set(sales.map(s=>s.id));
  const payments=(contractPaymentReadView(original).payments||[]).filter(p=>saleIds.has(p.saleId)&&
-  !p.voidedAt&&!p.deletedAt&&!p.cancelledAt);
+  !p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&!['voided','cancelled','annulled'].includes(p.status));
  return {
   ...original,lots,clients:(original.clients||[]).filter(c=>clientIds.has(c.id)),
   sales,payments,
