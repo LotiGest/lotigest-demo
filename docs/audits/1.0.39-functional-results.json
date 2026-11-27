@@ -1,0 +1,186 @@
+{
+  "version": "1.0.39",
+  "base_commit": "98d75d7097c5dcbaf57a760313bfb82dba733e84",
+  "specific_tests": {
+    "tests": 55,
+    "passed": 55,
+    "failed": 0
+  },
+  "full_run": {
+    "tests": 521,
+    "passed": 482,
+    "failed": 39
+  },
+  "remaining_failures": [
+    {
+      "location": "deploy/cloudflare/app.test.mjs:10:1",
+      "test": "2000 clientes y todos los módulos se recuperan de D1; guardado incremental, historial, reintento y conflicto"
+    },
+    {
+      "location": "deploy/cloudflare/client-name-identity-search-ui.test.mjs:5:1",
+      "test": "Terrenos y Abonos buscan por nombre o cédula y mantienen los datos de D1"
+    },
+    {
+      "location": "deploy/cloudflare/contract-camera.test.mjs:5:1",
+      "test": "Contratos ofrece cámara y galería por separado sin cambiar el flujo OCR"
+    },
+    {
+      "location": "deploy/cloudflare/contract-client-edit-ui.test.mjs:32:1",
+      "test": "el lapicito aparece junto a Cliente ya registrado y abre editor sin ir a Clientes"
+    },
+    {
+      "location": "deploy/cloudflare/contract-multiple-ui.test.mjs:4:1",
+      "test": "foto con tres solares abre tres selectores, permite agregar/quitar y conserva nombre al elegir etapa"
+    },
+    {
+      "location": "deploy/cloudflare/contracts-dashboard-ui.test.mjs:232:1",
+      "test": "Reactivación: PIN solo administrador, valida entrada, conserva pagos y rota al usarlo"
+    },
+    {
+      "location": "deploy/cloudflare/excel-downloads.test.mjs:5:1",
+      "test": "plantillas y exportaciones descargan XLSX válido con enlace persistente incluso sin pagos"
+    },
+    {
+      "location": "deploy/cloudflare/import-center.test.mjs:48:1",
+      "test": "mapa PDF y contratos usan la misma ventana y exigen vínculo del cliente"
+    },
+    {
+      "location": "deploy/cloudflare/land-inventory-ui.test.mjs:5:1",
+      "test": "Excel real: vista previa, comprador existente con varios solares, aviso sin croquis, exportación y recuperación de D1"
+    },
+    {
+      "location": "deploy/cloudflare/ledger-stages.test.mjs:4:1",
+      "test": "Excel de pagos identifica etapa, bloque y números de solares, agrupa al cliente y exporta el monto conjunto una vez"
+    },
+    {
+      "location": "deploy/cloudflare/multi-date-design.test.mjs:28:1",
+      "test": "primera tarjeta abierta y segunda plegada como en el diseño aprobado"
+    },
+    {
+      "location": "deploy/cloudflare/multi-date-design.test.mjs:42:1",
+      "test": "la tarjeta cambia con un clic y no pierde datos ni impide abrir otra"
+    },
+    {
+      "location": "deploy/cloudflare/multi-date-last-payment.test.mjs:34:1",
+      "test": "al abrir Abonos varios se muestra último pago SOLO del solar elegido"
+    },
+    {
+      "location": "deploy/cloudflare/official-prices-ui.test.mjs:13:1",
+      "test": "al tocar solar disponible, prima editable inmediatamente recalcula 84 cuotas y no crea abonos"
+    },
+    {
+      "location": "deploy/cloudflare/official-prices-ui.test.mjs:44:1",
+      "test": "prima del mapa pasa a la venta sin duplicar controles; propuesta sin guardar bloquea venta"
+    },
+    {
+      "location": "deploy/cloudflare/residential-workspace.test.mjs:5:1",
+      "test": "Configuración cambia de residencial y separa clientes, ventas, pagos, finanzas y exportación sin perder datos al guardar"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:5:1",
+      "test": "todos los paneles originales abren, la guía está disponible y Configuración explica el guardado real"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:11:1",
+      "test": "Excel de primas y abonos incluye clientes sin pagos en la residencial activa"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:32:1",
+      "test": "el acceso histórico de Contratos utiliza el nuevo buscador de abonos"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:46:1",
+      "test": "calendario histórico permite ver y seleccionar meses de 2024 aunque no existan cuotas contratadas"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:100:1",
+      "test": "abonos históricos importados se consultan por cliente y solar aunque no se seleccionen casillas"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:137:1",
+      "test": "recorrido cliente, terreno, venta crédito, abono, recibo histórico y finanzas se recupera al reabrir"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:171:1",
+      "test": "un cambio sin red se conserva y el conflicto puede resolverse cargando la versión del servidor"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:177:1",
+      "test": "apartado se convierte en venta conservando el cliente y bloquea otra compra del mismo terreno"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:192:1",
+      "test": "la copia local no triplica los datos y conserva una recuperación si otra pestaña sustituye cambios pendientes"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:240:1",
+      "test": "el panel de cobros importa el formato de ocho columnas, conserva historial y permite completar condiciones reales"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:247:1",
+      "test": "el vendedor ve el catálogo y la ficha sin poder abrir altas ni cobros"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:252:1",
+      "test": "ficha de propietario muestra abonos y nombre en solar sin convertirlos en ingresos"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:257:1",
+      "test": "abono por persona muestra varios solares del Excel, funciona sin red y emite un solo ingreso y recibo recuperable"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:262:1",
+      "test": "tarjetas de solares muestran dueños del Excel y mantienen primas y abonos dentro de Ficha sin asignar dos terrenos por una referencia ambigua"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:267:1",
+      "test": "mapa muestra I en los veinte solares superiores y L en los doce inferiores, y una referencia duplicada del mapa cuenta como un solo solar del cliente"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:272:1",
+      "test": "filtro por etapas separa bloques repetidos y mantiene el lindero del PDF"
+    },
+    {
+      "location": "tests/contract-collections-only.test.mjs:93:1",
+      "test": "UI conserva la base completa y filtra reportes y exportaciones"
+    },
+    {
+      "location": "tests/finance-dashboard-ui.test.mjs:29:1",
+      "test": "libro mensual descarga Excel numérico y PDF con filtros coincidentes"
+    },
+    {
+      "location": "tests/multi-date-client-total-ui.test.mjs:10:1",
+      "test": "Abonos varios agrupa cliente, incluye dos solares y guarda un total por fecha"
+    },
+    {
+      "location": "tests/payment-current-date-ui.test.mjs:21:1",
+      "test": "resumen separa prima, saldo a financiar y cuotas efectivamente registradas"
+    },
+    {
+      "location": "tests/payment-history-ui.test.mjs:51:1",
+      "test": "ventana de historial accesible por fecha y con botón de recibo en abonos y fichas"
+    },
+    {
+      "location": "tests/payment-history-ui.test.mjs:170:1",
+      "test": "consolidación mensual de tres solares distingue depósitos, mora y adelantos sin duplicar meses"
+    },
+    {
+      "location": "tests/stage2-five-commercial.test.mjs:39:1",
+      "test": "interfaz real muestra cinco figuras, 2D/3D y filtros sin errores de JavaScript"
+    }
+  ],
+  "new_failure_names_vs_previous_audit": [],
+  "benchmark": {
+    "synthetic_money_fields": 500,
+    "calendar_updates": 10,
+    "before": {
+      "full_input_scans": 10,
+      "elapsed_ms": 315
+    },
+    "after": {
+      "full_input_scans": 0,
+      "elapsed_ms": 122
+    }
+  },
+  "benchmark_limit": "Isolated jsdom container, not a timing measurement on the user Android device."
+}
