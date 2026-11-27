@@ -1,4 +1,4 @@
 {
-  "version": "1.0.40",
-  "notes": "Modo fluido: navegación sin desplazamientos animados ni desenfoques de las barras, para reducir carga gráfica en equipos de pocos recursos."
+  "version": "1.0.41",
+  "notes": "Solares calcula el calendario una sola vez por dibujo y busca cuotas por solar para reducir esperas al cambiar de panel."
 }

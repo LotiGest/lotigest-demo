@@ -63,10 +63,37 @@
    return sales.get(id);
   };
  }
+ // A map draws the same lots in its counters, shapes and details. Build the
+ // complete schedule once per render and index pending rows by lot.
+ let renderSchedules=null;
+ if(typeof schedule==='function'&&typeof arrayanRecord==='function'){
+  const originalSchedule=schedule,originalRecord=arrayanRecord;
+  function scheduleEntry(){
+   if(!renderSchedules)return null;
+   let entry=renderSchedules.get(db.sales);
+   if(!entry){entry={rows:originalSchedule(),pending:new Map(),sold:new Set(db.sales.map(s=>s.lotId))};
+    const month=dateKey(new Date()).slice(0,7);
+    for(const row of entry.rows)if(row.remaining>.009&&(row.status==='late'||row.dueDate.slice(0,7)===month)){
+     const id=row.lot?.id,list=entry.pending.get(id)||[];list.push(row);entry.pending.set(id,list);
+    }
+    renderSchedules.set(db.sales,entry);
+   }
+   return entry;
+  }
+  schedule=function(){return renderSchedules?scheduleEntry().rows:originalSchedule.apply(this,arguments);};
+  arrayanRecord=function(f){
+   if(!renderSchedules)return originalRecord.apply(this,arguments);
+   const data=residenceRecords()[f.key]||{},candidate=data.lotId?getLot(data.lotId):null;
+   const lot=candidate?.residenceId===residence().id?candidate:null;
+   const entry=lot?scheduleEntry():null,hasSale=!!entry?.sold.has(lot?.id),rs=hasSale?(entry.pending.get(lot.id)||[]):[];
+   const status=lot?(lot.status==='private'?'private':lot.status==='reserved'?'reserved':rs.length||(!hasSale&&lot.mapDebtFlag)?'debt':lot.status==='sold'?'sold':'available'):(data.status||f.initial);
+   return {data,lot,status,rs};
+  };
+ }
  const lookupRender=render;
  render=function(){
-  const previous=renderLookups,previousTotals=renderPaymentTotals;renderLookups=new Map();renderPaymentTotals=new Map();
-  try{return lookupRender.apply(this,arguments);}finally{renderLookups=previous;renderPaymentTotals=previousTotals;}
+  const previous=renderLookups,previousTotals=renderPaymentTotals,previousSchedules=renderSchedules;renderLookups=new Map();renderPaymentTotals=new Map();renderSchedules=new Map();
+  try{return lookupRender.apply(this,arguments);}finally{renderLookups=previous;renderPaymentTotals=previousTotals;renderSchedules=previousSchedules;}
  };
   const oldRender=render;let lastPage=page;render=function(){const root=document.getElementById('modal-root');if(root?.closest('#app'))document.body.append(root);if(lastPage==='payments'&&page!=='payments'&&document.querySelector('#modal-root .lg-payment-modern'))closeModal();oldRender();if(page==='payments'&&!document.querySelector('#modal-root .modal-cover')&&document.querySelector('.lotigest-shell'))newPayment(null,false);lastPage=page;decorate();if(page==='payments'&&document.querySelector('#modal-root .lg-payment-modern')&&(!matchMedia('(max-width:700px)').matches||root?.querySelector('.pm-reference-payment'))){if(matchMedia('(max-width:700px)').matches)document.body.prepend(root);else document.querySelector('.workspace')?.append(root);}};
   document.addEventListener('click',e=>{const b=e.target.closest('[data-cp-tab],[data-cp-template],[data-cp-preview]');if(!b)return;
