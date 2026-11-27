@@ -1,4 +1,4 @@
 {
-  "version": "1.0.44",
-  "notes": "Abonos varios permite capturar más de 24 recibos consecutivos, con siguiente abono y revisión independiente."
+  "version": "1.0.45",
+  "notes": "Historial de abonos visible junto al formulario de PC y último pago al lado de cuota mensual."
 }

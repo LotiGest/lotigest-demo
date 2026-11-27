@@ -5,6 +5,7 @@
  function restore(){
   for(const [node,anchor] of moved){if(anchor.isConnected){anchor.replaceWith(node);}else anchor.remove();}
   moved.clear();
+  document.querySelectorAll('.pd-payment-quick').forEach(el=>el.remove());
  }
  function move(node,target){
   if(!node||!target||moved.has(node))return;
@@ -48,7 +49,26 @@
   const method=options?.querySelector('.pm-method-buttons')?.parentElement;
   move(method,fields);
   const monthly=form.querySelector('[data-monthly-banner]');
-  move(monthly,modal.querySelector('.pm-reference-client .pm-card-body'));
+  const clientBody=modal.querySelector('.pm-reference-client .pm-card-body');
+  let quick=clientBody?.querySelector('.pd-payment-quick');
+  if(!quick&&clientBody){quick=pmNode('div','pd-payment-quick');clientBody.append(quick);}
+  move(monthly,quick);
+  const lastCard=modal.querySelector('#pm-last-payment')?.closest('.pm-card');
+  move(lastCard,quick);
+  const historyCard=modal.querySelector('.pm-reference-history');
+  move(historyCard,clientBody);
+  const history=historyCard?.querySelector('#pm-reference-history');
+  if(history){
+   const rows=pmHistoryRows().filter(r=>r.action&&!/\\bprima\\b/i.test(r.concept||''));
+   history.replaceChildren();
+   const scroll=pmNode('div','pd-history-scroll'),table=pmNode('table','pd-history-table');
+   const head=table.createTHead().insertRow();for(const label of ['Fecha','Correlativo','Monto (L)'])head.append(pmNode('th','',label));
+   const body=table.createTBody();
+   for(const r of rows){const tr=body.insertRow();tr.insertCell().textContent=r.date;tr.insertCell().append(pmNode('span','pm-folio',r.reference||'Sin correlativo'));tr.insertCell().append(pmNode('span','pm-value',money(r.amountCents/100)));}
+   scroll.append(table);history.append(scroll);
+   if(!rows.length)history.append(pmNode('p','pm-help','No hay abonos registrados para la selección.'));
+   const all=pmNode('button','btn btn-outline pd-history-all','Ver historial completo · '+rows.length);all.type='button';all.disabled=!sales.length;all.addEventListener('click',()=>pmOpenPaymentHistory());history.append(all);
+  }
   const actions=modal.querySelector('.pm-reference-actions');
   if(actions){
    for(const button of actions.querySelectorAll('button'))button.hidden=!button.matches('.pm-save,.pm-many-client,[data-pd-another]');
