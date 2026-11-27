@@ -13,6 +13,8 @@ test('Terrenos y Abonos buscan por nombre o cédula y mantienen los datos de D1'
    {id:'SEARCH-LOT-A',residenceId:rid,ownerClientId:'SEARCH-C1',stage:'1',block:'A',sourceNumber:'3',status:'sold',type:'solar',area:100,price:50000},
    {id:'SEARCH-LOT-B',residenceId:rid,ownerClientId:'SEARCH-C1',stage:'2',block:'B',sourceNumber:'5',status:'sold',type:'solar',area:110,price:60000}
   );
+  previous.state.contractTexts??=[];
+  for(const lotId of ['SEARCH-LOT-A','SEARCH-LOT-B'])previous.state.contractTexts.push({id:'DOC-'+lotId,lotId,clientId:'SEARCH-C1',residenceId:rid,status:'pending-sale',format:'manual',title:'FICHA FICTICIA',pages:[],structured:{price:50000,down:10000,months:12}});
   const written=await server.write({state:previous.state,revision:previous.revision,mutation:crypto.randomUUID()});
   assert.equal(written.status,200);
   app.close();app=boot(server);
@@ -29,13 +31,14 @@ test('Terrenos y Abonos buscan por nombre o cédula y mantienen los datos de D1'
   assert.match(results.textContent,/JOSÉ ÁNGEL BÚSQUEDA/,'búsqueda tolera tildes');
   app.input('#name-id-lots','0001234567000');
   assert.doesNotMatch(results.textContent,/JOSÉ ÁNGEL BÚSQUEDA/,'sin coincidencias falsas');
-  for(const panel of ['payments','receipts','collections']){
+  for(const panel of ['payments','receipts']){
    app.click('[data-page='+panel+']');
    const input='#name-id-'+panel;
    assert.ok(app.d.querySelector(input),'campo visible en '+panel);
    app.input(input,'0001 2345 67890');
    assert.match(app.d.querySelector('#name-id-results-'+panel).textContent,/JOSÉ ÁNGEL BÚSQUEDA/);
   }
+  app.click('[data-page=collections]');assert.ok(app.d.querySelector('#cc-search'));app.input('#cc-search','0001 2345 67890');assert.match(app.d.querySelector('.cc-list').textContent,/JOSÉ ÁNGEL BÚSQUEDA/);assert.doesNotMatch(app.d.querySelector('.cc-list').textContent,/MARÍA ELENA/);app.input('#cc-search','0001234567000');assert.doesNotMatch(app.d.querySelector('.cc-list').textContent,/JOSÉ ÁNGEL BÚSQUEDA/);
   app.click('[data-page=receipts]');
   app.click('[data-action=new-payment]');
   assert.ok(app.d.querySelector('#owner-payment-search'),'selector de abonos');
