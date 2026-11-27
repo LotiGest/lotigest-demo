@@ -52,15 +52,11 @@ test('calendario histórico permite ver y seleccionar meses de 2024 aunque no ex
   snapshot.state.clients.push({id:'HIST-CAL-CLIENT',name:'CLIENTE PRUEBA CALENDARIO',identity:'0801199900311'});
   snapshot.state.lots.push({id:'HIST-CAL-SOLAR',residenceId:rid,stage:'1',block:'F',sourceNumber:'2',
    area:154,price:50000,status:'sold',ownerClientId:'HIST-CAL-CLIENT'});
-  snapshot.state.ownershipStatements??=[];
-  snapshot.state.ownershipStatements.push({id:'HIST-CAL-STATEMENT',clientId:'HIST-CAL-CLIENT',residenceId:rid,references:[{lotId:'HIST-CAL-SOLAR',stage:'1',block:'F',lot:'2'}],paymentIds:[],contractIds:[],issues:[],documentedOpeningBalanceCents:null,documentedBalances:[]});
-  snapshot.state.ownerPayments??=[];
-  snapshot.state.ownerPayments.push({
-   id:'OP-'+crypto.randomUUID(),clientId:'HIST-CAL-CLIENT',residenceId:rid,clientName:'CLIENTE PRUEBA CALENDARIO',
-   date:'2024-02-18',amountCents:250000,concept:'Abono histórico · Mes 2024-02',method:'Efectivo',
-   allocations:[{statementId:'HIST-CAL-STATEMENT',referenceIndex:null,amountCents:250000,
-    references:[{lotId:'HIST-CAL-SOLAR',stage:'1',block:'F',solar:'2'}]}]
-  });
+  // Use a verified imported receipt, not an owner-payment statement: the latter
+  // intentionally routes to the separate owner-abono form.
+  snapshot.state.historicalContracts??=[];snapshot.state.historicalPayments??=[];
+  snapshot.state.historicalContracts.push({id:'HIST-CAL-CONTRACT',clientId:'HIST-CAL-CLIENT',residenceId:rid,status:'needs-terms',paymentIds:['HIST-CAL-PAGO'],references:[{lotId:'HIST-CAL-SOLAR',stage:1,block:'F',lot:'2'}]});
+  snapshot.state.historicalPayments.push({id:'HIST-CAL-PAGO',contractId:'HIST-CAL-CONTRACT',clientId:'HIST-CAL-CLIENT',residenceId:rid,lotId:'HIST-CAL-SOLAR',date:'2024-02-18',period:'2024-02',type:'ABONO',amountCents:250000,issues:[],references:[{lotId:'HIST-CAL-SOLAR',stage:1,block:'F',lot:'2'}]});
   const write=await server.write({state:snapshot.state,revision:snapshot.revision,mutation:crypto.randomUUID()});
   assert.equal(write.status,200,'El historial de prueba se guarda sin afectar otros datos');
   app.close();app=boot(server);
