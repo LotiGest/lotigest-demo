@@ -816,3 +816,63 @@ body.lotigest-dark .pm-history-dashboard-layer{--ph-bg:#0c1519;--ph-card:#142329
 @media(max-width:600px){.pm-history-dashboard-layer .pm-history-dashboard{gap:8px;overflow:auto;height:calc(100dvh - 12px)}.pm-history-dashboard .ph-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.pm-history-dashboard .ph-filters label:has(input[type=search]){grid-column:1/-1}.pm-history-dashboard .ph-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.pm-history-dashboard .ph-list{min-height:200px;flex:1 0 200px}.pm-history-dashboard .ph-detail form{grid-template-columns:1fr}.pm-history-dashboard .ph-tools{justify-content:flex-start}}
 
 @media(min-width:1001px){.pm-history-dashboard .ph-metrics{grid-template-columns:repeat(6,minmax(0,1fr))}}
+
+/* Campos prioritarios de Registrar abono: verde, rojo y azul; conservar inputs nativos. */
+#modal-root .lg-payment-modern.pm-reference-payment #multi-payment-form .pm-reference-entry{
+ --pm-priority-green-bg:#e0f7e8;--pm-priority-green:#126b36;--pm-priority-green-border:#29a95e;
+ --pm-priority-red-bg:#fff0f2;--pm-priority-red:#a91f36;--pm-priority-red-border:#df5268;
+ --pm-priority-blue-bg:#e6f4ff;--pm-priority-blue:#124d8e;--pm-priority-blue-border:#3596ec;
+ --pm-priority-blue-focus:#1976d2;
+}
+body.lotigest-dark #modal-root .lg-payment-modern.pm-reference-payment #multi-payment-form .pm-reference-entry{
+ --pm-priority-green-bg:#113c2c;--pm-priority-green:#a1f6af;--pm-priority-green-border:#50d384;
+ --pm-priority-red-bg:#422630;--pm-priority-red:#ffb3bf;--pm-priority-red-border:#f3788d;
+ --pm-priority-blue-bg:#173a58;--pm-priority-blue:#d5efff;--pm-priority-blue-border:#60b9ff;
+ --pm-priority-blue-focus:#8cd5ff;
+}
+#modal-root .lg-payment-modern.pm-reference-payment #multi-payment-form .pm-reference-entry #pm-amount-slot>label{
+ font-weight:750;color:var(--pm-priority-green)!important;
+}
+#modal-root .lg-payment-modern.pm-reference-payment #multi-payment-form .pm-reference-entry #pm-amount-slot .pm-currency-control{
+ min-height:58px!important;background:var(--pm-priority-green-bg)!important;border:2px solid var(--pm-priority-green-border)!important;
+ border-radius:12px!important;box-shadow:none!important;
+}
+#modal-root .lg-payment-modern.pm-reference-payment #multi-payment-form .pm-reference-entry #pm-amount-slot .pm-currency-visible{
+ font-size:clamp(21px,2.2vw,28px)!important;min-height:48px!important;height:48px!important;font-weight:850!important;
+ color:var(--pm-priority-green)!important;background:transparent!important;
+}
+#modal-root .lg-payment-modern.pm-reference-payment #multi-payment-form .pm-reference-entry .pm-correlativo-label{
+ color:var(--pm-priority-red)!important;font-size:14px!important;font-weight:750!important;
+}
+#modal-root .lg-payment-modern.pm-reference-payment #multi-payment-form .pm-reference-entry .pm-correlativo-control{
+ min-height:58px!important;border:2px solid var(--pm-priority-red-border)!important;background:var(--pm-priority-red-bg)!important;border-radius:12px!important;
+}
+#modal-root .lg-payment-modern.pm-reference-payment #multi-payment-form .pm-reference-entry .pm-correlativo-control input[name="receiptRef"]{
+ font-size:clamp(21px,2.2vw,28px)!important;min-height:48px!important;height:48px!important;font-weight:850!important;color:var(--pm-priority-red)!important;
+}
+#modal-root .lg-payment-modern.pm-reference-payment #multi-payment-form .pm-reference-entry .pm-correlativo-duplicate .pm-correlativo-control{
+ border-color:#e11d48!important;box-shadow:0 0 0 3px #e11d4840!important;
+}
+#modal-root .lg-payment-modern.pm-reference-payment #multi-payment-form .pm-reference-entry .pm-primary-date :is(label,.field-group){
+ font-weight:750;color:var(--pm-priority-blue)!important;font-size:14px!important;
+}
+#modal-root .lg-payment-modern.pm-reference-payment #multi-payment-form .pm-reference-entry .pm-primary-date input[name="date"]{
+ box-sizing:border-box!important;display:block;width:100%!important;max-width:100%!important;min-width:0!important;
+ min-height:58px!important;height:58px!important;padding:8px 10px!important;border:2px solid var(--pm-priority-blue-border)!important;
+ background:var(--pm-priority-blue-bg)!important;color:var(--pm-priority-blue)!important;border-radius:12px!important;
+ font-family:inherit!important;font-size:clamp(18px,2vw,24px)!important;font-weight:850!important;font-variant-numeric:tabular-nums;
+ line-height:1.3!important;box-shadow:none!important;
+}
+body.lotigest-dark #modal-root .lg-payment-modern.pm-reference-payment #multi-payment-form .pm-reference-entry .pm-primary-date input[name="date"]{color-scheme:dark}
+#modal-root .lg-payment-modern.pm-reference-payment #multi-payment-form .pm-reference-entry .pm-primary-date input[name="date"]::-webkit-calendar-picker-indicator{
+ width:21px;height:21px;opacity:1;cursor:pointer;margin:0;padding:0;flex-shrink:0;
+}
+#modal-root .lg-payment-modern.pm-reference-payment #multi-payment-form .pm-reference-entry .pm-primary-date input[name="date"]:focus{
+ outline:3px solid var(--pm-priority-blue-focus)!important;outline-offset:2px!important;
+}
+#modal-root .lg-payment-modern.pm-reference-payment #multi-payment-form .pm-reference-entry #pm-amount-slot .pm-currency-control:focus-within{
+ outline:3px solid var(--pm-priority-green-border)!important;outline-offset:2px!important;
+}
+#modal-root .lg-payment-modern.pm-reference-payment #multi-payment-form .pm-reference-entry .pm-correlativo-control:focus-within{
+ outline:3px solid var(--pm-priority-red-border)!important;outline-offset:2px!important;
+}

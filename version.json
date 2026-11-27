@@ -1,4 +1,4 @@
 {
-  "version": "1.0.54",
-  "notes": "Buscar y cambiar de cliente directamente en Registrar abono, en PC y celular, con resultados por nombre/cédula y protección del borrador sin guardar."
+  "version": "1.0.55",
+  "notes": "Registrar abono: fecha azul de mayor tamaño, monto verde y correlativo rojo con mayor contraste, foco visible y diseño adaptable a PC y celular."
 }
