@@ -54,7 +54,7 @@ test('PC deja tipo de pago visible y cuota mensual debajo del cliente',()=>{
  const monthly=d.createElement('section');monthly.dataset.monthlyBanner='true';monthly.textContent='Cuota mensual: L 3400';options.append(monthly);
  w.pmReferenceRefresh();
  assert.equal(method.closest('details'),null);
- assert.equal(monthly.parentElement,d.querySelector('.pm-reference-client .pm-card-body'));
+ assert.equal(monthly.parentElement,d.querySelector('.pm-reference-client .pm-card-body .pd-payment-quick'));
  w.desktopMedia.matches=false;w.desktopMedia.change();
  assert.equal(method.parentElement,options);assert.equal(monthly.parentElement,options);
  dom.window.close();
