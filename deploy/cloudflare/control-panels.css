@@ -237,3 +237,17 @@ body.cp-inline-payment #modal-root .pm-reference-actions .pm-many-client{display
  body:not(.lotigest-dark) #modal-root #official-map-quote :is(p,label,small){color:#365846}
  body:not(.lotigest-dark) #modal-root .pm-reference-actions .pm-save{color:#fff!important}
 }
+/* Historical payments contain their own light surfaces: theme them as a pair. */
+@media screen{
+ body.lotigest-dark #modal-root .lg-payment-modern :is(.pm-historical-lots,.pm-historical-lots label,.pm-reconcile-scroll,.pm-reconcile-table,.pm-reconcile-table thead,.pm-reconcile-table tbody tr){background:#112b23!important;color:#f1f7f4!important;border-color:#426256!important}
+ body.lotigest-dark #modal-root .lg-payment-modern :is(.pm-historical-lots h4,.pm-historical-lots p,.pm-historical-lots label,.pm-historical-lots span,.pm-historical-lots strong,.pm-reconcile-table th,.pm-reconcile-table td,.pm-reconcile-table span,.pm-reconcile-table small){color:#f1f7f4!important}
+ body.lotigest-dark #modal-root .lg-payment-modern .pm-historical-lots label:has(input:checked){background:#165333!important;border-color:#70d19a!important;color:#f1f7f4!important}
+ body.lotigest-dark #modal-root .lg-payment-modern .pm-method-buttons button{background:#193d30!important;color:#f1f7f4!important;border-color:#648776!important}
+ body.lotigest-dark #modal-root .lg-payment-modern .pm-method-buttons button[aria-pressed=true]{background:#087d36!important;color:#fff!important;border-color:#7ce29c!important}
+ body:not(.lotigest-dark) #modal-root .lg-payment-modern :is(.pm-historical-lots,.pm-historical-lots label,.pm-reconcile-scroll,.pm-reconcile-table){color:#18372b!important}
+ body:not(.lotigest-dark) #modal-root .lg-payment-modern :is(.pm-historical-lots h4,.pm-historical-lots p,.pm-historical-lots span,.pm-reconcile-table td,.pm-reconcile-table small){color:#18372b!important}
+}
+@media screen and (min-width:701px){
+ html body.cp-inline-payment .workspace>#modal-root:has(.lg-payment-modern){padding-bottom:125px!important;scroll-margin-bottom:125px}
+ html body.cp-inline-payment #modal-root :is(input,select,textarea,button){scroll-margin-block:24px 125px}
+}
