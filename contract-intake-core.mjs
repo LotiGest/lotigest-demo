@@ -183,3 +183,16 @@ export function intakePlanLots(data,lots,residenceId){
  }
  return planned;
 }
+
+// Un apartado solo se convierte al registrar la venta del mismo titular.
+export function intakeReservationFor(state,lotId,clientId){
+ const active=(state.reservations||[]).filter(r=>r.lotId===lotId&&r.status==='active');
+ if(active.length>1||active.some(r=>r.clientId!==clientId))throw Error('El solar tiene un apartado vigente de otro cliente o requiere conciliación.');
+ return active[0]||null;
+}
+export function intakeConvertReservation(state,lot,sale,at){
+ if(!lot||!sale||sale.lotId!==lot.id)throw Error('Venta y solar no coinciden.');
+ const r=intakeReservationFor(state,lot.id,sale.clientId);
+ if(r){r.status='converted';r.saleId=sale.id;r.convertedAt=at;lot.reservationId=null;}
+ return r;
+}
