@@ -1,4 +1,4 @@
 {
-  "version": "1.0.47",
-  "notes": "Progreso debajo del resumen, notificación de abonos y estado de cuenta completo con depósitos, cuotas y regularización."
+  "version": "1.0.48",
+  "notes": "Historial de pagos con tabla compacta, contraste día/noche, filtros, indicadores, paginación y exportación."
 }

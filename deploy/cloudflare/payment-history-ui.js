@@ -20,7 +20,7 @@ function pmHistoryRows(){
   const sales=pmSales(),byId=new Map(sales.map(s=>[s.id,s]));
   const groups=new Map();
   for(const p of db.payments||[]){
-   if(!byId.has(p.saleId)||p.voidedAt||p.deletedAt)continue;
+   if(!byId.has(p.saleId)||p.voidedAt||p.deletedAt||p.cancelledAt||['voided','cancelled','annulled'].includes(p.status))continue;
    const key=String(p.groupId||p.id);
    if(!groups.has(key))groups.set(key,{id:key,date:p.date||'',amountCents:0,parts:[],lots:new Set(),
     method:p.method||'',concept:p.concept||'',reference:pmHistoryReference(p),receiptId:p.sourceOwnerPaymentId||p.id,action:p.sourceOwnerPaymentId?'owner-payment-receipt':'receipt-preview',kind:'Recibo registrado'});
@@ -46,7 +46,7 @@ function pmHistoryRows(){
   const clientId=ownerContext.clientId,rid=ownerContext.residenceId;
   if(!clientId||!rid)return [];
   for(const p of db.ownerPayments||[]){
-   if(p.clientId!==clientId||p.residenceId!==rid||p.voidedAt||p.deletedAt)continue;
+   if(p.clientId!==clientId||p.residenceId!==rid||p.voidedAt||p.deletedAt||p.cancelledAt||['voided','cancelled','annulled'].includes(p.status))continue;
    const lots=new Set();
    for(const a of p.allocations||[])for(const ref of a.references||[])
     lots.add('Etapa '+(ref.stage||'—')+' · Bloque '+(ref.block||'—')+' · Solar '+(ref.solar||ref.lot||'—'));
@@ -292,87 +292,97 @@ function pmClosePaymentHistory(restore=true){
  if(pmHistoryLayer){pmHistoryLayer.remove();pmHistoryLayer=null;}
  if(restore){const target=pmReportsReturnFocus;pmReportsReturnFocus=null;if(target?.isConnected)target.focus();}
 }
+function pmHistoryDashboardStatus(payment,rows,today){
+ if(!payment.action)return 'Por conciliar';
+ if(/\bprima\b/i.test(payment.concept||'')||payment.kind==='Prima registrada')return 'Prima registrada';
+ const linked=rows.filter(r=>r.receipts.some(p=>String(p.groupId||p.paymentId)===String(payment.id)));
+ if(!linked.length)return 'Registrado';
+ if(linked.some(r=>r.remainingCents>0))return 'Aplicación parcial';
+ if(linked.some(r=>r.dueDate.slice(0,7)<payment.date.slice(0,7)))return 'Atraso cubierto';
+ if(linked.some(r=>r.dueDate.slice(0,7)>payment.date.slice(0,7)))return 'Adelanto aplicado';
+ return 'Cuotas cubiertas';
+}
 function pmOpenPaymentHistory(fromReports=false){
  pmClosePaymentHistory(false);
- const layer=pmNode('div','pm-history-layer'),shade=pmNode('div','pm-history-shade');
- const dialog=pmNode('section','pm-history-window');
- dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');
- dialog.setAttribute('aria-labelledby','pm-history-title');
- const header=pmNode('div','pm-history-head');
- const heading=pmNode('div'),title=pmNode('h2','','Historial de pagos por fecha');
- title.id='pm-history-title';
- heading.append(title,pmNode('p','pm-help','Recibos ordenados del más reciente al más antiguo. Cada fecha muestra el pago recibido, el solar y las cuotas aplicadas.'));
- const close=pmNode('button','btn btn-soft pm-history-close','Cerrar ×');
- close.type='button';close.dataset.pmHistoryClose='true';
- header.append(heading);
- if(fromReports){const back=pmNode('button','btn btn-outline btn-sm','‹ Reportes');back.type='button';back.addEventListener('click',()=>pmOpenReports(pmReportsReturnFocus));header.append(back);}
- header.append(close);
- const filters=pmNode('div','pm-history-filters');
- const start=pmNode('label','','Desde'),from=pmNode('input');
- from.type='date';from.id='pm-history-from';start.append(from);
- const end=pmNode('label','','Hasta'),to=pmNode('input');
- to.type='date';to.id='pm-history-to';end.append(to);
- const clear=pmNode('button','btn btn-outline btn-sm','Todas las fechas');clear.type='button';
- const search=pmNode('label','','Filtrar concepto / recibo'),text=pmNode('input');
- text.type='search';text.placeholder='Correlativo, cuota o solar';search.append(text);
- filters.append(start,end,search,clear);
- const count=pmNode('p','pm-history-count');
- const list=pmNode('div','pm-history-list');
+ const trigger=document.activeElement;if(!fromReports&&trigger?.isConnected)pmReportsReturnFocus=trigger;
+ const layer=pmNode('div','pm-history-layer pm-history-dashboard-layer'),shade=pmNode('div','pm-history-shade');
+ const dialog=pmNode('section','pm-history-window pm-history-dashboard');
+ dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-labelledby','pm-history-title');
+ const header=pmNode('div','pm-history-head'),heading=pmNode('div'),title=pmNode('h2','','Historial de pagos por fecha');
+ title.id='pm-history-title';heading.append(title,pmNode('p','','Consulta, filtra y exporta los recibos del contrato seleccionado.'));header.append(heading);
+ const tools=pmNode('nav','ph-tools');tools.setAttribute('aria-label','Acciones del historial');
+ const button=(label,cls='btn btn-outline')=>{const b=pmNode('button',cls,label);b.type='button';return b;};
+ const print=button('Imprimir'),excel=button('Exportar Excel'),pdf=button('Exportar PDF'),close=button('Cerrar ×','btn btn-soft pm-history-close');close.dataset.pmHistoryClose='true';
+ if(fromReports){const back=button('‹ Reportes');back.onclick=()=>pmOpenReports(pmReportsReturnFocus);tools.append(back);}
+ tools.append(print,excel,pdf,close);header.append(tools);
+ const filters=pmNode('div','pm-history-filters ph-filters');
+ const field=(name,input)=>{const label=pmNode('label','',name);label.append(input);filters.append(label);return input;};
+ const from=field('Desde',pmNode('input'));from.type='date';from.id='pm-history-from';
+ const to=field('Hasta',pmNode('input'));to.type='date';to.id='pm-history-to';
+ const text=field('Buscar correlativo, cuota o solar',pmNode('input'));text.type='search';text.placeholder='Buscar recibo...';
+ const type=field('Tipo de pago',pmNode('select')),status=field('Estado',pmNode('select'));
+ const options=(el,values)=>{for(const value of values){const o=pmNode('option','',value);o.value=value;el.append(o);}};
+ options(type,['Todos','Abono','Prima','Otro / por conciliar']);options(status,['Todos','Cuotas cubiertas','Atraso cubierto','Adelanto aplicado','Aplicación parcial','Prima registrada','Registrado','Por conciliar']);
+ const clear=button('Limpiar filtros');filters.append(clear);
+ const metrics=pmNode('div','ph-metrics'),count=pmNode('p','pm-history-count'),list=pmNode('div','pm-history-list ph-list'),pagination=pmNode('div','ph-pagination');
+ const pageSize=pmNode('select');pageSize.setAttribute('aria-label','Registros por página');options(pageSize,['10','25','50']);let page=1,visible=[],schedule=[];
+ const kind=p=>!p.action?'Otro / por conciliar':/\bprima\b/i.test(p.concept||'')||p.kind==='Prima registrada'?'Prima':p.kind==='Abono en ficha'||/abono|cuota/i.test(p.concept||'')||p.parts.some(x=>/^Cuota /.test(x))?'Abono':'Otro / por conciliar';
+ const state=p=>pmHistoryDashboardStatus(p,schedule,businessToday());
+ const cash=p=>p.amountCents===null?'Por verificar':money(p.amountCents/100);
+ const application=p=>p.parts?.join(' · ')||'Aplicación por verificar';
  const render=()=>{
-  list.replaceChildren();
+  list.replaceChildren();metrics.replaceChildren();pagination.replaceChildren();
+  const all=pmHistoryRows(),today=businessToday();schedule=[];let known=false;
+  if(pmActive==='sale'&&!document.getElementById('owner-abono-form'))try{const sales=pmSales().filter(s=>s.type==='credit');if(sales.length){const ledger=pmReconciled(sales);schedule=ledger.rows;known=!ledger.unmatched.length&&schedule.length>0;}}catch{}
   const q=String(text.value||'').trim().toLowerCase();
-  const visible=pmHistoryRows().filter(p=>(!from.value||p.date>=from.value)&&(!to.value||p.date<=to.value)&&
-    pmHistoryMatches(p,q));
-  count.textContent=visible.length+' registro(s) por fecha'+(visible.length?' · Último movimiento: '+(visible[0].date||'Por verificar'):'');
-  if(!visible.length){list.append(pmNode('p','pm-help','No hay movimientos para estas fechas o el cliente/solar seleccionado.'));return;}
-  for(const p of visible){
-   const item=pmNode('article','pm-history-item');item.dataset.pmReceiptId=String(p.receiptId||p.id);
-   const row=pmNode('div','pm-history-item-head');
-   row.append(pmNode('strong','',p.date||'Fecha por verificar'),pmNode('strong','',p.amountCents===null?'Importe por verificar':money(p.amountCents/100)));
-   item.append(row);
-   const folio=pmNode('strong','pm-history-folio','Correlativo: '+(p.reference||'Sin correlativo registrado'));
-   folio.style.cssText='display:block;font-weight:700;color:#b42332;overflow-wrap:anywhere;margin:6px 0';
-   if(p.reference)folio.style.cssText+=';background:#fff1f2;border-radius:6px;padding:4px 8px;width:fit-content';
-   item.append(folio,pmNode('span','pm-history-tag',p.kind+' · '+p.id));
-   const body=pmNode('div','pm-history-item-body');
-   body.append(pmNode('p','',p.method?'Método: '+p.method:'Método no indicado'));
-   if(p.concept)body.append(pmNode('p','',p.concept));
-   if(p.lots?.size)body.append(pmNode('p','','Solar(es): '+[...p.lots].join(' | ')));
-   if(p.parts?.length)body.append(pmNode('p','','Aplicación: '+p.parts.join(' | ')));
-   item.append(body);
-   if(p.action&&p.receiptId){
-    const button=pmNode('button','btn btn-outline btn-sm','Ver / imprimir recibo');
-    button.type='button';button.dataset.action=p.action;button.dataset.id=p.receiptId;
-    item.append(button);
-    if(pmHistoryCanVoid(p)){
-     const edit=pmNode('button','btn btn-outline btn-sm','Editar pago');edit.type='button';edit.style.color='#176c34';edit.style.marginLeft='8px';
-     edit.addEventListener('click',()=>pmHistoryEditForm(p,item,()=>refreshAfterSave(p)));item.append(edit);
-     const remove=pmNode('button','btn btn-outline btn-sm','Eliminar pago');remove.type='button';remove.style.color='#b42332';remove.style.marginLeft='8px';
-     remove.addEventListener('click',()=>pmHistoryVoidForm(p,item,()=>refreshAfterSave(p)));item.append(remove);
-    }
-   }else item.append(pmNode('small','pm-help','Documento sin recibo PDF vinculado; revisar el movimiento.'));
-   list.append(item);
+  visible=all.filter(p=>(!from.value||p.date>=from.value)&&(!to.value||p.date<=to.value)&&pmHistoryMatches(p,q)&&(type.value==='Todos'||kind(p)===type.value)&&(status.value==='Todos'||state(p)===status.value));
+  const confirmed=visible.filter(p=>p.action),sum=confirmed.reduce((n,p)=>n+(Number.isFinite(p.amountCents)?p.amountCents:0),0);
+  const due=schedule.filter(r=>r.dueCents>0);
+  for(const [label,value,tone] of [['Total de pagos',String(confirmed.length),'neutral'],['Monto total pagado',money(sum/100),'green'],['Cuotas cubiertas',known?String(due.filter(r=>!r.remainingCents).length):'—','blue'],['Cuotas pendientes',known?String(due.filter(r=>r.remainingCents>0).length):'—','yellow'],['Cuotas vencidas',known?String(due.filter(r=>r.remainingCents>0&&r.dueDate<today).length):'—','red']]){
+   const tile=pmNode('div','ph-metric');tile.dataset.tone=tone;tile.append(pmNode('small','',label),pmNode('strong','',value));metrics.append(tile);
   }
+  count.textContent=visible.length+' registro(s) · Los totales de pagos siguen el filtro; las cuotas corresponden al contrato completo.';
+  const size=Number(pageSize.value)||10,pages=Math.max(1,Math.ceil(visible.length/size));page=Math.min(Math.max(1,page),pages);
+  const table=pmNode('table','ph-table'),head=table.createTHead().insertRow();
+  for(const label of ['#','Fecha de pago','Correlativo','Tipo de pago','Monto (L)','Aplicación / mes','Estado','Acciones']){const th=pmNode('th','',label);th.scope='col';head.append(th);}
+  const body=table.createTBody();
+  for(const [i,p] of visible.slice((page-1)*size,page*size).entries()){
+   const tr=body.insertRow(),detailRow=body.insertRow();detailRow.hidden=true;detailRow.className='ph-detail-row';const detailCell=detailRow.insertCell();detailCell.colSpan=8;
+   const item=pmNode('article','pm-history-item ph-detail');item.dataset.pmReceiptId=String(p.receiptId||p.id);detailCell.append(item);
+   const cell=(value,cls='')=>{const td=tr.insertCell();if(cls)td.className=cls;td.textContent=value;return td;};
+   cell(String((page-1)*size+i+1));cell(p.date?p.date.split('-').reverse().join('/'):'Por verificar');
+   cell(p.reference||'Sin folio','ph-folio');cell(kind(p));cell(cash(p),'ph-amount');cell(application(p),'ph-application');
+   const statusCell=cell(''),statusText=pmNode('span','ph-status',state(p));statusText.dataset.tone=state(p)==='Por conciliar'?'red':state(p)==='Aplicación parcial'?'yellow':state(p)==='Adelanto aplicado'?'blue':'green';statusCell.append(statusText);
+   const actions=cell('','ph-actions'),view=button('Ver');view.setAttribute('aria-expanded','false');view.title='Ver detalle del abono';
+   const toggle=(open)=>{detailRow.hidden=!open;view.setAttribute('aria-expanded',String(open));view.textContent=open?'Ocultar':'Ver';};
+   view.onclick=()=>toggle(detailRow.hidden);actions.append(view);
+   item.append(pmNode('strong','','Recibo '+(p.reference||'sin correlativo')+' · '+cash(p)),pmNode('p','','Método: '+(p.method||'No indicado')+' · '+(p.concept||p.kind)));
+   if(p.lots?.size)item.append(pmNode('p','','Solar(es): '+[...p.lots].join(' | ')));
+   item.append(pmNode('p','','Aplicación: '+application(p)));
+   if(p.action&&p.receiptId){
+    const receipt=button('Recibo');receipt.title='Ver / imprimir recibo';receipt.dataset.action=p.action;receipt.dataset.id=p.receiptId;actions.append(receipt);
+    if(pmHistoryCanVoid(p)){
+     const edit=button('Editar'),remove=button('Eliminar');remove.classList.add('ph-danger');edit.onclick=()=>{toggle(true);pmHistoryEditForm(p,item,()=>refreshAfterSave(p));};remove.onclick=()=>{toggle(true);pmHistoryVoidForm(p,item,()=>refreshAfterSave(p));};item.append(edit,remove);
+    }
+   }else item.append(pmNode('small','','Documento sin recibo PDF vinculado; revisar el movimiento.'));
+  }
+  if(!visible.length)list.append(pmNode('p','ph-empty','No hay movimientos para estos filtros.'));else list.append(table);
+  const first=visible.length?(page-1)*size+1:0,last=Math.min(page*size,visible.length);
+  pagination.append(pmNode('span','','Mostrando '+first+'–'+last+' de '+visible.length+' registros'));
+  const nav=pmNode('div','ph-page-buttons');for(const [label,target] of [['«',1],['‹',page-1],[String(page)+' / '+pages,page],['›',page+1],['»',pages]]){const b=button(label);b.disabled=target===page||target<1||target>pages;b.onclick=()=>{page=target;render();list.scrollTop=0;};nav.append(b);}pagination.append(nav);
+  const per=pmNode('label','','Registros por página: ');per.append(pageSize);pagination.append(per);
+  excel.disabled=print.disabled=!visible.length;pdf.disabled=pmActive!=='sale'||!pmSales().length;
  };
- const refreshAfterSave=p=>{
-  if(!layer.isConnected||pmHistoryLayer!==layer)return;
-  const scrolls=[dialog,list].map(el=>[el,el.scrollTop]);
-  render();
-  for(const [el,top] of scrolls)el.scrollTop=top;
-  const item=[...list.children].find(el=>el.dataset.pmReceiptId===String(p.receiptId||p.id));
-  (item?.querySelector('button')||close).focus({preventScroll:true});
- };
- from.addEventListener('change',render);to.addEventListener('change',render);
- text.addEventListener('input',render);
- clear.addEventListener('click',()=>{from.value='';to.value='';text.value='';render();});
- layer.append(shade,dialog);dialog.append(header,filters,count,list);
- layer.addEventListener('click',e=>{
-  if(e.target===shade||e.target.closest('[data-pm-history-close]')){pmClosePaymentHistory();return;}
-  if(e.target.closest('[data-action="receipt-preview"],[data-action="owner-payment-receipt"]'))
-   pmClosePaymentHistory(); // deja que el manejador de recibos del programa abra el PDF
- });
- pmReportsKeyboard(layer,dialog);
- document.body.append(layer);pmHistoryLayer=layer;render();close.focus();
+ const refreshAfterSave=p=>{if(!layer.isConnected||pmHistoryLayer!==layer)return;render();close.focus({preventScroll:true});};
+ const reset=()=>{page=1;render();};
+ for(const input of [from,to,type,status,pageSize])input.addEventListener('change',reset);text.addEventListener('input',reset);
+ clear.onclick=()=>{from.value=to.value=text.value='';type.value=status.value='Todos';reset();};
+ excel.onclick=()=>{try{downloadExcel('LOTIGEST_Historial_'+businessToday()+'.xlsx',['Fecha','Correlativo','Tipo','Monto (L)','Aplicación','Estado'],visible.map(p=>[p.date,p.reference,kind(p),p.amountCents===null?'Por verificar':p.amountCents/100,application(p),state(p)]),[],'Historial');}catch(e){toast(e.message,'error');}};
+ pdf.onclick=()=>{const clients=new Set(pmSales().map(s=>s.clientId));if(clients.size===1)pmDeliverAmortization(false,null,[...clients][0]);else toast('Selecciona un cliente con contrato.','error');};pdf.title='PDF completo de amortización del cliente (no solo filas filtradas)';
+ print.onclick=()=>{const frame=document.createElement('iframe');frame.style.cssText='position:fixed;width:0;height:0;border:0';document.body.append(frame);const doc=frame.contentDocument;if(!doc){frame.remove();return;}doc.title='LOTIGEST · Historial de pagos';const style=doc.createElement('style');style.textContent='body{font:11pt Arial;color:#172d21}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:5px;text-align:left;vertical-align:top}th{background:#e2f2e8}tr{break-inside:avoid}';doc.head.append(style);const title=doc.createElement('h2');title.textContent='LOTIGEST · Historial de pagos';doc.body.append(title);const table=doc.createElement('table'),head=table.createTHead().insertRow();for(const label of ['Fecha','Correlativo','Tipo','Monto','Aplicación','Estado']){const th=doc.createElement('th');th.textContent=label;head.append(th);}const body=table.createTBody();for(const p of visible){const row=body.insertRow();for(const value of [p.date,p.reference,kind(p),cash(p),application(p),state(p)])row.insertCell().textContent=value;}doc.body.append(table);const win=frame.contentWindow;win.addEventListener('afterprint',()=>frame.remove(),{once:true});win.focus();win.print();};
+ layer.append(shade,dialog);dialog.append(header,filters,metrics,count,list,pagination);
+ layer.addEventListener('click',e=>{if(e.target===shade||e.target.closest('[data-pm-history-close]')){pmClosePaymentHistory();return;}if(e.target.closest('[data-action="receipt-preview"],[data-action="owner-payment-receipt"]'))pmClosePaymentHistory();});
+ pmReportsKeyboard(layer,dialog);document.body.append(layer);pmHistoryLayer=layer;render();close.focus();
 }
 
 // Reporte de solo lectura. Todos los contratos del cliente en la residencial actual.

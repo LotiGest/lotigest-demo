@@ -760,3 +760,50 @@ body.lotigest-dark #modal-root .lg-payment-modern.pm-compact-payment .pm-primary
 #modal-root .lg-payment-modern .pm-change-client{font-size:12px;padding:5px 9px;min-height:32px;white-space:normal}
 #modal-root .lg-payment-modern .pm-change-client[hidden]{display:none!important}
 @media(max-width:600px){#modal-root .lg-payment-modern .pm-header-client{gap:4px 8px}#modal-root .lg-payment-modern .pm-change-client{min-height:36px}}
+
+/* Historial: la capa vive fuera de modal-root, usa su propia paleta y contraste. */
+.pm-history-dashboard-layer{--ph-bg:#fff;--ph-card:#f3f8f5;--ph-ink:#163326;--ph-muted:#50645a;--ph-border:#c7dbcf;--ph-green:#16773c;--ph-red:#a92336;--ph-yellow:#8d590c;--ph-blue:#17618a;--ph-head:#145737;--ph-head-ink:#fff;color:var(--ph-ink)}
+body.lotigest-dark .pm-history-dashboard-layer{--ph-bg:#0c1519;--ph-card:#142329;--ph-ink:#edf6f2;--ph-muted:#b4c8c5;--ph-border:#36545b;--ph-green:#76ed98;--ph-red:#ff929b;--ph-yellow:#f4cc65;--ph-blue:#79d4ff;--ph-head:#103e2a;--ph-head-ink:#f2fff6;color-scheme:dark}
+.pm-history-dashboard-layer .pm-history-dashboard{background:var(--ph-bg)!important;color:var(--ph-ink)!important;border-color:var(--ph-border);width:min(1500px,100%);max-width:1500px}
+.pm-history-dashboard :is(h2,h3,strong,label,p,small,span,td,th){color:inherit}
+.pm-history-dashboard .pm-history-head h2{color:var(--ph-ink)!important;font-size:clamp(18px,2vw,26px)}
+.pm-history-dashboard :is(.pm-history-head p,.pm-history-count,.pm-help){color:var(--ph-muted)!important}
+.pm-history-dashboard .ph-tools{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.pm-history-dashboard :is(button.btn,input,select){background:var(--ph-card)!important;color:var(--ph-ink)!important;border:1px solid var(--ph-border)!important;border-radius:8px;min-height:34px;padding:6px 9px;font:inherit}
+.pm-history-dashboard button.btn:not(:disabled):hover{border-color:var(--ph-green)!important;color:var(--ph-green)!important}
+.pm-history-dashboard button:disabled{opacity:.45}
+.pm-history-dashboard :is(button,input,select):focus-visible{outline:2px solid var(--ph-blue);outline-offset:2px}
+.pm-history-dashboard .ph-filters{grid-template-columns:repeat(2,minmax(105px,1fr)) minmax(150px,1.6fr) repeat(2,minmax(110px,1fr)) auto;padding:10px;background:var(--ph-card);border:1px solid var(--ph-border);border-radius:12px}
+.pm-history-dashboard .ph-filters :is(input,select){width:100%;min-width:0;box-sizing:border-box}
+.pm-history-dashboard .ph-metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px}
+.pm-history-dashboard .ph-metric{padding:10px 12px;background:var(--ph-card);border:1px solid var(--ph-border);border-radius:12px;display:grid;gap:4px;min-width:0}
+.pm-history-dashboard .ph-metric small{font-size:12px;color:var(--ph-muted)}
+.pm-history-dashboard .ph-metric strong{font-size:clamp(15px,1.7vw,23px);overflow-wrap:anywhere}
+.pm-history-dashboard [data-tone=green]{color:var(--ph-green)!important;border-color:var(--ph-green)}
+.pm-history-dashboard [data-tone=blue]{color:var(--ph-blue)!important;border-color:var(--ph-blue)}
+.pm-history-dashboard [data-tone=yellow]{color:var(--ph-yellow)!important;border-color:var(--ph-yellow)}
+.pm-history-dashboard [data-tone=red]{color:var(--ph-red)!important;border-color:var(--ph-red)}
+.pm-history-dashboard .ph-list{display:block;flex:1;overflow:auto;padding:0;border:1px solid var(--ph-border);border-radius:12px;min-height:120px}
+.pm-history-dashboard .ph-table{width:100%;border-collapse:separate;border-spacing:0;min-width:850px;font-size:13px;color:var(--ph-ink)}
+.pm-history-dashboard .ph-table th{position:sticky;top:0;z-index:1;background:var(--ph-head)!important;color:var(--ph-head-ink)!important;text-align:left;white-space:nowrap;padding:11px 8px}
+.pm-history-dashboard .ph-table td{padding:9px 8px;border-bottom:1px solid var(--ph-border);vertical-align:middle;background:var(--ph-bg)!important}
+.pm-history-dashboard .ph-table tbody tr:nth-child(4n+3)>td{background:var(--ph-card)!important}
+.pm-history-dashboard .ph-table .ph-folio{color:var(--ph-red)!important;font-weight:800;overflow-wrap:anywhere;max-width:130px}
+.pm-history-dashboard .ph-table .ph-amount{color:var(--ph-green)!important;font-weight:800;white-space:nowrap}
+.pm-history-dashboard .ph-application{max-width:230px;white-space:normal;overflow-wrap:anywhere;font-size:12px}
+.pm-history-dashboard .ph-status{display:inline-block;border:1px solid currentColor;border-radius:16px;padding:3px 7px;font-size:11px;white-space:nowrap}
+.pm-history-dashboard .ph-actions{white-space:nowrap}
+.pm-history-dashboard .ph-actions button{font-size:11px;margin-right:4px}
+.pm-history-dashboard .ph-detail-row[hidden]{display:none!important}
+.pm-history-dashboard .ph-detail{background:var(--ph-card)!important;color:var(--ph-ink)!important;border-color:var(--ph-border);padding:14px;display:grid;gap:8px}
+.pm-history-dashboard .ph-detail p{margin:0;color:var(--ph-muted)!important}
+.pm-history-dashboard .ph-detail form{color:var(--ph-ink)!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;background:var(--ph-bg);border:1px solid var(--ph-border);padding:12px;border-radius:9px}
+.pm-history-dashboard .ph-detail form label{display:grid;gap:4px;min-width:0}
+.pm-history-dashboard .ph-detail form :is(p,small,strong){grid-column:1/-1}
+.pm-history-dashboard .ph-detail form input[style*="color"]{color:var(--ph-ink)!important}
+.pm-history-dashboard .ph-danger{color:var(--ph-red)!important}
+.pm-history-dashboard .ph-pagination{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--ph-muted)}
+.pm-history-dashboard .ph-page-buttons{display:flex;gap:5px}
+.pm-history-dashboard .ph-empty{padding:20px;color:var(--ph-muted)}
+@media(max-width:1000px){.pm-history-dashboard .ph-filters{grid-template-columns:repeat(3,minmax(0,1fr))}.pm-history-dashboard .ph-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:600px){.pm-history-dashboard-layer .pm-history-dashboard{gap:8px;overflow:auto;height:calc(100dvh - 12px)}.pm-history-dashboard .ph-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.pm-history-dashboard .ph-filters label:has(input[type=search]){grid-column:1/-1}.pm-history-dashboard .ph-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.pm-history-dashboard .ph-list{min-height:200px;flex:1 0 200px}.pm-history-dashboard .ph-detail form{grid-template-columns:1fr}.pm-history-dashboard .ph-tools{justify-content:flex-start}}
