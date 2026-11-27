@@ -1,4 +1,4 @@
 {
-  "version": "1.0.37",
-  "notes": "Siguiente correlativo editable entre clientes, primas y abonos; evita recibos existentes. Fecha de primera cuota automática, con opción de excepción y sin pedir fecha final."
+  "version": "1.0.38",
+  "notes": "Unifica recibos de fichas anteriores con contratos vigentes: primas, abonos, calendario e historial sin duplicar ingresos. Abre el panel compacto de contratos en lugar de la ficha anterior."
 }

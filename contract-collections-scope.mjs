@@ -1,3 +1,4 @@
+import {contractPaymentReadView} from './contract-owner-payments.mjs';
 // LOTIGEST · Vista derivada para Residenciales, solares y cobros.
 // Fuente de verdad: fichas contractuales vigentes registradas en Contratos.
 // IMPORTANTE: filtra la vista; NUNCA elimina historiales, solares, clientes ni recibos reales.
@@ -30,7 +31,7 @@ export function contractCollectionsScope(state,residenceId){
     (!doc.saleId&&doc.status==='active'&&s.source==='contract-intake'));
  });
  const saleIds=new Set(sales.map(s=>s.id));
- const payments=(original.payments||[]).filter(p=>saleIds.has(p.saleId)&&
+ const payments=(contractPaymentReadView(original).payments||[]).filter(p=>saleIds.has(p.saleId)&&
   !p.voidedAt&&!p.deletedAt&&!p.cancelledAt);
  return {
   ...original,lots,clients:(original.clients||[]).filter(c=>clientIds.has(c.id)),

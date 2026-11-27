@@ -1,3 +1,4 @@
+import {contractOwnerPaymentRows} from './contract-owner-payments.mjs';
 const monthlyActive=p=>!p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&!['voided','cancelled'].includes(p.status);
 const monthlyCents=v=>v!=null&&v!==''&&Number.isFinite(Number(v))?Math.round(Number(v)*100):null;
 export function monthlyLotTerms(state,lotId){
@@ -15,9 +16,11 @@ export function monthlyPaymentInfo(state,lotIds){
  const ids=[...new Set(lotIds)],terms=ids.map(id=>monthlyLotTerms(state,id));
  if(!ids.length||terms.some(t=>!t))return {known:false,monthlyCents:null,remainingCents:null,primaRemainingCents:null};
  const wanted=new Set(ids),saleIds=new Set(terms.map(t=>t.saleId).filter(Boolean));
+ const existingIds=new Set((state.payments||[]).map(p=>p.id)),allProjected=contractOwnerPaymentRows(state),projected=allProjected.filter(p=>!existingIds.has(p.id)),projectedOwners=new Set(allProjected.map(p=>p.sourceOwnerPaymentId));
  let paid=terms.reduce((n,t)=>n+t.openingCents,0),ambiguous=false;
  for(const p of state.payments||[])if(monthlyActive(p)&&saleIds.has(p.saleId))paid+=monthlyCents(p.amount)||0;
- for(const p of (state.ownerPayments||[]).filter(monthlyActive))for(const a of p.allocations||[]){
+ for(const p of projected)if(saleIds.has(p.saleId))paid+=monthlyCents(p.amount)||0;
+ for(const p of (state.ownerPayments||[]).filter(p=>monthlyActive(p)&&!projectedOwners.has(p.id)))for(const a of p.allocations||[]){
   const refs=(a.references||[]).map(r=>r.lotId).filter(Boolean);
   if(!refs.some(id=>wanted.has(id)))continue;
   if(refs.length!==(a.references||[]).length||!refs.every(id=>wanted.has(id)))ambiguous=true;
@@ -79,7 +82,9 @@ export function splitClientPayment(state,saleIds,totalCents,date=null,applicatio
   if(!sale||!lot||sale.type!=='credit')throw Error('Contrato de crédito no válido.');
   const terms=monthlyLotTerms(state,lot.id);
   if(!terms?.monthlyCents)throw Error('Revisa la cuota mensual de cada solar.');
-  const paid=Math.round(Number(sale.openingPaid||0)*100)+(state.payments||[]).filter(p=>p.saleId===id&&!p.voidedAt&&!['voided','cancelled'].includes(p.status)).reduce((n,p)=>n+Math.round(Number(p.amount)*100),0);
+  const info=monthlyPaymentInfo(state,[lot.id]);
+  if(info.remainingCents===null||info.primaRemainingCents===null)throw Error('Verifica la distribución de los recibos por solar.');
+  const paid=Math.round(Number(sale.price)*100)-info.remainingCents;
   return {saleId:id,clientId:sale.clientId,residenceId:lot.residenceId,date:sale.date,weight:terms.monthlyCents,primaRemaining:Math.max(0,terms.downCents-paid),remaining:Math.max(0,Math.round(Number(sale.price)*100)-paid),cents:0};
  });
  if(new Set(rows.map(r=>r.clientId)).size!==1||new Set(rows.map(r=>r.residenceId)).size!==1)throw Error('El abono debe pertenecer a un cliente y una residencial.');

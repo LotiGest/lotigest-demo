@@ -6,7 +6,7 @@ import {webcrypto} from 'node:crypto';
 import {fixture} from './client-payment-total.test.mjs';
 import * as owner from '../owner-payments.mjs';
 const source=readFileSync(new URL('../deploy/cloudflare/multi-date-abonos-ui.js',import.meta.url),'utf8');
-const rules=readFileSync(new URL('../monthly-payment-rules.mjs',import.meta.url),'utf8').replace(/export /g,'');
+const rules=(readFileSync(new URL('../contract-owner-payments.mjs',import.meta.url),'utf8')+readFileSync(new URL('../monthly-payment-rules.mjs',import.meta.url),'utf8').replace(/^import .*;\n/gm,'')).replace(/export /g,'');
 test('Abonos varios agrupa cliente, incluye dos solares y guarda un total por fecha',async()=>{
  const dom=new JSDOM('<div id="modal-root"></div>',{url:'https://test/',runScripts:'outside-only'}),w=dom.window;
  const errors=[];let saved;

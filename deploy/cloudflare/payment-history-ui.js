@@ -23,7 +23,7 @@ function pmHistoryRows(){
    if(!byId.has(p.saleId)||p.voidedAt||p.deletedAt)continue;
    const key=String(p.groupId||p.id);
    if(!groups.has(key))groups.set(key,{id:key,date:p.date||'',amountCents:0,parts:[],lots:new Set(),
-    method:p.method||'',concept:p.concept||'',reference:pmHistoryReference(p),receiptId:p.id,action:'receipt-preview',kind:'Recibo registrado'});
+    method:p.method||'',concept:p.concept||'',reference:pmHistoryReference(p),receiptId:p.sourceOwnerPaymentId||p.id,action:p.sourceOwnerPaymentId?'owner-payment-receipt':'receipt-preview',kind:'Recibo registrado'});
    const entry=groups.get(key),sale=byId.get(p.saleId),lot=getLot(sale.lotId);
    const reference=pmHistoryReference(p);
    if(reference&&!entry.reference)entry.reference=reference;

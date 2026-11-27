@@ -126,7 +126,7 @@ test('editar tipo de pago distingue prima atrasada de cuota y no cambia el total
 test('amortización de 72 cuotas conserva vencidas, futuras, folios y saldo en PDF multipágina',async()=>{
  const ctx=model();
  ctx.Blob=Blob;
- vm.runInContext(readFileSync(new URL('../contract-collections-scope.mjs',import.meta.url),'utf8').replace(/export /g,''),ctx);
+ vm.runInContext((readFileSync(new URL('../contract-owner-payments.mjs',import.meta.url),'utf8')+readFileSync(new URL('../contract-collections-scope.mjs',import.meta.url),'utf8').replace(/^import .*;\n/gm,'')).replace(/export /g,''),ctx);
  vm.runInContext(readFileSync(new URL('../installment-status.mjs',import.meta.url),'utf8').replace(/export /g,''),ctx);
  ctx.state={company:{name:'GRUPO H'},residences:[{id:'R',name:'Prueba'}],clients:[{id:'C',name:'Cliente prueba'}],
  lots:[{id:'L',residenceId:'R',stage:1,block:'A',sourceNumber:'4'}],
@@ -169,7 +169,7 @@ test('permite corregir prima inicial de dos solares sin receiptInfo solo con res
 
 test('consolidación mensual de tres solares distingue depósitos, mora y adelantos sin duplicar meses',async()=>{
  const ctx=model();ctx.Blob=Blob;
- vm.runInContext(readFileSync(new URL('../contract-collections-scope.mjs',import.meta.url),'utf8').replace(/export /g,''),ctx);
+ vm.runInContext((readFileSync(new URL('../contract-owner-payments.mjs',import.meta.url),'utf8')+readFileSync(new URL('../contract-collections-scope.mjs',import.meta.url),'utf8').replace(/^import .*;\n/gm,'')).replace(/export /g,''),ctx);
  vm.runInContext(readFileSync(new URL('../installment-status.mjs',import.meta.url),'utf8').replace(/export /g,''),ctx);
  ctx.state={company:{name:'GRUPO H'},residences:[{id:'R',name:'PRUEBA'}],clients:[{id:'C',name:'CLIENTE PRUEBA'}],
  lots:[1,2,3].map(i=>({id:'L'+i,residenceId:'R',stage:1,block:'A',sourceNumber:String(i)})),
@@ -193,7 +193,7 @@ test('consolidación mensual de tres solares distingue depósitos, mora y adelan
 
 test('amortización individual y consolidada separan las partes de un recibo compartido',()=>{
  const ctx=model();ctx.Blob=Blob;
- vm.runInContext(readFileSync(new URL('../contract-collections-scope.mjs',import.meta.url),'utf8').replace(/export /g,''),ctx);
+ vm.runInContext((readFileSync(new URL('../contract-owner-payments.mjs',import.meta.url),'utf8')+readFileSync(new URL('../contract-collections-scope.mjs',import.meta.url),'utf8').replace(/^import .*;\n/gm,'')).replace(/export /g,''),ctx);
  vm.runInContext(readFileSync(new URL('../installment-status.mjs',import.meta.url),'utf8').replace(/export /g,''),ctx);
  ctx.state={residences:[{id:'R',name:'Prueba'}],clients:[{id:'C',name:'Cliente prueba'},{id:'X',name:'Otro'}],
  lots:[1,2,3].map(i=>({id:'L'+i,residenceId:'R',stage:1,block:'A',sourceNumber:String(i)})),
@@ -213,7 +213,7 @@ test('amortización individual y consolidada separan las partes de un recibo com
 
 test('reporte: cuota del mes primero, excedente a deuda anterior sin cambiar el recibo original',()=>{
  const ctx=model();ctx.Blob=Blob;
- vm.runInContext(readFileSync(new URL('../contract-collections-scope.mjs',import.meta.url),'utf8').replace(/export /g,''),ctx);
+ vm.runInContext((readFileSync(new URL('../contract-owner-payments.mjs',import.meta.url),'utf8')+readFileSync(new URL('../contract-collections-scope.mjs',import.meta.url),'utf8').replace(/^import .*;\n/gm,'')).replace(/export /g,''),ctx);
  vm.runInContext(readFileSync(new URL('../installment-status.mjs',import.meta.url),'utf8').replace(/export /g,''),ctx);
  ctx.state={company:{name:'GRUPO H'},residences:[{id:'R',name:'Prueba'}],clients:[{id:'C',name:'Cliente prueba'}],
  lots:[1,2].map(i=>({id:'L'+i,residenceId:'R',stage:1,block:'Comercial',sourceNumber:String(i)})),

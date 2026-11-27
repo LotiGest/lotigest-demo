@@ -1,3 +1,4 @@
+import {contractOwnerPaymentRows} from '../../../contract-owner-payments.mjs';
 import {ensureContractNumbers} from '../../../contract-numbers.mjs';
 import {validateNewMonthlyPayments} from '../../../monthly-payment-rules.mjs';
 import {validateOwnerPayments,validateNewReceiptCorrelativos} from '../../../owner-payments.mjs';
@@ -36,10 +37,13 @@ export function validate(state){
   date(s.date,'Fecha de venta');if(s.firstDueDate&&date(s.firstDueDate,'Primer vencimiento')<s.date)invalid('El primer vencimiento no puede ser anterior a la venta.');
  }
  for(const p of state.payments){
+  if(p.contractOwnerView||p.id.startsWith('owner-view:'))invalid('La vista de recibos vinculados no se puede guardar como un pago nuevo.');
   const sale=sales.get(p.saleId);if(!sale)invalid('Abono sin venta válida.');
   if(date(p.date,'Fecha de pago')<sale.date)invalid('El pago no puede ser anterior a la venta.');
   const total=totals.get(p.saleId)+cents(p.amount,'Abono',1);if(!Number.isSafeInteger(total)||total>prices.get(p.saleId))invalid('Los pagos superan el precio de la venta.');totals.set(p.saleId,total);
  }
+ // Existing owner receipts already reduce a verified contract balance.
+ for(const p of contractOwnerPaymentRows(state)){const total=totals.get(p.saleId)+Math.round(p.amount*100);if(!Number.isSafeInteger(total)||total>prices.get(p.saleId))invalid('Los pagos, incluidas las fichas vinculadas, superan el precio de la venta.');totals.set(p.saleId,total);}
  const qrTokens=new Map();
  const addQr=(payment,group)=>{
   if(payment.verifyToken==null)return;
