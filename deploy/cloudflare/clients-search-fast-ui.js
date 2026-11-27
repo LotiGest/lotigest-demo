@@ -37,7 +37,8 @@
   const host=input.closest('[data-client-directory]'),body=host?.querySelector('tbody');
   if(!body)return;
   filter=input.value;
-  if(!cache||cache.state!==db){cache=index(db);table=null;nodes=new Map();}
+  const refreshed=!cache||cache.state!==db;
+  if(refreshed){cache=index(db);table=body;nodes=new Map();}
   if(table!==body){
    table=body;
    for(const row of body.rows)nodes.set(row.dataset.clientId,row);
@@ -45,7 +46,7 @@
   const order=host.querySelector('[data-alphabetical-order="clients"]')?.value||'default';
   const rows=matches(cache,filter,order);
   const current=Array.from(body.rows);
-  if(current.length!==rows.length||current.some((r,i)=>r.dataset.clientId!==String(rows[i].client.id))){
+  if(refreshed||current.length!==rows.length||current.some((r,i)=>r.dataset.clientId!==String(rows[i].client.id))){
    const fragment=document.createDocumentFragment(),template=document.createElement('template');
    for(const item of rows){
     const id=String(item.client.id);let node=nodes.get(id);
