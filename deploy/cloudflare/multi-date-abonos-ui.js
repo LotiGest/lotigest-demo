@@ -61,7 +61,7 @@
    :(data.payments||[]).filter(p=>(state.saleIds||[state.saleId]).includes(p.saleId));
   const grouped=[];
   for(const p of source){
-   if(p.voidedAt||['voided','cancelled'].includes(p.status))continue;
+   if(p.voidedAt||p.deletedAt||p.cancelledAt||['voided','cancelled','annulled'].includes(p.status))continue;
    if(!owner&&p.groupId){const found=grouped.find(x=>x.groupId===p.groupId);if(found){found.amount=Number(found.amount)+Number(p.amount);continue;}}
    grouped.push({...p});
   }
