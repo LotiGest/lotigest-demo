@@ -22,6 +22,7 @@ function original(){
    {id:'P-OLD',saleId:'S-OLD',date:'2025-03-01',amount:2500},
    {id:'P-NEW',saleId:'S-NEW',date:'2026-11-20',amount:3000},
    {id:'P-VOID',saleId:'S-NEW',date:'2026-11-19',amount:3000,voidedAt:'2026-11-20'},
+   ...['voided','cancelled','annulled'].map(status=>({id:'P-'+status,saleId:'S-NEW',date:'2026-11-19',amount:7000,status})),
    {id:'P-X',saleId:'S-X',date:'2026-03-01',amount:2500}
   ],
   contractTexts:[
