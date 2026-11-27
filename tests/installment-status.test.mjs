@@ -146,3 +146,18 @@ test('abonos mal distribuidos como prima se recuperan con prima comprobada y fol
  assert.equal(rows.filter(r=>r.status==='late').length,1);
  assert.equal(rows[0].receipts[0].reference,'6252');assert.equal(unmatched.length,0);
 });
+
+test('corrección localizada: recibos 6251–6259 inician en marzo de 2026; otros contratos no cambian',()=>{
+ const s=sale({id:'R',date:'2024-03-25',firstDueDate:'2024-04-25',months:84,downPayment:54428});
+ const other=sale({id:'X',date:'2024-03-25',firstDueDate:'2024-04-25',months:84});
+ const amounts=[54428,5831,5831.67,5831.67,5831.67,5831.56,5831.56,5831.67,5831.67];
+ const dates=['2026-04-03','2026-03-25','2026-04-28','2026-05-25','2026-06-27','2026-07-27','2026-08-26','2026-10-02','2026-10-27'];
+ const p=amounts.map((amount,i)=>({id:'r'+i,saleId:'R',amount,date:dates[i],receiptReference:String(6251+i),concept:i?'Abono a crédito':'Prima inicial',receiptInfo:{allocations:[{label:'Prima inicial',amount}]}}));
+ const [fixed,untouched]=installmentSalesFromContracts([s,other],[],p);
+ assert.equal(fixed.firstDueDate,'2026-03-25');assert.equal(untouched.firstDueDate,'2024-04-25');assert.equal(s.firstDueDate,'2024-04-25');
+ assert.equal(installmentSalesFromContracts([s],[],p.slice(1))[0].firstDueDate,'2024-04-25');
+ const rows=reconcileInstallments([fixed],p,'2026-11-26',()=>583167,addMonth,{requireReference:true,repairExplicitAbonos:true}).rows;
+ assert.equal(rows[0].dueDate,'2026-03-25');assert.equal(rows.filter(r=>r.dueDate<='2026-11-26').length,9);
+ assert.equal(rows.filter(r=>r.dueDate<='2026-11-26').reduce((n,r)=>n+r.remainingCents,0),583256);
+ assert.equal(rows.reduce((n,r)=>n+r.appliedCents,0),4665247);
+});

@@ -500,7 +500,7 @@ function pmConsolidatedMonths(rows,payments,asOf){
   noDepositCovered:scheduled.filter(m=>m.noDeposit&&m.covered),unpaid,overdueAmount:unpaid.reduce((n,m)=>n+m.overdue,0)};
 }
 function pmAmortizationModel(state,clientId,rid,asOf,reconcile,dueCents,addMonth,lotId=null,prepared=null){
- const scope=prepared?.scope||contractCollectionsScope(state,rid),client=scope.clients.find(x=>x.id===clientId),sales=installmentSalesFromContracts(scope.sales.filter(x=>x.clientId===clientId&&(lotId===null||x.lotId===lotId)),state.contractTexts);
+ const scope=prepared?.scope||contractCollectionsScope(state,rid),client=scope.clients.find(x=>x.id===clientId),sales=installmentSalesFromContracts(scope.sales.filter(x=>x.clientId===clientId&&(lotId===null||x.lotId===lotId)),state.contractTexts,scope.payments);
  if(!client||!sales.length)throw Error(lotId===null?'Selecciona un cliente con contrato registrado.':'El solar seleccionado no pertenece a un contrato vigente de este cliente.');
  const ids=new Set(sales.map(s=>s.id)),posted=prepared?.posted||new Set((state.historicalPayments||[]).map(p=>p.postedPaymentId).filter(Boolean));
  const all=scope.payments.filter(p=>ids.has(p.saleId)&&!['voided','cancelled'].includes(p.status)&&!p.voidedAt&&!p.deletedAt&&!p.cancelledAt);

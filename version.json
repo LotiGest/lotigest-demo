@@ -1,4 +1,4 @@
 {
-  "version": "1.0.49",
-  "notes": "Calendarios por fecha pactada, conciliación visual de abonos explícitos con prima comprobada y PDF compacto de cuotas al corte."
+  "version": "1.0.50",
+  "notes": "Corrección localizada del calendario de recibos 6251–6259: primera cuota marzo 2026, sin alterar otros clientes ni recibos."
 }

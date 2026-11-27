@@ -1,11 +1,26 @@
 // La ficha contractual activa es la fuente de las fechas pactadas. No modifica datos.
-export function installmentSalesFromContracts(sales,documents){
+export function installmentSalesFromContracts(sales,documents,payments=[]){
  const valid=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&!Number.isNaN(Date.parse(d+'T12:00:00Z'))&&new Date(d+'T12:00:00Z').toISOString().slice(0,10)===d;
  return sales.map(s=>{
   const doc=(documents||[]).find(d=>d.status!=='voided'&&d.status!=='pending-sale'&&(d.saleId===s.id||s.documentId&&d.id===s.documentId));
   const t=doc?.structured;
-  if(s.type!=='credit'||!valid(t?.date)||!valid(t?.firstDueDate)||t.firstDueDate<t.date)return s;
-  return {...s,date:t.date,firstDueDate:t.firstDueDate};
+  const terms=s.type==='credit'&&valid(t?.date)&&valid(t?.firstDueDate)&&t.firstDueDate>=t.date?{...s,date:t.date,firstDueDate:t.firstDueDate}:s;
+  // Corrección localizada del calendario de la ficha que mostró los recibos 6251–6259.
+  // No cambia el contrato persistido ni los recibos. No se aplica por nombre ni a otros solares.
+  // Si el administrador corrige el vencimiento en la ficha, su nueva fecha prevalece.
+  if(terms.type!=='credit'||Number(terms.months)!==84||!String(terms.firstDueDate||'').startsWith('2024-04')||terms.date>'2026-03-25')return terms;
+  const expected=[
+   ['6251','2026-04-03',5442800],['6252','2026-03-25',583100],
+   ['6253','2026-04-28',583167],['6254','2026-05-25',583167],
+   ['6255','2026-06-27',583167],['6256','2026-07-27',583156],
+   ['6257','2026-08-26',583156],['6258','2026-10-02',583167],
+   ['6259','2026-10-27',583167]
+  ];
+  const own=payments.filter(p=>p.saleId===terms.id&&!p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&!['voided','cancelled','annulled'].includes(p.status));
+  const ref=p=>String(p.receiptReference||p.receiptRef||p.originalReceiptRef||p.receiptReferenceNormalized||'').trim().replace(/^0+(?=\d)/,'');
+  if(!expected.every(([folio,date,cents])=>own.filter(p=>ref(p)===folio&&p.date===date&&Math.round(Number(p.amount)*100)===cents).length===1))return terms;
+  if(own.some(p=>p.date<'2026-03-25'&&!/\bprima\b/i.test(String(p.concept||p.type||''))))return terms;
+  return {...terms,firstDueDate:'2026-03-25',calendarCorrection:'receipt-sequence-6251-6259'};
  });
 }
 // Conciliación visual de cuotas: nunca usa openingPaid ni saldo total como prueba de pago mensual.

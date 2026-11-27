@@ -77,7 +77,7 @@ const pmReadableDate=date=>new Intl.DateTimeFormat('es-HN',{day:'numeric',month:
 
 function pmReconciled(sales) {
  const asOf=businessToday(),payments=(db.payments||[]).filter(p=>!p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&!['voided','cancelled'].includes(p.status)&&p.date<=asOf);
- const terms=installmentSalesFromContracts(sales,db.contractTexts);
+ const terms=installmentSalesFromContracts(sales,db.contractTexts,payments);
  const ledger=reconcileInstallments(terms,payments,asOf,installmentDueCents,(date,index)=>dateKey(addMonths(date,index)),{requireReference:true,repairExplicitAbonos:true});
  return {...ledger,rows:pmReportCurrentMonthFirst(ledger.rows,payments,asOf)};
 }
@@ -97,6 +97,8 @@ function pmCalendar(root,sales){
  const todayNotice=pmNode('div','pm-current-date');
  todayNotice.append(pmNode('strong','','Fecha actual de Honduras: '+pmReadableDate(now)),pmNode('small','','Esta fecha es informativa. Los recibos antiguos conservan su fecha real de pago.'));
  root.append(todayNotice);
+ const corrected=installmentSalesFromContracts(validSales,db.contractTexts,db.payments||[]).filter(s=>s.calendarCorrection);
+ if(corrected.length){const notice=pmNode('div','notice-card');notice.append(pmNode('strong','','Primera cuota corregida en calendario: 25 marzo 2026'),pmNode('p','','Corrección específica basada en los recibos comprobados 6251–6259. Confirma la fecha pactada en Editar contrato para guardarla definitivamente.'));root.append(notice);}
  const uncertain=validSales.filter(s=>{
   const d=(db.contractTexts||[]).find(x=>x.status!=='voided'&&(x.saleId===s.id||x.id===s.documentId));
   return d&&(!d.structured?.firstDueDate||d.structured.firstDueDate!==s.firstDueDate||d.structured.date!==s.date);
