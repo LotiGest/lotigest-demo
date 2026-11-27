@@ -39,12 +39,13 @@
   // Sin solares marcados, consultar todos los abonos DEL MISMO cliente, sin
   // seleccionar solares para un nuevo cobro. Al marcar uno, filtrar su historial.
   const linkedRef=r=>r&&(!ids.size||ids.has(r.lotId));
-  const owner=(db.ownerPayments||[]).filter(p=>!p.voidedAt&&!p.deletedAt&&p.clientId===clientId&&p.residenceId===rid&&
+  const owner=(db.ownerPayments||[]).filter(p=>!p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&!['voided','cancelled','annulled'].includes(p.status)&&p.clientId===clientId&&p.residenceId===rid&&
    (p.allocations||[]).some(a=>(a.references||[]).some(linkedRef)));
   const statements=(db.ownershipStatements||[]).filter(s=>s.clientId===clientId&&s.residenceId===rid&&
    (s.references||[]).some(linkedRef));
   const linkedHistoricalIds=new Set(statements.flatMap(s=>s.paymentIds||[]));
   const historical=(db.historicalPayments||[]).filter(p=>
+   !p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&!['voided','cancelled','annulled'].includes(p.status)&&
    (p.clientId===clientId||linkedHistoricalIds.has(p.id))&&p.residenceId===rid&&
    (!ids.size||ids.has(p.lotId)||(p.references||[]).some(linkedRef)||linkedHistoricalIds.has(p.id)&&
     statements.some(s=>(s.paymentIds||[]).includes(p.id))));
