@@ -89,7 +89,7 @@ submitMultiPayment=function(form){
    throw Error('Los datos cambiaron. Abre Registrar pago nuevamente para evitar duplicados.');
   const reference=uid('RC'),next=JSON.parse(JSON.stringify(db)),stamp=new Date().toISOString();
   const payments=rows.map((r,i)=>({...r,id:reference+'-'+(i+1),groupId:reference,date:d.date,
-   concept:String(d.concept||'Abono').trim().slice(0,300),
+   concept:r.concept||String(d.concept||'Abono').trim().slice(0,300),
    method:String(d.method||'').trim().slice(0,80),receiptReference:originalRef,receiptReferenceNormalized:normalizedRef,recordedAt:stamp}));
   for(const payment of payments)payment.receiptInfo=buildReceiptInfo(payment,paidAmount(payment.saleId));
   next.payments.unshift(...payments);

@@ -42,6 +42,16 @@ export function assertMonthlyPayment(state,lotIds,amountCents,{prima=false}={}){
  // Un pago parcial conserva el faltante de la cuota en su calendario.
  return info;
 }
+// La clasificación se decide por solar, antes de validar la mensualidad.
+export function classifyAutomaticPayment(state,lotId,amountCents,application='auto'){
+ const info=monthlyPaymentInfo(state,[lotId]);
+ if(application==='prima'||(application==='auto'&&info.primaRemainingCents>0)){
+  assertPrimaPayment(state,lotId,amountCents);
+  return {paymentApplication:'prima',concept:'Prima'};
+ }
+ assertMonthlyPayment(state,[lotId],amountCents);
+ return {};
+}
 export function assertPrimaPayment(state,lotId,amountCents){
  const info=monthlyPaymentInfo(state,[lotId]);
  if(!info.known||info.primaRemainingCents==null)throw Error('No se pudo verificar la prima pendiente del solar.');
@@ -53,7 +63,10 @@ export function validateNewMonthlyPayments(before,after){
  if(!before)return; // Carga inicial/restauración: no invalidar recibos anteriores.
  const oldSales=new Map((before.payments||[]).map(p=>[p.id,p]));
  const working={...after,payments:[...(before.payments||[])],ownerPayments:[...(before.ownerPayments||[])]};
- for(const p of after.payments||[]){
+ // Los abonos por fechas se guardan con el más reciente al inicio. Validar
+ // cronológicamente para que la prima anterior habilite el siguiente abono.
+ const ordered=[...(after.payments||[])].sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||Number(b.paymentApplication==='prima')-Number(a.paymentApplication==='prima'));
+ for(const p of ordered){
   const prior=oldSales.get(p.id);
   if(prior&&prior.amount===p.amount&&prior.saleId===p.saleId)continue;
   const recorded=(before.historicalPayments||[]).find(h=>h.id===p.historicalImportId&&h.amountCents===monthlyCents(p.amount)&&h.date===p.date);
@@ -91,7 +104,7 @@ export function splitClientPayment(state,saleIds,totalCents,date=null,applicatio
  const primaTotal=rows.reduce((n,r)=>n+r.primaRemaining,0);
  // No distribuir una prima por el peso de las mensualidades: cada solar
  // recibe solamente lo que aún le falta de prima, en centavos.
- if(application==='prima'||(application==='auto'&&totalCents<=primaTotal)){
+ if(application==='prima'||(application==='auto'&&primaTotal>0)){
   if(totalCents>primaTotal)throw Error('El monto supera la prima pendiente. Prima pendiente total: L '+(primaTotal/100).toFixed(2));
   for(const row of rows){row.remaining=row.primaRemaining;row.weight=row.primaRemaining;}
  }
@@ -133,4 +146,15 @@ export function planMonthlyClientPayment(state,saleIds,totalCents,date=null){
   if(allocation)assertMonthlyPayment(state,[row.lotId],allocation.cents);
  }
  return {minimumCents,remainingCents,excessCents:Math.max(0,totalCents-minimumCents),shortfallCents:Math.max(0,minimumCents-totalCents),allocations};
+}
+
+/* Registro automático por fechas: conservar la prima separada de las cuotas. */
+export function planAutomaticClientPayment(state,saleIds,totalCents,date=null){
+ const ids=[...new Set(saleIds)];
+ const terms=ids.map(id=>{const sale=(state.sales||[]).find(s=>s.id===id);if(!sale)throw Error('Contrato no válido.');return monthlyPaymentInfo(state,[sale.lotId]);});
+ if(terms.some(t=>!t.known||t.primaRemainingCents==null))throw Error('Verifica la prima y cuota pactada de cada solar.');
+ const pending=terms.reduce((n,t)=>n+t.primaRemainingCents,0);
+ if(!pending)return planMonthlyClientPayment(state,ids,totalCents,date);
+ const allocations=splitClientPayment(state,ids,totalCents,date,'prima').map(a=>({...a,paymentApplication:'prima',concept:'Prima'}));
+ return {paymentApplication:'prima',minimumCents:pending,remainingCents:pending,excessCents:0,shortfallCents:pending-totalCents,allocations};
 }

@@ -1,4 +1,4 @@
 {
-  "version": "1.0.52",
-  "notes": "Panel Mora con meses adeudados por cliente, faltantes por solar, recibos aplicados y filtros."
+  "version": "1.0.53",
+  "notes": "Clasificación automática de prima pendiente por solar al registrar pagos y abonos por fechas; conservación de correlativos y validación cronológica."
 }

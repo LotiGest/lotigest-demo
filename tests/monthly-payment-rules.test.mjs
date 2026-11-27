@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {monthlyPaymentInfo,assertMonthlyPayment,validateNewMonthlyPayments,splitClientPayment,assertPrimaPayment,planMonthlyClientPayment} from '../monthly-payment-rules.mjs';
+import {monthlyPaymentInfo,assertMonthlyPayment,validateNewMonthlyPayments,splitClientPayment,assertPrimaPayment,planMonthlyClientPayment,classifyAutomaticPayment,planAutomaticClientPayment} from '../monthly-payment-rules.mjs';
 const base=()=>({sales:[{id:'V',lotId:'G16',type:'credit',price:580564.16,downPayment:58056.42,months:84,openingPaid:58056.42}],payments:[],ownerPayments:[]});
 test('mensualidad de contrato existente acepta parcial, exacto y mayor',()=>{const s=base();assert.equal(monthlyPaymentInfo(s,['G16']).monthlyCents,622033);assert.doesNotThrow(()=>assertMonthlyPayment(s,['G16'],622032));assert.doesNotThrow(()=>assertMonthlyPayment(s,['G16'],622033));assert.doesNotThrow(()=>assertMonthlyPayment(s,['G16'],800000));});
 test('pago final inferior a cuota, prima pendiente y contrato sin activar',()=>{
@@ -87,4 +87,27 @@ test('abonos parciales conservan faltante y excluyen el solar liquidado sin perd
  }
  for(const amount of [0,-1,NaN,1.5])assert.throws(()=>assertMonthlyPayment(s,['L1'],amount),/monto positivo/);
  assert.throws(()=>assertMonthlyPayment(s,['L1'],900001),/saldo pendiente/);
+});
+
+test('primer pago de L 1,000,000 se clasifica automáticamente como prima y el siguiente como abono',()=>{
+ const s={sales:[{id:'V',lotId:'L',clientId:'C',type:'credit',price:4500000,downPayment:1000000,months:84,date:'2026-04-01'}],lots:[{id:'L',residenceId:'R'}],payments:[],ownerPayments:[]};
+ assert.deepEqual(classifyAutomaticPayment(s,'L',100000000),{paymentApplication:'prima',concept:'Prima'});
+ const partial=planAutomaticClientPayment(s,['V'],40000000,'2026-04-01');
+ assert.equal(partial.paymentApplication,'prima');assert.equal(partial.shortfallCents,60000000);
+ const p1={...partial.allocations[0],id:'P1',date:'2026-04-01'};
+ const w={...s,payments:[p1]};
+ const final=planAutomaticClientPayment(w,['V'],60000000,'2026-05-01');
+ const p2={...final.allocations[0],id:'P2',date:'2026-05-01'};
+ const paid={...w,payments:[p2,p1]};
+ assert.equal(monthlyPaymentInfo(paid,['L']).primaRemainingCents,0);
+ assert.equal(monthlyPaymentInfo(paid,['L']).remainingCents,350000000);
+ assert.deepEqual(classifyAutomaticPayment(paid,'L',4166667),{});
+ const monthly=planAutomaticClientPayment(paid,['V'],4166667,'2026-06-01');
+ assert.doesNotThrow(()=>validateNewMonthlyPayments(s,{...s,payments:[{...monthly.allocations[0],id:'P3',date:'2026-06-01',concept:'Abono mensual'},p2,p1]}));
+ assert.throws(()=>planAutomaticClientPayment(s,['V'],100000001,'2026-04-01'),/supera la prima/);
+});
+test('la prima automática no se repite en un solar ya cubierto',()=>{
+ const s=twoSolarExample();s.sales[1].openingPaid=0;
+ const p=planAutomaticClientPayment(s,['A','B'],1000000,'2026-01-01');
+ assert.deepEqual(p.allocations.map(a=>[a.saleId,a.paymentApplication,a.cents]),[['B','prima',1000000]]);
 });
