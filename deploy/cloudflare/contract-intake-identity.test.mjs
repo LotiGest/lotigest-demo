@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {intakeCheckValues,intakePlanLots,contractIdentityDigits,contractIdentityFormat} from '../../contract-intake-core.mjs';
+import {intakeCheckValues,intakePlanLots,contractIdentityDigits,contractIdentityFormat,intakeReservationFor,intakeConvertReservation} from '../../contract-intake-core.mjs';
 const ui=readFileSync(new URL('./contract-intake-ui.js',import.meta.url),'utf8');
 const start=ui.indexOf('function contractIntakeData(form){');
 const end=ui.indexOf('function contractIntakeActivate(',start);
@@ -16,7 +16,7 @@ function setup({manual=false,existingClient=false}={}){
  const env={
   buyerDate:v=>v,businessToday:()=>'2026-11-26',contractSuggestedFirstDue:()=>'2026-12-01',contractIntakeWorking:working,contractIntakeImageMime:file=>file.type,contractIntakeAdmin:()=>true,document:{addEventListener(){},getElementById:()=>({disabled:false,isConnected:true})},
   FormData:F,getLot:id=>state.lots.find(l=>l.id===id),residence:()=>state.residences[0],
-  intakeCheckValues,intakePlanLots,contractIdentityFormat,contractIdentityDigits,
+  intakeCheckValues,intakePlanLots,contractIdentityFormat,contractIdentityDigits,intakeReservationFor,intakeConvertReservation,
   db:state,activeReservation:()=>null,
   crypto:{randomUUID:()=>String(count++).padStart(8,'0')+'-0000-4000-8000-000000000000'},
   normalizeClientLookup:x=>String(x||'').replace(/[^A-Za-z0-9]/g,'').toLowerCase(),
