@@ -24,8 +24,32 @@ document.addEventListener('submit',e=>{if(e.target.id==='ledger-contract-form'){
 function dashboard (){const count=(db.historicalPayments||[]).filter(p=>!p.postedPaymentId).length;return (count?'<div class="notice-card" style="margin-bottom:16px">Hay <strong>'+count+'</strong> movimientos históricos conservados por revisar o completar. No se han convertido en ingresos nuevos ni saldos inventados. <button class="btn btn-outline" data-page="collections">Abrir fichas de propietarios</button></div>':'')+baseDashboard();}
 
 const officialPlanImages=new Map();
-function officialBackground(r){return officialPlanImages.get(r.id)||r.officialPlan?.background||(r.officialPlan?.backgroundKey?'/api/app/file?'+new URLSearchParams({key:r.officialPlan.backgroundKey}):'');}
-async function prepareOfficialBackgrounds(){for(const r of db.residences||[]){const key=r.officialPlan?.backgroundKey;if(!key||officialPlanImages.has(r.id))continue;try{let file=await window.lotigestFiles?.get(key);if(!file&&navigator.onLine!==false){const response=await fetch('/api/app/file?'+new URLSearchParams({key}),{cache:'no-store'});if(!response.ok)continue;file=await response.blob();await window.lotigestFiles?.cache(key,file);}if(file)officialPlanImages.set(r.id,URL.createObjectURL(file));}catch{}}}
+const officialPlanLoads=new Map();
+function officialBackground(r){
+ const key=r.officialPlan?.backgroundKey;
+ if(!key)return r.officialPlan?.background||'';
+ const source='/api/app/file?'+new URLSearchParams({key});
+ const stored=officialPlanImages.get(key);
+ if(stored)return stored;
+ if(!officialPlanLoads.has(key)){
+  const task=Promise.resolve().then(async()=>{
+   try{
+    let file;
+    try{file=await window.lotigestFiles?.get(key);}catch{}
+    if(!file&&navigator.onLine!==false){
+     const response=await fetch(source,{cache:'no-store'});
+     if(response.ok){file=await response.blob();try{await window.lotigestFiles?.cache(key,file);}catch{}}
+    }
+    if(file){
+     const url=URL.createObjectURL(file);officialPlanImages.set(key,url);
+     for(const image of document.querySelectorAll('image'))if(image.getAttribute('href')===source)image.setAttribute('href',url);
+    }
+   }catch{}finally{officialPlanLoads.delete(key);}
+  });
+  officialPlanLoads.set(key,task);
+ }
+ return source;
+}
 const sellerPages=new Set(['dashboard','gps','arrayan','lots','residences','help','users']);
 const sellerActions=new Set(['logout','menu','close-menu','close-modal','view-lot','solar-open','arrayan-select','arrayan-less','arrayan-more','arrayan-fit','arrayan-download-pdf','residence-pdf','residence-switch','inventory-map','geo-view','geo-home','geo-focus','geo-show-geometry','lot-client-card','check-update']);
 function cloudRenderAccountIdentity(){
