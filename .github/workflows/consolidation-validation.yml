@@ -1,0 +1,44 @@
+name: Consolidation validation
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+concurrency:
+  group: consolidation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  full-suite:
+    if: github.event.pull_request.head.ref == 'fix/consolidation-v1.0.57-20261127' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TZ: America/Tegucigalpa
+      CI: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Build application
+        run: npm run build
+      - name: Run complete test suite
+        shell: bash
+        run: |
+          set -o pipefail
+          node --test --test-reporter=tap backend/*.test.mjs deploy/cloudflare/*.test.mjs tests/*.test.mjs | tee validation.tap
+      - name: Publish test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: consolidation-test-results
+          path: validation.tap
+          if-no-files-found: warn
+          retention-days: 14
