@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {intakePlanLots,intakeCheckValues,contractIdentityDigits,contractIdentityFormat} from '../../contract-intake-core.mjs';
+import {intakePlanLots,intakeCheckValues,contractIdentityDigits,contractIdentityFormat,intakeReservationFor,intakeConvertReservation} from '../../contract-intake-core.mjs';
 const source=readFileSync(new URL('./contract-intake-ui.js',import.meta.url),'utf8');
 const fieldsCode=source.slice(source.indexOf('function contractIntakeManualCash('),source.indexOf('function contractIntakeFields(){'));
 const saveCode=source.slice(source.indexOf('function contractIntakeData(form){'),source.indexOf('function contractIntakeActivate('));
@@ -22,7 +22,7 @@ function setup(){
  const queue={latest:JSON.stringify(db),confirmed:JSON.stringify(db)};
  const env={db,contractIntakeWorking:{mode:'manual',residenceId:'R',values:{},busy:false,preferredClientId:'C'},
   contractIntakeAdmin:()=>true,FormData:formData,document:{addEventListener(){},getElementById:()=>({disabled:false,isConnected:true})},
-  intakePlanLots,intakeCheckValues,contractIdentityDigits,contractIdentityFormat,
+  intakePlanLots,intakeCheckValues,contractIdentityDigits,contractIdentityFormat,intakeReservationFor,intakeConvertReservation,
   getLot:id=>db.lots.find(l=>l.id===id),getClient:id=>db.clients.find(c=>c.id===id),
   residence:()=>db.residences[0],activeReservation:()=>null,crypto:{randomUUID:()=>String(++n).padStart(8,'0')+'-0000-4000-8000-000000000000'},
   normalizeClientLookup:v=>String(v||'').replace(/[^a-z0-9]/gi,'').toLowerCase(),
