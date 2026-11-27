@@ -85,7 +85,18 @@
   }
  }
  function schedule(){if(!scheduled){scheduled=true;queueMicrotask(scan);}}
- new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled','readonly','required','min','max']});
+ // Calendar text, totals and map changes do not require scanning every money field.
+ // Form insertions and original input constraints still trigger the existing sync.
+ new MutationObserver(records=>{
+  const needsInput=input=>!wired.has(input)&&((isReference(input)&&!input.dataset.lgCorrelativeReady)||isMoney(input));
+  const hasInput=node=>node.nodeType===1&&(node.tagName==='INPUT'?needsInput(node):Array.from(node.querySelectorAll('input')).some(needsInput));
+  let inserted=false;
+  for(const record of records){
+   if(record.type==='attributes')wired.get(record.target)?.sync();
+   else if(Array.from(record.addedNodes).some(hasInput))inserted=true;
+  }
+  if(inserted)schedule();
+ }).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled','readonly','required','min','max','value']});
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scan,{once:true});else scan();
  window.lotigestMoney={scan,parse,format,isMoney,isReference};
 })();

@@ -1,4 +1,4 @@
 {
-  "version": "1.0.38",
-  "notes": "Unifica recibos de fichas anteriores con contratos vigentes: primas, abonos, calendario e historial sin duplicar ingresos. Abre el panel compacto de contratos en lugar de la ficha anterior."
+  "version": "1.0.39",
+  "notes": "Modo fluido e instalación desde Configuración; arranque local rápido, menos recálculos de montos y menos consultas en segundo plano. Mantiene el guardado y las actualizaciones manuales."
 }

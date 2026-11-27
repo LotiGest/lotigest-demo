@@ -299,6 +299,7 @@ async function cloudOfflineUnlock(username,password){
  cloudQueue=saved;cloudUser={name:username,role:profile.role};cloudCredential=credential;cloudOffline=true;cloudReady=true;cloudBlocked=false;db=readStoredLotigest(saved.latest);await prepareOfficialBackgrounds();sessionStorage.setItem(SESSION,'yes');cloudRestorePage(username);render();cloudStatus('Sin conexión. Puedes trabajar; los cambios se enviarán automáticamente al volver internet.');
 }
 async function cloudRefresh(){
+ if(document.visibilityState==='hidden')return;
  if(cloudAuthBusy||cloudRefreshBusy||cloudBusy||cloudBlocked||navigator.onLine===false)return;
  if(!cloudReady){if(cloudCredential)await cloudBoot();return;}
  cloudRefreshBusy=true;
@@ -412,6 +413,6 @@ async function cloudCheckAvailableVersion(){
 }
 window.addEventListener('focus',cloudCheckAvailableVersion);
 window.addEventListener('online',cloudCheckAvailableVersion);
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')void cloudCheckAvailableVersion();});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){void cloudCheckAvailableVersion();void cloudRefresh();}});
 setInterval(cloudCheckAvailableVersion,120000);
 setTimeout(cloudCheckAvailableVersion,3500);
