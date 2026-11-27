@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {reconcileInstallments} from '../installment-status.mjs';
+import {reconcileInstallments,installmentSalesFromContracts} from '../installment-status.mjs';
 
 const sale=(overrides={})=>({id:'V-1',date:'2025-01-01',firstDueDate:'2025-01-26',type:'credit',months:60,price:90000,downPayment:30000,openingPaid:0,...overrides});
 const installment=()=>100000;
@@ -129,4 +129,20 @@ test('vista oficial exige correlativo, excluye prima, anulados y aplicaciones su
  assert.equal(result.rows[0].remainingCents,0);assert.equal(result.rows[0].receipts[0].reference,'0001');
  assert.ok(result.rows.slice(1).every(x=>x.appliedCents===0));
  assert.equal(result.unmatched.length,3);
+});
+
+test('cada calendario usa la fecha pactada de su ficha, sin mes fijo de abril',()=>{
+ const sales=[sale({id:'A',date:'2024-04-01',firstDueDate:'2024-04-26'}),sale({id:'B',date:'2025-04-01',firstDueDate:'2025-04-26'})];
+ const docs=[{saleId:'A',status:'active',structured:{date:'2024-01-01',firstDueDate:'2024-02-26'}},{saleId:'B',status:'active',structured:{date:'2025-07-01',firstDueDate:'2025-08-26'}}];
+ const terms=installmentSalesFromContracts(sales,docs);
+ assert.equal(terms[0].firstDueDate,'2024-02-26');assert.equal(terms[1].firstDueDate,'2025-08-26');
+ assert.equal(sales[0].firstDueDate,'2024-04-26');
+});
+test('abonos mal distribuidos como prima se recuperan con prima comprobada y folios reales',()=>{
+ const s=sale({date:'2026-03-01',firstDueDate:'2026-04-26',months:12,price:42000,downPayment:30000});
+ const p=[{id:'P',saleId:s.id,date:'2026-03-01',amount:30000,concept:'Prima inicial',receiptReference:'6251'},...Array.from({length:7},(_,i)=>({id:'A'+i,saleId:s.id,date:addMonth(s.firstDueDate,i),amount:1000,concept:'Abono a crédito',receiptReference:String(6252+i),receiptInfo:{allocations:[{label:'Prima inicial',amount:1000}]}}))];
+ const {rows,unmatched}=reconcileInstallments([s],p,'2026-11-27',installment,addMonth,{requireReference:true,repairExplicitAbonos:true});
+ assert.equal(rows.filter(r=>r.remainingCents===0).length,7);
+ assert.equal(rows.filter(r=>r.status==='late').length,1);
+ assert.equal(rows[0].receipts[0].reference,'6252');assert.equal(unmatched.length,0);
 });

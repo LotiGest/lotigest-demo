@@ -329,7 +329,10 @@ function pmOpenPaymentHistory(fromReports=false){
  const kind=p=>!p.action?'Otro / por conciliar':/\bprima\b/i.test(p.concept||'')||p.kind==='Prima registrada'?'Prima':p.kind==='Abono en ficha'||/abono|cuota/i.test(p.concept||'')||p.parts.some(x=>/^Cuota /.test(x))?'Abono':'Otro / por conciliar';
  const state=p=>pmHistoryDashboardStatus(p,schedule,businessToday());
  const cash=p=>p.amountCents===null?'Por verificar':money(p.amountCents/100);
- const application=p=>p.parts?.join(' · ')||'Aplicación por verificar';
+ const application=p=>{
+  const applied=schedule.flatMap(r=>r.receipts.filter(x=>String(x.groupId||x.paymentId)===String(p.id)).map(x=>pmStatementMonth(r.dueDate.slice(0,7))+' · '+money(x.amountCents/100)));
+  return applied.length?applied.join(' · '):p.parts?.join(' · ')||'Aplicación por verificar';
+ };
  const render=()=>{
   list.replaceChildren();metrics.replaceChildren();pagination.replaceChildren();
   const all=pmHistoryRows(),today=businessToday();schedule=[];let known=false;
@@ -378,7 +381,7 @@ function pmOpenPaymentHistory(fromReports=false){
  for(const input of [from,to,type,status,pageSize])input.addEventListener('change',reset);text.addEventListener('input',reset);
  clear.onclick=()=>{from.value=to.value=text.value='';type.value=status.value='Todos';reset();};
  excel.onclick=()=>{try{downloadExcel('LOTIGEST_Historial_'+businessToday()+'.xlsx',['Fecha','Correlativo','Tipo','Monto (L)','Aplicación','Estado'],visible.map(p=>[p.date,p.reference,kind(p),p.amountCents===null?'Por verificar':p.amountCents/100,application(p),state(p)]),[],'Historial');}catch(e){toast(e.message,'error');}};
- pdf.onclick=()=>{const clients=new Set(pmSales().map(s=>s.clientId));if(clients.size===1)pmDeliverAmortization(false,null,[...clients][0]);else toast('Selecciona un cliente con contrato.','error');};pdf.title='PDF completo de amortización del cliente (no solo filas filtradas)';
+ pdf.onclick=()=>{const clients=new Set(pmSales().map(s=>s.clientId));if(clients.size===1)pmDeliverAmortization(false,null,[...clients][0],true);else toast('Selecciona un cliente con contrato.','error');};pdf.title='Historial compacto de cuotas al día de hoy (contrato completo)';
  print.onclick=()=>{const frame=document.createElement('iframe');frame.style.cssText='position:fixed;width:0;height:0;border:0';document.body.append(frame);const doc=frame.contentDocument;if(!doc){frame.remove();return;}doc.title='LOTIGEST · Historial de pagos';const style=doc.createElement('style');style.textContent='body{font:11pt Arial;color:#172d21}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:5px;text-align:left;vertical-align:top}th{background:#e2f2e8}tr{break-inside:avoid}';doc.head.append(style);const title=doc.createElement('h2');title.textContent='LOTIGEST · Historial de pagos';doc.body.append(title);const table=doc.createElement('table'),head=table.createTHead().insertRow();for(const label of ['Fecha','Correlativo','Tipo','Monto','Aplicación','Estado']){const th=doc.createElement('th');th.textContent=label;head.append(th);}const body=table.createTBody();for(const p of visible){const row=body.insertRow();for(const value of [p.date,p.reference,kind(p),cash(p),application(p),state(p)])row.insertCell().textContent=value;}doc.body.append(table);const win=frame.contentWindow;win.addEventListener('afterprint',()=>frame.remove(),{once:true});win.focus();win.print();};
  layer.append(shade,dialog);dialog.append(header,filters,metrics,count,list,pagination);
  layer.addEventListener('click',e=>{if(e.target===shade||e.target.closest('[data-pm-history-close]')){pmClosePaymentHistory();return;}if(e.target.closest('[data-action="receipt-preview"],[data-action="owner-payment-receipt"]'))pmClosePaymentHistory();});
@@ -497,14 +500,14 @@ function pmConsolidatedMonths(rows,payments,asOf){
   noDepositCovered:scheduled.filter(m=>m.noDeposit&&m.covered),unpaid,overdueAmount:unpaid.reduce((n,m)=>n+m.overdue,0)};
 }
 function pmAmortizationModel(state,clientId,rid,asOf,reconcile,dueCents,addMonth,lotId=null,prepared=null){
- const scope=prepared?.scope||contractCollectionsScope(state,rid),client=scope.clients.find(x=>x.id===clientId),sales=scope.sales.filter(x=>x.clientId===clientId&&(lotId===null||x.lotId===lotId));
+ const scope=prepared?.scope||contractCollectionsScope(state,rid),client=scope.clients.find(x=>x.id===clientId),sales=installmentSalesFromContracts(scope.sales.filter(x=>x.clientId===clientId&&(lotId===null||x.lotId===lotId)),state.contractTexts);
  if(!client||!sales.length)throw Error(lotId===null?'Selecciona un cliente con contrato registrado.':'El solar seleccionado no pertenece a un contrato vigente de este cliente.');
  const ids=new Set(sales.map(s=>s.id)),posted=prepared?.posted||new Set((state.historicalPayments||[]).map(p=>p.postedPaymentId).filter(Boolean));
  const all=scope.payments.filter(p=>ids.has(p.saleId)&&!['voided','cancelled'].includes(p.status)&&!p.voidedAt&&!p.deletedAt&&!p.cancelledAt);
  if(all.some(p=>p.historicalImportId||posted.has(p.id)))throw Error('Concilia los cobros importados contabilizados antes de emitir el reporte.');
  const cents=x=>Math.round(Number(x||0)*100),sum=(arr,fn)=>arr.reduce((n,x)=>n+fn(x),0);
  if(all.some(p=>!p.date||!Number.isSafeInteger(cents(p.amount))||cents(p.amount)<=0))throw Error('Hay pagos sin fecha o importe válido.');
- const payments=all.filter(p=>p.date<=asOf),ledger=reconcile(sales,payments,asOf,dueCents,addMonth,{requireReference:true}),projected=pmReportCurrentMonthFirst(ledger.rows,payments,asOf);
+ const payments=all.filter(p=>p.date<=asOf),ledger=reconcile(sales,payments,asOf,dueCents,addMonth,{requireReference:true,repairExplicitAbonos:true}),projected=pmReportCurrentMonthFirst(ledger.rows,payments,asOf);
  const applicationsByPayment=new Map();
  for(const row of ledger.rows)for(const id of new Set(row.receipts.map(r=>r.paymentId))){if(!applicationsByPayment.has(id))applicationsByPayment.set(id,[]);applicationsByPayment.get(id).push(row);}
  const status=x=>!x.dueCents?'Sin importe':!x.remainingCents?(x.lastPaidAt>x.dueDate?'Pagada atrasada':x.lastPaidAt<x.dueDate?'Pagada adelantada':'Pagada'):x.dueDate<asOf?(x.appliedCents?'Vencida parcial':'Vencida sin pagar'):x.appliedCents?'Parcial':'Pendiente';
@@ -529,7 +532,7 @@ function pmAmortizationModel(state,clientId,rid,asOf,reconcile,dueCents,addMonth
  const consolidated=pmConsolidatedMonths(rows,payments,asOf);
  return {residenceId:rid,branding:typeof lgDocumentBranding==='function'?lgDocumentBranding(rid,state):null,consolidated,policy:'current-month-first',individual:lotId!==null,client:client.name,residence:state.residences?.find(x=>x.id===rid)?.name||'Residencial',company:state.company?.name||'GRUPO H',asOf,details,price,paid,agreed,prima,balance:price-paid,opening:sum(details,x=>x.opening),abonos:Math.max(0,paid-prima),count:rows.length,covered:rows.filter(x=>x.dueCents>0&&!x.remainingCents).length,latePaid:rows.filter(x=>x.displayStatus==='Pagada atrasada').length,overdueCount:overdue.length,overdueAmount:sum(overdue,x=>x.remainingCents),next:pending[0]||null,last:payments.map(p=>p.date).sort().at(-1)||null,unmatched:ledger.unmatched.length};
 }
-function pmAmortizationPdf(model){
+function pmAmortizationPdf(model,compact=false){
  const cl=model.branding?.company||null,rl=model.branding?.residential||null;
  const green='0.045 0.30 0.17',light='0.90 0.96 0.89',ink='0.10 0.18 0.15',red='0.70 0.12 0.16',orange='0.70 0.34 0.08',blue='0.12 0.35 0.62',gray='0.38 0.43 0.40';
  const pages=[];let cmds=[],y=0;
@@ -539,8 +542,8 @@ function pmAmortizationPdf(model){
  const wrap=(s,n)=>{const out=[];let line='';for(const token of String(s??'').split(/\s+/)){if(line&&line.length+token.length+1>n){out.push(line);line='';}if(token.length>n){if(line){out.push(line);line='';}for(let i=0;i<token.length;i+=n)out.push(token.slice(i,i+n));}else line+=(line?' ':'')+token;}if(line)out.push(line);return out.length?out:[''];};
  const cash=c=>'L '+(Number(c)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
  const date=s=>s?String(s).split('-').reverse().join('/'):'—';
- const footer=()=>{rect(32,40,548,1,green);txt('Documento generado por LOTIGEST PRO · '+model.company,32,26,8,false,gray);txt('Página '+(pages.length+1),526,26,8,false,gray);pages.push(cmds.join('\n'));cmds=[];};
- const start=()=>{rect(0,780,612,12,green);rect(32,741,548,2,green);if(cl||rl){if(cl)cmds.push(lgDocLogoCommand(cl,'CompanyLogo',32,744,95,34));if(rl)cmds.push(lgDocLogoCommand(rl,'ResLogo',cl?137:32,744,170,34));}else txt('LOTIGEST PRO',32,757,24,true,green);txt(model.individual?'Amortización por solar':'Amortización consolidada',330,758,15,true);txt('Corte: '+date(model.asOf),32,725,9,false,gray);txt(String(model.company).slice(0,37)+' · Estado de cuenta',330,725,9,false,gray);y=706;};
+ const footer=()=>{rect(32,40,548,1,green);txt((compact?model.residence+' · ': 'Documento generado por LOTIGEST PRO · ')+model.company,32,26,8,false,gray);txt('Página '+(pages.length+1),526,26,8,false,gray);pages.push(cmds.join('\n'));cmds=[];};
+ const start=()=>{rect(0,780,612,12,green);rect(32,741,548,2,green);if(cl||rl){if(cl)cmds.push(lgDocLogoCommand(cl,'CompanyLogo',32,744,95,34));if(rl)cmds.push(lgDocLogoCommand(rl,'ResLogo',cl?137:32,744,170,34));}else txt(compact?model.residence:'LOTIGEST PRO',32,757,compact?16:24,true,green);txt(compact?'Historial de cuotas':model.individual?'Amortización por solar':'Amortización consolidada',330,758,15,true);txt('Corte: '+date(model.asOf),32,725,9,false,gray);txt(String(model.company).slice(0,37)+' · Estado de cuenta',330,725,9,false,gray);y=706;};
  const ensure=h=>{if(y-h<54){footer();start();}};
  const line=(s,size=10,bold=false,color=ink)=>{for(const l of wrap(s,Math.floor(548/(size*.58)))){ensure(size+5);txt(l,32,y,size,bold,color);y-=size+5;}};
  const section=s=>{ensure(42);rect(32,y-20,548,23,green);txt(s,40,y-12,11,true,'1 1 1');y-=32;};
@@ -564,6 +567,27 @@ function pmAmortizationPdf(model){
  const signed=n=>(n<0?'-':n>0?'+':'')+cash(Math.abs(n));
  const shade=m=>m.covered?green:m.excessApplied>0?blue:m.overdue>0?red:gray;
  const latest=con.receipts.at(-1),quota=con.currentMonth?.due??con.nextMonth?.due??0;
+ if(compact){
+  start();section('Estado de cuenta · cuotas hasta la fecha de corte');
+  line('Cliente: '+model.client,12,true);line(model.residence+' · '+model.company,10);
+  tiles([['Total del contrato',cash(model.price)],['Total pagado',cash(model.paid),green],['Saldo del contrato',cash(model.balance)],['Cuotas del crédito',String(model.count)],['Cuotas cubiertas',String(model.covered),green],['Cuotas vencidas',String(model.overdueCount),red]]);
+  if(model.unmatched)line('Aviso: '+model.unmatched+' movimiento(s) por conciliar. Los estados no son definitivos.',9,true,orange);
+  for(const d of model.details){
+   const lot='Etapa '+(d.lot.stage||'—')+' · Bloque '+(d.lot.block||'—')+' · Solar '+(d.lot.sourceNumber||d.lot.number||d.lot.id);
+   line('Contrato '+d.contractNumber+' · '+lot,10,true);
+   line('Primera cuota: '+date(d.rows[0]?.dueDate)+' · Plazo: '+d.rows.length+' cuotas · Cuota base: '+cash(d.rows[0]?.dueCents||0),9);
+   const due=d.rows.filter(r=>r.dueDate<=model.asOf);
+   if(!due.length){line('Sin mensualidades vencidas al corte.',9);continue;}
+   table('Historial de cuotas',['No. / mes','Cuota (L)','Recibo / fecha / aplicado (L)','Faltante','Estado'],[73,86,194,83,112],due.map(r=>{
+    const status=r.remainingCents===0?(r.lastPaidAt>r.dueDate?'Pagada con atraso':r.coveredByAdvance?'Pagada por adelanto':'Pagada'):r.appliedCents>0?'Cuota pagada incompleta':'Vencida sin pago';
+    const sources=r.receipts.map(p=>(p.reference||'Sin folio')+' / '+date(p.date)+' / '+cash(p.amountCents)).join('; ');
+    return {cells:[r.number+' / '+monthLabel(r.dueDate.slice(0,7)),cash(r.dueCents),sources||'Sin depósito aplicado',cash(r.remainingCents),status],color:r.remainingCents?(r.appliedCents?orange:red):r.coveredByAdvance?blue:green};
+   }));
+   const pending=due.reduce((n,r)=>n+r.remainingCents,0);
+   line('Faltante al corte: '+cash(pending),10,true,pending?red:green);
+  }
+  line('Un recibo puede cubrir varios meses. Se indica solo el importe aplicado a cada cuota, no el total repetido del depósito.',9,false,gray);
+ }else{
  start();section('Datos del cliente y del contrato');
  line('Cliente: '+model.client,13,true);line('Residencial: '+model.residence+' · '+(model.individual?'Reporte individual':model.details.length+' solar(es) incluidos'));
  for(const d of model.details)line('Etapa '+(d.lot.stage||'—')+' · Bloque '+(d.lot.block||'—')+' · Solar '+(d.lot.sourceNumber||d.lot.number||d.lot.id)+' | '+(d.sale.type==='credit'?d.sale.months+' cuotas':'Contado'),9);
@@ -606,6 +630,7 @@ function pmAmortizationPdf(model){
   if(d.history.length)table('Recibos originales · '+lot,['Fecha','Correlativo','Aplicación guardada','Recibido','Saldo'],[65,90,205,94,94],d.history.map(p=>({cells:[date(p.date),p.reference,p.concept+' · '+p.application,cash(p.amount),cash(p.balance)]})));
   else line('Sin recibos registrados a la fecha de corte.');
  }
+ }
  footer();
  const objects=['<< /Type /Catalog /Pages 2 0 R >>','<< /Type /Pages /Kids ['+pages.map((_,i)=>(5+i*2)+' 0 R').join(' ')+'] /Count '+pages.length+' >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'];
  pages.forEach((stream,i)=>objects.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> '+(cl||rl?'/XObject << '+(cl?'/CompanyLogo '+(5+pages.length*2)+' 0 R ':'')+(rl?'/ResLogo '+(5+pages.length*2+(cl?1:0))+' 0 R ':'')+'>>':'')+' >> /Contents '+(6+i*2)+' 0 R >>','<< /Length '+stream.length+' >>\nstream\n'+stream+'\nendstream'));
@@ -613,7 +638,7 @@ function pmAmortizationPdf(model){
  let pdf='%PDF-1.4\n',offsets=[0];objects.forEach((o,i)=>{offsets.push(pdf.length);pdf+=(i+1)+' 0 obj\n'+o+'\nendobj\n';});const xref=pdf.length;pdf+='xref\n0 '+offsets.length+'\n0000000000 65535 f \n'+offsets.slice(1).map(n=>String(n).padStart(10,'0')+' 00000 n \n').join('')+'trailer\n<< /Size '+offsets.length+' /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF';
  return new Blob([Uint8Array.from(pdf,x=>x.charCodeAt(0)&255)],{type:'application/pdf'});
 }
-async function pmDeliverAmortization(share,lotId=null,expectedClient=null){
+async function pmDeliverAmortization(share,lotId=null,expectedClient=null,compact=false){
  try{
   if(!cloudReady||cloudBlocked||cloudOffline||!cloudQueue||cloudQueue.pending||cloudQueue.latest!==cloudQueue.confirmed)throw Error('Sincroniza los cambios con Cloudflare antes de emitir el reporte.');
   const clients=new Set(pmSales().map(s=>s.clientId));if(clients.size!==1)throw Error('Selecciona un solo cliente.');
@@ -622,7 +647,7 @@ async function pmDeliverAmortization(share,lotId=null,expectedClient=null){
   const slug=s=>String(s??'').replace(/[^a-zA-Z0-9_-]+/g,'_').slice(0,60);
   const lot=report.details[0].lot;
   const tag=report.individual?'Etapa_'+slug(lot.stage)+'_Bloque_'+slug(lot.block)+'_Solar_'+slug(lot.sourceNumber||lot.number||lot.id):'Consolidada';
-  const blob=pmAmortizationPdf(report),name='LOTIGEST_Amortizacion_'+tag+'_'+report.asOf+'.pdf';
+  const blob=pmAmortizationPdf(report,compact),name=(compact?'Historial_de_cuotas_':'LOTIGEST_Amortizacion_')+tag+'_'+report.asOf+'.pdf';
   if(share&&typeof File==='function'){const file=new File([blob],name,{type:'application/pdf'});if(navigator.canShare?.({files:[file]})){await navigator.share({files:[file],title:'Amortización LOTIGEST PRO'});return;}}
   download(name,blob,'application/pdf');toast(share?'PDF descargado. Adjunta el archivo al chat del cliente en WhatsApp.':'Reporte de amortización descargado.');
  }catch(e){if(e.name!=='AbortError')toast(e.message||'No se pudo generar el reporte.','error');}

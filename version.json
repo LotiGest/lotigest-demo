@@ -1,4 +1,4 @@
 {
-  "version": "1.0.48",
-  "notes": "Historial de pagos con tabla compacta, contraste día/noche, filtros, indicadores, paginación y exportación."
+  "version": "1.0.49",
+  "notes": "Calendarios por fecha pactada, conciliación visual de abonos explícitos con prima comprobada y PDF compacto de cuotas al corte."
 }

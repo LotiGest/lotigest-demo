@@ -1,6 +1,16 @@
+// La ficha contractual activa es la fuente de las fechas pactadas. No modifica datos.
+export function installmentSalesFromContracts(sales,documents){
+ const valid=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&!Number.isNaN(Date.parse(d+'T12:00:00Z'))&&new Date(d+'T12:00:00Z').toISOString().slice(0,10)===d;
+ return sales.map(s=>{
+  const doc=(documents||[]).find(d=>d.status!=='voided'&&d.status!=='pending-sale'&&(d.saleId===s.id||s.documentId&&d.id===s.documentId));
+  const t=doc?.structured;
+  if(s.type!=='credit'||!valid(t?.date)||!valid(t?.firstDueDate)||t.firstDueDate<t.date)return s;
+  return {...s,date:t.date,firstDueDate:t.firstDueDate};
+ });
+}
 // Conciliación visual de cuotas: nunca usa openingPaid ni saldo total como prueba de pago mensual.
 // Los anticipos siguen en contabilidad pero se muestran separados del mes pagado.
-export function reconcileInstallments(sales,payments,asOf,installmentCents,addMonth,{requireReference=false}={}) {
+export function reconcileInstallments(sales,payments,asOf,installmentCents,addMonth,{requireReference=false,repairExplicitAbonos=false}={}) {
  const cents=v=>Math.max(0,Math.round(Number(v||0)*100));
  const valid=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||'')) && !Number.isNaN(Date.parse(v+'T12:00:00Z'));
  const rows=[];
@@ -15,6 +25,12 @@ export function reconcileInstallments(sales,payments,asOf,installmentCents,addMo
   }));
   const chronological=payments.filter(p=>p.saleId===sale.id&&!p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&!['voided','cancelled'].includes(p.status))
    .sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.id||'').localeCompare(String(b.id||'')));
+  // Reparar solamente abonos inequívocos con prima explícita comprobada.
+  const explicitPrima=p=>p.paymentApplication==='prima'||/\bprima\b/i.test(String(p.kind||'')+' '+String(p.type||'')+' '+String(p.concept||''));
+  const folio=p=>String(p.receiptReference||p.receiptRef||p.originalReceiptRef||p.receiptReferenceNormalized||'').trim();
+  const reliable=p=>valid(p.date)&&p.date<=asOf&&p.date>=sale.date&&/^\d+$/.test(folio(p))&&cents(p.amount)>0;
+  const verifiedPrima=chronological.filter(p=>explicitPrima(p)&&reliable(p)).reduce((n,p)=>n+cents(p.amount),0);
+  const canRepair=repairExplicitAbonos&&verifiedPrima>=cents(sale.downPayment);
   // La prima, el saldo inicial y el precio financiado NO son recibos de mensualidad.
   // Por seguridad, solo se acreditan meses respaldados por un detalle explícito
   // de cuota o período; un pago antiguo ambiguo queda pendiente de conciliación.
@@ -26,6 +42,18 @@ export function reconcileInstallments(sales,payments,asOf,installmentCents,addMo
    const saved=payment.receiptInfo?.allocations;
    let allocations=Array.isArray(saved)?
     saved.filter(a=>!(/\bprima\b/i.test(String(a.label||'')))&&!primaType&&Number.isInteger(Number(a.number))&&Number(a.number)>0&&Number(a.amount)>0):null;
+   const explicitAbono=/^(abono|cuota|mensualidad)\b/i.test(String(payment.concept||payment.type||'').trim())&&!explicitPrima(payment);
+   if(canRepair&&explicitAbono&&reliable(payment)){
+    // Se reconstruye la distribución visual con el importe original, sin crear pagos.
+    let remaining=amount;
+    allocations=[];
+    for(const row of saleRows){
+     const take=Math.min(remaining,Math.max(0,row.dueCents-row.appliedCents));
+     if(take>0){allocations.push({number:row.number,amount:take/100});remaining-=take;}
+     if(!remaining)break;
+    }
+    if(remaining)unmatched.push({saleId:sale.id,paymentId:payment.id,reason:'abono supera mensualidades disponibles'});
+   }
    if(!allocations){
     // Compatibilidad con recibos antiguos que sí especificaban número o mes
     // de cuota. No se distribuye dinero basándose únicamente en su monto.
@@ -46,9 +74,9 @@ export function reconcileInstallments(sales,payments,asOf,installmentCents,addMo
    if(requireReference&&allocations.length&&!/^\d+$/.test(reference)){
     unmatched.push({saleId:sale.id,paymentId:payment.id,reason:'recibo sin correlativo numérico verificable'});continue;
    }
-   const primaOnly=payment.paymentApplication==='prima'||primaType||(/^prima\b/i.test(String(payment.concept||''))&&!Array.isArray(saved));
+   const primaOnly=payment.paymentApplication==='prima'||primaType||(/^prima\b/i.test(String(payment.concept||''))&&(!Array.isArray(saved)||repairExplicitAbonos));
    if(primaOnly){if(allocations.length)unmatched.push({saleId:sale.id,paymentId:payment.id,reason:'prima con aplicación mensual incompatible'});continue;}
-   const totalSaved=Array.isArray(saved)?saved.reduce((n,a)=>n+cents(a.amount),0):allocations.reduce((n,a)=>n+cents(a.amount),0);
+   const totalSaved=Array.isArray(saved)&&!(canRepair&&explicitAbono&&reliable(payment))?saved.reduce((n,a)=>n+cents(a.amount),0):allocations.reduce((n,a)=>n+cents(a.amount),0);
    if(totalSaved>amount){unmatched.push({saleId:sale.id,paymentId:payment.id,reason:'detalle de cuotas supera el importe recibido'});continue;}
    let available=amount;
 

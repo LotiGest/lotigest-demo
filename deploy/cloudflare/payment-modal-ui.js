@@ -77,7 +77,8 @@ const pmReadableDate=date=>new Intl.DateTimeFormat('es-HN',{day:'numeric',month:
 
 function pmReconciled(sales) {
  const asOf=businessToday(),payments=(db.payments||[]).filter(p=>!p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&!['voided','cancelled'].includes(p.status)&&p.date<=asOf);
- const ledger=reconcileInstallments(sales,payments,asOf,installmentDueCents,(date,index)=>dateKey(addMonths(date,index)),{requireReference:true});
+ const terms=installmentSalesFromContracts(sales,db.contractTexts);
+ const ledger=reconcileInstallments(terms,payments,asOf,installmentDueCents,(date,index)=>dateKey(addMonths(date,index)),{requireReference:true,repairExplicitAbonos:true});
  return {...ledger,rows:pmReportCurrentMonthFirst(ledger.rows,payments,asOf)};
 }
 function pmActualSchedule(sales){
