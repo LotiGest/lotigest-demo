@@ -9,7 +9,7 @@ test('tres créditos de una misma ficha conservan el precio total y no inventan 
  const queue={latest:JSON.stringify(db),confirmed:JSON.stringify(db)};let id=0;
  const env={db,contractIntakeAdmin:()=>true,FormData:class {constructor(f){return Object.entries(f.fields);}},getLot:key=>db.lots.find(l=>l.id===key),activeReservation:()=>null,
   buyerDate:v=>v,businessToday:()=> '2026-11-18',crypto:{randomUUID:()=>String(++id)},cloudWrite:raw=>{db=JSON.parse(raw);queue.latest=raw;},cloudFlush:async()=>{queue.confirmed=queue.latest;},
-  cloudBlocked:false,cloudOffline:false,cloudQueue:queue,toast(){},closeModal(){},render(){}};
+  cloudBlocked:false,cloudOffline:false,cloudQueue:queue,page:'contracts',toast(){},closeModal(){},render(){}};
  const run=new Function(...Object.keys(env),code+';return contractIntakeConfirmActivation;')(...Object.values(env));
  for(const n of [1,2,3])await run({fields:{documentId:'D'+n,date:'2024-01-01',firstDueDate:'2024-02-01'}});
  assert.equal(db.sales.length,3);assert.equal(db.sales.reduce((s,v)=>s+v.price,0),600000);assert.equal(db.sales.reduce((s,v)=>s+v.downPayment,0),60000);
