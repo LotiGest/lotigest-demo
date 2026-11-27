@@ -16,6 +16,7 @@ test('Excel de primas y abonos incluye clientes sin pagos en la residencial acti
   const before=await server.read(),rid=before.state.currentResidence||before.state.residences[0].id;
   before.state.clients.push({id:'EXCEL-CLIENT-A',name:'CLIENTE SIN ABONOS',identity:'0801199900700',phone:'99999999',residenceId:rid});
   before.state.lots.push({id:'EXCEL-LOT-A',residenceId:rid,ownerClientId:'EXCEL-CLIENT-A',stage:'2',block:'Z',sourceNumber:'17',status:'sold',price:null,area:120});
+  before.state.contractTexts??=[];before.state.contractTexts.push({id:'EXCEL-DOC-A',lotId:'EXCEL-LOT-A',clientId:'EXCEL-CLIENT-A',residenceId:rid,status:'pending-sale',format:'manual',title:'CONTRATO FICTICIO',pages:[],structured:{price:10000,down:1000,months:12}});
   const write=await server.write({state:before.state,revision:before.revision,mutation:crypto.randomUUID()});
   assert.equal(write.status,200,'Guardar el cliente ficticio de la prueba');
   app.close();app=boot(server);
