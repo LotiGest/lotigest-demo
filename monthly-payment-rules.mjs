@@ -1,3 +1,4 @@
+const monthlyActive=p=>!p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&!['voided','cancelled'].includes(p.status);
 const monthlyCents=v=>v!=null&&v!==''&&Number.isFinite(Number(v))?Math.round(Number(v)*100):null;
 export function monthlyLotTerms(state,lotId){
  const sale=(state.sales||[]).find(s=>s.lotId===lotId&&s.type==='credit');
@@ -15,8 +16,8 @@ export function monthlyPaymentInfo(state,lotIds){
  if(!ids.length||terms.some(t=>!t))return {known:false,monthlyCents:null,remainingCents:null,primaRemainingCents:null};
  const wanted=new Set(ids),saleIds=new Set(terms.map(t=>t.saleId).filter(Boolean));
  let paid=terms.reduce((n,t)=>n+t.openingCents,0),ambiguous=false;
- for(const p of state.payments||[])if(saleIds.has(p.saleId))paid+=monthlyCents(p.amount)||0;
- for(const p of state.ownerPayments||[])for(const a of p.allocations||[]){
+ for(const p of state.payments||[])if(monthlyActive(p)&&saleIds.has(p.saleId))paid+=monthlyCents(p.amount)||0;
+ for(const p of (state.ownerPayments||[]).filter(monthlyActive))for(const a of p.allocations||[]){
   const refs=(a.references||[]).map(r=>r.lotId).filter(Boolean);
   if(!refs.some(id=>wanted.has(id)))continue;
   if(refs.length!==(a.references||[]).length||!refs.every(id=>wanted.has(id)))ambiguous=true;
@@ -27,16 +28,15 @@ export function monthlyPaymentInfo(state,lotIds){
  return {known:true,monthlyCents:terms.reduce((n,t)=>n+t.monthlyCents,0),remainingCents:complete?Math.max(0,price-paid):null,primaRemainingCents:complete?Math.max(0,down-paid):null};
 }
 export function assertMonthlyPayment(state,lotIds,amountCents,{prima=false}={}){
+ if(!Number.isSafeInteger(amountCents)||amountCents<=0)throw Error('Ingresa un monto positivo con máximo dos decimales.');
  const info=monthlyPaymentInfo(state,lotIds);
  if(prima||!info.known)return info;
  // La prima se registra aparte; no aceptar abonos mensuales antes de completarla.
  if(info.primaRemainingCents==null)throw Error('Verifica la distribución de la prima por solar antes de registrar abonos.');
  const pending=info.primaRemainingCents;
  if(pending>0)throw Error('Primero completa la prima pendiente. Registra este pago como Prima, no como abono.');
- const monthlyAmount=amountCents-pending;
- const remaining=info.remainingCents==null?null:Math.max(0,info.remainingCents-pending);
- const minimum=remaining==null?info.monthlyCents:Math.min(info.monthlyCents,remaining);
- if(monthlyAmount<minimum)throw Error('El abono mensual mínimo es L '+(minimum/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+(pending?' más la prima pendiente.':'.')+' Puedes abonar ese monto o uno mayor.');
+ if(info.remainingCents!==null&&amountCents>info.remainingCents)throw Error('El abono supera el saldo pendiente del solar.');
+ // Un pago parcial conserva el faltante de la cuota en su calendario.
  return info;
 }
 export function assertPrimaPayment(state,lotId,amountCents){
@@ -120,14 +120,12 @@ export function planMonthlyClientPayment(state,saleIds,totalCents,date=null){
  if(new Set(rows.map(r=>r.clientId)).size!==1||new Set(rows.map(r=>r.residenceId)).size!==1)throw Error('Selecciona solares de un mismo cliente y residencial.');
  const minimumCents=rows.reduce((n,r)=>n+r.minimumCents,0),remainingCents=rows.reduce((n,r)=>n+r.remainingCents,0);
  const format=n=>'L '+(n/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
- if(totalCents<minimumCents)throw Error('El abono mínimo total para '+rows.length+' solar(es) es '+format(minimumCents)+'; ingresaste '+format(totalCents)+'.');
  if(totalCents>remainingCents)throw Error('El abono supera el saldo pendiente total de '+format(remainingCents)+'.');
  // Preserve the existing proportional allocation and enforce the individual limits.
  const allocations=splitClientPayment(state,rows.map(r=>r.saleId),totalCents,date,'monthly');
  for(const row of rows){
   const allocation=allocations.find(a=>a.saleId===row.saleId);
-  if(!allocation||allocation.cents<row.minimumCents)throw Error('Revisa el reparto del abono total: el solar '+row.lotId+' requiere '+format(row.minimumCents)+'.');
-  assertMonthlyPayment(state,[row.lotId],allocation.cents);
+  if(allocation)assertMonthlyPayment(state,[row.lotId],allocation.cents);
  }
- return {minimumCents,remainingCents,excessCents:totalCents-minimumCents,allocations};
+ return {minimumCents,remainingCents,excessCents:Math.max(0,totalCents-minimumCents),shortfallCents:Math.max(0,minimumCents-totalCents),allocations};
 }

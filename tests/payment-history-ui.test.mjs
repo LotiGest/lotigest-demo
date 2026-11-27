@@ -12,7 +12,7 @@ function model(extra={}){
   {id:'P-2',groupId:'RC-7',receiptReference:'00006159',saleId:'S-2',date:'2026-04-20',amount:2000,method:'Efectivo',concept:'Abono',receiptInfo:{allocations:[{number:3,month:'2026-05',amount:2000}]}},
   {id:'PR-1',saleId:'S-1',date:'2026-01-20',amount:30000,concept:'Prima',receiptInfo:{allocations:[{label:'Prima inicial',amount:30000}]}}
  ];
- const ctx={pmActive:'sale',pmSales:()=>[{id:'S-1',lotId:'L-1'},{id:'S-2',lotId:'L-2'}],
+ const ctx={document:{getElementById:()=>null},pmActive:'sale',pmSales:()=>[{id:'S-1',lotId:'L-1'},{id:'S-2',lotId:'L-2'}],
    getLot:id=>({id,stage:1,block:'A',sourceNumber:id==='L-1'?'1':'2'}),
    db:{payments,ownerPayments:[],historicalPayments:[]},money:n=>'L '+Number(n).toFixed(2),
    ownerPaymentDraft:{clientId:'C-1',residenceId:'arrayan'},...extra};

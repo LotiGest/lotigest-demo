@@ -14,9 +14,9 @@ const make=stage=>{
   {id:'E2G16',stage:2,block:'G',sourceNumber:'16',status:'available',area:180},
   {id:'E2G17',stage:2,block:'G',sourceNumber:'17',status:'available',area:150}
  ];
- const sourceFn=source.slice(start,end);
- const render=new Function('contractIntakeWorking','residenceLots','db','esc','intakeSolarCandidates','normalizeClientLookup',sourceFn+';return contractIntakeFields;')(
-  working,()=>lots,{sales:[],clients:[]},String,intakeSolarCandidates,x=>String(x||'').replace(/\s/g,''));
+ const sourceFn=source.slice(source.indexOf('function contractIntakeExtraFields('),source.indexOf('function contractIntakeRemovePrimaryDraft('))+source.slice(start,end);
+ const render=new Function('contractIntakeWorking','residenceLots','db','esc','intakeSolarCandidates','normalizeClientLookup','getLot',sourceFn+';return contractIntakeFields;')(
+  working,()=>lots,{sales:[],clients:[]},String,intakeSolarCandidates,x=>String(x||'').replace(/\s/g,''),id=>lots.find(l=>l.id===id));
  return render();
 };
 test('Etapa no se infiere: aparece selector con Etapa 1 y Etapa 2',()=>{

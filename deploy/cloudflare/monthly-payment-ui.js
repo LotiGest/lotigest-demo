@@ -16,7 +16,7 @@ function monthlyRefresh(){
  banner.replaceChildren();const heading=document.createElement('strong');
  heading.textContent=info.known?'Cuota mensual '+(ids.length>1?'de los solares seleccionados: ':': ')+money(info.monthlyCents/100):'Cuota mensual: pendiente de completar contrato';banner.append(heading);
  const note=document.createElement('p');note.className='sm';
- note.textContent=info.known?(info.primaRemainingCents>0?'Prima pendiente: '+money(info.primaRemainingCents/100)+'. Los pagos de prima se registran aparte de la mensualidad.':'El abono mensual debe ser igual o mayor a la cuota. Si el saldo final es menor, puedes cancelarlo completo.'):'Selecciona los solares. Se usa la cuota pactada o el precio, prima y plazo registrados; un pago de prima por sí solo no determina la mensualidad.';
+ note.textContent=info.known?(info.primaRemainingCents>0?'Prima pendiente: '+money(info.primaRemainingCents/100)+'. Los pagos de prima se registran aparte de la mensualidad.':'Puedes registrar un abono parcial. El faltante del mes permanece pendiente en el calendario hasta completar la cuota.'):'Selecciona los solares. Se usa la cuota pactada o el precio, prima y plazo registrados; un pago de prima por sí solo no determina la mensualidad.';
  banner.append(note);
  if(info.known&&ids.length>1)for(const id of ids){const l=getLot(id),t=monthlyLotTerms(db,id),row=document.createElement('p');row.className='sm';row.textContent='Etapa '+(l?.stage||'—')+' · Bloque '+(l?.block||'—')+' · Solar '+(l?.sourceNumber||l?.number||id)+': '+money(t.monthlyCents/100)+' al mes';banner.append(row);}
 }

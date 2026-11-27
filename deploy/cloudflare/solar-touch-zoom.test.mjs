@@ -15,8 +15,8 @@ function setup({width=360,zoom=100,fit=false,box='0 0 100 200',yaw=-6}={}){
   getElementById:id=>({'arrayan-scroll':viewport,'arrayan-native':svg,'arrayan-zoom-label':label})[id],
   addEventListener:(type,fn)=>{listeners.set(type,fn)}
  };
- const env=new Function('document','arrayanZoom','arrayanSetZoom','render',code+';return {zoom:()=>arrayanZoom,zoomAt:solarTouchZoomAt,sync:solarTouchSync,render,events:listeners};');
- const touch=env(document,zoom,()=>{},()=>{});
+ const env=new Function('document','arrayanZoom','arrayanSetZoom','render','listeners',code+';return {zoom:()=>arrayanZoom,zoomAt:solarTouchZoomAt,sync:solarTouchSync,render,events:listeners};');
+ const touch=env(document,zoom,()=>{},()=>{},listeners);
  const target={closest:selector=>selector==='#arrayan-scroll'?viewport:null};
  return {touch,viewport,svg,label,target};
 }

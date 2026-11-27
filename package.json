@@ -5,7 +5,9 @@
   "scripts": {
     "build": "node deploy/cloudflare/build.mjs",
     "test": "node --test backend/*.test.mjs deploy/cloudflare/*.test.mjs tests/*.test.mjs",
-    "test:cloud": "node --test deploy/cloudflare/app.test.mjs deploy/cloudflare/ui.test.mjs"
+    "test:cloud": "node --test deploy/cloudflare/app.test.mjs deploy/cloudflare/ui.test.mjs",
+    "pretest": "npm run build",
+    "test:payments": "npm run build && node --test --test-force-exit tests/monthly-payment-rules.test.mjs deploy/cloudflare/monthly-payment-server.test.mjs deploy/cloudflare/contract-to-payments-e2e.test.mjs deploy/cloudflare/contract-sheet-payment-ui.test.mjs"
   },
   "devDependencies": {
     "fake-indexeddb": "6.2.8",

@@ -12,8 +12,8 @@ test('aplicación completa resalta y formatea montos en Finanzas y Nuevo contrat
   assert.equal(new app.w.FormData(app.d.querySelector('#finance-entry-form')).get('amount'),'1000000.50');
   app.click('[data-action="close-modal"]');app.click('[data-page="contracts"]');
   app.click('[data-contract-intake-open]');
-  await until(()=>app.d.querySelector('#contract-intake-form [name="solarPrice_0"][data-lg-money-raw]'),'precio de contrato formateado');
-  const price=app.d.querySelector('#contract-intake-form [name="solarPrice_0"]'),entry=price.closest('.lg-money-control').querySelector('[data-lg-money-display]');
+  await until(()=>app.d.querySelector('#contract-intake-form [name="contractTotalPrice"][data-lg-money-raw]'),'precio de contrato formateado');
+  const price=app.d.querySelector('#contract-intake-form [name="contractTotalPrice"]'),entry=price.closest('.lg-money-control').querySelector('[data-lg-money-display]');
   entry.value='1250000';entry.dispatchEvent(new app.w.Event('input',{bubbles:true}));assert.equal(entry.value,'1,250,000');assert.equal(price.value,'1250000');
   const ref=app.d.querySelector('[name="primaRef"]');assert.ok(ref.classList.contains('lg-correlative-input'));ref.value='00006159';ref.dispatchEvent(new app.w.Event('input',{bubbles:true}));assert.equal(ref.value,'00006159');
   assert.deepEqual(server.errors,[]);

@@ -20,6 +20,15 @@ export async function setup(){
 }
 export function boot(server,cache,storage={},transformSource=html=>html){
  const html=transformSource(readFileSync(new URL('cloudflare-pages/index.html',root),'utf8')).replace('let hasStored=false;', 'window.__lotigestTestState=()=>({ready:cloudReady,busy:cloudBusy,blocked:cloudBlocked,offline:cloudOffline,pending:!!cloudQueue?.pending,confirmed:!!cloudQueue&&cloudQueue.latest===cloudQueue.confirmed});let hasStored=false;');const dom=new JSDOM(html,{url:'https://lotigest.test/',runScripts:'outside-only',pretendToBeVisual:true});const w=dom.window,d=w.document;w.indexedDB=server.indexedDB;
+ // jsdom serializes the old number value after an edited monetary input becomes
+ // hidden. Browsers serialize its current value; keep integration requests equivalent.
+ const NativeFormData=w.FormData;
+ w.FormData=class extends NativeFormData {constructor(form,...args){super(form,...args);if(!form)return;
+  const hidden=new Map();for(const input of form.querySelectorAll('input[type=hidden][name]')){
+   if(input.matches(':disabled'))continue;const list=hidden.get(input.name)||[];list.push(input.value);hidden.set(input.name,list);
+  }
+  for(const [name,values] of hidden)if(form.querySelectorAll('[name="'+name.replaceAll('"','\\"')+'"]').length===values.length){this.delete(name);for(const value of values)this.append(name,value);}
+ }};
  Object.defineProperty(w,'crypto',{value:webcrypto});w.AbortController=AbortController;w.Blob=Blob;w.DecompressionStream=DecompressionStream;w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;w.matchMedia=()=>({matches:false,addEventListener(){},addListener(){}});w.confirm=()=>false;w.alert=()=>{};w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};w.URL.createObjectURL=()=>'';w.ResizeObserver=class {observe(){}disconnect(){}};w.HTMLCanvasElement.prototype.getContext=()=>new Proxy({measureText:()=>({width:50})},{get:(o,k)=>o[k]??(()=>{})});
  for(const [key,value] of Object.entries(storage))w.localStorage.setItem(key,value);
  if(cache)w.localStorage.setItem('lotigest_d1_pending_v1',cache);

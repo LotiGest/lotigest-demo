@@ -124,7 +124,7 @@ test('búsqueda recupera clientes existentes por nombre o identidad',()=>{
 test('cambiar de solar no arrastra el precio ni la prima del solar anterior',()=>{
  const db=base(),draft={mode:'manual',values:{lotId:'L1',stage:'1',solarPrice_0:'220000',down:'40000',primaPaid:'on'},extraLots:[]};
  const section=source.slice(source.indexOf('function contractIntakeRememberExtras(form){'),source.indexOf('function contractIntakeExtraFields('));
- const env={contractIntakeWorking:draft,db,FormData:formData,
+ const env={contractTotalsApply:()=>{},contractIntakeWorking:draft,db,FormData:formData,
   getLot:id=>db.lots.find(l=>l.id===id),contractIdentityFormat,
   document:{addEventListener(){}},crypto:{randomUUID:()=>''}};
  const remember=new Function(...Object.keys(env),saveCode.slice(0,saveCode.indexOf('function contractIntakeFindClient('))+
@@ -211,7 +211,7 @@ test('cliente ya registrado sin DNI se puede vincular sin documentos y sin dupli
 test('un cliente nuevo sigue exigiendo identidad válida y no se puede suplantar otro cliente',async()=>{
  const x=setup();
  x.fields.clientId='';
- x.fields.identity='';
+ x.fields.identity='0801';
  await assert.rejects(x.save({fields:x.fields}),/DNI debe contener exactamente 13 dígitos/);
  assert.equal(x.writes(),0);
  const y=setup();
@@ -253,7 +253,7 @@ test('no comparte correlativo de prima entre fechas distintas',async()=>{
 test('agregar otro solar conserva precio negociado, prima vigente y datos del primer solar',()=>{
  const db=base(),draft={mode:'manual',values:{lotId:'L1',stage:'1',solarPrice_0:'200000',down:0,solarDown_0:0},extraLots:[]};
  const section=source.slice(source.indexOf('function contractIntakeRememberExtras(form){'),source.indexOf('function contractIntakeExtraFields('));
- const env={contractIntakeWorking:draft,FormData:formData,getLot:id=>db.lots.find(l=>l.id===id),contractIdentityFormat};
+ const env={contractTotalsApply:()=>{},contractIntakeWorking:draft,FormData:formData,getLot:id=>db.lots.find(l=>l.id===id),contractIdentityFormat};
  const remember=new Function(...Object.keys(env),saveCode.slice(0,saveCode.indexOf('function contractIntakeFindClient('))+
   section+';return contractIntakeRememberExtras;')(...Object.values(env));
  const fields={lotId:'L1',stage:'1',solarPrice_0:'190000',down:'30000',months:'72',date:'2026-11-24',primaRef:'000123'};

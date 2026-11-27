@@ -1,0 +1,234 @@
+{
+  "date_honduras": "2026-11-26",
+  "base_commit": "9dc34f135007fa3a471a33c322d72380e2b01ac4",
+  "baseline": {
+    "tests": 509,
+    "passed": 439,
+    "failed": 70
+  },
+  "latest_full": {
+    "tests": 507,
+    "passed": 468,
+    "failed": 39
+  },
+  "payments_targeted": {
+    "tests": 16,
+    "passed": 16,
+    "failed": 0
+  },
+  "syntax": {
+    "files": 235,
+    "failed": 0
+  },
+  "build": "passed",
+  "new_failing_names_vs_baseline": [],
+  "remaining_failures": [
+    {
+      "location": "deploy/cloudflare/app.test.mjs:10:1",
+      "test": "2000 clientes y todos los módulos se recuperan de D1; guardado incremental, historial, reintento y conflicto",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:"
+    },
+    {
+      "location": "deploy/cloudflare/client-name-identity-search-ui.test.mjs:5:1",
+      "test": "Terrenos y Abonos buscan por nombre o cédula y mantienen los datos de D1",
+      "error": "AssertionError [ERR_ASSERTION]: campo visible en collections"
+    },
+    {
+      "location": "deploy/cloudflare/contract-camera.test.mjs:5:1",
+      "test": "Contratos ofrece cámara y galería por separado sin cambiar el flujo OCR",
+      "error": "AssertionError [ERR_ASSERTION]: Debe existir un selector nativo de cámara"
+    },
+    {
+      "location": "deploy/cloudflare/contract-client-edit-ui.test.mjs:32:1",
+      "test": "el lapicito aparece junto a Cliente ya registrado y abre editor sin ir a Clientes",
+      "error": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /data-contract-client-edit/. Input:"
+    },
+    {
+      "location": "deploy/cloudflare/contract-multiple-ui.test.mjs:4:1",
+      "test": "foto con tres solares abre tres selectores, permite agregar/quitar y conserva nombre al elegir etapa",
+      "error": "TypeError [Error]: Object.defineProperty called on non-object"
+    },
+    {
+      "location": "deploy/cloudflare/contracts-dashboard-ui.test.mjs:232:1",
+      "test": "Reactivación: PIN solo administrador, valida entrada, conserva pagos y rota al usarlo",
+      "error": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /incorrecto/. Input:"
+    },
+    {
+      "location": "deploy/cloudflare/excel-downloads.test.mjs:5:1",
+      "test": "plantillas y exportaciones descargan XLSX válido con enlace persistente incluso sin pagos",
+      "error": "Error: No existe: [data-action=buyer-import]"
+    },
+    {
+      "location": "deploy/cloudflare/import-center.test.mjs:48:1",
+      "test": "mapa PDF y contratos usan la misma ventana y exigen vínculo del cliente",
+      "error": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Elegir cliente y escanear contrato/. Input:"
+    },
+    {
+      "location": "deploy/cloudflare/land-inventory-ui.test.mjs:5:1",
+      "test": "Excel real: vista previa, comprador existente con varios solares, aviso sin croquis, exportación y recuperación de D1",
+      "error": "TypeError [Error]: Object.defineProperty called on non-object"
+    },
+    {
+      "location": "deploy/cloudflare/ledger-stages.test.mjs:4:1",
+      "test": "Excel de pagos identifica etapa, bloque y números de solares, agrupa al cliente y exporta el monto conjunto una vez",
+      "error": "TypeError [Error]: Object.defineProperty called on non-object"
+    },
+    {
+      "location": "deploy/cloudflare/multi-date-design.test.mjs:28:1",
+      "test": "primera tarjeta abierta y segunda plegada como en el diseño aprobado",
+      "error": "ReferenceError [Error]: mdRoot is not defined"
+    },
+    {
+      "location": "deploy/cloudflare/multi-date-design.test.mjs:42:1",
+      "test": "la tarjeta cambia con un clic y no pierde datos ni impide abrir otra",
+      "error": "ReferenceError [Error]: mdRoot is not defined"
+    },
+    {
+      "location": "deploy/cloudflare/multi-date-last-payment.test.mjs:34:1",
+      "test": "al abrir Abonos varios se muestra último pago SOLO del solar elegido",
+      "error": "AssertionError [ERR_ASSERTION]: Se muestra arriba de las filas"
+    },
+    {
+      "location": "deploy/cloudflare/official-prices-ui.test.mjs:13:1",
+      "test": "al tocar solar disponible, prima editable inmediatamente recalcula 84 cuotas y no crea abonos",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:"
+    },
+    {
+      "location": "deploy/cloudflare/official-prices-ui.test.mjs:44:1",
+      "test": "prima del mapa pasa a la venta sin duplicar controles; propuesta sin guardar bloquea venta",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:"
+    },
+    {
+      "location": "deploy/cloudflare/residential-workspace.test.mjs:5:1",
+      "test": "Configuración cambia de residencial y separa clientes, ventas, pagos, finanzas y exportación sin perder datos al guardar",
+      "error": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:5:1",
+      "test": "todos los paneles originales abren, la guía está disponible y Configuración explica el guardado real",
+      "error": "AssertionError [ERR_ASSERTION]: collections"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:11:1",
+      "test": "Excel de primas y abonos incluye clientes sin pagos en la residencial activa",
+      "error": "AssertionError [ERR_ASSERTION]: Debe ofrecerse un Excel aun sin primas ni abonos"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:32:1",
+      "test": "el acceso histórico de Contratos utiliza el nuevo buscador de abonos",
+      "error": "Error: No existe: [data-action=manual-history-picker]"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:46:1",
+      "test": "calendario histórico permite ver y seleccionar meses de 2024 aunque no existan cuotas contratadas",
+      "error": "AssertionError [ERR_ASSERTION]: El historial de prueba se guarda sin afectar otros datos"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:100:1",
+      "test": "abonos históricos importados se consultan por cliente y solar aunque no se seleccionen casillas",
+      "error": "Error: No existe: [data-action=manual-history-picker]"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:137:1",
+      "test": "recorrido cliente, terreno, venta crédito, abono, recibo histórico y finanzas se recupera al reabrir",
+      "error": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:171:1",
+      "test": "un cambio sin red se conserva y el conflicto puede resolverse cargando la versión del servidor",
+      "error": "Error: No se completó: conflicto"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:177:1",
+      "test": "apartado se convierte en venta conservando el cliente y bloquea otra compra del mismo terreno",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:192:1",
+      "test": "la copia local no triplica los datos y conserva una recuperación si otra pestaña sustituye cambios pendientes",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:240:1",
+      "test": "el panel de cobros importa el formato de ocho columnas, conserva historial y permite completar condiciones reales",
+      "error": "TypeError [Error]: Object.defineProperty called on non-object"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:247:1",
+      "test": "el vendedor ve el catálogo y la ficha sin poder abrir altas ni cobros",
+      "error": "Error: No se completó: estado confirmado por el servidor"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:252:1",
+      "test": "ficha de propietario muestra abonos y nombre en solar sin convertirlos en ingresos",
+      "error": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:257:1",
+      "test": "abono por persona muestra varios solares del Excel, funciona sin red y emite un solo ingreso y recibo recuperable",
+      "error": "TypeError [Error]: Cannot read properties of null (reading 'value')"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:262:1",
+      "test": "tarjetas de solares muestran dueños del Excel y mantienen primas y abonos dentro de Ficha sin asignar dos terrenos por una referencia ambigua",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:267:1",
+      "test": "mapa muestra I en los veinte solares superiores y L en los doce inferiores, y una referencia duplicada del mapa cuenta como un solo solar del cliente",
+      "error": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:"
+    },
+    {
+      "location": "deploy/cloudflare/ui.test.mjs:272:1",
+      "test": "filtro por etapas separa bloques repetidos y mantiene el lindero del PDF",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:"
+    },
+    {
+      "location": "tests/contract-collections-only.test.mjs:93:1",
+      "test": "UI conserva la base completa y filtra reportes y exportaciones",
+      "error": "ReferenceError [Error]: collectionSolarCards is not defined"
+    },
+    {
+      "location": "tests/finance-dashboard-ui.test.mjs:29:1",
+      "test": "libro mensual descarga Excel numérico y PDF con filtros coincidentes",
+      "error": "TypeError [Error]: getPdf is not a function or its return value is not iterable"
+    },
+    {
+      "location": "tests/multi-date-client-total-ui.test.mjs:10:1",
+      "test": "Abonos varios agrupa cliente, incluye dos solares y guarda un total por fecha",
+      "error": "AssertionError [ERR_ASSERTION]"
+    },
+    {
+      "location": "tests/payment-current-date-ui.test.mjs:21:1",
+      "test": "resumen separa prima, saldo a financiar y cuotas efectivamente registradas",
+      "error": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Cuotas pagadas con recibos/. Input:"
+    },
+    {
+      "location": "tests/payment-history-ui.test.mjs:51:1",
+      "test": "ventana de historial accesible por fecha y con botón de recibo en abonos y fichas",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:"
+    },
+    {
+      "location": "tests/payment-history-ui.test.mjs:170:1",
+      "test": "consolidación mensual de tres solares distingue depósitos, mora y adelantos sin duplicar meses",
+      "error": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Sin depósito/. Input:"
+    },
+    {
+      "location": "tests/stage2-five-commercial.test.mjs:39:1",
+      "test": "interfaz real muestra cinco figuras, 2D/3D y filtros sin errores de JavaScript",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:"
+    }
+  ],
+  "production_deployed": false,
+  "supplemental_last_payment": {
+    "tests": 5,
+    "passed": 4,
+    "failed": 1,
+    "already_in_full_run": 1
+  },
+  "combined_coverage": {
+    "tests": 511,
+    "passed": 472,
+    "failed": 39
+  }
+}
