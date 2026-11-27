@@ -55,19 +55,20 @@
   move(monthly,quick);
   const lastCard=modal.querySelector('#pm-last-payment')?.closest('.pm-card');
   move(lastCard,quick);
-  const historyCard=modal.querySelector('.pm-reference-history');
-  move(historyCard,clientBody);
-  const history=historyCard?.querySelector('#pm-reference-history');
-  if(history){
-   const rows=pmHistoryRows().filter(r=>r.action&&!/\\bprima\\b/i.test(r.concept||''));
-   history.replaceChildren();
-   const scroll=pmNode('div','pd-history-scroll'),table=pmNode('table','pd-history-table');
-   const head=table.createTHead().insertRow();for(const label of ['Fecha','Correlativo','Monto (L)'])head.append(pmNode('th','',label));
-   const body=table.createTBody();
-   for(const r of rows){const tr=body.insertRow();tr.insertCell().textContent=r.date;tr.insertCell().append(pmNode('span','pm-folio',r.reference||'Sin correlativo'));tr.insertCell().append(pmNode('span','pm-value',money(r.amountCents/100)));}
-   scroll.append(table);history.append(scroll);
-   if(!rows.length)history.append(pmNode('p','pm-help','No hay abonos registrados para la selección.'));
-   const all=pmNode('button','btn btn-outline pd-history-all','Ver historial completo · '+rows.length);all.type='button';all.disabled=!sales.length;all.addEventListener('click',()=>pmOpenPaymentHistory());history.append(all);
+  // One compact shortcut opens the existing full history without replacing the draft.
+  const entryHeading=modal.querySelector('.pm-reference-entry > h3');
+  if(entryHeading){
+   let history=entryHeading.querySelector('[data-pd-history]');
+   if(!history){
+    history=pmNode('button','btn btn-outline pd-history-icon');
+    history.type='button';history.dataset.pdHistory='true';
+    history.setAttribute('aria-label','Historial de abonos registrados');
+    history.setAttribute('aria-haspopup','dialog');history.title='Ver historial de abonos registrados';
+    history.innerHTML=pmIcon('fileCheck')+'<span>Historial</span>';
+    history.addEventListener('click',()=>pmOpenPaymentHistory());
+    entryHeading.append(history);
+   }
+   history.disabled=!sales.length;
   }
   const actions=modal.querySelector('.pm-reference-actions');
   if(actions){

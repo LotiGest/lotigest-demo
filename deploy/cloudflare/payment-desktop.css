@@ -108,10 +108,9 @@
  html body.cp-inline-payment #modal-root .pd-payment-quick .pm-card{min-width:0;overflow-wrap:anywhere}
  html body.cp-inline-payment #modal-root .pd-payment-quick .pm-card>h3{font-size:12px!important;padding:8px!important}
  html body.cp-inline-payment #modal-root .pd-payment-quick .pm-card-body{padding:8px!important}
- html body.cp-inline-payment #modal-root .pm-reference-client .pm-reference-history{margin-top:12px!important}
- html body.cp-inline-payment #modal-root .pd-history-scroll{max-height:220px;overflow:auto}
- html body.cp-inline-payment #modal-root .pd-history-table{width:100%;border-collapse:collapse;font-size:11px}
- html body.cp-inline-payment #modal-root .pd-history-table :is(th,td){padding:6px 3px!important;font-size:11px!important;text-align:left;white-space:normal!important}
- html body.cp-inline-payment #modal-root .pd-history-table th{position:sticky;top:0;background:var(--cp-surface,var(--card))}
- html body.cp-inline-payment #modal-root .pd-history-all{width:100%;margin-top:8px;font-size:12px}
+ html body.cp-inline-payment #modal-root .pm-reference-payment .pm-reference-history{display:none!important}
+ html body.cp-inline-payment #modal-root .pm-reference-entry>h3{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+ html body.cp-inline-payment #modal-root .pd-history-icon{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:6px 8px;min-height:34px;border-radius:8px;font-size:12px;white-space:nowrap}
+ html body.cp-inline-payment #modal-root .pd-history-icon svg{width:16px;height:16px;flex:none}
 }
+@media(max-width:900px){.pd-history-icon{display:none!important}}
