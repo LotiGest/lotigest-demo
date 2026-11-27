@@ -5,15 +5,18 @@ import {onRequest as session} from '../../functions/api/app/session.js';
 import {onRequest as password} from '../../functions/api/app/password.js';
 export {D1,fixture,empty} from './test-d1.mjs';
 import {fixture,empty} from './test-d1.mjs';
+import {partialPaymentDetails,makePartialPaymentConfirmation} from '../../monthly-payment-rules.mjs';
 function request(f,method='GET',payload){return onRequest({env:f.env,request:new Request('https://test/api/app/state',{method,headers:{Cookie:f.cookie,Origin:'https://test',...(payload?{'Content-Type':'application/json'}:{})},body:payload?JSON.stringify(payload):undefined})});}
 const put=(f,state,revision=0,mutation=crypto.randomUUID())=>request(f,'PUT',{state,revision,mutation});
 test('2000 clientes y todos los módulos se recuperan de D1; guardado incremental, historial, reintento y conflicto',async()=>{
  const f=await fixture(),s=empty();s.clients=Array.from({length:2000},(_,i)=>({id:'C'+i,name:'CLIENTE FICTICIO '+i,address:'DIRECCIÓN DE PRUEBA',identity:'TEST'+i}));
- s.lots=[{id:'L1',area:250,price:100000,status:'sold',dimensions:{front:10,depth:25}}];s.sales=[{id:'V1',lotId:'L1',clientId:'C1',price:100000,downPayment:10000,months:36,type:'credit',date:'2026-11-17'}];s.payments=[{id:'P1',saleId:'V1',amount:500,date:'2026-11-17'}];s.reservations=[{id:'A1',lotId:'L1',clientId:'C1',status:'cancelled'}];s.cashEntries=[{id:'G1',kind:'expense',date:'2026-11-17',amount:80}];s.contracts=[{id:'D1',text:'Documento de prueba'}];s.residences=[{id:'R1',image:'x'.repeat(150000)}];s.settings={enabled:true};
+ s.lots=[{id:'L1',area:250,price:100000,status:'sold',dimensions:{front:10,depth:25}}];s.sales=[{id:'V1',lotId:'L1',clientId:'C1',price:100000,downPayment:10000,months:36,type:'credit',date:'2026-11-17'}];s.payments=[{id:'P1',saleId:'V1',amount:10000,date:'2026-11-17',concept:'Prima'}];s.reservations=[{id:'A1',lotId:'L1',clientId:'C1',status:'cancelled'}];s.cashEntries=[{id:'G1',kind:'expense',date:'2026-11-17',amount:80}];s.contracts=[{id:'D1',text:'Documento de prueba'}];s.residences=[{id:'R1',image:'x'.repeat(150000)}];s.settings={enabled:true};
  assert.deepEqual(decode(encode(s)),s);
  const mutation=crypto.randomUUID();assert.equal((await put(f,s,0,mutation)).status,200);assert.deepEqual((await (await request(f)).json()).state,s);
  assert.equal((await put(f,s,0,mutation)).status,200);assert.equal(f.db.db.prepare('SELECT revision FROM app_meta').get().revision,1);
  const next=structuredClone(s);next.clients[0].name='ACTUALIZADO';next.payments.push({id:'P2',saleId:'V1',amount:1000,date:'2026-11-18'});
+ const unconfirmed=await put(f,next,1);assert.equal(unconfirmed.status,400);assert.match((await unconfirmed.json()).error,/Confirma expresamente/);assert.equal(f.db.db.prepare('SELECT revision FROM app_meta').get().revision,1);assert.deepEqual((await (await request(f)).json()).state,s);
+ const details=partialPaymentDetails(s,['L1'],100000);assert.deepEqual(details,{lotIds:['L1'],contractualCents:250000,amountCents:100000,differenceCents:150000});next.payments.at(-1).partialPaymentConfirmation=makePartialPaymentConfirmation(details,{date:'2026-11-18',actor:'admin',note:'Abono parcial de prueba'});
  assert.equal((await put(f,next,1)).status,200);assert.deepEqual((await (await request(f)).json()).state,next);assert.ok(f.db.db.prepare('SELECT count(*) n FROM app_history').get().n>0);
  assert.equal((await put(f,s,1)).status,409);assert.deepEqual((await (await request(f)).json()).state,next);
 });
