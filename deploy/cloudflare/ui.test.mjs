@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {setup,boot,until,saved,login} from './test-ui.mjs';
 
 test('todos los paneles originales abren, la guía está disponible y Configuración explica el guardado real',async()=>{
- const server=await setup(),app=boot(server);try{await login(app,server);const panels=[...app.d.querySelectorAll('.nav-btn[data-page]')].map(x=>x.dataset.page);assert.ok(panels.includes('help'));for(const page of panels){app.click(`.nav-btn[data-page="${page}"]`);assert.ok(app.d.querySelector('.page-head'),page);}
+ const server=await setup(),app=boot(server);try{await login(app,server);const panels=[...app.d.querySelectorAll('.nav-btn[data-page]')].map(x=>x.dataset.page);assert.ok(panels.includes('help'));for(const page of panels){app.click(`.nav-btn[data-page="${page}"]`);assert.ok(app.d.querySelector('.page-head')||(page==='contracts'&&app.d.querySelector('.ct-module .ct-table')&&app.d.querySelector('.ct-top-actions')),page);}
  app.click('[data-page=settings]');assert.ok(!app.d.body.textContent.includes('Este prototipo guarda datos en el navegador utilizado'));assert.ok(app.d.body.textContent.includes('Cloudflare D1'));assert.deepEqual(server.errors,[]);
  }finally{app.close();}
 });
@@ -52,9 +52,11 @@ test('calendario histórico permite ver y seleccionar meses de 2024 aunque no ex
   snapshot.state.clients.push({id:'HIST-CAL-CLIENT',name:'CLIENTE PRUEBA CALENDARIO',identity:'0801199900311'});
   snapshot.state.lots.push({id:'HIST-CAL-SOLAR',residenceId:rid,stage:'1',block:'F',sourceNumber:'2',
    area:154,price:50000,status:'sold',ownerClientId:'HIST-CAL-CLIENT'});
+  snapshot.state.ownershipStatements??=[];
+  snapshot.state.ownershipStatements.push({id:'HIST-CAL-STATEMENT',clientId:'HIST-CAL-CLIENT',residenceId:rid,references:[{lotId:'HIST-CAL-SOLAR',stage:'1',block:'F',lot:'2'}],paymentIds:[],contractIds:[],issues:[],documentedOpeningBalanceCents:null,documentedBalances:[]});
   snapshot.state.ownerPayments??=[];
   snapshot.state.ownerPayments.push({
-   id:'HIST-CAL-PAGO',clientId:'HIST-CAL-CLIENT',residenceId:rid,clientName:'CLIENTE PRUEBA CALENDARIO',
+   id:'OP-'+crypto.randomUUID(),clientId:'HIST-CAL-CLIENT',residenceId:rid,clientName:'CLIENTE PRUEBA CALENDARIO',
    date:'2024-02-18',amountCents:250000,concept:'Abono histórico · Mes 2024-02',method:'Efectivo',
    allocations:[{statementId:'HIST-CAL-STATEMENT',referenceIndex:null,amountCents:250000,
     references:[{lotId:'HIST-CAL-SOLAR',stage:'1',block:'F',solar:'2'}]}]
