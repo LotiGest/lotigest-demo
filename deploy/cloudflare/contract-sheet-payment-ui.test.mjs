@@ -21,11 +21,12 @@ test('ficha PDF de datos existentes y abonos: mensualidad visible, abono parcial
   if(!app.d.querySelector('#pm-amount-slot [data-payment-amount]'))app.click('[data-action=multi-payment-add][data-id="PDF-V"]');
   assert.match(app.d.querySelector('[data-monthly-banner]').textContent,/6,220.33/);
   app.input('#pm-amount-slot [data-pm-currency]','5000');app.submit('#multi-payment-form',{date:'2024-02-01',concept:'Abono de prueba',receiptRef:'880001'});
+  await until(()=>app.d.querySelector('.lg-partial-dialog'),'confirmación del abono inferior');assert.equal((await server.read()).state.payments.filter(p=>p.saleId==='PDF-V').length,1);app.click('[data-partial-apply]');await until(async()=>((await server.read()).state.payments||[]).some(p=>p.receiptReference==='880001'),'abono parcial persistido');
   await saved(app);assert.equal((await server.read()).state.payments.filter(p=>p.saleId==='PDF-V').length,2);
   app.d.querySelector('[data-action=close-modal]')?.click();app.click('[data-page=payments]');await until(()=>app.d.querySelector('#multi-payment-form,#owner-payment-search'));
   if(app.d.querySelector('#owner-payment-search')){app.input('#owner-payment-search','CLIENTE FICTICIO');app.click('[data-action=owner-payment-person][data-id="PDF-C"]');}
   if(!app.d.querySelector('#pm-amount-slot [data-payment-amount]'))app.click('[data-action=multi-payment-add][data-id="PDF-V"]');
-  app.input('#pm-amount-slot [data-pm-currency]','1220.33');app.submit('#multi-payment-form',{date:'2024-02-01',concept:'Abono de prueba',receiptRef:'880002'});await saved(app);
+  app.input('#pm-amount-slot [data-pm-currency]','1220.33');app.submit('#multi-payment-form',{date:'2024-02-01',concept:'Abono de prueba',receiptRef:'880002'});await until(()=>app.d.querySelector('.lg-partial-dialog'),'confirmación del faltante');app.click('[data-partial-apply]');await until(async()=>((await server.read()).state.payments||[]).some(p=>p.receiptReference==='880002'),'faltante persistido');await saved(app);
   assert.equal((await server.read()).state.payments.filter(p=>p.saleId==='PDF-V').length,3);assert.deepEqual(server.errors,[]);
  }finally{app.close();}
 });
