@@ -1,4 +1,4 @@
 {
-  "version": "1.0.55",
-  "notes": "Registrar abono: fecha azul de mayor tamaño, monto verde y correlativo rojo con mayor contraste, foco visible y diseño adaptable a PC y celular."
+  "version": "1.0.56",
+  "notes": "Abonos varios: fecha azul más amplia, monto verde, correlativo rojo, enfoque visible y colores en la revisión; conserva OCR y navegación con Enter."
 }
