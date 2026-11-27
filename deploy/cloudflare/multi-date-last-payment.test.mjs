@@ -43,7 +43,8 @@ test('al abrir Abonos varios se muestra último pago SOLO del solar elegido',()=
  assert.match(html,/00006170/);
  assert.match(html,/L 6,470\.22/);
  assert.doesNotMatch(html,/99999999/,'No se mezcla otro terreno');
- assert.match(src,/mdLastPaymentMarkup\(mdState,db,mdState\.docs\?\.\[0\]\?\.id\)/,'Se muestra arriba de las filas');
+ assert.match(src,/const last=mdLastPaymentFor\(mdState,db,mdState\.docs\?\.\[0\]\?\.id\)/,'El encabezado obtiene el último pago del contexto seleccionado');
+ assert.match(src,/md-last-inline/,'Se muestra en el encabezado compacto antes del formulario');
 });
 test('en propietarios con varias fichas, usa la fecha, folio y monto APLICADO a cada ficha',()=>{
  const state={kind:'owner',clientId:'C1',residenceId:'R1',docs:[{id:'F1'},{id:'F2'}]};
@@ -79,4 +80,10 @@ test('el diseño del mensaje queda accesible y adaptado a computadora y celular'
  assert.match(css,/\.md-last-grid/);
  assert.match(css,/@media\(max-width:560px\)/);
  assert.match(src,/role="status"/);
+});
+
+test('los recibos anulados, cancelados o eliminados no aparecen como último pago ni sugieren correlativos',()=>{
+ const state={kind:'sale',saleId:'S-A',docs:[]};
+ const extra=[{deletedAt:'2026-11-22'},{cancelledAt:'2026-11-22'},{status:'annulled'},{status:'cancelled'},{voidedAt:'2026-11-22'}].map((flags,i)=>({id:'INVALID-'+i,saleId:'S-A',date:'2026-11-22',amount:99999,receiptReference:String(90000+i),...flags}));
+ const dataset={...data,payments:[...data.payments,...extra]};assert.equal(last(state,dataset).reference,'00006170');assert.equal(last(state,dataset,undefined,true).reference,'00006170');assert.doesNotMatch(markup(state,dataset),/99,999|9000[0-4]/);
 });
