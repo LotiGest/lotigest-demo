@@ -19,7 +19,7 @@
   scope.ownershipStatements=(original.ownershipStatements||[]).filter(s=>s.residenceId===rid&&clientIds.has(s.clientId)&&hasContractRefs(s.references));
   const statements=new Set(scope.ownershipStatements.map(s=>s.id));
   scope.ownerPayments=(original.ownerPayments||[]).filter(p=>p.residenceId===rid&&clientIds.has(p.clientId)&&
-   !p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&(p.allocations||[]).length>0&&
+   !p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&!['voided','cancelled','annulled'].includes(p.status)&&(p.allocations||[]).length>0&&
    p.allocations.every(a=>statements.has(a.statementId)&&hasContractRefs(a.references)));
   const posted=new Set((original.historicalPayments||[]).map(p=>p.postedPaymentId).filter(Boolean));
   scope.payments=scope.payments.filter(p=>!p.historicalImportId&&!posted.has(p.id));
