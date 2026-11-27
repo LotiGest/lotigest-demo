@@ -1,4 +1,4 @@
 {
-  "version": "1.0.53",
-  "notes": "Clasificación automática de prima pendiente por solar al registrar pagos y abonos por fechas; conservación de correlativos y validación cronológica."
+  "version": "1.0.54",
+  "notes": "Buscar y cambiar de cliente directamente en Registrar abono, en PC y celular, con resultados por nombre/cédula y protección del borrador sin guardar."
 }

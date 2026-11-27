@@ -12,16 +12,7 @@ function pmModal(title,subtitle){
  if(heading&&!caption.parentNode)heading.after(caption);
  return modal;
 }
-// Nombre visible aun cuando el panel de búsqueda está plegado.
-function pmHeaderClient(modal,client){
- const header=modal?.querySelector('.modal-header>div');if(!header)return;
- let row=header.querySelector('.pm-header-client');
- if(!row){
-  row=pmNode('div','pm-header-client');
-  const name=pmNode('strong','pm-header-client-name');name.setAttribute('aria-live','polite');
-  const find=pmNode('button','btn btn-outline btn-sm pm-change-client','Buscar otro cliente');find.type='button';
-  const many=pmNode('button','btn btn-outline btn-sm pm-change-client pm-many-client','Abonos varios');many.type='button';
-  function canLeave(message){
+function pmCanLeave(modal,message){
    const form=modal.querySelector('#multi-payment-form,#owner-abono-form');if(!form)return false;
    if(modal.querySelector('[type="submit"]:disabled')||document.querySelector('.pm-history-layer'))return false;
    // No trasladar fechas, correlativos, importes ni fotografías de un cliente a otro.
@@ -35,7 +26,27 @@ function pmHeaderClient(modal,client){
    });
    return !dirty||window.confirm(message);
   }
-  find.addEventListener('click',()=>{if(canLeave('Hay datos de un abono sin guardar. ¿Descartarlos y buscar otro cliente?'))newPayment(null,false);});
+function pmSwitchPaymentClient(saleId=null){
+ const modal=document.querySelector('#modal-root .lg-payment-modern');
+ if(!modal||!pmCanLeave(modal,'Hay datos de un abono sin guardar. ¿Descartarlos y cambiar de cliente?'))return false;
+ // Volver a crear el borrador con los datos actuales sin abrir el selector histórico.
+ // Los pagos ya guardados no se alteran; fecha, monto, recibo y OCR se reinician.
+ if(saleId){const sale=getSale(saleId);if(!sale||!paymentCandidates('').some(s=>s.id===saleId))return false;}
+ baseNewPayment(saleId,false);
+ const input=document.getElementById('multi-payment-search');
+ if(input&&!saleId){input.value='';input.focus();renderPaymentResults();}
+ return true;
+}
+// Nombre visible aun cuando el panel de búsqueda está plegado.
+function pmHeaderClient(modal,client){
+ const header=modal?.querySelector('.modal-header>div');if(!header)return;
+ let row=header.querySelector('.pm-header-client');
+ if(!row){
+  row=pmNode('div','pm-header-client');
+  const name=pmNode('strong','pm-header-client-name');name.setAttribute('aria-live','polite');
+  const find=pmNode('button','btn btn-outline btn-sm pm-change-client','Buscar otro cliente');find.type='button';
+  const many=pmNode('button','btn btn-outline btn-sm pm-change-client pm-many-client','Abonos varios');many.type='button';
+  find.addEventListener('click',()=>{if(pmActive==='sale')pmSwitchPaymentClient();else if(pmCanLeave(modal,'Hay datos de un abono sin guardar. ¿Descartarlos y buscar otro cliente?'))newPayment(null,false);});
   many.addEventListener('click',()=>{
    const api=window.lotigestMultiDate;
    if(!api)return;
@@ -43,7 +54,7 @@ function pmHeaderClient(modal,client){
    const sale=pmActive==='sale'?pmSales().find(s=>s.type==='credit'&&balance(s)>.009):null;
    const owner=pmActive==='owner'?ownerPaymentDraft:null;
    if(!sale&&!owner)return toast('Selecciona un cliente con saldo pendiente.','error');
-   if(!canLeave('Hay datos de un abono sin guardar. ¿Descartarlos y abrir Abonos varios?'))return;
+   if(!pmCanLeave(modal,'Hay datos de un abono sin guardar. ¿Descartarlos y abrir Abonos varios?'))return;
    closeModal();if(sale)api.openSale(sale.id);else api.openOwner(owner.clientId,owner.residenceId);
   });
   row.append(name,find,many);header.append(row);
@@ -375,7 +386,10 @@ function pmRepaintSales(){
  const historyBtn=document.querySelector('#multi-payment-form .pm-history-launch');if(historyBtn)historyBtn.disabled=!sales.length;
  const selected=document.getElementById('multi-payment-selected'),slot=document.getElementById('pm-amount-slot'),search=document.getElementById('pm-searchbox');
  if(selected)selected.classList.toggle('hidden-single',single||!sales.length);
- if(search)search.classList.toggle('has-selection',!!sales.length);
+ if(search){
+  search.classList.toggle('has-selection',!!sales.length);
+  const change=search.querySelector('[data-pm-change-client]');if(change)change.hidden=!sales.length;
+ }
  const clientFold=document.getElementById('pm-fold-client');
  if(clientFold){const had=clientFold.dataset.hasClient==='true',has=!!sales.length;clientFold.querySelector('summary').textContent=has?'Cliente / solares · '+(client?.name||'Seleccionado'):'Buscar cliente / solares';if(had!==has||!has)clientFold.open=!has;clientFold.dataset.hasClient=String(has);}
  if(slot){
@@ -519,7 +533,24 @@ function pmSalesDecorate(){
  modal.classList.add('pm-sales-wide');
  const ocr=pmQrOcr(form),fields=pmFields(grid,form);
  const shell=pmNode('div','pm-shell pm-sales-shell');
- const search=pmNode('section','pm-searchbox');search.id='pm-searchbox';if(searchLabel)search.append(searchLabel);search.append(searchInput,results);shell.append(search);
+ const search=pmNode('section','pm-searchbox');search.id='pm-searchbox';if(searchLabel)search.append(searchLabel);
+ const searchRow=pmNode('div','pm-client-search-row');
+ const change=pmNode('button','btn btn-outline pm-client-switch','Buscar otro cliente');change.type='button';change.dataset.pmChangeClient='true';change.hidden=true;
+ change.addEventListener('click',()=>pmSwitchPaymentClient());
+ searchInput.placeholder='Nombre o cédula del cliente';searchInput.autocomplete='off';searchInput.setAttribute('aria-controls','multi-payment-results');
+ searchRow.append(searchInput,change);search.append(searchRow,results);shell.append(search);
+ // Mantener resultados visibles durante la pulsación (focus-within se pierde
+ // antes del click en algunos navegadores y ocultaba la lista).
+ searchInput.addEventListener('focus',()=>{
+  if(searchInput.value.trim()===String(getClient(paymentDraft?.clientId)?.name||'').trim())searchInput.value='';
+  search.classList.add('pm-search-open');renderPaymentResults();
+ });
+ searchInput.addEventListener('input',()=>{search.classList.add('pm-search-open');});
+ searchInput.addEventListener('keydown',event=>{
+  if(event.key==='Escape'){search.classList.remove('pm-search-open');return;}
+  if(event.key==='Enter'){const buttons=results.querySelectorAll('[data-action="multi-payment-add"]');if(buttons.length===1){event.preventDefault();buttons[0].click();}else event.preventDefault();}
+ });
+ search.addEventListener('focusout',event=>{if(event.relatedTarget&&!search.contains(event.relatedTarget))search.classList.remove('pm-search-open');});
  const person=pmNode('div','pm-clientbar');
  const a=pmNode('div','pm-clientbox');a.innerHTML=pmIcon('users')+'<div><small>Cliente</small><strong id="pm-client-name"></strong><p id="pm-client-id"></p></div>';
  const b=pmNode('div','pm-clientbox');b.innerHTML=pmIcon('pin')+'<div><small>Solar(es) asignado(s)</small><div id="pm-lot-tags"></div></div>';
@@ -648,13 +679,34 @@ showModal=function(title,content,footer='',wide=false,subtitle=''){
 choosePaymentMode=function(){newPayment(null,false);};
 const pmPreviousPaymentResults=renderPaymentResults;
 renderPaymentResults=function(){
- const result=pmPreviousPaymentResults(),root=document.getElementById('multi-payment-results');
- if(!root||!paymentDraft)return result;
- const seen=new Set();
- for(const button of root.querySelectorAll('[data-action="multi-payment-add"]')){
-  const sale=getSale(button.dataset.id);if(!sale)continue;
-  if(seen.has(sale.clientId)){button.remove();continue;}
-  seen.add(sale.clientId);button.textContent=getClient(sale.clientId)?.name||'Cliente';
+ const root=document.getElementById('multi-payment-results'),input=document.getElementById('multi-payment-search');
+ if(!root||!input||!paymentDraft)return pmPreviousPaymentResults();
+ const seen=new Set(),rows=[];
+ for(const sale of paymentCandidates(input.value)){
+  if(seen.has(sale.clientId))continue;
+  seen.add(sale.clientId);rows.push({sale,client:getClient(sale.clientId)});
+ }
+ rows.sort((a,b)=>String(a.client?.name||'').localeCompare(String(b.client?.name||''),'es',{sensitivity:'base'}));
+ root.replaceChildren();
+ for(const {sale,client} of rows.slice(0,80)){
+  const button=pmNode('button','btn btn-outline pm-client-result',client?.name||'Cliente');
+  button.type='button';button.dataset.action='multi-payment-add';button.dataset.id=sale.id;
+  if(client?.identity)button.append(pmNode('small','pm-client-result-id',client.identity));
+  root.append(button);
+ }
+ if(!rows.length)root.append(pmNode('p','pm-help','No se encontraron clientes con saldo en esta residencial.'));
+ if(rows.length>80)root.append(pmNode('p','pm-help','Escribe un nombre o cédula para filtrar más clientes.'));
+};
+const pmPreviousAddPaymentSale=addPaymentSale;
+addPaymentSale=function(id){
+ const sale=getSale(id);
+ if(!sale||!paymentDraft)return pmPreviousAddPaymentSale(id);
+ if(paymentDraft.clientId&&paymentDraft.clientId!==sale.clientId)return pmSwitchPaymentClient(id);
+ const result=pmPreviousAddPaymentSale(id);
+ if(paymentDraft?.clientId===sale.clientId){
+  const input=document.getElementById('multi-payment-search');if(input)input.value='';
+  document.getElementById('pm-searchbox')?.classList.remove('pm-search-open');
+  renderPaymentResults();
  }
  return result;
 };

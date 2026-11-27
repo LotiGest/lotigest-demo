@@ -46,7 +46,14 @@
 #modal-root .lg-payment-modern .pm-searchbox:has(#multi-payment-results:empty){display:none}
 #modal-root .lg-payment-modern .pm-searchbox input{width:100%;margin-top:6px}
 #modal-root .lg-payment-modern .pm-searchbox.has-selection #multi-payment-results{display:none}
-#modal-root .lg-payment-modern .pm-searchbox.has-selection:focus-within #multi-payment-results{display:block}
+#modal-root .lg-payment-modern .pm-searchbox.has-selection.pm-search-open #multi-payment-results{display:block}
+#modal-root .lg-payment-modern .pm-client-search-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#modal-root .lg-payment-modern .pm-client-search-row input{flex:1 1 180px;min-width:0;width:auto;margin:0}
+#modal-root .lg-payment-modern .pm-client-switch{flex:0 0 auto;min-height:38px;white-space:normal}
+#modal-root .lg-payment-modern .pm-client-switch[hidden]{display:none!important}
+#modal-root .lg-payment-modern .pm-client-result{display:flex;width:100%;justify-content:space-between;align-items:center;gap:8px;text-align:left;margin:5px 0;white-space:normal}
+#modal-root .lg-payment-modern .pm-client-result-id{opacity:.8;font-size:11px}
+@media(max-width:600px){#modal-root .lg-payment-modern .pm-client-search-row input{flex-basis:100%}#modal-root .lg-payment-modern .pm-client-switch{width:100%}}
 #modal-root .lg-payment-modern .pm-searchbox.has-selection{padding:9px 13px}
 #modal-root .lg-payment-modern .pm-searchbox .btn{color:#23452f}
 #modal-root .lg-payment-modern .pm-selected{background:#f6faf7;border:1px solid #dfe9e2;border-radius:12px;padding:10px}
