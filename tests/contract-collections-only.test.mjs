@@ -92,7 +92,7 @@ test('un contrato vinculado a venta de otra persona no se considera confirmado',
  assert.equal(scope.payments.length,0);
 });
 test('UI conserva la base completa y filtra reportes y exportaciones',()=>{
- const state=original(),events={};
+ const state=original(),events={},before=JSON.stringify(state);
  let db=state;
  const environment={
   contractCollectionsScope,
@@ -101,12 +101,17 @@ test('UI conserva la base completa y filtra reportes y exportaciones',()=>{
   esc:v=>String(v),getClient:id=>state.clients.find(c=>c.id===id),
   inventoryArea:l=>l.area,inventoryPrice:l=>'L '+l.price,
   page:'collections',cloudUser:{role:'admin'},render:()=>{},contractIntakeOpen:()=>{},
-  newPayment:()=> 'historico',baseNewPayment:()=> 'contrato',paymentCandidates:()=>state.sales
+  newPayment:()=> 'historico',baseNewPayment:()=> 'contrato',paymentCandidates:()=>state.sales,
+  collectionStageFilter:'all',collectionOverdueMonths:'all',collectionFilter:'all',collectionMonth:'2026-11',businessToday:()=> '2026-11-27',
+  header:(title,description)=>'<h1>'+title+'</h1><p>'+description+'</p>',ic:()=>'',money:n=>'L '+n,balance:()=>100,installment:()=>1,
+  reconcileInstallments:()=>{},installmentDueCents:()=>{},dateKey:()=>{},addMonths:()=>{},
+  pmAmortizationModel:()=>{throw Error('Ficha de prueba sin condiciones completas');},pageContent:()=>'',pages:{}
  };
  // Definir los renderizadores dentro del mismo ámbito mutable que utiliza el
  // complemento (no cerrar sobre una referencia externa fija).
  const bases=[
   "let collectionPage=()=>'<div class=\"cards-four\">Lotes: '+db.lots.length+'</div><button data-action=\"ledger-import\">Importar Excel de pagos</button>';",
+  "let collectionSolarCards=()=>'';",
   "let ordinaryCollectionCard=()=>'<article>Anterior</article>';",
   "let collectionPaymentRows=()=>db.payments.map(p=>p.id);",
   "let collectionClientRows=()=>db.clients.map(c=>c.id);",
@@ -115,15 +120,18 @@ test('UI conserva la base completa y filtra reportes y exportaciones',()=>{
  const api=new Function(...Object.keys(environment),bases+'\n'+ui+
   ';return {collectionPage,collectionPaymentRows,collectionClientRows,debtReport,ordinaryCollectionCard,paymentCandidates,newPayment,current:()=>db};')(...Object.values(environment));
  const html=api.collectionPage();
- assert.match(html,/Clientes y solares desde Contratos/);
- assert.match(html,/Lotes: 1/);
+ assert.match(html,/Clientes y solares vinculados desde Contratos/);
+ assert.match(html,/Clientes \(1\)/);
+ assert.match(html,/Nuevo cliente desde Contratos/);
+ assert.doesNotMatch(html,/Cliente antiguo de Excel|Otra residencial/);
+ assert.match(html,/Ficha de prueba sin condiciones completas/);
  assert.doesNotMatch(html,/data-action="ledger-import"/);
  assert.deepEqual(api.collectionPaymentRows(),['P-NEW']);
  assert.deepEqual(api.collectionClientRows(),['NEW']);
  assert.deepEqual(api.debtReport(),['S-NEW']);
  assert.deepEqual(api.paymentCandidates().map(s=>s.id),['S-NEW']);
  assert.equal(api.newPayment(null,false),'contrato');
- assert.equal(api.current(),state);
+ assert.equal(api.current(),state);assert.equal(JSON.stringify(state),before);
  assert.match(api.ordinaryCollectionCard({lot:state.lots[0]}),/Anterior/);
  assert.match(build,/contract-collections-scope\.mjs/);
  assert.match(build,/contract-collections-only-ui\.js/);
