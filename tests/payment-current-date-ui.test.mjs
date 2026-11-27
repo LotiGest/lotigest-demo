@@ -21,7 +21,7 @@ test('registro permite usar fecha de hoy y conservar fechas históricas sin sobr
 test('resumen separa prima, saldo a financiar y cuotas efectivamente registradas',()=>{
  assert.match(modern,/Prima acordada \(no es cuota\)/);
  assert.match(modern,/Saldo inicial a financiar \(precio − prima\)/);
- assert.match(modern,/Cuotas pagadas con recibos/);
+ assert.match(modern,/Cuotas cubiertas con recibos \(sin prima\)/);
  assert.match(modern,/Total contabilizado \(prima y demás pagos\)/);
  assert.match(build,/installment-status\.mjs/);
 });
