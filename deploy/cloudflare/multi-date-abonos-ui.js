@@ -507,7 +507,7 @@
       if(allocation.paymentApplication==='prima')assertPrimaPayment(next,target.lotId,allocation.cents);else assertMonthlyPayment(next,[target.lotId],allocation.cents);
       const priorPaid=(Number(target.openingPaid)||0)+next.payments.filter(p=>p.saleId===target.id).reduce((n,p)=>n+Number(p.amount||0),0);
       const payment={id:groupId+'-'+(index+1),groupId,saleId:target.id,date:row.date,amount:allocation.amount,concept:allocation.concept||'Abono mensual · Registro por fechas',...(allocation.paymentApplication?{paymentApplication:allocation.paymentApplication}:{}),method:'Efectivo',receiptReference:row.raw,receiptReferenceNormalized:row.normalized,recordedAt:new Date().toISOString(),...(photoKey?{receiptImageKey:photoKey}:{}),verifyToken};
-      const partial=partialEntry(next,[target.lotId],allocation.cents,row.date,'sale:'+payment.id,{prima:allocation.paymentApplication==='prima',ref:row.raw,rowId:row.id});if(partial)pendingPartial.push({...partial,target:payment});
+      const partial=partialEntry(next,[target.lotId],allocation.cents,row.date,'sale:'+payment.id,{prima:allocation.paymentApplication==='prima',ref:row.raw,rowId:row.id});if(partial)pendingPartial.push({...partial,paymentId:payment.id,kind:'sale'});
       payment.receiptInfo=buildReceiptInfo(payment,priorPaid);next.payments.unshift(payment);
       if(index===0)id=payment.id;
      }
@@ -516,7 +516,7 @@
      const outcome=window.lotigestOwnerPayments.createOwnerPayment(next,{id:'OP-'+crypto.randomUUID(),clientId:mdState.clientId,residenceId:mdState.residenceId,date:row.date,method:'Efectivo',concept:'Abono mensual · Registro por fechas',receiptRef:row.raw,reviewed:true,allocations:[{statementId:row.statementId,referenceIndex:null,amount:row.amount}]});
      next=outcome.state;id=outcome.receipt.id;
      const receipt=next.ownerPayments.find(p=>p.id===id);if(photoKey)receipt.receiptImageKey=photoKey;
-     if(partial)pendingPartial.push({...partial,target:receipt.allocations[0]});
+     if(partial)pendingPartial.push({...partial,paymentId:receipt.id,kind:'owner'});
      receipt.verifyToken=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
     }
     const item={id,kind:mdState.kind,ref:row.raw,date:row.date,amount:row.amount,photoKey,groupId:mdState.kind==='sale'?next.payments.find(p=>p.id===id)?.groupId:null};item.proof=mdReceiptProof(next,item);saved.push(item);
@@ -527,7 +527,7 @@
     if(note===null){mdBackToData(pendingPartial[0].rowId);mdFocusField(pendingPartial[0].rowId,'amount');return;}
     if(mdReviewSignature(mdValidate())!==mdReviewedKey||!document.getElementById('md-review-confirm')?.checked)throw Error('El borrador cambió. Revisa nuevamente los abonos.');
     const actor=cloudUser?.name;if(!actor)throw Error('No se pudo verificar el usuario de la sesión.');
-    for(const entry of pendingPartial)entry.target.partialPaymentConfirmation=makePartialPaymentConfirmation(entry.details,{date:entry.date,actor,note});
+    for(const entry of pendingPartial){const target=entry.kind==='sale'?next.payments.find(p=>p.id===entry.paymentId):next.ownerPayments.find(p=>p.id===entry.paymentId)?.allocations?.[0];if(!target)throw Error('No se encontró el abono confirmado.');target.partialPaymentConfirmation=makePartialPaymentConfirmation(entry.details,{date:entry.date,actor,note});}
    }
    for(const {key,file} of attachments)await window.lotigestFiles.queue(key,file);
    cloudWrite(JSON.stringify(next));db=next;

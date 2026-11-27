@@ -84,7 +84,7 @@ export function assertPrimaPayment(state,lotId,amountCents){
   throw Error('El importe supera la prima pendiente del solar. Revisa la distribución.');
  return info;
 }
-export function validateNewMonthlyPayments(before,after){
+export function validateNewMonthlyPayments(before,after,{partialActor=null}={}){
  if(!before)return; // Carga inicial/restauración: no invalidar recibos anteriores.
  const oldSales=new Map((before.payments||[]).map(p=>[p.id,p]));
  const working={...after,payments:[...(before.payments||[])],ownerPayments:[...(before.ownerPayments||[])]};
@@ -99,14 +99,14 @@ export function validateNewMonthlyPayments(before,after){
   const importedContract=posted&&(after.historicalContracts||[]).find(c=>c.id===posted.contractId&&c.saleId===p.saleId);
   if(recorded&&posted&&importedContract){working.payments=working.payments.filter(x=>x.id!==p.id).concat(p);continue;}
   const sale=(after.sales||[]).find(s=>s.id===p.saleId);
-  if(sale){const test={...working,payments:working.payments.filter(x=>x.id!==p.id)};if(!prior&&p.paymentApplication==='prima')assertPrimaPayment(test,sale.lotId,monthlyCents(p.amount));else assertMonthlyPayment(test,[sale.lotId],monthlyCents(p.amount),{prima:/^PRIMA\b/i.test(p.concept||'')});}
+  if(sale){const test={...working,payments:working.payments.filter(x=>x.id!==p.id)};const prima=p.paymentApplication==='prima'||/^PRIMA\b/i.test(p.concept||'');if(!prior&&p.paymentApplication==='prima')assertPrimaPayment(test,sale.lotId,monthlyCents(p.amount));else assertMonthlyPayment(test,[sale.lotId],monthlyCents(p.amount),{prima});if(!prior&&partialActor!==null)assertPartialPaymentConfirmation(partialPaymentDetails(test,[sale.lotId],monthlyCents(p.amount),{prima}),p.partialPaymentConfirmation,p.date,partialActor);}
   working.payments=working.payments.filter(x=>x.id!==p.id).concat(p);
  }
  const oldOwners=new Map((before.ownerPayments||[]).map(p=>[p.id,p]));
  for(const p of after.ownerPayments||[]){
   const prior=oldOwners.get(p.id);if(prior&&JSON.stringify(prior.allocations)===JSON.stringify(p.allocations)&&prior.concept===p.concept)continue;
   const test={...working,ownerPayments:working.ownerPayments.filter(x=>x.id!==p.id)};
-  for(const a of p.allocations||[]){const ids=(a.references||[]).map(r=>r.lotId).filter(Boolean);if(ids.length===(a.references||[]).length)assertMonthlyPayment(test,ids,a.amountCents,{prima:/^PRIMA\b/i.test(p.concept||'')});}
+  for(const a of p.allocations||[]){const ids=(a.references||[]).map(r=>r.lotId).filter(Boolean),prima=/^PRIMA\b/i.test(p.concept||'');if(ids.length===(a.references||[]).length)assertMonthlyPayment(test,ids,a.amountCents,{prima});if(!prior&&partialActor!==null)assertPartialPaymentConfirmation(partialPaymentDetails(test,ids,a.amountCents,{prima}),a.partialPaymentConfirmation,p.date,partialActor);}
   working.ownerPayments=working.ownerPayments.filter(x=>x.id!==p.id).concat(p);
  }
 }
