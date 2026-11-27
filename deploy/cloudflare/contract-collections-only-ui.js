@@ -264,7 +264,8 @@
  }
  function ccMatch(g){
   if(collectionStageFilter!=='all'&&!g.lots.some(l=>String(l.stage||'pending')===collectionStageFilter))return false;
-  if(ccSearch&&!ccNorm([g.client.name,g.client.identity,g.client.phone,g.residenceName,...g.lots.flatMap(l=>[l.id,l.block,l.sourceNumber])].join(' ')).includes(ccNorm(ccSearch)))return false;
+  const query=ccNorm(ccSearch).trim(),digits=v=>String(v??'').replace(/\D/g,''),numeric=/^[+\d\s().-]+$/.test(query)?digits(query):'';
+  if(query&&!ccNorm([g.client.name,g.client.identity,g.client.phone,g.residenceName,...g.lots.flatMap(l=>[l.id,l.block,l.sourceNumber])].join(' ')).includes(query)&&!(numeric&&[g.client.identity,g.client.phone].some(v=>digits(v).includes(numeric))))return false;
   const t=g.model.m?ccMetrics(g.model.m,collectionMonth):null;
   if(collectionOverdueMonths!=='all'&&(!t||t.months!==Number(collectionOverdueMonths)))return false;
   if(collectionFilter==='all')return true;
