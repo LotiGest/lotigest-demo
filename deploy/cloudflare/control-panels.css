@@ -285,3 +285,17 @@ body.lotigest-dark .mora-month{color:#ffc1c4}
 @media(max-width:760px){.mora-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.mora-filters{grid-template-columns:1fr}.mora-client{padding:10px}.mora-actions button{width:100%}}
 
 .mora-actions{gap:8px;flex-wrap:wrap}.mora-actions .mora-send{background:#168448;color:white;border-color:#168448}.mora-actions .mora-send:focus-visible{outline:2px solid #4acb83;outline-offset:2px}[data-cp-message-notifications]{border-top:1px solid var(--cp-border);padding-top:9px;margin-top:8px}[data-cp-message-notifications] button{white-space:normal;text-align:left}#cp-mora-compose{display:grid;gap:12px}#cp-mora-compose label{display:grid;gap:5px}#cp-mora-compose textarea{width:100%;min-height:160px;resize:vertical}#cp-mora-error{color:#d34b61}
+
+/* Contrast for the newly introduced Mora actions and native calendar/menu controls.
+   Preserve all layout, status colors and the existing theme palette. */
+@media screen{
+ body.lotigest-dark #cp-mora-error{color:#ffb5be!important}
+ body:not(.lotigest-dark) #cp-mora-error{color:#a92336}
+ body.lotigest-dark .mora-month{background:#35252a;border-color:#ba6e74;color:#ffc1c4}
+ body.lotigest-dark .mora-table th{background:#17392d;color:#f1f7f4}
+ body.lotigest-dark .mora-actions .mora-send{background:#14643b!important;color:#fff!important;border-color:#72af88!important}
+ body:not(.lotigest-dark) .mora-actions .mora-send{background:#14643b!important;color:#fff!important;border-color:#14643b}
+ body.lotigest-dark :is(.lotigest-shell,#modal-root) select :is(option,optgroup){background:#112b23;color:#f1f7f4}
+ body.lotigest-dark :is(.lotigest-shell,#modal-root) :is(input[type=date],input[type=month]){color-scheme:dark}
+ body.lotigest-dark :is(.lotigest-shell,#modal-root) :is(button,input,select,textarea):focus-visible{outline:2px solid #8ce9b0;outline-offset:2px}
+}

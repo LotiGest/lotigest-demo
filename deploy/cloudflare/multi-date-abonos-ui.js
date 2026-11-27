@@ -469,7 +469,7 @@
  }
  function mdReceiptProof(state,item){
   const rows=item.kind==='owner'?(state.ownerPayments||[]).filter(p=>p.id===item.id):(state.payments||[]).filter(p=>item.groupId?p.groupId===item.groupId:p.id===item.id);
-  return rows.map(p=>({id:p.id,saleId:p.saleId||null,amountCents:item.kind==='owner'?Number(p.amountCents):Math.round(Number(p.amount)*100),date:p.date,ref:String(p.receiptReference||p.receiptRef||'').trim(),voided:!!(p.voidedAt||p.deletedAt||p.cancelledAt||['voided','cancelled','annulled'].includes(p.status))})).sort((a,b)=>a.id.localeCompare(b.id));
+  return rows.map(p=>({id:p.id,saleId:p.saleId||null,amountCents:item.kind==='owner'?Number(p.amountCents):Math.round(Number(p.amount)*100),date:p.date,ref:String(p.receiptReference||p.receiptRef||'').trim(),voided:!!(p.voidedAt||p.deletedAt||p.cancelledAt||['voided','cancelled','annulled'].includes(p.status)),confirmation:p.partialPaymentConfirmation||null,allocations:item.kind==='owner'?(p.allocations||[]).map(a=>({statementId:a.statementId,referenceIndex:a.referenceIndex??null,amountCents:a.amountCents,lotIds:(a.references||[]).map(r=>r.lotId||null),confirmation:a.partialPaymentConfirmation||null})):null})).sort((a,b)=>a.id.localeCompare(b.id));
  }
  async function mdReceiptsConfirmed(items){
   try{
@@ -529,6 +529,7 @@
     const actor=cloudUser?.name;if(!actor)throw Error('No se pudo verificar el usuario de la sesión.');
     for(const entry of pendingPartial){const target=entry.kind==='sale'?next.payments.find(p=>p.id===entry.paymentId):next.ownerPayments.find(p=>p.id===entry.paymentId)?.allocations?.[0];if(!target)throw Error('No se encontró el abono confirmado.');target.partialPaymentConfirmation=makePartialPaymentConfirmation(entry.details,{date:entry.date,actor,note});}
    }
+   for(const item of saved)item.proof=mdReceiptProof(next,item);
    for(const {key,file} of attachments)await window.lotigestFiles.queue(key,file);
    cloudWrite(JSON.stringify(next));db=next;
    await cloudFlush();

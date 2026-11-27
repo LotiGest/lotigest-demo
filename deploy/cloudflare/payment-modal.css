@@ -898,3 +898,7 @@ body.lotigest-dark .lg-partial-dialog textarea::placeholder{color:#b0bfd2}
 body.lotigest-dark .lg-partial-dialog .btn-outline{background:#1b3049;border-color:#839ab6;color:#eef5ff}
 body.lotigest-dark .lg-partial-dialog .btn-primary{background:#367d54;border-color:#72af88;color:#fff}
 @media(max-width:480px){.lg-partial-dialog{padding:16px}.lg-partial-actions .btn{flex:1;white-space:normal}}
+
+body.lotigest-dark .lg-partial-dialog{color-scheme:dark}
+body.lotigest-dark .lg-partial-dialog .btn-primary{background:#245d40;border-color:#72af88;color:#fff}
+body.lotigest-dark .lg-partial-dialog :is(button,textarea):focus-visible{outline-color:#8ce9b0}
