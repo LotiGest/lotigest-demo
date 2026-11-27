@@ -104,6 +104,8 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace("if(y-size<151){footer();header();}", "if(y-size<(qrUrl?233:151)){footer();header();}")
     .replace("return {blob:receiptLetterPdf(parts,db.company.name||'Lotificadora Henríquez',ref),",
       "return {blob:receiptLetterPdf(parts,db.company.name||'Lotificadora Henríquez',ref,'receipt',receiptQrUrl('payment',id)),")
+    .replace("next.payments.unshift({id:uid('R'),saleId:sale.id,amount:cents/100,date,concept:String(data.concept||'').trim()||'Abono'});",
+      "next.payments.unshift({id:uid('R'),saleId:sale.id,amount:cents/100,date,concept:String(data.concept||'').trim()||'Abono',...(partialApprovedFor(form,'sale:'+sale.id)?{partialPaymentConfirmation:partialApprovedFor(form,'sale:'+sale.id)}:{})});")
     // No salir de Cuotas y pagos al registrar recibos; el comprobante abre sobre el panel actual.
     .replace("paymentDraft=null;closeModal();filter='';page='receipts';render();paymentReceiptPreview(payments[0].id);",
       "paymentDraft=null;closeModal();filter='';render();paymentReceiptPreview(payments[0].id);")

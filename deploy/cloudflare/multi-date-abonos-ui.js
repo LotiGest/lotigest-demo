@@ -490,7 +490,7 @@
   try{if(mdReviewSignature(mdValidate())!==mdReviewedKey){mdReview();return;}if(!document.getElementById('md-review-confirm')?.checked){mdError('Confirma que has revisado el prelistado antes de guardar.');return;}}catch(e){mdError(e.message);return;}
   mdSaving=true;const btn=document.querySelector('[data-md-save]');if(btn){btn.disabled=true;btn.textContent='Guardando…';}
   try{
-   const ordered=mdValidate();let next=JSON.parse(JSON.stringify(db)),saved=[],attachments=[];
+   const ordered=mdValidate();let next=JSON.parse(JSON.stringify(db)),saved=[],attachments=[],pendingPartial=[];
    const sale=mdState.kind==='sale'?next.sales.find(s=>s.id===mdState.saleId):null;
    const lot=sale?next.lots.find(l=>l.id===sale.lotId):null;
    if(sale&&(!lot||sale.type!=='credit'))throw Error('El contrato o solar cambió.');
@@ -507,17 +507,27 @@
       if(allocation.paymentApplication==='prima')assertPrimaPayment(next,target.lotId,allocation.cents);else assertMonthlyPayment(next,[target.lotId],allocation.cents);
       const priorPaid=(Number(target.openingPaid)||0)+next.payments.filter(p=>p.saleId===target.id).reduce((n,p)=>n+Number(p.amount||0),0);
       const payment={id:groupId+'-'+(index+1),groupId,saleId:target.id,date:row.date,amount:allocation.amount,concept:allocation.concept||'Abono mensual · Registro por fechas',...(allocation.paymentApplication?{paymentApplication:allocation.paymentApplication}:{}),method:'Efectivo',receiptReference:row.raw,receiptReferenceNormalized:row.normalized,recordedAt:new Date().toISOString(),...(photoKey?{receiptImageKey:photoKey}:{}),verifyToken};
+      const partial=partialEntry(next,[target.lotId],allocation.cents,row.date,'sale:'+payment.id,{prima:allocation.paymentApplication==='prima',ref:row.raw,rowId:row.id});if(partial)pendingPartial.push({...partial,target:payment});
       payment.receiptInfo=buildReceiptInfo(payment,priorPaid);next.payments.unshift(payment);
       if(index===0)id=payment.id;
      }
     }else{
+     const partial=partialEntry(next,monthlyOwnerLotIds(next,row.statementId,null),row.cents,row.date,'owner:'+row.id,{ref:row.raw,rowId:row.id});
      const outcome=window.lotigestOwnerPayments.createOwnerPayment(next,{id:'OP-'+crypto.randomUUID(),clientId:mdState.clientId,residenceId:mdState.residenceId,date:row.date,method:'Efectivo',concept:'Abono mensual · Registro por fechas',receiptRef:row.raw,reviewed:true,allocations:[{statementId:row.statementId,referenceIndex:null,amount:row.amount}]});
      next=outcome.state;id=outcome.receipt.id;
      const receipt=next.ownerPayments.find(p=>p.id===id);if(photoKey)receipt.receiptImageKey=photoKey;
+     if(partial)pendingPartial.push({...partial,target:receipt.allocations[0]});
      receipt.verifyToken=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
     }
     const item={id,kind:mdState.kind,ref:row.raw,date:row.date,amount:row.amount,photoKey,groupId:mdState.kind==='sale'?next.payments.find(p=>p.id===id)?.groupId:null};item.proof=mdReceiptProof(next,item);saved.push(item);
     if(photoKey)attachments.push({key:photoKey,file:row.photo});
+   }
+   if(pendingPartial.length){
+    const note=await partialPrompt(pendingPartial);
+    if(note===null){mdBackToData(pendingPartial[0].rowId);mdFocusField(pendingPartial[0].rowId,'amount');return;}
+    if(mdReviewSignature(mdValidate())!==mdReviewedKey||!document.getElementById('md-review-confirm')?.checked)throw Error('El borrador cambió. Revisa nuevamente los abonos.');
+    const actor=cloudUser?.name;if(!actor)throw Error('No se pudo verificar el usuario de la sesión.');
+    for(const entry of pendingPartial)entry.target.partialPaymentConfirmation=makePartialPaymentConfirmation(entry.details,{date:entry.date,actor,note});
    }
    for(const {key,file} of attachments)await window.lotigestFiles.queue(key,file);
    cloudWrite(JSON.stringify(next));db=next;

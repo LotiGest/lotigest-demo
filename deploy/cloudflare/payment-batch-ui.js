@@ -141,7 +141,7 @@ submitOwnerAbono=async function(form){
   const result=lotigestOwnerPayments.createOwnerPayment(db,{
    ...draft,...data,concept,reviewed:data.reviewed==='on',allocations
   });
-  cloudWrite(JSON.stringify(result.state));
+  partialAttachOwner(result,form);cloudWrite(JSON.stringify(result.state));
   db=result.state;
   const clientId=draft.clientId,residenceId=draft.residenceId,receipt=result.receipt;
   ownerPaymentDraft=null;

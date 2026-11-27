@@ -876,3 +876,25 @@ body.lotigest-dark #modal-root .lg-payment-modern.pm-reference-payment #multi-pa
 #modal-root .lg-payment-modern.pm-reference-payment #multi-payment-form .pm-reference-entry .pm-correlativo-control:focus-within{
  outline:3px solid var(--pm-priority-red-border)!important;outline-offset:2px!important;
 }
+
+/* Partial payment confirmation is independent of the underlying form and preserves its draft. */
+.lg-partial-dialog{width:min(94vw,580px);max-height:90dvh;overflow:auto;padding:22px;border:1px solid #cbd5e1;border-radius:16px;background:#fff;color:#142334;box-shadow:0 20px 64px #0004;font:inherit}
+.lg-partial-dialog::backdrop{background:#0b1729b8}
+.lg-partial-dialog h2{font-size:1.2rem;margin:0 0 12px}
+.lg-partial-dialog p{margin:8px 0 14px;line-height:1.5}
+.lg-partial-entry{padding:12px 14px;border:1px solid #cad5dd;border-radius:10px;margin:10px 0;background:#f5f8fb}
+.lg-partial-values{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;margin:10px 0 0}
+.lg-partial-values dt,.lg-partial-values dd{margin:0;font-size:.94rem}
+.lg-partial-values dd{font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.lg-partial-dialog label{display:block;margin:16px 0 12px;color:inherit}
+.lg-partial-dialog textarea{display:block;width:100%;box-sizing:border-box;margin-top:6px;padding:10px;border:1px solid #aebccc;border-radius:8px;color:inherit;background:#fff;font:inherit}
+.lg-partial-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end}
+.lg-partial-actions .btn{min-height:44px}
+.lg-partial-dialog button:focus-visible,.lg-partial-dialog textarea:focus-visible{outline:2px solid #1685bb;outline-offset:2px}
+body.lotigest-dark .lg-partial-dialog{color:#eef5ff;background:#142337;border-color:#405570}
+body.lotigest-dark .lg-partial-entry{background:#1b3049;border-color:#49637e;color:#eef5ff}
+body.lotigest-dark .lg-partial-dialog textarea{background:#0d1b2b;border-color:#60758d;color:#eef5ff}
+body.lotigest-dark .lg-partial-dialog textarea::placeholder{color:#b0bfd2}
+body.lotigest-dark .lg-partial-dialog .btn-outline{background:#1b3049;border-color:#839ab6;color:#eef5ff}
+body.lotigest-dark .lg-partial-dialog .btn-primary{background:#367d54;border-color:#72af88;color:#fff}
+@media(max-width:480px){.lg-partial-dialog{padding:16px}.lg-partial-actions .btn{flex:1;white-space:normal}}
