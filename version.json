@@ -1,4 +1,4 @@
 {
-  "version": "1.0.43",
-  "notes": "Abonos identifica contratos pendientes, permite activar el crédito conservando la prima registrada y muestra los montos de las fichas antes de fechas y correlativo."
+  "version": "1.0.44",
+  "notes": "Abonos varios permite capturar más de 24 recibos consecutivos, con siguiente abono y revisión independiente."
 }

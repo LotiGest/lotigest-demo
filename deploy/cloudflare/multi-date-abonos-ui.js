@@ -102,7 +102,7 @@
   if(cloudBlocked||cloudBusy||cloudQueue?.pending||cloudQueue?.latest!==cloudQueue?.confirmed)return toast('Sincroniza primero los cambios pendientes antes de registrar varios pagos.','error');
   const clientSales=db.sales.filter(x=>x.clientId===client.id&&x.type==='credit'&&getLot(x.lotId)?.residenceId===lot.residenceId&&balance(x)>.009);
   mdState={kind:'sale',saleId:sale.id,saleIds:clientSales.map(x=>x.id),clientId:client.id,residenceId:lot.residenceId,clientName:client.name,lotLabel:clientSales.map(x=>{const l=getLot(x.lotId);return 'Etapa '+(l.stage||'—')+' · Bloque '+l.block+' · Solar '+(l.sourceNumber||l.id);}).join(' / ')+' · Abono total repartido según las cuotas',snapshot:JSON.stringify(db),rows:[],docs:[]};
-  mdState.rows.push(mdCreateEntry());mdState.rows.push(mdCreateEntry());
+  mdState.rows.push(mdCreateEntry());
   mdState.rows[0].expanded=true;
   if(typeof nextReceiptSuggestion==='function'){const ref=nextReceiptSuggestion(db);if(ref){mdState.rows[0].receiptRef=ref;mdState.rows[0].refSuggested=true;}}
   mdLastPaymentTarget={kind:'sale',saleId:sale.id};
@@ -119,7 +119,7 @@
   }
   if(cloudBlocked||cloudBusy||cloudQueue?.pending||cloudQueue?.latest!==cloudQueue?.confirmed)return toast('Sincroniza primero los cambios pendientes antes de registrar varios pagos.','error');
   mdState={kind:'owner',clientId,residenceId:rid,clientName:client.name,lotLabel:'Fichas de propietario · '+docs.length+' documento(s)',docs,snapshot:JSON.stringify(db),rows:[]};
-  mdState.rows.push(mdCreateEntry());mdState.rows.push(mdCreateEntry());
+  mdState.rows.push(mdCreateEntry());
   mdState.rows[0].expanded=true;
   if(typeof nextReceiptSuggestion==='function'){const ref=nextReceiptSuggestion(db);if(ref){mdState.rows[0].receiptRef=ref;mdState.rows[0].refSuggested=true;}}
   mdLastPaymentTarget={kind:'owner',clientId,residenceId:rid};
@@ -169,8 +169,8 @@
   const last=mdLastPaymentFor(mdState,db,mdState.docs?.[0]?.id);
   const lastLine='<aside class="md-last-inline" role="status">▤ <span>Último pago: '+(last?mdSafe(mdHumanDate(last.date))+' · <b class="md-inline-ref">'+mdSafe(last.reference||'Sin correlativo')+'</b> · <b class="md-inline-money">'+mdSafe(mdFmt(last.amount))+'</b>':'Sin pagos registrados')+'</span></aside>';
   const header='<div class="md-client md-client-reference"><span class="md-client-avatar" aria-hidden="true"><svg width="29" height="29" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2z"/></svg></span><div><strong>'+mdSafe(mdState.clientName)+'</strong><span>Contrato: <b>'+mdSafe(contractLabel)+'</b></span><small>'+mdSafe(mdState.lotLabel.replace(/ · Abono total repartido según las cuotas$/,''))+'</small></div></div>'+lastLine+
-    '<form id="md-abonos-form"><div id="md-abonos-list"></div><div class="md-wizard-totals"><button type="button" class="btn btn-outline md-add" data-md-add>+ Agregar abono</button><div class="md-total"><span><strong data-md-count>2</strong> abonos · Total <strong data-md-total>L 0.00</strong></span></div></div><p class="md-error" data-md-error role="alert"></p></form>';
-  showModal('Abonos varios',header,'<button class="btn btn-outline" type="button" data-md-back>← Atrás</button><button class="btn btn-primary" type="button" data-md-next>Siguiente →</button><button class="btn btn-primary" type="button" data-md-save hidden>Guardar abonos</button>',true);
+    '<form id="md-abonos-form"><div id="md-abonos-list"></div><div class="md-wizard-totals"><button type="button" class="btn btn-outline md-add" data-md-add>+ Agregar abono</button><div class="md-total"><span><strong data-md-count>0</strong> abonos · Total <strong data-md-total>L 0.00</strong></span></div></div><p class="md-error" data-md-error role="alert"></p></form>';
+  showModal('Abonos varios',header,'<button class="btn btn-outline" type="button" data-md-back>← Atrás</button><button class="btn btn-outline" type="button" data-md-next>Siguiente abono →</button><button class="btn btn-primary" type="button" data-md-review>Revisar listado →</button><button class="btn btn-primary" type="button" data-md-save hidden>Guardar abonos</button>',true);
   const modal=document.querySelector('#modal-root .modal');if(modal)modal.classList.add('lg-multi-date-modal','md-wizard','md-reference-wizard');
   const modalHeader=modal?.querySelector('.modal-header');if(modalHeader){const brand=document.createElement('div');brand.className='md-brand-reference';brand.innerHTML='<span aria-hidden="true">▱</span> LOTIGEST <b>PRO</b>';modalHeader.prepend(brand);}
   const footerNote=document.createElement('small');footerNote.className='md-wizard-footer-note';footerNote.textContent='Revisarás el listado antes de guardar.';modal?.querySelector('.modal-footer')?.append(footerNote);
@@ -192,7 +192,8 @@
   const tabs=modal.querySelector('.md-wizard-tabs');if(tabs)tabs.innerHTML=mdState.rows.map((r,i)=>'<button type="button" data-md-goto="'+mdSafe(r.id)+'" aria-current="'+(r===active?'step':'false')+'">Abono '+(i+1)+'</button>').join('');
   for(const label of modal.querySelectorAll('[data-md-step-label]'))label.classList.toggle('active',label.dataset.mdStepLabel===mdStage);
   const review=document.getElementById('md-review');if(review)review.hidden=mdStage!=='review';
-  const save=modal.querySelector('[data-md-save]'),next=modal.querySelector('[data-md-next]');if(save)save.hidden=mdStage!=='review';if(next){next.hidden=mdStage!=='data';next.textContent=mdState.rows.indexOf(active)===mdState.rows.length-1?'Revisar listado →':'Siguiente →';}
+  const save=modal.querySelector('[data-md-save]'),next=modal.querySelector('[data-md-next]'),reviewButton=modal.querySelector('[data-md-review]');if(save)save.hidden=mdStage!=='review';if(next)next.hidden=mdStage!=='data';if(reviewButton)reviewButton.hidden=mdStage!=='data';
+  const activeTab=tabs?.querySelector('[aria-current=step]');if(activeTab&&tabs){const left=activeTab.offsetLeft-tabs.offsetLeft;if(left<tabs.scrollLeft||left+activeTab.offsetWidth>tabs.scrollLeft+tabs.clientWidth)tabs.scrollLeft=Math.max(0,left-tabs.clientWidth+activeTab.offsetWidth);}
  }
  function mdReview(){
   try{
@@ -674,10 +675,10 @@
      window.lotigestOwnerPayments.findReceiptCorrelativo(db,row.receiptRef)){
    mdFocusField(row.id,'receiptRef');toast(mdDuplicateMessage(db,row.receiptRef)||'El correlativo '+normalized+' está repetido entre estas fechas.','error');return;
   }
-  if(index+1>=mdState.rows.length){mdReview();return;}
+  if(index+1>=mdState.rows.length)mdState.rows.push(mdCreateEntry());
   const next=mdState.rows[index+1];
   mdSuggestNextReference(row,next);mdSuggestNextAmount(row,next);
-  mdExpandRow(next.id);mdRenderRows();
+  mdExpandRow(next.id);
   mdFocusField(next.id,'date');
  }
  function mdRememberPayment(target){
@@ -720,11 +721,12 @@
  }
 
  document.addEventListener('click',event=>{
-  const control=event.target.closest?.('[data-md-next],[data-md-back],[data-md-goto],[data-md-review-remove],[data-md-show-saved]');if(!control)return;
+  const control=event.target.closest?.('[data-md-next],[data-md-review],[data-md-back],[data-md-goto],[data-md-review-remove],[data-md-show-saved]');if(!control)return;
   event.preventDefault();event.stopImmediatePropagation();if(mdSaving)return;
   if(control.hasAttribute('data-md-show-saved')){mdShowSaved();return;}
   if(!mdState)return;
   if(control.hasAttribute('data-md-next')){const row=mdState.rows.find(r=>r.expanded)||mdState.rows[0];mdNextRow(row);}
+  else if(control.hasAttribute('data-md-review'))mdReview();
   else if(control.hasAttribute('data-md-back')){if(mdStage==='review')mdBackToData();else{const i=mdState.rows.findIndex(r=>r.expanded);mdBackToData(mdState.rows[Math.max(0,i-1)]?.id);}}
   else if(control.hasAttribute('data-md-goto'))mdBackToData(control.dataset.mdGoto);
   else if(control.hasAttribute('data-md-review-remove')){mdStage='data';mdReviewedKey=null;mdRemove(control.dataset.mdReviewRemove);mdReview();mdWizardPaint();}
@@ -747,7 +749,7 @@
   else if(action.hasAttribute('data-md-toggle-row'))mdToggleRow(action.dataset.mdToggleRow);
   else if(action.hasAttribute('data-md-add')){
    mdStage='data';mdReviewedKey=null;
-   if(mdState.rows.length>=24)return mdError('Se admiten como máximo 24 recibos por operación.');
+   
    const row=mdCreateEntry();mdSuggestNextReference(mdState.rows.at(-1),row);mdSuggestNextAmount(mdState.rows.at(-1),row);mdState.rows.push(row);mdExpandRow(row.id);mdFocusField(row.id,'date');
   }
   else if(action.hasAttribute('data-md-remove'))mdRemove(action.dataset.mdRemove);
