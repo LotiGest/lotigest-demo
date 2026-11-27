@@ -37,3 +37,15 @@ test('el buscador de clientes de Abonos queda dentro del workspace y se cierra a
  w.page='contracts';w.render();assert.equal(d.querySelector('#modal-root .lg-payment-modern'),null);
  dom.window.close();
 });
+
+test('cobro manual desde Mora conserva mensaje y exige confirmación explícita',()=>{
+ const dom=setup(),w=dom.window,d=w.document;
+ w.money=v=>'L '+v.toFixed(2);w.toast=()=>{};let opened='';w.HTMLAnchorElement.prototype.click=function(){opened=this.href;};
+ w.lotigestMoraMessages.open({id:'c1',name:'Ana',phone:'99998888',contract:'CM-1',residenceId:'R',asOf:'2026-11-26',total:200000,body:'Cobro octubre: L 2,000'});
+ d.querySelector('#cp-mora-compose').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+ assert.match(opened,/wa\.me\/50499998888/);
+ assert.equal(w.db.messageDrafts.length,1);assert.equal(w.db.messageDrafts[0].status,'whatsapp-opened');
+ d.querySelector('[data-cp-confirm-sent]').click();
+ assert.equal(w.db.messageDrafts.length,1);assert.equal(w.db.messageDrafts[0].status,'sent-manual');assert.match(d.body.textContent,/confirmado por usuario/);
+ dom.window.close();
+});

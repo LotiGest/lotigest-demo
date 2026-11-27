@@ -352,11 +352,10 @@
  const cash=n=>money(n/100);
  const allowed=()=>typeof cloudUser!=='undefined'&&cloudUser?.role==='admin';
  const monthLabel=m=>new Intl.DateTimeFormat('es-HN',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(m+'-15T12:00:00Z'));
- function moraPage(){
-  if(!allowed())return '<section class="card card-padding">Acceso reservado a administración.</section>';
+ function moraRecords(onlyClient=null){
   const rid=residence().id,today=businessToday(),scope=contractCollectionsScope(db,rid);
   const groups=new Map();
-  for(const sale of scope.sales.filter(s=>s.type==='credit')){
+  for(const sale of scope.sales.filter(s=>s.type==='credit'&&(!onlyClient||s.clientId===onlyClient))){
    if(!groups.has(sale.clientId))groups.set(sale.clientId,[]);
    groups.get(sale.clientId).push(sale);
   }
@@ -368,14 +367,19 @@
     // Check both the ledger and the financial balance; uncertainty is not mora verified.
     if(model.unmatched)throw Error('Hay recibos pendientes de conciliar.');
     pmStatementModel(model);
-    const rows=model.details.flatMap(d=>d.rows.filter(r=>r.dueDate<today&&r.remainingCents>0).map(r=>({...r,lot:d.lot,contract:d.contractNumber})));
+    const rows=model.details.filter(d=>d.primaApplied>=d.agreed).flatMap(d=>d.rows.filter(r=>r.dueDate<today&&r.remainingCents>0).map(r=>({...r,lot:d.lot,contract:d.contractNumber})));
     if(!rows.length)continue;
     const months=[...new Set(rows.map(r=>r.dueDate.slice(0,7)))].sort();
     const total=rows.reduce((n,r)=>n+r.remainingCents,0);
-    records.push({id,name,rows,months,total,partial:rows.filter(r=>r.appliedCents>0).length,search:norm([name,client?.identity,...sales.map(s=>s.lotId),...rows.map(r=>r.contract),...months.map(monthLabel)].join(' '))});
+    records.push({id,name,phone:client?.phone||'',contract:[...new Set(rows.map(r=>r.contract))].join(' / '),residenceId:rid,residenceName:model.residence,asOf:today,rows,months,total,partial:rows.filter(r=>r.appliedCents>0).length,search:norm([name,client?.identity,...sales.map(s=>s.lotId),...rows.map(r=>r.contract),...months.map(monthLabel)].join(' '))});
    }catch(err){review.push({name,reason:err.message});}
   }
   records.sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name,'es'));
+  return {records,review,today};
+ }
+ function moraPage(){
+  if(!allowed())return '<section class="card card-padding">Acceso reservado a administración.</section>';
+  const {records,review,today}=moraRecords();
   const total=records.reduce((n,r)=>n+r.total,0),num=records.reduce((n,r)=>n+r.rows.length,0);
   const tile=(l,v)=>'<section class="card mora-metric"><small>'+esc(l)+'</small><strong>'+esc(v)+'</strong></section>';
   const items=records.map(r=>{
@@ -384,7 +388,7 @@
     const lot=x.lot,where='Etapa '+(lot?.stage||'—')+' · Bloque '+(lot?.block||'—')+' · Solar '+(lot?.sourceNumber||lot?.id||'—');
     return '<tr><td>'+esc(monthLabel(x.dueDate.slice(0,7)))+'<small>'+esc(x.dueDate)+'</small></td><td>'+esc(where)+'<small>'+esc(x.contract)+'</small></td><td>'+esc(cash(x.dueCents))+'</td><td>'+esc(cash(x.appliedCents))+'<small>'+esc(x.receipts.map(p=>'#'+p.reference+' · '+cash(p.amountCents)).join('; '))+'</small></td><td class="mora-amount">'+esc(cash(x.remainingCents))+'</td><td>'+esc(x.appliedCents?'Cuota pagada incompleta':'Vencida sin abono')+'</td></tr>';
    }).join('');
-   return '<article class="card mora-client" data-mora-record data-search="'+esc(r.search)+'" data-count="'+r.months.length+'" data-partial="'+r.partial+'"><div class="mora-client-head"><div><h3>'+esc(r.name)+'</h3><small>'+r.months.length+' mes(es) vencido(s) · '+r.rows.length+' cuota(s) de solar</small></div><strong class="mora-amount">'+esc(cash(r.total))+'</strong></div><div class="mora-months">'+months+'</div><details><summary>Ver meses, recibos y faltantes</summary><div class="mora-table"><table><thead><tr><th>Mes / vencimiento</th><th>Solar / contrato</th><th>Cuota</th><th>Abonado / recibos</th><th>Faltante</th><th>Estado</th></tr></thead><tbody>'+detail+'</tbody></table></div></details><div class="mora-actions"><button type="button" class="btn btn-outline" data-mora-statement="'+esc(r.id)+'">Estado de cuenta PDF</button></div></article>';
+   return '<article class="card mora-client" data-mora-record data-search="'+esc(r.search)+'" data-count="'+r.months.length+'" data-partial="'+r.partial+'"><div class="mora-client-head"><div><h3>'+esc(r.name)+'</h3><small>'+r.months.length+' mes(es) vencido(s) · '+r.rows.length+' cuota(s) de solar</small></div><strong class="mora-amount">'+esc(cash(r.total))+'</strong></div><div class="mora-months">'+months+'</div><details><summary>Ver meses, recibos y faltantes</summary><div class="mora-table"><table><thead><tr><th>Mes / vencimiento</th><th>Solar / contrato</th><th>Cuota</th><th>Abonado / recibos</th><th>Faltante</th><th>Estado</th></tr></thead><tbody>'+detail+'</tbody></table></div></details><div class="mora-actions"><button type="button" class="btn btn-outline" data-mora-statement="'+esc(r.id)+'">Estado de cuenta PDF</button><button type="button" class="btn btn-primary mora-send" data-mora-message="'+esc(r.id)+'">Enviar cobro por WhatsApp</button></div></article>';
   }).join('');
   return '<section class="mora-panel"><div class="page-head"><div><h1>Mora</h1><p>Mensualidades vencidas por cliente · Corte '+esc(today)+'</p></div></div>'+residencePicker()+
    '<div class="mora-metrics">'+tile('Clientes con mora',String(records.length))+tile('Cuotas vencidas',String(num))+tile('Total vencido confirmado',cash(total))+tile('Clientes por conciliar',String(review.length))+'</div>'+
@@ -416,7 +420,16 @@
  document.addEventListener('input',e=>{if(e.target.id==='mora-search')filterMora();});
  document.addEventListener('change',e=>{if(['mora-count','mora-partial'].includes(e.target.id))filterMora();});
  document.addEventListener('click',e=>{
-  const b=e.target.closest?.('[data-mora-statement]');if(!b||page!=='mora'||!allowed())return;
-  try{pmOpenStatement(b,{clientId:b.dataset.moraStatement,rid:residence().id});}catch(err){toast(err.message,'error');}
+  const b=e.target.closest?.('[data-mora-statement],[data-mora-message]');if(!b||page!=='mora'||!allowed())return;
+  try{
+   if(b.dataset.moraMessage){
+    const fresh=moraRecords(b.dataset.moraMessage).records[0];
+    if(!fresh)throw Error('No hay mora confirmada para este cliente. Actualiza el panel.');
+    const monthTotals=fresh.months.map(m=>monthLabel(m)+': '+cash(fresh.rows.filter(r=>r.dueDate.slice(0,7)===m).reduce((n,r)=>n+r.remainingCents,0)));
+    const body='Hola, '+fresh.name+'. Le saludamos de '+(db.company?.name||'GRUPO H')+'. Le recordamos que su contrato '+fresh.contract+' en '+fresh.residenceName+' presenta el siguiente saldo vencido al '+fresh.asOf+':\n'+monthTotals.join('\n')+'\nTotal pendiente de cuotas vencidas: '+cash(fresh.total)+'.\nAgradecemos su atención. Si ya realizó el pago, por favor comuníquese con nosotros para verificarlo. Muchas gracias.';
+    window.lotigestMoraMessages.open({...fresh,body});return;
+   }
+   pmOpenStatement(b,{clientId:b.dataset.moraStatement,rid:residence().id});
+  }catch(err){toast(err.message,'error');}
  });
 })();

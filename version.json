@@ -1,4 +1,4 @@
 {
-  "version": "1.0.56",
-  "notes": "Abonos varios: fecha azul más amplia, monto verde, correlativo rojo, enfoque visible y colores en la revisión; conserva OCR y navegación con Enter."
+  "version": "1.0.57",
+  "notes": "Cobro por WhatsApp desde Mora con detalle de meses y faltantes; historial y campana de gestiones, confirmación manual de envío y exclusión de solares con prima incompleta."
 }

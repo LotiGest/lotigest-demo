@@ -283,3 +283,5 @@ body.lotigest-dark .mora-month{color:#ffc1c4}
 .mora-table th{background:var(--cp-surface)}
 .mora-actions{display:flex;justify-content:flex-end}
 @media(max-width:760px){.mora-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.mora-filters{grid-template-columns:1fr}.mora-client{padding:10px}.mora-actions button{width:100%}}
+
+.mora-actions{gap:8px;flex-wrap:wrap}.mora-actions .mora-send{background:#168448;color:white;border-color:#168448}.mora-actions .mora-send:focus-visible{outline:2px solid #4acb83;outline-offset:2px}[data-cp-message-notifications]{border-top:1px solid var(--cp-border);padding-top:9px;margin-top:8px}[data-cp-message-notifications] button{white-space:normal;text-align:left}#cp-mora-compose{display:grid;gap:12px}#cp-mora-compose label{display:grid;gap:5px}#cp-mora-compose textarea{width:100%;min-height:160px;resize:vertical}#cp-mora-error{color:#d34b61}
