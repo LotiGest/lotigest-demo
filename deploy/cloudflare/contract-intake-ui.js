@@ -342,8 +342,14 @@ function contractTotalsMount(form,lots){
  box.innerHTML='<h3>Total del contrato</h3><div class="form-grid"><label class="field-group"><span>Cómo acordar los precios</span><select name="contractPriceMode"><option value="equal">Precio total · repartir entre los solares</option><option value="different">Precios diferentes por solar</option></select></label><label class="field-group"><span>Precio total acordado (L)</span><input type="number" name="contractTotalPrice" min="0.01" step="0.01" required></label><label class="field-group"><span>Prima total pactada (L)</span><input type="number" name="contractTotalPrima" min="0" step="0.01" required></label></div><p>La prima se distribuye proporcionalmente al precio de cada solar. Pactarla no registra un pago.</p><div data-contract-total-preview aria-live="polite"></div>';
  lots.append(box);
  form.elements.namedItem('contractPriceMode').value=values.contractPriceMode||'equal';
- form.elements.namedItem('contractTotalPrice').value=values.contractTotalPrice??'';
- form.elements.namedItem('contractTotalPrima').value=values.contractTotalPrima??'';
+ // Una oferta de Predios es solo una sugerencia editable para una ficha de un solar.
+ // Nunca sustituir un importe negociado que ya se escribió ni repartir ofertas automáticamente.
+ const single=!(contractIntakeWorking.extraLots||[]).length;
+ const selected=single?getLot(form.elements.namedItem('lotId')?.value):null;
+ const suggestedPrice=selected&&Number(selected.price)>0?String(selected.price):'';
+ const suggestedPrima=selected?(selected.quotePrima??selected.pdfPrima??''):'';
+ form.elements.namedItem('contractTotalPrice').value=String(values.contractTotalPrice??'').trim()!==''?values.contractTotalPrice:suggestedPrice;
+ form.elements.namedItem('contractTotalPrima').value=String(values.contractTotalPrima??'').trim()!==''?values.contractTotalPrima:suggestedPrima;
  const refresh=()=>{contractIntakeManualRecalculate(form);const check=form.querySelector('#cq-reviewed');if(check)check.checked=false;};
  box.addEventListener('input',refresh);box.addEventListener('change',refresh);
  contractIntakeManualRecalculate(form);
