@@ -905,9 +905,10 @@ function contractIntakeActivate(id){
  if(!contractIntakeAdmin()){toast('Debes tener sesión de administrador y datos sincronizados.','error');return;}
  const d=(db.contractTexts||[]).find(x=>x.id===id&&x.status==='pending-sale');
  if(!d)return;
+ const prima=lotigestPrimaStatus(d.clientId,d.residenceId,[d.lotId]);
  showModal('Activar crédito desde contrato',
   '<p><b>'+esc(getClient(d.clientId)?.name||'Cliente')+'</b> · Etapa '+esc(getLot(d.lotId)?.stage||'sin confirmar')+' · Bloque '+esc(getLot(d.lotId)?.block||'')+' · Solar '+esc(getLot(d.lotId)?.sourceNumber||'')+'</p>'+
-  '<p>Precio '+money(d.structured.price)+' · Prima pactada '+money(d.structured.down)+' · '+esc(d.structured.months)+' cuotas. <strong>Prima recibida: L 0.00</strong>; deberás registrarla después desde Abonos.</p>'+
+  '<p>Precio '+money(d.structured.price)+' · Prima pactada '+money(d.structured.down)+' · '+esc(d.structured.months)+' cuotas. <strong>Prima registrada: '+money((prima.paidCents||0)/100)+'</strong>. Los recibos existentes se conservan y no se vuelven a cobrar.</p>'+
   '<form id="contract-intake-activate-form"><input type="hidden" name="documentId" value="'+esc(id)+'">'+
   '<label>Fecha de contrato<input name="date" type="date" required value="'+esc(d.structured?.date||'')+'"></label>'+
   '<label>Fecha primera cuota<input name="firstDueDate" type="date" required value="'+esc(d.structured?.firstDueDate||contractSuggestedFirstDue(d.structured?.date))+'"></label>'+
@@ -935,7 +936,7 @@ async function contractIntakeConfirmActivation(form){
  cloudWrite(JSON.stringify(next));db=next;await cloudFlush();
  closeModal();render();
  if(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed)toast('Crédito pendiente de sincronización. No registres pagos hasta confirmar la nube.','error');
- else toast('Crédito activado sin cobros. Ahora puedes registrar primas y cuotas desde Abonos.');
+ else {toast('Crédito activado. Se conservan los recibos existentes de prima y abonos.');if(page==='payments')openOwnerAbono(d.clientId,d.residenceId);}
 }
 const contractIntakeOldContractsPage=contractsPage;
 contractsPage=function(){

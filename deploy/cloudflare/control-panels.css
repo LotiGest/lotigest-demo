@@ -251,3 +251,8 @@ body.cp-inline-payment #modal-root .pm-reference-actions .pm-many-client{display
  html body.cp-inline-payment .workspace>#modal-root:has(.lg-payment-modern){padding-bottom:125px!important;scroll-margin-bottom:125px}
  html body.cp-inline-payment #modal-root :is(input,select,textarea,button){scroll-margin-block:24px 125px}
 }
+/* Keep the original owner amount controls visible before dates and reference. */
+#modal-root .lg-payment-modern .pm-owner-allocations{max-height:none;overflow:visible;margin-bottom:14px}
+#modal-root .lg-payment-modern .pm-owner-allocations>div[style]{max-height:none!important;overflow:visible!important}
+#modal-root .lg-payment-modern .pm-pending-credit{padding:14px;border-radius:12px}
+#modal-root .lg-payment-modern .pm-pending-credit button{margin:5px 8px 0 0;white-space:normal}

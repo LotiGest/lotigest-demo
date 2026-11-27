@@ -1,4 +1,4 @@
 {
-  "version": "1.0.42",
-  "notes": "Abonos históricos: solares, tabla y métodos de pago legibles en modo noche; espacio inferior para acceder a campos junto a la barra de navegación."
+  "version": "1.0.43",
+  "notes": "Abonos identifica contratos pendientes, permite activar el crédito conservando la prima registrada y muestra los montos de las fichas antes de fechas y correlativo."
 }

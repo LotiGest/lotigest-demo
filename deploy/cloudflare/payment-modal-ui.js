@@ -586,9 +586,16 @@ function pmOwnerDecorate(){
  left.body.append(pmSummaryRow('Fichas vinculadas',String(docs.length)),pmSummaryRow('Solares referenciados',String(docs.flatMap(s=>s.references||[]).length)));
  left.body.append(pmSummaryRow('Saldo documentado',allKnown&&count?money(totalDocumented/100):'Por confirmar','pm-good'));
  left.body.append(pmNode('p','pm-help','Las fichas sin contrato de crédito verificado no se presentan como cuotas pagadas ni como mora.'));
+ const pending=(db.contractTexts||[]).filter(d=>d.clientId===client?.id&&d.residenceId===ownerPaymentDraft.residenceId&&d.status==='pending-sale');
+ if(pending.length){
+  const notice=pmNode('section','notice-card pm-pending-credit');
+  notice.append(pmNode('strong','','Contrato pendiente de activar crédito'),pmNode('p','','La prima registrada se conserva. Activa el crédito para ver saldo, cuota mensual y calendario del contrato.'));
+  for(const doc of pending){const button=pmNode('button','btn btn-primary','Activar crédito · '+(doc.number||getLot(doc.lotId)?.sourceNumber||'Contrato'));button.type='button';button.dataset.contractIntakeActivate=doc.id;notice.append(button);}
+  shell.prepend(notice);
+ }
+ const distribution=pmNode('div','pm-owner-allocations');distribution.append(pmNode('h4','','Monto del abono por solar'),refs);right.body.append(distribution);
  right.body.append(fields);
  if(total){total.classList.add('pm-summary-row','pm-good');right.body.append(total);}
- const distribution=pmNode('div','pm-owner-allocations');distribution.append(refs);right.body.append(distribution);
  if(ocr)shell.append(ocr);
  if(confirm)right.body.append(confirm);
  if(error){error.classList.add('pm-error');right.body.append(error);}
