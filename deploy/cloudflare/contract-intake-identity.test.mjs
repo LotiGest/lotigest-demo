@@ -9,12 +9,12 @@ if(start<0||end<start)throw Error('No se encontró guardado contractual.');
 const code=ui.slice(start,end);
 function setup({manual=false,existingClient=false}={}){
  let state={version:1,residences:[{id:'R',name:'Altos'}],lots:[{id:'G16',residenceId:'R',stage:2,block:'G',sourceNumber:'16',status:'sold',area:176,price:580564.16,dimensions:{front:11,depth:16}}],clients:existingClient?[{id:'C-EXIST',name:'PERSONA FICTICIA',identity:'0801 1990 00021',address:'DIRECCIÓN DE PRUEBA'}]:[],sales:[],payments:[],reservations:[],contractTexts:[]};
- let confirmed='',writes=0,uploads=0,working={mode:manual?'manual':'ocr',residenceId:'R',file:manual?null:{type:'image/jpeg',size:2000},values:{_confidence:95},busy:false};
+ let confirmed='',writes=0,uploads=0,working={mode:manual?'manual':'ocr',residenceId:'R',file:manual?null:{type:'image/jpeg',size:2000},values:{_confidence:95},busy:false,preferredClientId:existingClient?'C-EXIST':''};
  let count=1;
  const queue={latest:JSON.stringify(state),confirmed:JSON.stringify(state),pending:null};
  class F{constructor(form){return Object.entries(form.fields)}}
  const env={
-  contractIntakeWorking:working,contractIntakeAdmin:()=>true,document:{getElementById:()=>({disabled:false,isConnected:true})},
+  buyerDate:v=>v,businessToday:()=>'2026-11-26',contractSuggestedFirstDue:()=>'2026-12-01',contractIntakeWorking:working,contractIntakeImageMime:file=>file.type,contractIntakeAdmin:()=>true,document:{addEventListener(){},getElementById:()=>({disabled:false,isConnected:true})},
   FormData:F,getLot:id=>state.lots.find(l=>l.id===id),residence:()=>state.residences[0],
   intakeCheckValues,intakePlanLots,contractIdentityFormat,contractIdentityDigits,
   db:state,activeReservation:()=>null,
@@ -33,7 +33,7 @@ function setup({manual=false,existingClient=false}={}){
   areaM2:'176',areaVaras:'252.42',north:'CALLE 8 M',south:'G-3',east:'G-15',west:'G-17',
   price:'580564.16',down:'58056.42',financed:'522507.74',monthly:'6220.33',months:'84',
   pricePerVara:'2300',observations:'REPRESENTANTE FICTICIO',rawText:'TEXTO OCR DE PRUEBA'};
- if(existingClient)fields.clientId='C-EXIST';
+ if(manual){fields.solarPrice_0=fields.price;fields.date='2026-11-01';}if(existingClient)fields.clientId='C-EXIST';
  return {fn,fields,state:()=>state,writes:()=>writes,uploads:()=>uploads,confirmed:()=>confirmed};
 }
 test('Guardar la imagen crea cliente con identidad verificada y descripción contractual completa',async()=>{
@@ -110,7 +110,7 @@ test('ficha manual de cliente existente se guarda sin fotografía, sin OCR y sin
  assert.equal(f.writes(),1);
 });
 test('la ficha manual exige identidad completa y evita contratos duplicados sobre el solar',async()=>{
- const missing=setup({manual:true,existingClient:true});
+ const missing=setup({manual:true});
  missing.fields.identity='0801 1990';
  await assert.rejects(missing.fn.save({fields:missing.fields}),/13 dígitos/);
  assert.equal(missing.writes(),0);

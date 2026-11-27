@@ -1,29 +1,29 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {monthlyPaymentInfo,assertMonthlyPayment,validateNewMonthlyPayments,splitClientPayment,assertPrimaPayment,planMonthlyClientPayment} from '../monthly-payment-rules.mjs';
 const base=()=>({sales:[{id:'V',lotId:'G16',type:'credit',price:580564.16,downPayment:58056.42,months:84,openingPaid:58056.42}],payments:[],ownerPayments:[]});
-test('mensualidad de contrato existente, monto exacto y mayor; rechaza menor',()=>{const s=base();assert.equal(monthlyPaymentInfo(s,['G16']).monthlyCents,622033);assert.throws(()=>assertMonthlyPayment(s,['G16'],622032),/6,220.33/);assert.doesNotThrow(()=>assertMonthlyPayment(s,['G16'],622033));assert.doesNotThrow(()=>assertMonthlyPayment(s,['G16'],800000));});
+test('mensualidad de contrato existente acepta parcial, exacto y mayor',()=>{const s=base();assert.equal(monthlyPaymentInfo(s,['G16']).monthlyCents,622033);assert.doesNotThrow(()=>assertMonthlyPayment(s,['G16'],622032));assert.doesNotThrow(()=>assertMonthlyPayment(s,['G16'],622033));assert.doesNotThrow(()=>assertMonthlyPayment(s,['G16'],800000));});
 test('pago final inferior a cuota, prima pendiente y contrato sin activar',()=>{
- const s=base();s.sales[0].openingPaid=580000;assert.doesNotThrow(()=>assertMonthlyPayment(s,['G16'],56416));assert.throws(()=>assertMonthlyPayment(s,['G16'],56415),/mínimo/);
+ const s=base();s.sales[0].openingPaid=580000;assert.doesNotThrow(()=>assertMonthlyPayment(s,['G16'],56416));assert.doesNotThrow(()=>assertMonthlyPayment(s,['G16'],56415));
  s.sales[0].openingPaid=0;assert.doesNotThrow(()=>assertMonthlyPayment(s,['G16'],10000,{prima:true}));
  const doc={contractTexts:[{id:'D',lotId:'G16',format:'photo+ocr',status:'pending-sale',structured:{price:580564.16,down:58056.42,months:84}}],ownerPayments:[{allocations:[{amountCents:5805642,references:[{lotId:'G16'}]}]}]};
- assert.equal(monthlyPaymentInfo(doc,['G16']).primaRemainingCents,0);assert.throws(()=>assertMonthlyPayment(doc,['G16'],10000),/mínimo/);
+ assert.equal(monthlyPaymentInfo(doc,['G16']).primaRemainingCents,0);assert.doesNotThrow(()=>assertMonthlyPayment(doc,['G16'],10000));
 });
 test('varios solares: cuota conjunta, sin duplicar pagos conjuntos ni inventar cuota de una prima',()=>{
  const s=base();s.sales.push({...s.sales[0],id:'V2',lotId:'G17'});assert.equal(monthlyPaymentInfo(s,['G16','G17','G16']).monthlyCents,1244066);
- assert.throws(()=>assertMonthlyPayment(s,['G16','G17'],622033),/mínimo/);
+ assert.doesNotThrow(()=>assertMonthlyPayment(s,['G16','G17'],622033));
  assert.equal(monthlyPaymentInfo({ownerPayments:[{amountCents:5000000}]},['G16']).known,false);
 });
 test('no invalida recibos anteriores: valida solo importes nuevos o modificados',()=>{
  const before=base();before.payments=[{id:'OLD',saleId:'V',amount:100}];const after=structuredClone(before);after.clientNote='Actualizado';assert.doesNotThrow(()=>validateNewMonthlyPayments(before,after));
- after.payments.push({id:'NEW',saleId:'V',amount:100});assert.throws(()=>validateNewMonthlyPayments(before,after),/mínimo/);
+ after.payments.push({id:'NEW',saleId:'V',amount:100});assert.doesNotThrow(()=>validateNewMonthlyPayments(before,after));
  after.payments[1].amount=6220.33;assert.doesNotThrow(()=>validateNewMonthlyPayments(before,after));
 });
 
-test('historial previo verificado conserva importes originales al conciliar; no permite una etiqueta inventada',()=>{
+test('historial previo verificado conserva importes originales y permite abonos parciales posteriores',()=>{
  const before=base();before.historicalPayments=[{id:'H',amountCents:10000,date:'2024-01-01',contractId:'HC'}];
  const after=structuredClone(before);after.historicalPayments[0].postedPaymentId='POST';after.historicalContracts=[{id:'HC',saleId:'V'}];after.payments.push({id:'POST',saleId:'V',amount:100,date:'2024-01-01',historicalImportId:'H'});
  assert.doesNotThrow(()=>validateNewMonthlyPayments(before,after));
- delete after.historicalPayments[0].postedPaymentId;assert.throws(()=>validateNewMonthlyPayments(before,after),/mínimo/);
+ delete after.historicalPayments[0].postedPaymentId;assert.doesNotThrow(()=>validateNewMonthlyPayments(before,after));
 });
 
 test('prima no registrada en una ficha no se supone igual a cero para inventar la cuota',()=>{
@@ -55,7 +55,7 @@ test('dos solares: 14,500 exactos y 19,500 con excedente de 5,000 sin duplicar e
  assert.equal(exact.minimumCents,1450000);assert.equal(exact.excessCents,0);assert.deepEqual(exact.allocations.map(a=>a.cents),[700000,750000]);
  assert.equal(extra.excessCents,500000);assert.equal(extra.allocations.reduce((n,a)=>n+a.cents,0),1950000);
  assert.doesNotThrow(()=>validateNewMonthlyPayments(s,{...s,payments:extra.allocations.map((r,i)=>({...r,id:'P'+i,concept:'Abono mensual'}))}));
- assert.throws(()=>planMonthlyClientPayment(s,['A','B'],1400000),/mínimo total para 2 solar\(es\) es L 14,500.00/);
+ assert.equal(planMonthlyClientPayment(s,['A','B'],1400000).shortfallCents,50000);
 });
 test('abonos sucesivos: excluir solar liquidado y reducir cuota mínima al saldo final',()=>{
  const s=twoSolarExample();s.sales[0].openingPaid=429500;
@@ -66,4 +66,25 @@ test('abonos sucesivos: excluir solar liquidado y reducir cuota mínima al saldo
 test('abono conjunto conserva la regla de prima y el límite del saldo',()=>{
  const s=twoSolarExample();s.sales[0].openingPaid=0;assert.throws(()=>planMonthlyClientPayment(s,['A','B'],1950000),/Completa primero la prima/);
  s.sales[0].openingPaid=10000;assert.throws(()=>planMonthlyClientPayment(s,['A','B'],87000001),/supera el saldo/);
+});
+
+test('pagos anulados no completan prima ni reducen saldo, tampoco por propietario',()=>{
+ const s=base();s.sales[0].openingPaid=0;
+ s.payments=[{id:'VOID',saleId:'V',amount:58056.42,status:'voided'}];
+ s.ownerPayments=[{id:'CANCELLED',status:'cancelled',allocations:[{amountCents:5805642,references:[{lotId:'G16'}]}]}];
+ const before=JSON.stringify(s),info=monthlyPaymentInfo(s,['G16']);
+ assert.equal(info.primaRemainingCents,5805642);assert.equal(info.remainingCents,58056416);
+ assert.throws(()=>assertMonthlyPayment(s,['G16'],10000),/prima pendiente/);
+ assert.equal(JSON.stringify(s),before);
+});
+test('abonos parciales conservan faltante y excluyen el solar liquidado sin perder centavos',()=>{
+ const s={clients:[{id:'C'}],lots:[{id:'L1',residenceId:'R'},{id:'L2',residenceId:'R'}],sales:[{id:'A',clientId:'C',lotId:'L1',type:'credit',price:10000,downPayment:1000,months:9,date:'2024-01-01',openingPaid:1000},{id:'B',clientId:'C',lotId:'L2',type:'credit',price:10000,downPayment:1000,months:9,date:'2024-01-01',openingPaid:1000}],payments:[]};
+ for(const cents of [1,99,10000,199999,200000,200001]){
+  const p=planMonthlyClientPayment(s,['A','B'],cents,'2024-02-01');
+  assert.equal(p.allocations.reduce((n,a)=>n+a.cents,0),cents);
+  assert.equal(p.shortfallCents,Math.max(0,200000-cents));
+  assert.equal(p.excessCents,Math.max(0,cents-200000));
+ }
+ for(const amount of [0,-1,NaN,1.5])assert.throws(()=>assertMonthlyPayment(s,['L1'],amount),/monto positivo/);
+ assert.throws(()=>assertMonthlyPayment(s,['L1'],900001),/saldo pendiente/);
 });

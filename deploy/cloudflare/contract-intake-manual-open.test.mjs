@@ -10,7 +10,7 @@ function open(mode){
  const dialogs=[];
  const client={id:'C1',name:'CLIENTE DE PRUEBA',identity:'0801 1990 00021',address:'HONDURAS'};
  const mocks={
-  contractIntakeWorking:null,
+  contractIntakeLocalToday:()=> '2026-11-26',contractQuickDefaults:null,contractIntakeWorking:null,
   contractIntakeAdmin:()=>true,
   toast:message=>{throw Error(message);},
   getClient:id=>id==='C1'?client:null,
