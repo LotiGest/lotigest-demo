@@ -341,7 +341,7 @@ function pmOpenPaymentHistory(fromReports=false){
   visible=all.filter(p=>(!from.value||p.date>=from.value)&&(!to.value||p.date<=to.value)&&pmHistoryMatches(p,q)&&(type.value==='Todos'||kind(p)===type.value)&&(status.value==='Todos'||state(p)===status.value));
   const confirmed=visible.filter(p=>p.action),sum=confirmed.reduce((n,p)=>n+(Number.isFinite(p.amountCents)?p.amountCents:0),0);
   const due=schedule.filter(r=>r.dueCents>0);
-  for(const [label,value,tone] of [['Total de pagos',String(confirmed.length),'neutral'],['Monto total pagado',money(sum/100),'green'],['Cuotas cubiertas',known?String(due.filter(r=>!r.remainingCents).length):'—','blue'],['Cuotas pendientes',known?String(due.filter(r=>r.remainingCents>0).length):'—','yellow'],['Cuotas vencidas',known?String(due.filter(r=>r.remainingCents>0&&r.dueDate<today).length):'—','red']]){
+  for(const [label,value,tone] of [['Total de pagos',String(confirmed.length),'neutral'],['Monto total pagado',money(sum/100),'green'],['Cuotas cubiertas',known?String(due.filter(r=>!r.remainingCents).length):'—','blue'],['Cuotas pendientes totales',known?String(due.filter(r=>r.remainingCents>0).length):'—','yellow'],['Cuotas vencidas sin abono',known?String(due.filter(r=>r.remainingCents===r.dueCents&&r.dueDate<=today).length):'—','red'],['Cuotas incompletas al corte',known?String(due.filter(r=>r.remainingCents>0&&r.appliedCents>0&&r.dueDate<=today).length):'—','yellow']]){
    const tile=pmNode('div','ph-metric');tile.dataset.tone=tone;tile.append(pmNode('small','',label),pmNode('strong','',value));metrics.append(tile);
   }
   count.textContent=visible.length+' registro(s) · Los totales de pagos siguen el filtro; las cuotas corresponden al contrato completo.';

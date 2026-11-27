@@ -948,6 +948,7 @@ contractsPage=function(){
   '<p>Registra la ficha manualmente, selecciona cada solar y utiliza sus medidas existentes. La prima solo figurará como pagada si guardas un cobro real.</p>'+
   '<button type="button" class="btn btn-primary" data-contract-intake-open="true">Nuevo contrato manual</button> '+ 
   '<button type="button" class="btn btn-outline" data-contract-rebuild-open="true">Preparar limpieza de clientes</button>'+
+  '<button type="button" class="btn btn-outline" data-contract-calendar-audit="true">Revisar calendarios de todos los clientes</button>'+
   '<div style="margin-top:12px">'+pending.map(d=>{
    const lot=getLot(d.lotId),client=getClient(d.clientId);
    return '<div class="detail-line" style="flex-wrap:wrap"><span>'+esc(client?.name||'Cliente')+' · Etapa '+esc(lot?.stage||'—')+' · Bloque '+esc(lot?.block||'—')+' · Solar '+esc(lot?.sourceNumber||'—')+'</span>'+
@@ -1595,3 +1596,26 @@ setTimeout(()=>{
   draft.quickStep=Math.max(1,Math.min(3,target));contractQuickPaint(form);form.closest('.modal-content')?.scrollTo?.({top:0,behavior:'smooth'});
  },true);
 },0);
+
+
+// Auditoría de lectura: las diferencias de fecha requieren confirmación documental.
+function contractCalendarAuditOpen(){
+ if(cloudUser?.role!=='admin'){toast('Se requiere administrador.','error');return;}
+ const scope=contractCollectionsScope(db,residence().id),today=businessToday(),payments=scope.payments.filter(p=>p.date<=today&&!p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&!['voided','cancelled','annulled'].includes(p.status));
+ const terms=installmentSalesFromContracts(scope.sales,scope.contractTexts,payments).filter(s=>s.type==='credit');
+ const records=terms.map(s=>{
+  const doc=scope.contractTexts.find(d=>d.saleId===s.id||s.documentId===d.id),lot=scope.lots.find(l=>l.id===s.lotId),client=scope.clients.find(c=>c.id===s.clientId);
+  const own=payments.filter(p=>p.saleId===s.id),first=own.filter(p=>p.paymentApplication!=='prima'&&!/\bprima\b/i.test(String(p.concept||'')+' '+String(p.type||'')+' '+String(p.kind||''))&&/^(abono|cuota|mensualidad)\b/i.test(String(p.concept||p.type||'').trim())).sort((a,b)=>a.date.localeCompare(b.date))[0];
+  const ledger=reconcileInstallments([s],own,today,installmentDueCents,(date,i)=>dateKey(addMonths(date,i)),{requireReference:true,repairExplicitAbonos:true});
+  const rows=pmReportCurrentMonthFirst(ledger.rows,own,today),due=rows.filter(r=>r.dueDate<=today),missed=due.filter(r=>r.remainingCents===r.dueCents&&r.dueCents>0),partial=due.filter(r=>r.remainingCents>0&&r.appliedCents>0);
+  const start=rows[0]?.dueDate||'',gap=first&&start&&first.date.slice(0,7)>start.slice(0,7);
+  const status=s.calendarCorrection?'Calendario corregido; confirmar ficha':ledger.unmatched.length?'Revisar recibos':gap?'Verificar primera cuota':!first?'Sin abono mensual identificado':'Sin diferencia de inicio';
+  return {doc,lot,client,start,first,missed,partial,due,status};
+ }).sort((a,b)=>a.status.localeCompare(b.status)||String(a.client?.name||'').localeCompare(String(b.client?.name||''),'es'));
+ const count=records.filter(r=>/Revisar|Verificar|confirmar/.test(r.status)).length;
+ const body='<p><b>'+records.length+' créditos revisados · '+count+' con fecha o recibo por verificar.</b></p><p>Las fechas de depósito no sustituyen automáticamente el vencimiento pactado. Se conservan la mora legítima, los recibos y las primas originales. Revisa la ficha antes de editar.</p>'+
+ '<div style="overflow:auto;max-height:65vh"><table style="width:100%;font-size:12px"><thead><tr><th>Cliente / contrato</th><th>Primera cuota</th><th>Primer abono</th><th>Sin pago</th><th>Incompletas</th><th>Revisión</th></tr></thead><tbody>'+
+ records.map(r=>'<tr><td>'+esc(r.client?.name||'Cliente')+'<br>'+esc(r.doc?.number||'')+' · '+esc(r.lot?.sourceNumber||r.lot?.id||'')+'</td><td>'+esc(r.start||'Por verificar')+'</td><td>'+esc(r.first?.date||'Sin abono')+(r.first?' · #'+esc(pmHistoryReference(r.first)):'')+'</td><td>'+r.missed.length+'</td><td>'+r.partial.length+'</td><td>'+esc(r.status)+(r.doc?'<br><button type="button" class="btn btn-outline" data-contract-edit="'+esc(r.doc.id)+'">Revisar contrato</button>':'')+'</td></tr>').join('')+'</tbody></table></div>';
+ showModal('Auditoría de calendarios',body,'',true);
+}
+document.addEventListener('click',e=>{if(e.target.closest?.('[data-contract-calendar-audit]')){try{contractCalendarAuditOpen();}catch(err){toast(err.message,'error');}}});

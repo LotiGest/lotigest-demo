@@ -1,4 +1,4 @@
 {
-  "version": "1.0.50",
-  "notes": "Corrección localizada del calendario de recibos 6251–6259: primera cuota marzo 2026, sin alterar otros clientes ni recibos."
+  "version": "1.0.51",
+  "notes": "Auditoría de calendarios por contrato y separación de cuotas vencidas sin abono y cuotas incompletas al corte."
 }
