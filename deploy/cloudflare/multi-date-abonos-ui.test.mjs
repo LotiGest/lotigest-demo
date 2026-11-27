@@ -37,6 +37,14 @@ test('dos fechas desde + guardan dos movimientos, dos folios y dos recibos separ
   for(const photo of app.d.querySelectorAll('[data-md-photo]'))assert.equal(photo.required,false,'El OCR es opcional');
   app.click('[data-md-edit]');
   assert.equal(app.d.activeElement,app.d.querySelector('[data-md-field="date"]'),'Escribir debe enfocar la fecha manualmente');
+  for(const field of ['date','amount','receiptRef']){
+   const control=app.d.querySelector('[data-md-field="'+field+'"]');control.value='';control.focus();
+   const key=new app.w.KeyboardEvent('keydown',{key:'2',bubbles:true,cancelable:true});control.dispatchEvent(key);
+   assert.equal(key.defaultPrevented,false,field+' admite números desde teclado físico');
+   control.value='2';control.dispatchEvent(new app.w.Event('input',{bubbles:true}));
+   assert.equal(control.value,'2',field+' conserva el número');assert.equal(app.d.activeElement,control,field+' conserva el foco');
+   control.value='';control.dispatchEvent(new app.w.Event('input',{bubbles:true}));
+  }
   const fields=field=>[...app.d.querySelectorAll('[data-md-field="'+field+'"]')];
   for(const [i,values] of [{date:'211026',amount:'12,000',receiptRef:'00006159'},{date:'20 Noviembre 2026',amount:'9,000.00',receiptRef:'00006161'}].entries()){
    if(i===1){

@@ -38,3 +38,9 @@ test('unconfirmed cloud save keeps receipts pending and does not show successful
 test('reference skin puts the stepper before client and keeps last payment compact',()=>{
  const dom=boot(),d=dom.window.document,modal=d.querySelector('.md-reference-wizard');assert.ok(modal);assert.equal(modal.classList.contains('lg-payment-modern'),false);assert.equal(modal.querySelector('.modal-content').firstElementChild.className,'md-wizard-steps');assert.equal(modal.querySelectorAll('.md-wizard-steps [data-md-step-label]').length,3);assert.ok(modal.querySelector('.md-client-reference'));assert.ok(modal.querySelector('.md-last-inline'));assert.equal(modal.querySelector('.modal-footer [data-action="close-modal"]'),null);assert.match(modal.querySelector('.md-row-toggle strong').textContent,/Abono 1 de 2/);dom.window.close();
 });
+
+test('calendar button opens picker without covering editable date on PC',()=>{
+ const dom=boot(),w=dom.window,d=w.document,button=d.querySelector('[data-md-open-picker="a"]'),picker=d.querySelector('[data-md-picker="a"]'),input=d.querySelector('[data-md-field="date"][data-md-id="a"]');let opened=0;
+ picker.showPicker=()=>{opened++};button.click();assert.equal(opened,1);assert.equal(button.type,'button');assert.equal(picker.tabIndex,-1);
+ input.focus();input.value='251125';input.dispatchEvent(new w.Event('input',{bubbles:true}));assert.equal(input.value,'25/11/25');assert.equal(d.activeElement,input);dom.window.close();
+});
