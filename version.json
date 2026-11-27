@@ -1,4 +1,4 @@
 {
-  "version": "1.0.51",
-  "notes": "Auditoría de calendarios por contrato y separación de cuotas vencidas sin abono y cuotas incompletas al corte."
+  "version": "1.0.52",
+  "notes": "Panel Mora con meses adeudados por cliente, faltantes por solar, recibos aplicados y filtros."
 }

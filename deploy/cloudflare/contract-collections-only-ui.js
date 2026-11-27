@@ -344,3 +344,79 @@
   }
  },true);
 })();
+
+
+// Panel de mora independiente; no modifica ni guarda cobros, fechas o contratos.
+(function installMoraPanel(){
+ const norm=x=>String(x??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ const cash=n=>money(n/100);
+ const allowed=()=>typeof cloudUser!=='undefined'&&cloudUser?.role==='admin';
+ const monthLabel=m=>new Intl.DateTimeFormat('es-HN',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(m+'-15T12:00:00Z'));
+ function moraPage(){
+  if(!allowed())return '<section class="card card-padding">Acceso reservado a administración.</section>';
+  const rid=residence().id,today=businessToday(),scope=contractCollectionsScope(db,rid);
+  const groups=new Map();
+  for(const sale of scope.sales.filter(s=>s.type==='credit')){
+   if(!groups.has(sale.clientId))groups.set(sale.clientId,[]);
+   groups.get(sale.clientId).push(sale);
+  }
+  const records=[],review=[];
+  for(const [id,sales] of groups){
+   const client=scope.clients.find(c=>c.id===id),name=client?.name||'Cliente';
+   try{
+    const model=pmAmortizationModel(db,id,rid,today,reconcileInstallments,installmentDueCents,(date,i)=>dateKey(addMonths(date,i)),null,{scope});
+    // Check both the ledger and the financial balance; uncertainty is not mora verified.
+    if(model.unmatched)throw Error('Hay recibos pendientes de conciliar.');
+    pmStatementModel(model);
+    const rows=model.details.flatMap(d=>d.rows.filter(r=>r.dueDate<today&&r.remainingCents>0).map(r=>({...r,lot:d.lot,contract:d.contractNumber})));
+    if(!rows.length)continue;
+    const months=[...new Set(rows.map(r=>r.dueDate.slice(0,7)))].sort();
+    const total=rows.reduce((n,r)=>n+r.remainingCents,0);
+    records.push({id,name,rows,months,total,partial:rows.filter(r=>r.appliedCents>0).length,search:norm([name,client?.identity,...sales.map(s=>s.lotId),...rows.map(r=>r.contract),...months.map(monthLabel)].join(' '))});
+   }catch(err){review.push({name,reason:err.message});}
+  }
+  records.sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name,'es'));
+  const total=records.reduce((n,r)=>n+r.total,0),num=records.reduce((n,r)=>n+r.rows.length,0);
+  const tile=(l,v)=>'<section class="card mora-metric"><small>'+esc(l)+'</small><strong>'+esc(v)+'</strong></section>';
+  const items=records.map(r=>{
+   const months=r.months.map(m=>'<span class="mora-month">'+esc(monthLabel(m))+'</span>').join(' ');
+   const detail=r.rows.sort((a,b)=>a.dueDate.localeCompare(b.dueDate)||String(a.contract).localeCompare(String(b.contract))).map(x=>{
+    const lot=x.lot,where='Etapa '+(lot?.stage||'—')+' · Bloque '+(lot?.block||'—')+' · Solar '+(lot?.sourceNumber||lot?.id||'—');
+    return '<tr><td>'+esc(monthLabel(x.dueDate.slice(0,7)))+'<small>'+esc(x.dueDate)+'</small></td><td>'+esc(where)+'<small>'+esc(x.contract)+'</small></td><td>'+esc(cash(x.dueCents))+'</td><td>'+esc(cash(x.appliedCents))+'<small>'+esc(x.receipts.map(p=>'#'+p.reference+' · '+cash(p.amountCents)).join('; '))+'</small></td><td class="mora-amount">'+esc(cash(x.remainingCents))+'</td><td>'+esc(x.appliedCents?'Cuota pagada incompleta':'Vencida sin abono')+'</td></tr>';
+   }).join('');
+   return '<article class="card mora-client" data-mora-record data-search="'+esc(r.search)+'" data-count="'+r.months.length+'" data-partial="'+r.partial+'"><div class="mora-client-head"><div><h3>'+esc(r.name)+'</h3><small>'+r.months.length+' mes(es) vencido(s) · '+r.rows.length+' cuota(s) de solar</small></div><strong class="mora-amount">'+esc(cash(r.total))+'</strong></div><div class="mora-months">'+months+'</div><details><summary>Ver meses, recibos y faltantes</summary><div class="mora-table"><table><thead><tr><th>Mes / vencimiento</th><th>Solar / contrato</th><th>Cuota</th><th>Abonado / recibos</th><th>Faltante</th><th>Estado</th></tr></thead><tbody>'+detail+'</tbody></table></div></details><div class="mora-actions"><button type="button" class="btn btn-outline" data-mora-statement="'+esc(r.id)+'">Estado de cuenta PDF</button></div></article>';
+  }).join('');
+  return '<section class="mora-panel"><div class="page-head"><div><h1>Mora</h1><p>Mensualidades vencidas por cliente · Corte '+esc(today)+'</p></div></div>'+residencePicker()+
+   '<div class="mora-metrics">'+tile('Clientes con mora',String(records.length))+tile('Cuotas vencidas',String(num))+tile('Total vencido confirmado',cash(total))+tile('Clientes por conciliar',String(review.length))+'</div>'+
+   '<div class="card mora-filters"><label>Buscar cliente, contrato, solar o mes<input id="mora-search" type="search" placeholder="Buscar…"></label><label>Meses adeudados<select id="mora-count"><option value="all">Todos</option><option value="1">1 mes</option><option value="2">2 meses</option><option value="3">3 o más meses</option></select></label><label>Tipo<select id="mora-partial"><option value="all">Todas</option><option value="partial">Con cuota incompleta</option></select></label></div>'+
+   '<p class="sm muted">Solo vencimientos anteriores a hoy. Los meses cubiertos con otros recibos y las cuotas futuras no se incluyen. Los importes de las cuotas incompletas corresponden al faltante, no al valor total.</p>'+
+   '<div class="mora-list">'+items+'</div><p class="card card-padding" id="mora-empty" '+(records.length?'hidden':'')+'>No hay clientes con mora confirmada para estos filtros.</p>'+
+   (review.length?'<section class="card card-padding"><h3>Por conciliar · No incluidos en los totales</h3>'+review.map(r=>'<p><b>'+esc(r.name)+'</b> · '+esc(r.reason)+'</p>').join('')+'</section>':'')+'</section>';
+ }
+ const originalContent=pageContent;pageContent=function(...args){return page==='mora'?moraPage():originalContent.apply(this,args);};
+ const originalRender=render;render=function(...args){
+  if(allowed()){
+   if(!pages.mora){
+    const entries=Object.entries(pages);for(const key of Object.keys(pages))delete pages[key];
+    for(const [key,value] of entries){pages[key]=value;if(key==='collections')pages.mora=['Mora','bookClock'];}
+    if(!pages.mora)pages.mora=['Mora','bookClock'];
+   }
+  }else{delete pages.mora;if(page==='mora')page='dashboard';}
+  return originalRender.apply(this,args);
+ };
+ function filterMora(){
+  if(page!=='mora'||!allowed())return;
+  const q=norm(document.getElementById('mora-search')?.value||''),n=document.getElementById('mora-count')?.value||'all',p=document.getElementById('mora-partial')?.value||'all';let count=0;
+  for(const el of document.querySelectorAll('[data-mora-record]')){
+   const size=Number(el.dataset.count),visible=el.dataset.search.includes(q)&&(n==='all'||(n==='3'?size>=3:size===Number(n)))&&(p==='all'||Number(el.dataset.partial)>0);
+   el.hidden=!visible;if(visible)count++;
+  }
+  const empty=document.getElementById('mora-empty');if(empty)empty.hidden=count>0;
+ }
+ document.addEventListener('input',e=>{if(e.target.id==='mora-search')filterMora();});
+ document.addEventListener('change',e=>{if(['mora-count','mora-partial'].includes(e.target.id))filterMora();});
+ document.addEventListener('click',e=>{
+  const b=e.target.closest?.('[data-mora-statement]');if(!b||page!=='mora'||!allowed())return;
+  try{pmOpenStatement(b,{clientId:b.dataset.moraStatement,rid:residence().id});}catch(err){toast(err.message,'error');}
+ });
+})();

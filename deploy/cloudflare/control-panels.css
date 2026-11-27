@@ -256,3 +256,30 @@ body.cp-inline-payment #modal-root .pm-reference-actions .pm-many-client{display
 #modal-root .lg-payment-modern .pm-owner-allocations>div[style]{max-height:none!important;overflow:visible!important}
 #modal-root .lg-payment-modern .pm-pending-credit{padding:14px;border-radius:12px}
 #modal-root .lg-payment-modern .pm-pending-credit button{margin:5px 8px 0 0;white-space:normal}
+
+/* Panel de mora: tarjetas adaptables al modo día y noche. */
+.mora-panel{display:grid;gap:12px;min-width:0}
+.mora-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.mora-metric{display:grid;gap:5px;padding:14px;min-width:0}
+.mora-metric small,.mora-client small,.mora-table small{display:block;color:var(--cp-muted);font-size:12px}
+.mora-metric strong{font-size:clamp(16px,2vw,25px);overflow-wrap:anywhere}
+.mora-filters{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;padding:12px}
+.mora-filters label{display:grid;gap:5px;min-width:0}
+.mora-filters :is(input,select){width:100%;min-width:0}
+.mora-list{display:grid;gap:10px}
+.mora-client{padding:14px;display:grid;gap:10px}
+.mora-client[hidden],#mora-empty[hidden]{display:none!important}
+.mora-client-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.mora-client-head h3{margin:0 0 3px}
+.mora-amount{color:#a92336!important;font-weight:800}
+body.lotigest-dark .mora-amount{color:#ff929b!important}
+.mora-months{display:flex;flex-wrap:wrap;gap:5px}
+.mora-month{border:1px solid #ba6e74;border-radius:8px;padding:4px 8px;font-size:12px;color:#a92336}
+body.lotigest-dark .mora-month{color:#ffc1c4}
+.mora-client summary{cursor:pointer;font-weight:650;padding:7px 0;color:var(--cp-accent)}
+.mora-table{overflow:auto;margin-top:8px}
+.mora-table table{width:100%;min-width:730px;border-collapse:collapse;font-size:12px}
+.mora-table th,.mora-table td{padding:8px;border-bottom:1px solid var(--cp-border);text-align:left;vertical-align:top}
+.mora-table th{background:var(--cp-surface)}
+.mora-actions{display:flex;justify-content:flex-end}
+@media(max-width:760px){.mora-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.mora-filters{grid-template-columns:1fr}.mora-client{padding:10px}.mora-actions button{width:100%}}
