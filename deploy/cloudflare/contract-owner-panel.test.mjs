@@ -29,7 +29,7 @@ test('mixed owner receipts use the compact contract panel, show paid prima, cale
   const current=await server.read();assert.equal(JSON.stringify(current.state.ownerPayments),ownerBefore);assert.equal(JSON.stringify(current.state.payments),paymentsBefore);assert.equal(server.writes,writes,'viewing never posts duplicate payments');
   // Close reports, then verify a new payment can be stored without leaking virtual rows.
   [...history.querySelectorAll('button')].find(b=>b.textContent.includes('Cerrar')).click();
-  app.input('#pm-client-total','100');app.input('[name=receiptRef]','880001');app.change('#multi-payment-form [name=date]','2026-09-06');app.submit('#multi-payment-form');
+  app.input('#pm-client-total','100');app.input('[name=receiptRef]','880001');app.change('#multi-payment-form [name=date]','2026-09-06');app.submit('#multi-payment-form');await until(()=>app.d.querySelector('.lg-partial-dialog'),'confirmación de abono conjunto inferior');assert.equal(JSON.stringify((await server.read()).state.payments),paymentsBefore);app.click('[data-partial-apply]');
   await until(async()=>((await server.read()).state.payments||[]).some(p=>p.receiptReference==='880001'),'new installment persisted');await saved(app);
   const stored=(await server.read()).state;assert.equal(JSON.stringify(stored.ownerPayments),ownerBefore);assert.equal(stored.payments.filter(p=>p.receiptReference==='880001').length,2);assert.equal(stored.payments.some(p=>p.contractOwnerView),false);app.d.querySelector('[data-action=close-modal]')?.click();app.click('[data-page=finance]');assert.equal(app.d.querySelector('.fn-kpi strong').textContent.replace(/\D/g,''),'11699136','income is counted once, including the new L 100');assert.deepEqual(server.errors,[]);
  }finally{app.close();}
