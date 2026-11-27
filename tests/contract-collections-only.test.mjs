@@ -127,3 +127,12 @@ test('UI conserva la base completa y filtra reportes y exportaciones',()=>{
  assert.match(build,/contract-collections-scope\.mjs/);
  assert.match(build,/contract-collections-only-ui\.js/);
 });
+
+test('cobros encuentra identidad y teléfono con o sin separadores sin mezclar clientes',()=>{
+ const start=ui.indexOf(' function ccMatch(g){'),end=ui.indexOf(' const ccOptions=',start);assert.ok(start>=0&&end>start);
+ const matcher=new Function('ccSearch','g','ccNorm','collectionStageFilter','collectionOverdueMonths','collectionFilter','collectionMonth','ccMetrics',ui.slice(start,end)+';return ccMatch(g);');
+ const g={client:{name:'JOSÉ ÁNGEL',identity:'0001-2345-67890',phone:'+504 9999-1234'},residenceName:'Arrayán',lots:[{id:'A3',block:'A',stage:1,sourceNumber:'3'}],sales:[],model:{}};
+ const match=q=>matcher(q,g,v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(),'all','all','all','2026-11',()=>null);
+ for(const q of ['jose angel','0001234567890','0001 2345 67890','50499991234','A3'])assert.equal(match(q),true,q);
+ assert.equal(match('0001234567000'),false);assert.equal(match('OTRO CLIENTE'),false);
+});
