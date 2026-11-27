@@ -22,7 +22,7 @@ test('wizard shows one receipt, review writes nothing, confirmed save returns to
  const dom=boot(),w=dom.window,d=w.document;
  assert.equal([...d.querySelectorAll('[data-md-row]')].filter(x=>!x.hidden).length,1);
  d.querySelector('[data-md-next]').click();assert.equal(d.querySelector('[data-md-row="b"]').hidden,false);
- d.querySelector('[data-md-next]').click();assert.equal(d.querySelector('#md-review').hidden,false);assert.equal(d.querySelectorAll('#md-review tbody tr').length,2);assert.equal(w.writes,0);
+ d.querySelector('[data-md-review]').click();assert.equal(d.querySelector('#md-review').hidden,false);assert.equal(d.querySelectorAll('#md-review tbody tr').length,2);assert.equal(w.writes,0);
  await w.wizardTest.save();assert.equal(w.writes,0);assert.match(w.errors.at(-1),/Confirma/);
  d.getElementById('md-review-confirm').checked=true;await w.wizardTest.save();
  assert.equal(w.writes,1);assert.equal(w.db.payments.length,2);assert.deepEqual(new Set(w.db.payments.map(p=>p.receiptReference)),new Set(['4421','4422']));assert.equal(w.page,'payments');assert.match(d.querySelector('.md-result-banner').textContent,/5000\.00/);dom.window.close();
