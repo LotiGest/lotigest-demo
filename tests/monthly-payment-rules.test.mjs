@@ -111,3 +111,10 @@ test('la prima automática no se repite en un solar ya cubierto',()=>{
  const p=planAutomaticClientPayment(s,['A','B'],1000000,'2026-01-01');
  assert.deepEqual(p.allocations.map(a=>[a.saleId,a.paymentApplication,a.cents]),[['B','prima',1000000]]);
 });
+
+ test('recibos anulados no completan la prima ni reducen saldo contractual',()=>{
+ const s={lots:[{id:'L1',residenceId:'R'}],sales:[{id:'S1',lotId:'L1',clientId:'C1',type:'credit',price:120000,downPayment:20000,months:10,date:'2026-01-01'}],payments:[{id:'P1',saleId:'S1',amount:20000,concept:'Prima',date:'2026-01-01'},{id:'P2',saleId:'S1',amount:30000,date:'2026-02-01'},{id:'P3',saleId:'S1',amount:30000,status:'annulled',date:'2026-02-02'}],ownerPayments:[]};
+ const before=JSON.stringify(s);assert.equal(monthlyPaymentInfo(s,['L1']).remainingCents,7000000);assert.equal(monthlyPaymentInfo(s,['L1']).monthlyCents,1000000);assert.equal(monthlyPaymentInfo(s,['L1']).primaRemainingCents,0);assert.equal(JSON.stringify(s),before);
+ assert.doesNotThrow(()=>assertMonthlyPayment(s,['L1'],7000000));assert.throws(()=>assertMonthlyPayment(s,['L1'],7000001),/supera el saldo/);
+ s.payments[0].status='annulled';s.payments[1].status='annulled';assert.equal(monthlyPaymentInfo(s,['L1']).primaRemainingCents,2000000);assert.throws(()=>assertMonthlyPayment(s,['L1'],1000000),/completa la prima/);
+ });
