@@ -6,8 +6,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: consolidation-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  group: consolidation-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+  cancel-in-progress: false
 jobs:
   full-suite:
     if: github.event.pull_request.head.ref == 'fix/consolidation-v1.0.57-20261127' && github.event.pull_request.head.repo.full_name == github.repository
@@ -65,6 +65,7 @@ jobs:
             cat validation-results/*.status
           } | tee validation.tap
           if [ "$(find validation-results -name '*.status' | wc -l)" -ne "${#files[@]}" ]; then exit 1; fi
+          node .github/scripts/check-consolidation-results.mjs || result=1
           exit "$result"
       - name: Publish test evidence
         if: always()
