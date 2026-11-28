@@ -1,12 +1,14 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { buildPagesFiles } from './pages-files.mjs';
 import { installOcrAssets } from './ocr-assets.mjs';
+import {cleanQaFiles} from './nexora-qa-template.mjs';
 
 const controlPanelsCss=await readFile(new URL('./control-panels.css',import.meta.url),'utf8');
 const contractNumbersJs=(await readFile(new URL('../../contract-numbers.mjs',import.meta.url),'utf8')).replace(/export /g,'');
 const controlPanelsJs=await readFile(new URL('./control-panels-ui.js',import.meta.url),'utf8');
 const root = new URL('../../', import.meta.url);
-const out = new URL('cloudflare-pages/', root);
+const qa=process.argv.includes('--nexora-qa');
+const out = new URL(qa?'cloudflare-pages-nexora-qa/':'cloudflare-pages/', root);
 const [html, version, parser] = await Promise.all(
   ['prueba-diseno-v08.html', 'version.json', 'payment-fields.mjs'].map(path => readFile(new URL(path, root), 'utf8'))
 );
@@ -61,7 +63,9 @@ files['manifest.webmanifest'] = JSON.stringify({id:'/',name:'LOTIGEST PRO · Sis
 files['_headers'] += '/service-worker.js\n  Cache-Control: no-cache\n';
 
 files['_redirects'] += '/clientes-nube / 302\n/clientes-nube.html / 302\n/operaciones-nube / 302\n/operaciones-nube.html / 302\n';
-await mkdir(out, { recursive: true });
-await Promise.all(Object.entries(files).map(([name, content]) => writeFile(new URL(name, out), content)));
+const output=qa?cleanQaFiles(files):files;
+// A QA build may not inherit files from an earlier output directory.
+await mkdir(out, { recursive: !qa });
+await Promise.all(Object.entries(output).map(([name, content]) => writeFile(new URL(name, out), content)));
 await installOcrAssets(out);
-console.log('Cloudflare Pages: ' + Object.keys(files).join(', '));
+console.log('Cloudflare Pages: ' + Object.keys(output).join(', '));

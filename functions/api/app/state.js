@@ -120,16 +120,17 @@ async function snapshot(db){const [meta,records]=await db.batch([db.prepare('SEL
 function packs(rows){const out=[];let part=[],size=0;for(const row of rows){const n=JSON.stringify(row).length;if(size+n>200000&&part.length){out.push(JSON.stringify(part));part=[];size=0;}part.push(row);size+=n;}if(part.length)out.push(JSON.stringify(part));return out;}
 export async function onRequest({request,env}){
  const db=env.LOTIGEST_DB;if(!db)return json({error:'Base de datos no disponible.'},503);
+ const correct=env.NEXORA_QA_LICENSE==='enabled'?value=>value:correctConfirmedBlocks;
  if(!sameOrigin(request))return json({error:'Origen no permitido.'},403);
  try{
   const user=await actor(request,db);if(!user)return json({error:'La sesión terminó. Vuelve a iniciar sesión; tus cambios se conservan.'},401);
   if(user.role!=='admin'&&(user.role!=='sales'||request.method!=='GET'))return json({error:'Se requiere una cuenta administradora para modificar datos.'},403);
   if(request.method==='GET'&&new URL(request.url).searchParams.get('revision')==='1'){const meta=await db.prepare('SELECT revision FROM app_meta WHERE id=1').first();return json({revision:meta.revision,user});}
-  if(request.method==='GET'){const s=await snapshot(db);return json({revision:s.revision,state:user.role==='sales'?sellerCatalog(ensureContractNumbers(correctConfirmedBlocks(decode(s.rows)))):ensureContractNumbers(correctConfirmedBlocks(decode(s.rows))),user});}
+  if(request.method==='GET'){const s=await snapshot(db);return json({revision:s.revision,state:user.role==='sales'?sellerCatalog(ensureContractNumbers(correct(decode(s.rows)))):ensureContractNumbers(correct(decode(s.rows))),user});}
   if(request.method!=='PUT')return json({error:'Método no permitido.'},405);
   const {state,revision,mutation}=await body(request,limit);
   if(!Number.isSafeInteger(revision)||revision<0||typeof mutation!=='string'||!(/^[a-f0-9-]{36}$/).test(mutation))invalid('Revisión o solicitud inválida.');
-  correctConfirmedBlocks(state);validate(state);const digest=await hash(JSON.stringify(state));
+  correct(state);validate(state);const digest=await hash(JSON.stringify(state));
   const prior=await db.prepare('SELECT revision,digest FROM app_mutations WHERE id=?').bind(mutation).first();
   if(prior)return prior.digest===digest?json({revision:prior.revision,mutation}):json({error:'La solicitud ya existe con otros datos.'},409);
   const old=await snapshot(db);if(old.revision!==revision)return json({error:'Otra sesión guardó cambios. Descarga tu respaldo pendiente y vuelve a cargar los datos del servidor antes de continuar.'},409);
