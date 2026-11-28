@@ -9,7 +9,7 @@ permissions:
 jobs:
   qa-license:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -17,3 +17,7 @@ jobs:
           node-version: '22'
       - run: node --check functions/api/_middleware.js && node --check functions/api/app/activate.js && node --check functions/activar.js && node --check functions/activar-script.js
       - run: node --test deploy/cloudflare/nexora-qa-entitlement.test.mjs deploy/cloudflare/nexora-qa-activation.test.mjs deploy/cloudflare/nexora-qa-template.test.mjs
+      - name: Compile independent QA template (no deployment)
+        run: node deploy/cloudflare/build.mjs --nexora-qa
+      - name: Verify generated QA output
+        run: node deploy/cloudflare/nexora-qa-output-check.mjs

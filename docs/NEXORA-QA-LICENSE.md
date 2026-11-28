@@ -3,3 +3,5 @@ Rama aislada basada en el candidato del PR 152. El middleware de API comprueba i
 
 ## Plantilla candidata limpia
 `node deploy/cloudflare/build.mjs --nexora-qa` escribe una salida distinta `cloudflare-pages-nexora-qa/`. Se eliminan semilla, geometrías, catálogo de precios y medidas conocidas, imágenes incrustadas de la anterior plantilla y la foto del proyecto; se usa estado vacío y proyecto neutro, sin habilitar acceso sin conexión. El servidor QA omite las correcciones específicas del cliente anterior. No constituye todavía certificación de ausencia de toda referencia ni prueba visual; no distribuir ni publicar hasta completar auditoría de todos los recursos y prueba funcional.
+
+La compilación QA exige directorio de salida nuevo; no mezcla restos de una versión anterior. CI ejecuta compilación separada y comprueba los archivos, ausencia de recursos identificados, nombres de caché y sintaxis de scripts clásicos. Estas pruebas son barreras parciales, no sustituyen pruebas en navegador ni certifican todos los datos del código.

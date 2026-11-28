@@ -64,7 +64,8 @@ files['_headers'] += '/service-worker.js\n  Cache-Control: no-cache\n';
 
 files['_redirects'] += '/clientes-nube / 302\n/clientes-nube.html / 302\n/operaciones-nube / 302\n/operaciones-nube.html / 302\n';
 const output=qa?cleanQaFiles(files):files;
-await mkdir(out, { recursive: true });
+// A QA build may not inherit files from an earlier output directory.
+await mkdir(out, { recursive: !qa });
 await Promise.all(Object.entries(output).map(([name, content]) => writeFile(new URL(name, out), content)));
 await installOcrAssets(out);
-console.log('Cloudflare Pages: ' + Object.keys(files).join(', '));
+console.log('Cloudflare Pages: ' + Object.keys(output).join(', '));
