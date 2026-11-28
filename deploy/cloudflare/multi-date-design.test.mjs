@@ -19,10 +19,10 @@ function fixture(){
  const document={getElementById:id=>id==='md-abonos-list'?list:null};
  const safe=x=>String(x??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
  let updates=0;
- const instance=new Function('mdState','mdSafe','mdToday','mdHumanDate','mdMoneyText','mdLastPaymentMarkup','db','document','mdRefresh','mdById',
+ const instance=new Function('mdState','mdSafe','mdToday','mdHumanDate','mdMoneyText','mdLastPaymentMarkup','db','document','mdRefresh','mdById','mdRoot',
   js.slice(first,last)+'\n'+js.slice(renderStart,renderEnd)+'\nreturn {mdRowMarkup,mdRenderRows,mdExpandRow,mdToggleRow};')(
   state,safe,()=>'2026-11-23',date=>date,value=>Number(value).toLocaleString('en-US',{minimumFractionDigits:2}),
-  ()=>'',{},document,()=>updates++,id=>state.rows.find(row=>row.id===id));
+  ()=>'',{},document,()=>updates++,id=>state.rows.find(row=>row.id===id),()=>null);
  return {state,list,instance,updates:()=>updates};
 }
 test('primera tarjeta abierta y segunda plegada como en el diseño aprobado',()=>{

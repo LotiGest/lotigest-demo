@@ -32,7 +32,7 @@ function boot(){
  w.page='contracts';
  w.render=()=>{w.document.body.innerHTML='<div id="app" class="lotigest-shell"><header class="lg-topbar"><div class="lg-top-title"><span>GRUPO H / LOTIGEST</span><strong>'+w.page+'</strong></div><div class="lg-top-tools"></div></header><main class="workspace-inner">'+(w.page==='contracts'?w.contractsPage():'<h1>Clientes</h1>')+'</main></div>';};
  w.document.addEventListener('change',event=>{if(event.target.matches('[data-residence-picker]')){currentResidence=event.target.value;w.render();}});
- w.eval(releaseCore);w.eval(code);w.render();
+ try{w.eval(releaseCore);w.eval(code);w.render();}catch(error){w.close();throw error;}
  return {w,reports,dialogs,close:()=>w.close()};
 }
 function select(w,id,v){
@@ -249,7 +249,9 @@ test('Reactivación: PIN solo administrador, valida entrada, conserva pagos y ro
   const form=w.document.querySelector('#ct-activation-form');
   form.elements.pin.value='xxxx';form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
   assert.equal(w.db.contractTexts[0].status,'voided');
-  assert.match(w.document.querySelector('#ct-activation-error').textContent,/incorrecto/);
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.match(w.document.querySelector('#ct-activation-error').textContent,/cuatro dígitos/);
+  assert.equal(code,'1234','Un PIN inválido no consume ni rota el PIN');
   form.elements.pin.value=pin;form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
   await new Promise(resolve=>setTimeout(resolve,0));
   assert.equal(w.db.contractTexts[0].status,'pending-sale');
@@ -258,7 +260,8 @@ test('Reactivación: PIN solo administrador, valida entrada, conserva pagos y ro
   assert.equal(w.db.contractTexts[0].reactivationHistory[0].by,'Admin');
   assert.equal(w.db.contractTexts[0].voidReason,'Prueba');
   assert.deepEqual(JSON.parse(JSON.stringify(w.db.payments)),[{id:'P1',amount:100}]);
-  assert.notEqual(w.document.querySelector('[data-ct-pin-value]').textContent,pin);
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(w.document.querySelector('[data-ct-pin-value]').textContent,'5678','El PIN se rota después de usarlo');
   w.cloudUser.role='reader';w.render();
   assert.equal(w.document.querySelector('[data-ct-pin-value]'),null);
  }finally{close();}
@@ -278,4 +281,18 @@ test('Reactivación bloquea ubicación diferente y otro propietario',()=>{
 
 test('PIN global, estados sin conexión y pendientes sin exponer un PIN vencido',async()=>{
  const {w,close}=boot();try{w.cloudUser={role:'admin',name:'Admin'};w.cloudOffline=false;w.cloudBlocked=false;w.cloudQueue={latest:1,confirmed:1};w.cloudApi=async()=>({pin:'1234',expires:Date.now()+120000});w.page='clients';w.render();await new Promise(r=>setTimeout(r,0));assert.equal(w.document.querySelector('.lg-top-tools .ct-activation-pin').dataset.state,'online');assert.equal(w.document.querySelector('.workspace-inner .ct-activation-pin'),null);w.cloudOffline=true;w.cloudQueue.latest=2;w.render();const pin=w.document.querySelector('.ct-activation-pin');assert.equal(pin.dataset.state,'offline');assert.doesNotMatch(pin.textContent,/1234/);assert.equal(pin.querySelector('.ct-pin-pending').hidden,false);w.cloudUser.role='reader';w.render();assert.equal(w.document.querySelector('.ct-activation-pin'),null);}finally{close();}
+});
+
+test('El historial contractual exige administrador y no falla antes de cargar la sesión',()=>{
+ const {w,close}=boot();
+ try{
+  assert.equal(w.document.querySelector('[data-action="manual-history-picker"]'),null);
+  assert.equal(w.document.querySelector('[data-action="ledger-review"]'),null);
+  w.cloudUser={role:'reader',name:'Vendedor'};w.render();
+  assert.equal(w.document.querySelector('[data-action="manual-history-picker"]'),null);
+  assert.equal(w.document.querySelector('[data-action="ledger-review"]'),null);
+  w.cloudUser={role:'admin',name:'Administrador'};w.render();
+  assert.ok(w.document.querySelector('[data-action="manual-history-picker"]'));
+  assert.ok(w.document.querySelector('[data-action="ledger-review"]'));
+ }finally{close();}
 });

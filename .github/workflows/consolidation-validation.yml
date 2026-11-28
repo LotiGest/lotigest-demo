@@ -1,0 +1,79 @@
+name: Consolidation validation
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+concurrency:
+  group: consolidation-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+  cancel-in-progress: false
+jobs:
+  full-suite:
+    if: github.event.pull_request.head.ref == 'fix/consolidation-v1.0.57-20261127' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      TZ: America/Tegucigalpa
+      CI: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Build application
+        run: npm run build
+      - name: Run complete test suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p validation-results
+          files=(backend/*.test.mjs deploy/cloudflare/*.test.mjs tests/*.test.mjs)
+          printf '%s\n' "${files[@]}" > validation-results/manifest.txt
+          # Bound each file independently so one stalled test cannot prevent
+          # the remaining files from running. A timeout is a failure, not a skip.
+          result=0
+          printf '%s\0' "${files[@]}" | xargs -0 -P 4 -n 1 bash -c '
+            file="$1"
+            log="validation-results/${file//\//__}.tap"
+            printf "START %s\n" "$file"
+            rc=0
+            timeout --kill-after=10s 240s node --test --test-reporter=tap "$file" > "$log" 2>&1 || rc=$?
+            printf "%s\t%s\n" "$rc" "$file" > "$log.status"
+            printf "END %s (exit=%s)\n" "$file" "$rc"
+            if [ "$rc" -ne 0 ]; then exit 1; fi
+          ' _ || result=$?
+          {
+            for file in "${files[@]}"; do
+              log="validation-results/${file//\//__}.tap"
+              printf '\n=== %s ===\n' "$file"
+              if [ -f "$log" ] && [ -f "$log.status" ]; then
+                cat "$log"
+                cat "$log.status"
+              else
+                echo "ERROR: missing test evidence"
+                result=1
+              fi
+            done
+            echo "=== Per-file results ==="
+            cat validation-results/*.status
+          } | tee validation.tap
+          if [ "$(find validation-results -name '*.status' | wc -l)" -ne "${#files[@]}" ]; then exit 1; fi
+          node .github/scripts/check-consolidation-results.mjs || result=1
+          exit "$result"
+      - name: Publish test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: consolidation-test-results
+          path: |
+            validation.tap
+            validation-results/
+          if-no-files-found: warn
+          retention-days: 14

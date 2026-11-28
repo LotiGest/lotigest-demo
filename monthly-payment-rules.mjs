@@ -1,5 +1,5 @@
 import {contractOwnerPaymentRows} from './contract-owner-payments.mjs';
-const monthlyActive=p=>!p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&!['voided','cancelled'].includes(p.status);
+const monthlyActive=p=>!p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&!['voided','cancelled','annulled'].includes(p.status);
 const monthlyCents=v=>v!=null&&v!==''&&Number.isFinite(Number(v))?Math.round(Number(v)*100):null;
 export function monthlyLotTerms(state,lotId){
  const sale=(state.sales||[]).find(s=>s.lotId===lotId&&s.type==='credit');
@@ -42,6 +42,31 @@ export function assertMonthlyPayment(state,lotIds,amountCents,{prima=false}={}){
  // Un pago parcial conserva el faltante de la cuota en su calendario.
  return info;
 }
+// A partial payment is not a discount, a new installment or a change to the contract.
+// The audit describes the actual cash received; it never applies advances twice.
+export function partialPaymentDetails(state,lotIds,amountCents,{prima=false}={}){
+ if(prima||!Number.isSafeInteger(amountCents)||amountCents<=0)return null;
+ const ids=[...new Set(lotIds)].sort(),info=monthlyPaymentInfo(state,ids);
+ if(!info.known||info.primaRemainingCents!==0||amountCents>=info.monthlyCents)return null;
+ return {lotIds:ids,contractualCents:info.monthlyCents,amountCents,differenceCents:info.monthlyCents-amountCents};
+}
+export function monthlyOwnerLotIds(state,statementId,referenceIndex){
+ const statement=(state.ownershipStatements||[]).find(s=>s.id===statementId);
+ const refs=referenceIndex==null?statement?.references:[statement?.references?.[Number(referenceIndex)]];
+ return refs?.length&&refs.every(r=>r?.lotId)?[...new Set(refs.map(r=>r.lotId))]:[];
+}
+export function makePartialPaymentConfirmation(details,{date,actor,note='',confirmedAt=new Date().toISOString()}={}){
+ if(!details)return null;
+ return {version:1,confirmed:true,...details,date,actor,note:String(note||'').trim().slice(0,300),confirmedAt};
+}
+export function assertPartialPaymentConfirmation(details,confirmation,date,actor){
+ if(!details)return;
+ const c=confirmation;
+ if(!c||c.version!==1||c.confirmed!==true||typeof actor!=='string'||!actor||c.actor!==actor||c.date!==date||
+  JSON.stringify(c.lotIds)!==JSON.stringify(details.lotIds)||c.contractualCents!==details.contractualCents||c.amountCents!==details.amountCents||c.differenceCents!==details.differenceCents||
+  typeof c.note!=='string'||c.note.length>300||typeof c.confirmedAt!=='string'||c.confirmedAt.length>30||!Number.isFinite(Date.parse(c.confirmedAt)))
+  throw Error('Confirma expresamente el abono inferior a la cuota contractual antes de guardarlo. El monto, contrato y usuario deben coincidir.');
+}
 // La clasificación se decide por solar, antes de validar la mensualidad.
 export function classifyAutomaticPayment(state,lotId,amountCents,application='auto'){
  const info=monthlyPaymentInfo(state,[lotId]);
@@ -59,7 +84,7 @@ export function assertPrimaPayment(state,lotId,amountCents){
   throw Error('El importe supera la prima pendiente del solar. Revisa la distribución.');
  return info;
 }
-export function validateNewMonthlyPayments(before,after){
+export function validateNewMonthlyPayments(before,after,{partialActor=null}={}){
  if(!before)return; // Carga inicial/restauración: no invalidar recibos anteriores.
  const oldSales=new Map((before.payments||[]).map(p=>[p.id,p]));
  const working={...after,payments:[...(before.payments||[])],ownerPayments:[...(before.ownerPayments||[])]};
@@ -68,20 +93,34 @@ export function validateNewMonthlyPayments(before,after){
  const ordered=[...(after.payments||[])].sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||Number(b.paymentApplication==='prima')-Number(a.paymentApplication==='prima'));
  for(const p of ordered){
   const prior=oldSales.get(p.id);
+  if(prior&&partialActor!==null&&JSON.stringify(prior.partialPaymentConfirmation??null)!==JSON.stringify(p.partialPaymentConfirmation??null))throw Error('La confirmación original del abono no puede modificarse.');
   if(prior&&prior.amount===p.amount&&prior.saleId===p.saleId)continue;
   const recorded=(before.historicalPayments||[]).find(h=>h.id===p.historicalImportId&&h.amountCents===monthlyCents(p.amount)&&h.date===p.date);
   const posted=(after.historicalPayments||[]).find(h=>h.id===recorded?.id&&h.postedPaymentId===p.id);
   const importedContract=posted&&(after.historicalContracts||[]).find(c=>c.id===posted.contractId&&c.saleId===p.saleId);
   if(recorded&&posted&&importedContract){working.payments=working.payments.filter(x=>x.id!==p.id).concat(p);continue;}
   const sale=(after.sales||[]).find(s=>s.id===p.saleId);
-  if(sale){const test={...working,payments:working.payments.filter(x=>x.id!==p.id)};if(!prior&&p.paymentApplication==='prima')assertPrimaPayment(test,sale.lotId,monthlyCents(p.amount));else assertMonthlyPayment(test,[sale.lotId],monthlyCents(p.amount),{prima:/^PRIMA\b/i.test(p.concept||'')});}
+  if(sale){const test={...working,payments:working.payments.filter(x=>x.id!==p.id)};const prima=p.paymentApplication==='prima'||/^PRIMA\b/i.test(p.concept||'');if(!prior&&sale.type==='credit'&&(p.paymentApplication==='prima'||(partialActor!==null&&prima)))assertPrimaPayment(test,sale.lotId,monthlyCents(p.amount));else assertMonthlyPayment(test,[sale.lotId],monthlyCents(p.amount),{prima});if(!prior&&partialActor!==null)assertPartialPaymentConfirmation(partialPaymentDetails(test,[sale.lotId],monthlyCents(p.amount),{prima}),p.partialPaymentConfirmation,p.date,partialActor);}
   working.payments=working.payments.filter(x=>x.id!==p.id).concat(p);
  }
  const oldOwners=new Map((before.ownerPayments||[]).map(p=>[p.id,p]));
- for(const p of after.ownerPayments||[]){
-  const prior=oldOwners.get(p.id);if(prior&&JSON.stringify(prior.allocations)===JSON.stringify(p.allocations)&&prior.concept===p.concept)continue;
+ for(const p of [...(after.ownerPayments||[])].sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||Number(/^PRIMA\b/i.test(b.concept||''))-Number(/^PRIMA\b/i.test(a.concept||'')))){
+  const prior=oldOwners.get(p.id);
+  if(prior&&partialActor!==null){
+   const approvals=x=>(x.allocations||[]).filter(a=>a.partialPaymentConfirmation).map(a=>[a.statementId,a.referenceIndex??null,a.partialPaymentConfirmation]);
+   if(JSON.stringify(approvals(prior))!==JSON.stringify(approvals(p)))throw Error('La confirmación original del abono no puede modificarse.');
+  }if(prior&&JSON.stringify(prior.allocations)===JSON.stringify(p.allocations)&&prior.concept===p.concept)continue;
   const test={...working,ownerPayments:working.ownerPayments.filter(x=>x.id!==p.id)};
-  for(const a of p.allocations||[]){const ids=(a.references||[]).map(r=>r.lotId).filter(Boolean);if(ids.length===(a.references||[]).length)assertMonthlyPayment(test,ids,a.amountCents,{prima:/^PRIMA\b/i.test(p.concept||'')});}
+  for(const a of p.allocations||[]){const ids=(a.references||[]).map(r=>r.lotId).filter(Boolean),prima=/^PRIMA\b/i.test(p.concept||'');
+   if(!prior&&partialActor!==null){
+    const statement=(after.ownershipStatements||[]).find(s=>s.id===a.statementId);
+    const refs=a.referenceIndex==null?statement?.references:[statement?.references?.[a.referenceIndex]];
+    if(!refs?.length||JSON.stringify(refs.map(x=>x?.lotId||null))!==JSON.stringify((a.references||[]).map(x=>x.lotId||null)))throw Error('Los solares del recibo no coinciden con la ficha.');
+    const info=monthlyPaymentInfo(test,ids);
+    if(prima&&info.known&&info.primaRemainingCents!==null&&a.amountCents>info.primaRemainingCents)throw Error('El importe supera la prima pendiente. Registra el pago como abono.');
+   }
+   if(ids.length===(a.references||[]).length)assertMonthlyPayment(test,ids,a.amountCents,{prima});
+   if(!prior&&partialActor!==null)assertPartialPaymentConfirmation(partialPaymentDetails(test,ids,a.amountCents,{prima}),a.partialPaymentConfirmation,p.date,partialActor);}
   working.ownerPayments=working.ownerPayments.filter(x=>x.id!==p.id).concat(p);
  }
 }

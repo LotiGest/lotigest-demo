@@ -50,10 +50,9 @@ test('historial de propietario no duplica movimientos importados contabilizados'
 });
 test('ventana de historial accesible por fecha y con botón de recibo en abonos y fichas',()=>{
  assert.match(modalSource,/pmOpenPaymentHistory\(\)/);
- assert.equal((modalSource.match(/dataset\.pmHistoryOpen='true'/g)||[]).length,2);
+ assert.equal((modalSource.match(/dataset\.pmReportsOpen='true'/g)||[]).length,2);assert.match(historySource,/pmOpenPaymentHistory\(true\)/);
  assert.match(historySource,/aria-modal/);
- assert.match(historySource,/from\.addEventListener\('change',render\)/);
- assert.match(historySource,/to\.addEventListener\('change',render\)/);
+ assert.match(historySource,/for\(const input of \[from,to,type,status,pageSize\]\)input\.addEventListener\('change',reset\)/);
  assert.match(historySource,/receipt-preview/);
  assert.match(historySource,/owner-payment-receipt/);
  assert.match(css,/pm-history-window/);
@@ -187,7 +186,7 @@ test('consolidación mensual de tres solares distingue depósitos, mora y adelan
  assert.equal(g.calendar[2].pending,1500000);assert.equal(g.calendar[3].noDeposit,false);
  ctx.report=report;const pdf=vm.runInContext('pmAmortizationPdf(report)',ctx);
  const raw=Buffer.from(await pdf.arrayBuffer()).toString('latin1');
- assert.match(raw,/Amortización mensual consolidada/);assert.match(raw,/003555/);assert.match(raw,/Sin depósito/);
+ assert.match(raw,/Amortización mensual consolidada/);assert.match(raw,/003555/);assert.match(raw,/02\/2024: sin depósito; cuota cubierta con recibos de 03\/2024\./i);
  assert.equal(JSON.stringify(ctx.state),snapshot);
 });
 
@@ -246,9 +245,9 @@ test('la proyección usa solo mensualidades verificadas, nunca prima ni pago sin
 
 test('estado de cuenta muestra únicamente meses exigibles, cuota parcial y total sin duplicar solares',async()=>{
  const ctx=model({Blob,atob});
- const rows=Array.from({length:7},(_,i)=>({dueDate:'2026-'+String(i+5).padStart(2,'0')+'-15',dueCents:662600,appliedCents:i===0?662600:0,remainingCents:i===0?0:662600}));
+ const rows=Array.from({length:7},(_,i)=>({dueDate:'2026-'+String(i+5).padStart(2,'0')+'-15',dueCents:662600,appliedCents:i===0?662600:0,remainingCents:i===0?0:662600,receipts:[]}));
  const details=[1,2].map(i=>({sale:{type:'credit'},lot:{stage:1,block:'E',sourceNumber:String(i)},rows:structuredClone(rows),paid:662600,agreed:0}));
- ctx.report={unmatched:0,details,consolidated:{calendar:rows.map((r,i)=>({month:r.dueDate.slice(0,7),due:1325200,covered:!r.remainingCents,rows:details.map(d=>d.rows[i])}))},asOf:'2026-10-31',client:'CLIENTE PRUEBA',residence:'Residencial Altos del Arrayán',agreed:0,prima:0};
+ ctx.report={unmatched:0,details,consolidated:{receipts:[],calendar:rows.map((r,i)=>({month:r.dueDate.slice(0,7),due:1325200,covered:!r.remainingCents,rows:details.map(d=>d.rows[i]),sources:[],pending:r.remainingCents*2,closed:i<6,noDeposit:i>0}))},asOf:'2026-10-31',client:'CLIENTE PRUEBA',residence:'Residencial Altos del Arrayán',agreed:0,prima:0};
  const make=()=>vm.runInContext('pmStatementModel(report)',ctx);
  const statement=make();
  assert.equal(statement.total,6626000);assert.equal(statement.pending.length,5);assert.equal(statement.lastCovered,'Mayo de 2026');
@@ -272,6 +271,6 @@ test('después de guardar, el historial conserva ventana y filtros y actualiza b
  ctx.paymentDraft.snapshot='borrador obsoleto';
  vm.runInContext("pmHistoryAfterEdit('anterior','antes',true,refresh)",ctx);
  assert.equal(ctx.paymentDraft.snapshot,'borrador obsoleto');
- assert.match(historySource,/const visible=pmHistoryRows\(\)\.filter/);
+ assert.match(historySource,/const all=pmHistoryRows\(\)/);assert.match(historySource,/visible=all\.filter\(p=>\(!from\.value\|\|p\.date>=from\.value\)&&\(!to\.value\|\|p\.date<=to\.value\)/);
  assert.doesNotMatch(historySource,/pmClosePaymentHistory\(\);closeModal\(\);render\(\)/);
 });

@@ -24,12 +24,12 @@ test('dos fechas desde + guardan dos movimientos, dos folios y dos recibos separ
   assert.equal(app.d.querySelector('[data-md-field="date"]').value,'','El abono nuevo debe tener fecha vacía');
   assert.equal(app.d.querySelector('[data-md-field="date"]').placeholder,'DD/MM/AA · sin /','La fecha vacía muestra cómo ingresar números sin plecas');
   assert.equal(app.d.querySelector('[data-md-field="date"]').inputMode,'numeric','Se abre el teclado numérico en celular');
-  assert.equal(app.d.querySelectorAll('[data-md-row]').length,2);
-  assert.equal(app.d.querySelectorAll('[data-md-photo]').length,2,'Escáner icono independiente por fila');
-  assert.equal(app.d.querySelectorAll('[data-md-edit]').length,2,'Cada abono debe ofrecer ingreso manual');
-  assert.ok(app.d.querySelectorAll('.md-date-control input[data-md-field="date"][type="text"]').length===2,'Fecha editable por texto');
-  assert.ok(app.d.querySelectorAll('.md-money-control input[data-md-field="amount"][type="text"]').length===2,'Monto editable por teclado');
-  assert.ok(app.d.querySelectorAll('.md-ref-line input[data-md-field="receiptRef"][type="text"]').length===2,'Correlativo editable por teclado');
+  assert.equal(app.d.querySelectorAll('[data-md-row]').length,1,'El asistente comienza con un recibo');
+  assert.equal(app.d.querySelectorAll('[data-md-photo]').length,1,'Escáner icono independiente por fila');
+  assert.equal(app.d.querySelectorAll('[data-md-edit]').length,1,'Cada abono debe ofrecer ingreso manual');
+  assert.ok(app.d.querySelectorAll('.md-date-control input[data-md-field="date"][type="text"]').length===1,'Fecha editable por texto');
+  assert.ok(app.d.querySelectorAll('.md-money-control input[data-md-field="amount"][type="text"]').length===1,'Monto editable por teclado');
+  assert.ok(app.d.querySelectorAll('.md-ref-line input[data-md-field="receiptRef"][type="text"]').length===1,'Correlativo editable por teclado');
   for(const input of app.d.querySelectorAll('#md-abonos-form [data-md-field]')){
    assert.equal(input.readOnly,false,'Los campos no deben ser de solo lectura');
    assert.equal(input.disabled,false,'No se deshabilita el ingreso manual');
@@ -37,10 +37,20 @@ test('dos fechas desde + guardan dos movimientos, dos folios y dos recibos separ
   for(const photo of app.d.querySelectorAll('[data-md-photo]'))assert.equal(photo.required,false,'El OCR es opcional');
   app.click('[data-md-edit]');
   assert.equal(app.d.activeElement,app.d.querySelector('[data-md-field="date"]'),'Escribir debe enfocar la fecha manualmente');
+  for(const field of ['date','amount','receiptRef']){
+   const control=app.d.querySelector('[data-md-field="'+field+'"]');control.value='';control.focus();
+   const key=new app.w.KeyboardEvent('keydown',{key:'2',bubbles:true,cancelable:true});control.dispatchEvent(key);
+   assert.equal(key.defaultPrevented,false,field+' admite números desde teclado físico');
+   control.value='2';control.dispatchEvent(new app.w.Event('input',{bubbles:true}));
+   assert.equal(control.value,'2',field+' conserva el número');assert.equal(app.d.activeElement,control,field+' conserva el foco');
+   control.value='';control.dispatchEvent(new app.w.Event('input',{bubbles:true}));
+  }
   const fields=field=>[...app.d.querySelectorAll('[data-md-field="'+field+'"]')];
   for(const [i,values] of [{date:'211026',amount:'12,000',receiptRef:'00006159'},{date:'20 Noviembre 2026',amount:'9,000.00',receiptRef:'00006161'}].entries()){
    if(i===1){
     const previous=fields('receiptRef')[0];previous.dispatchEvent(new app.w.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));
+    assert.equal(app.d.querySelectorAll('[data-md-row]').length,2,'Enter crea el siguiente recibo');
+    assert.equal(app.d.querySelectorAll('[data-md-photo]').length,2,'Cada recibo conserva su escáner');
     assert.equal(fields('receiptRef')[1].value,'6160','Enter sugiere el siguiente sin ceros iniciales');
     assert.equal(fields('receiptRef')[1].readOnly,false);
     assert.equal(fields('amount')[1].value,'12,000.00');
@@ -65,8 +75,8 @@ test('dos fechas desde + guardan dos movimientos, dos folios y dos recibos separ
   enter(fields('date')[0]);assert.equal(app.d.activeElement,fields('amount')[0],'Enter en fecha avanza al monto');
   enter(fields('amount')[0]);assert.equal(app.d.activeElement,fields('receiptRef')[0],'Enter en monto avanza al correlativo');
   enter(fields('receiptRef')[0]);assert.equal(app.d.activeElement,fields('date')[1],'Enter en correlativo avanza a Abono 2');
-  enter(fields('receiptRef')[1]);
-  assert.equal(app.d.querySelectorAll('[data-md-row]').length,2,'El último correlativo abre revisión sin crear otra fila');
+  app.click('[data-md-review]');
+  assert.equal(app.d.querySelectorAll('[data-md-row]').length,2,'Revisar no crea otra fila');
   assert.ok(app.d.querySelector('#md-review:not([hidden])'),'Revisión obligatoria antes de guardar');
   assert.equal(app.d.querySelectorAll('#md-review tbody tr').length,2);
   app.click('[data-md-save]');

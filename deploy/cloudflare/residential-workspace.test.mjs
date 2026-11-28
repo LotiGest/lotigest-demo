@@ -11,6 +11,7 @@ test('Configuración cambia de residencial y separa clientes, ventas, pagos, fin
   s.lots.push({id:'LOT-A',residenceId:rid,block:'Z',sourceNumber:'91',stage:1,area:100,price:10000,status:'sold'},{id:'LOT-B',residenceId:'RES-B',block:'Z',sourceNumber:'91',stage:1,area:100,price:10000,status:'sold'});
   s.sales.push({id:'SALE-A',clientId:'PERSON-A',lotId:'LOT-A',price:10000,downPayment:1000,months:12,type:'credit',date:'2026-01-01'},{id:'SALE-B',clientId:'PERSON-B',lotId:'LOT-B',price:10000,downPayment:2000,months:12,type:'credit',date:'2026-01-01'});
   s.payments.push({id:'PAY-A',saleId:'SALE-A',amount:1000,date:'2026-01-01',concept:'Prima inicial'},{id:'PAY-B',saleId:'SALE-B',amount:2000,date:'2026-01-01',concept:'Prima inicial'});
+  s.contractTexts??=[];for(const [suffix,residenceId] of [['A',rid],['B','RES-B']])s.contractTexts.push({id:'DOC-'+suffix,lotId:'LOT-'+suffix,saleId:'SALE-'+suffix,clientId:'PERSON-'+suffix,residenceId,status:'active',format:'manual',title:'CONTRATO FICTICIO '+suffix,pages:[],structured:{price:10000,down:suffix==='A'?1000:2000,months:12}});
   s.ownerPayments=[];s.currentResidence=rid;
   assert.equal((await server.write({state:s,revision:snap.revision,mutation:crypto.randomUUID()})).status,200);
   app.close();app=boot(server);await until(()=>app.d.querySelector('[data-page=settings]'));

@@ -50,8 +50,8 @@ test('interfaz real muestra cinco figuras, 2D/3D y filtros sin errores de JavaSc
   assert.ok(app.d.querySelectorAll('[data-official-map-measure-labels] text').length>1500);
   app.click('[data-action=map-measures-toggle]');assert.equal(app.d.querySelectorAll('[data-official-map-measure-labels]').length,0);
   app.click('[data-action=map-measures-toggle]');assert.equal(app.d.querySelectorAll('[data-official-map-measure-labels]').length,1);
-  app.change('#ar-stage-filter','2');assert.equal(app.d.querySelectorAll('.ar-solar').length,274);
-  app.change('#ar-stage-filter','1');assert.equal(app.d.querySelectorAll('.ar-solar').length,142);
+  app.change('#ar-stage-filter','2');assert.equal(app.d.querySelectorAll('.ar-solar:not(.lg-outside-scope)').length,274);assert.equal(app.d.querySelectorAll('.ar-solar').length,416,'El filtro visual conserva todos los trazados');
+  app.change('#ar-stage-filter','1');assert.equal(app.d.querySelectorAll('.ar-solar:not(.lg-outside-scope)').length,142);assert.equal(app.d.querySelectorAll('.ar-solar').length,416,'El filtro visual conserva todos los trazados');
   assert.deepEqual(server.errors,[]);
  }finally{app.close();}
 });

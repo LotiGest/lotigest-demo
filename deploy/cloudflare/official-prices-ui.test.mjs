@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {setup,boot,login,saved} from './test-ui.mjs';
+import {setup,boot,login,saved,until} from './test-ui.mjs';
 
 async function createLot(app,id,price){
  app.click('[data-page=lots]');
@@ -41,8 +41,8 @@ test('al tocar solar disponible, prima editable inmediatamente recalcula 84 cuot
  }finally{app.close();}
 });
 
-test('prima del mapa pasa a la venta sin duplicar controles; propuesta sin guardar bloquea venta',async()=>{
- const server=await setup(),app=boot(server);
+test('prima del mapa persiste al reabrir y el contrato conserva la oferta sin permitir ventas directas',async()=>{
+ const server=await setup();let app=boot(server);
  try{
   await login(app,server);
   app.click('[data-page=clients]');
@@ -53,26 +53,23 @@ test('prima del mapa pasa a la venta sin duplicar controles; propuesta sin guard
   app.input('#official-map-prima','100000');
   app.click('[data-action=official-map-save]');
   await saved(app);
-  app.input('#solar-client-search','CLIENTE SIMULADOR MAPA');
-  app.click('[data-action=solar-choose-client]');
-  app.change('#solar-operation','credit');
-  assert.equal(app.d.querySelector('#solar-form [name=downPayment]').value,'100000');
-  assert.equal(app.d.querySelector('#solar-form [name=months]').value,'84');
-  assert.match(app.d.querySelector('#official-map-monthly').textContent,/3,571\.43/);
-  assert.equal(app.d.querySelector('#solar-credit-fields').style.display,'none','No duplicar campos de prima en móvil');
+  assert.ok(!Array.from(app.d.querySelector('#solar-operation').options).some(o=>['credit','cash'].includes(o.value)),'Las ventas se registran exclusivamente desde Contratos');
   app.input('#official-map-prima','150000');
-  assert.equal(app.d.querySelector('#solar-submit').disabled,true,'Bloquear venta con prima sin guardar');
-  app.click('[data-action=official-map-save]');
-  await saved(app);
-  assert.equal(app.d.querySelector('#solar-submit').disabled,false);
-  app.submit('#solar-form');
-  await saved(app);
-  const after=(await server.read()).state;
-  const sale=after.sales.find(s=>s.lotId==='MAP-QUOTE-02');
-  assert.ok(sale);
-  assert.equal(sale.downPayment,150000);
-  assert.equal(sale.months,84);
-  assert.equal(sale.price,400000);
+  assert.equal(app.d.querySelector('#official-map-save').disabled,false);
+  assert.equal((await server.read()).state.lots.find(l=>l.id==='MAP-QUOTE-02').quotePrima,100000,'La simulación no modifica D1');
+  app.click('[data-action=official-map-save]');await saved(app);
+  let snapshot=await server.read();const lot=snapshot.state.lots.find(l=>l.id==='MAP-QUOTE-02');
+  assert.equal(lot.quotePrima,150000);assert.equal(lot.quoteMonths,84);assert.equal(lot.quoteMonthly,2976.19);
+  assert.equal(snapshot.state.sales.length,0);assert.equal(snapshot.state.payments.length,0);
+  Object.assign(lot,{stage:1,sourceNumber:'92'});assert.equal((await server.write({state:snapshot.state,revision:snapshot.revision,mutation:crypto.randomUUID()})).status,200);
+  app.close();app=boot(server);await login(app,server);
+  app.click('[data-page=lots]');app.click('[data-action=solar-open][data-id="MAP-QUOTE-02"]');assert.equal(app.d.querySelector('#official-map-prima').value,'150000');assert.match(app.d.querySelector('#official-map-monthly').textContent,/2,976\.19/);
+  app.click('[data-action=close-modal]');app.click('[data-page=contracts]');app.click('[data-contract-intake-open]');await until(()=>app.d.querySelector('.cq-form'),'contrato manual');
+  app.input('#contract-intake-client-search','CLIENTE SIMULADOR MAPA');await until(()=>app.d.querySelector('[data-contract-client-pick]'),'cliente existente');app.click('[data-contract-client-pick]');await until(()=>app.d.querySelector('.cq-form'),'cliente seleccionado');app.click('[data-cq-next]');
+  app.change('[name=stage]','1');await until(()=>app.d.querySelector('.cq-form'));app.change('[name=block]','CAL');await until(()=>app.d.querySelector('.cq-form'));app.change('[name=lotId]','MAP-QUOTE-02');await until(()=>app.d.querySelector('.cq-form'));
+  assert.equal(Number(app.d.querySelector('[name=solarPrice_0]').value),400000);
+  assert.equal(Number(app.d.querySelector('[name=solarDown_0]')?.value||app.d.querySelector('[name=down]')?.value),150000);
+  assert.equal((await server.read()).state.sales.length,0);assert.equal((await server.read()).state.payments.length,0);
   assert.deepEqual(server.errors,[]);
  }finally{app.close();}
 });

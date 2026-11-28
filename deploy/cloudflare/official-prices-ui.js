@@ -85,7 +85,7 @@ function officialMapQuoteRefresh(){
   months.textContent=q.months+' cuotas';
   error.textContent='';
   const pending=officialMapQuoteChanged(l,q);
-  status.textContent=pending?'Prima y cuota calculadas. Guarda la propuesta para utilizar estos valores en una venta.':'Propuesta guardada; puedes seleccionar el cliente y registrar la venta a crédito.';
+  status.textContent=pending?'Prima y cuota calculadas. Guarda la propuesta para utilizar estos valores en Contratos.':'Propuesta guardada; registra la compra desde Contratos.';
   save.disabled=!pending;
   if(form){
    form.elements.downPayment.value=String(q.prima);
@@ -264,7 +264,7 @@ function officialPriceSaveLot(id){
  if(down>=price)throw Error('Para pagar el precio completo utiliza la venta al contado. La prima al crédito debe ser menor.');
  const monthly=quoteAtZeroInterest(price,down,months),original={...lot};
  lot.price=price;lot.quotePrima=down;lot.quoteMonths=months;lot.quoteMonthly=monthly;
- if(!designPersist()){Object.assign(lot,original);return;}
+ if(!designPersist()){for(const k of ['price','quotePrima','quoteMonths','quoteMonthly']){if(Object.hasOwn(original,k))lot[k]=original[k];else delete lot[k];}return;}
  closeModal();render();toast('Oferta actualizada: '+months+' cuotas de L '+officialPriceFormat(monthly)+'. No se registró una venta ni un pago.');
 }
 const officialPriceActionsBase=handlerAction;
@@ -277,6 +277,7 @@ handlerAction=function(action,el){
   if(action==='official-prices-confirm')return officialPriceConfirm().catch(e=>toast(e.message,'error'));
   if(action==='official-lot-edit')return officialPriceEditLot(el.dataset.id);
   if(action==='official-lot-save')return officialPriceSaveLot(el.dataset.id);
+  if(action==='official-map-save')return officialMapQuoteSave(el.dataset.id);
  }catch(e){toast(e.message,'error');return;}
  return officialPriceActionsBase(action,el);
 };

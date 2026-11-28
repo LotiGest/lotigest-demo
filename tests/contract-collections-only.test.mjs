@@ -22,6 +22,7 @@ function original(){
    {id:'P-OLD',saleId:'S-OLD',date:'2025-03-01',amount:2500},
    {id:'P-NEW',saleId:'S-NEW',date:'2026-11-20',amount:3000},
    {id:'P-VOID',saleId:'S-NEW',date:'2026-11-19',amount:3000,voidedAt:'2026-11-20'},
+   ...['voided','cancelled','annulled'].map(status=>({id:'P-'+status,saleId:'S-NEW',date:'2026-11-19',amount:7000,status})),
    {id:'P-X',saleId:'S-X',date:'2026-03-01',amount:2500}
   ],
   contractTexts:[
@@ -91,7 +92,7 @@ test('un contrato vinculado a venta de otra persona no se considera confirmado',
  assert.equal(scope.payments.length,0);
 });
 test('UI conserva la base completa y filtra reportes y exportaciones',()=>{
- const state=original(),events={};
+ const state=original(),events={},before=JSON.stringify(state);
  let db=state;
  const environment={
   contractCollectionsScope,
@@ -100,12 +101,17 @@ test('UI conserva la base completa y filtra reportes y exportaciones',()=>{
   esc:v=>String(v),getClient:id=>state.clients.find(c=>c.id===id),
   inventoryArea:l=>l.area,inventoryPrice:l=>'L '+l.price,
   page:'collections',cloudUser:{role:'admin'},render:()=>{},contractIntakeOpen:()=>{},
-  newPayment:()=> 'historico',baseNewPayment:()=> 'contrato',paymentCandidates:()=>state.sales
+  newPayment:()=> 'historico',baseNewPayment:()=> 'contrato',paymentCandidates:()=>state.sales,
+  collectionStageFilter:'all',collectionOverdueMonths:'all',collectionFilter:'all',collectionMonth:'2026-11',businessToday:()=> '2026-11-27',
+  header:(title,description)=>'<h1>'+title+'</h1><p>'+description+'</p>',ic:()=>'',money:n=>'L '+n,balance:()=>100,installment:()=>1,
+  reconcileInstallments:()=>{},installmentDueCents:()=>{},dateKey:()=>{},addMonths:()=>{},
+  pmAmortizationModel:()=>{throw Error('Ficha de prueba sin condiciones completas');},pageContent:()=>'',pages:{}
  };
  // Definir los renderizadores dentro del mismo ámbito mutable que utiliza el
  // complemento (no cerrar sobre una referencia externa fija).
  const bases=[
   "let collectionPage=()=>'<div class=\"cards-four\">Lotes: '+db.lots.length+'</div><button data-action=\"ledger-import\">Importar Excel de pagos</button>';",
+  "let collectionSolarCards=()=>'';",
   "let ordinaryCollectionCard=()=>'<article>Anterior</article>';",
   "let collectionPaymentRows=()=>db.payments.map(p=>p.id);",
   "let collectionClientRows=()=>db.clients.map(c=>c.id);",
@@ -114,16 +120,28 @@ test('UI conserva la base completa y filtra reportes y exportaciones',()=>{
  const api=new Function(...Object.keys(environment),bases+'\n'+ui+
   ';return {collectionPage,collectionPaymentRows,collectionClientRows,debtReport,ordinaryCollectionCard,paymentCandidates,newPayment,current:()=>db};')(...Object.values(environment));
  const html=api.collectionPage();
- assert.match(html,/Clientes y solares desde Contratos/);
- assert.match(html,/Lotes: 1/);
+ assert.match(html,/Clientes y solares vinculados desde Contratos/);
+ assert.match(html,/Clientes \(1\)/);
+ assert.match(html,/Nuevo cliente desde Contratos/);
+ assert.doesNotMatch(html,/Cliente antiguo de Excel|Otra residencial/);
+ assert.match(html,/Ficha de prueba sin condiciones completas/);
  assert.doesNotMatch(html,/data-action="ledger-import"/);
  assert.deepEqual(api.collectionPaymentRows(),['P-NEW']);
  assert.deepEqual(api.collectionClientRows(),['NEW']);
  assert.deepEqual(api.debtReport(),['S-NEW']);
  assert.deepEqual(api.paymentCandidates().map(s=>s.id),['S-NEW']);
  assert.equal(api.newPayment(null,false),'contrato');
- assert.equal(api.current(),state);
+ assert.equal(api.current(),state);assert.equal(JSON.stringify(state),before);
  assert.match(api.ordinaryCollectionCard({lot:state.lots[0]}),/Anterior/);
  assert.match(build,/contract-collections-scope\.mjs/);
  assert.match(build,/contract-collections-only-ui\.js/);
+});
+
+test('cobros encuentra identidad y teléfono con o sin separadores sin mezclar clientes',()=>{
+ const start=ui.indexOf(' function ccMatch(g){'),end=ui.indexOf(' const ccOptions=',start);assert.ok(start>=0&&end>start);
+ const matcher=new Function('ccSearch','g','ccNorm','collectionStageFilter','collectionOverdueMonths','collectionFilter','collectionMonth','ccMetrics',ui.slice(start,end)+';return ccMatch(g);');
+ const g={client:{name:'JOSÉ ÁNGEL',identity:'0001-2345-67890',phone:'+504 9999-1234'},residenceName:'Arrayán',lots:[{id:'A3',block:'A',stage:1,sourceNumber:'3'}],sales:[],model:{}};
+ const match=q=>matcher(q,g,v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(),'all','all','all','2026-11',()=>null);
+ for(const q of ['jose angel','0001234567890','0001 2345 67890','50499991234','A3'])assert.equal(match(q),true,q);
+ assert.equal(match('0001234567000'),false);assert.equal(match('OTRO CLIENTE'),false);
 });

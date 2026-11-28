@@ -114,7 +114,7 @@
       next.ownershipStatements??=[];
       next.ownershipStatements.push({id:historyDraft.statementId,residenceId:historyDraft.residenceId,clientId:historyDraft.clientId,clientName:manualOwnerName(historyDraft.clientId),sourceName:'Registro manual de Contratos',rawReference:{block:lots.map(l=>l.block).join(', '),lot:lots.map(l=>String(l.sourceNumber||l.number||l.id)).join(', ')},references:lots.map(l=>({stage:l.stage||null,block:String(l.block),lot:String(l.sourceNumber||l.number||l.id),lotId:l.id,candidateLotIds:[l.id]})),issues:[],documentedDownPaymentCents:null,documentedOpeningBalanceCents:null,documentedBalances:[],paymentIds:[],contractIds:[],manual:true,importedAt:new Date().toISOString()});
       const outcome=lotigestOwnerPayments.createOwnerPayment(next,{id:historyDraft.id,clientId:historyDraft.clientId,residenceId:historyDraft.residenceId,date:fields.date,method:String(fields.method||'Efectivo').trim(),concept,receiptRef:String(fields.receiptRef||'').trim(),reviewed:true,allocations:[{statementId:historyDraft.statementId,referenceIndex:null,amount:fields.amount}]});
-      cloudWrite(JSON.stringify(outcome.state));
+      partialAttachOwner(outcome,form);cloudWrite(JSON.stringify(outcome.state));
       db=outcome.state;historyDraft=null;
       closeModal();render();ownerPaymentPreview(outcome.receipt.id);
       await cloudFlush();

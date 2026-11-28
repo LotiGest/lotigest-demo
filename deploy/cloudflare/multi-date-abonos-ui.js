@@ -61,7 +61,7 @@
    :(data.payments||[]).filter(p=>(state.saleIds||[state.saleId]).includes(p.saleId));
   const grouped=[];
   for(const p of source){
-   if(p.voidedAt||['voided','cancelled'].includes(p.status))continue;
+   if(p.voidedAt||p.deletedAt||p.cancelledAt||['voided','cancelled','annulled'].includes(p.status))continue;
    if(!owner&&p.groupId){const found=grouped.find(x=>x.groupId===p.groupId);if(found){found.amount=Number(found.amount)+Number(p.amount);continue;}}
    grouped.push({...p});
   }
@@ -144,7 +144,7 @@
    '<div class="md-row-body" id="md-row-body-'+mdSafe(row.id)+'"'+(open?'':' hidden')+'>'+options+
     (mdState.kind==='owner'&&mdState.docs.length>1?mdLastPaymentMarkup(mdState,db,row.statementId,row.id):'')+
    '<div class="md-manual-head"><span>Escribe la fecha del recibo · Enter avanza al siguiente abono.</span></div>'+
-   '<div class="md-fields"><label class="md-date-label">Fecha del pago *<span class="md-date-control"><input type="text" inputmode="numeric" autocomplete="off" spellcheck="false" data-md-field="date" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.dateText??mdHumanDate(row.date))+'" placeholder="DD/MM/AA · sin /" enterkeyhint="next" aria-label="Escribe los seis números de la fecha sin plecas; ejemplo 251125 es 25 de noviembre de 2025" required><span class="md-date-calendar" aria-hidden="true">▦</span><input type="date" class="md-native-date" data-md-picker="'+mdSafe(row.id)+'" aria-label="Elegir fecha en calendario" value="'+mdSafe(row.date||'')+'" max="'+mdSafe(mdToday())+'" tabindex="0"></span></label>'+
+   '<div class="md-fields"><label class="md-date-label">Fecha del pago *<span class="md-date-control"><input type="text" inputmode="numeric" autocomplete="off" spellcheck="false" data-md-field="date" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.dateText??mdHumanDate(row.date))+'" placeholder="DD/MM/AA · sin /" enterkeyhint="next" aria-label="Escribe los seis números de la fecha sin plecas; ejemplo 251125 es 25 de noviembre de 2025" required><button type="button" class="md-date-calendar" data-md-open-picker="'+mdSafe(row.id)+'" aria-label="Elegir fecha en calendario">▦</button><input type="date" class="md-native-date" data-md-picker="'+mdSafe(row.id)+'" aria-label="Calendario de fecha" value="'+mdSafe(row.date||'')+'" max="'+mdSafe(mdToday())+'" tabindex="-1"></span></label>'+
    '<label class="md-amount-label">Monto (L) *<span class="md-money-control"><span class="md-money-symbol" aria-hidden="true">L</span><input type="text" inputmode="decimal" autocomplete="off" data-md-field="amount" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(mdMoneyText(row.amount))+'" placeholder="Ej. 12,000.00" enterkeyhint="next" aria-label="Escribir monto manual del abono en lempiras" required></span></label>'+
    '<label class="md-ref-label">Correlativo *<span class="md-ref-line"><span aria-hidden="true" class="md-ref-symbol">#</span><input type="text" inputmode="numeric" maxlength="80" pattern="[0-9]+" data-md-field="receiptRef" data-md-id="'+mdSafe(row.id)+'" value="'+mdSafe(row.receiptRef)+'" placeholder="Ej. 00006159" enterkeyhint="done" aria-label="Correlativo editable. Enter propone el siguiente correlativo y avanza al siguiente abono" required></span></label></div>'+
    '<div class="md-photo-row"><label class="md-scan-icon" title="Escanear o seleccionar foto" aria-label="Escanear recibo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3H5a2 2 0 0 0-2 2v2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="8" width="10" height="9" rx="2"/><circle cx="12" cy="12.5" r="1.7"/></svg><span class="md-scan-caption">Escanear recibo</span><input type="file" accept="image/jpeg,image/png,image/webp" data-md-photo="'+mdSafe(row.id)+'" hidden></label>'+
@@ -467,13 +467,30 @@
   }
   return plans;
  }
+ function mdReceiptProof(state,item){
+  const rows=item.kind==='owner'?(state.ownerPayments||[]).filter(p=>p.id===item.id):(state.payments||[]).filter(p=>item.groupId?p.groupId===item.groupId:p.id===item.id);
+  return rows.map(p=>({id:p.id,saleId:p.saleId||null,amountCents:item.kind==='owner'?Number(p.amountCents):Math.round(Number(p.amount)*100),date:p.date,ref:String(p.receiptReference||p.receiptRef||'').trim(),voided:!!(p.voidedAt||p.deletedAt||p.cancelledAt||['voided','cancelled','annulled'].includes(p.status)),confirmation:p.partialPaymentConfirmation||null,allocations:item.kind==='owner'?(p.allocations||[]).map(a=>({statementId:a.statementId,referenceIndex:a.referenceIndex??null,amountCents:a.amountCents,lotIds:(a.references||[]).map(r=>r.lotId||null),confirmation:a.partialPaymentConfirmation||null})):null})).sort((a,b)=>a.id.localeCompare(b.id));
+ }
+ async function mdReceiptsConfirmed(items){
+  try{
+   const remote=await cloudApi('state');
+   if(!remote?.state||!Number.isSafeInteger(remote.revision)||remote.revision<cloudQueue.revision)return false;
+   return items.length>0&&items.every(item=>{
+    const proof=mdReceiptProof(remote.state,item);
+    return proof.length>0&&proof.every(p=>!p.voided&&p.date===item.date&&p.ref===String(item.ref).trim())&&proof.reduce((n,p)=>n+p.amountCents,0)===Math.round(item.amount*100)&&JSON.stringify(proof)===JSON.stringify(item.proof);
+   });
+  }catch{return false;}
+ }
+ function mdQueueConfirmed(){
+  return !!cloudQueue&&!cloudBlocked&&!cloudOffline&&!cloudBusy&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed;
+ }
  async function mdSave(){
   if(mdSaving||!mdState)return;
   if(mdStage!=='review'){mdReview();return;}
   try{if(mdReviewSignature(mdValidate())!==mdReviewedKey){mdReview();return;}if(!document.getElementById('md-review-confirm')?.checked){mdError('Confirma que has revisado el prelistado antes de guardar.');return;}}catch(e){mdError(e.message);return;}
-  mdSaving=true;const btn=document.querySelector('[data-md-save]');if(btn)btn.disabled=true;
+  mdSaving=true;const btn=document.querySelector('[data-md-save]');if(btn){btn.disabled=true;btn.textContent='Guardando…';}
   try{
-   const ordered=mdValidate();let next=JSON.parse(JSON.stringify(db)),saved=[],attachments=[];
+   const ordered=mdValidate();let next=JSON.parse(JSON.stringify(db)),saved=[],attachments=[],pendingPartial=[];
    const sale=mdState.kind==='sale'?next.sales.find(s=>s.id===mdState.saleId):null;
    const lot=sale?next.lots.find(l=>l.id===sale.lotId):null;
    if(sale&&(!lot||sale.type!=='credit'))throw Error('El contrato o solar cambió.');
@@ -490,22 +507,33 @@
       if(allocation.paymentApplication==='prima')assertPrimaPayment(next,target.lotId,allocation.cents);else assertMonthlyPayment(next,[target.lotId],allocation.cents);
       const priorPaid=(Number(target.openingPaid)||0)+next.payments.filter(p=>p.saleId===target.id).reduce((n,p)=>n+Number(p.amount||0),0);
       const payment={id:groupId+'-'+(index+1),groupId,saleId:target.id,date:row.date,amount:allocation.amount,concept:allocation.concept||'Abono mensual · Registro por fechas',...(allocation.paymentApplication?{paymentApplication:allocation.paymentApplication}:{}),method:'Efectivo',receiptReference:row.raw,receiptReferenceNormalized:row.normalized,recordedAt:new Date().toISOString(),...(photoKey?{receiptImageKey:photoKey}:{}),verifyToken};
+      const partial=partialEntry(next,[target.lotId],allocation.cents,row.date,'sale:'+payment.id,{prima:allocation.paymentApplication==='prima',ref:row.raw,rowId:row.id});if(partial)pendingPartial.push({...partial,paymentId:payment.id,kind:'sale'});
       payment.receiptInfo=buildReceiptInfo(payment,priorPaid);next.payments.unshift(payment);
       if(index===0)id=payment.id;
      }
     }else{
+     const partial=partialEntry(next,monthlyOwnerLotIds(next,row.statementId,null),row.cents,row.date,'owner:'+row.id,{ref:row.raw,rowId:row.id});
      const outcome=window.lotigestOwnerPayments.createOwnerPayment(next,{id:'OP-'+crypto.randomUUID(),clientId:mdState.clientId,residenceId:mdState.residenceId,date:row.date,method:'Efectivo',concept:'Abono mensual · Registro por fechas',receiptRef:row.raw,reviewed:true,allocations:[{statementId:row.statementId,referenceIndex:null,amount:row.amount}]});
      next=outcome.state;id=outcome.receipt.id;
      const receipt=next.ownerPayments.find(p=>p.id===id);if(photoKey)receipt.receiptImageKey=photoKey;
+     if(partial)pendingPartial.push({...partial,paymentId:receipt.id,kind:'owner'});
      receipt.verifyToken=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
     }
-    saved.push({id,kind:mdState.kind,ref:row.raw,date:row.date,amount:row.amount,photoKey});
+    const item={id,kind:mdState.kind,ref:row.raw,date:row.date,amount:row.amount,photoKey,groupId:mdState.kind==='sale'?next.payments.find(p=>p.id===id)?.groupId:null};item.proof=mdReceiptProof(next,item);saved.push(item);
     if(photoKey)attachments.push({key:photoKey,file:row.photo});
    }
+   if(pendingPartial.length){
+    const note=await partialPrompt(pendingPartial);
+    if(note===null){mdBackToData(pendingPartial[0].rowId);mdFocusField(pendingPartial[0].rowId,'amount');return;}
+    if(mdReviewSignature(mdValidate())!==mdReviewedKey||!document.getElementById('md-review-confirm')?.checked)throw Error('El borrador cambió. Revisa nuevamente los abonos.');
+    const actor=cloudUser?.name;if(!actor)throw Error('No se pudo verificar el usuario de la sesión.');
+    for(const entry of pendingPartial){const target=entry.kind==='sale'?next.payments.find(p=>p.id===entry.paymentId):next.ownerPayments.find(p=>p.id===entry.paymentId)?.allocations?.[0];if(!target)throw Error('No se encontró el abono confirmado.');target.partialPaymentConfirmation=makePartialPaymentConfirmation(entry.details,{date:entry.date,actor,note});}
+   }
+   for(const item of saved)item.proof=mdReceiptProof(next,item);
    for(const {key,file} of attachments)await window.lotigestFiles.queue(key,file);
    cloudWrite(JSON.stringify(next));db=next;
    await cloudFlush();
-   const confirmed=!!cloudQueue&&!cloudBlocked&&!cloudOffline&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed;
+   const confirmed=mdQueueConfirmed()&&await mdReceiptsConfirmed(saved);
    mdSaved={items:saved,confirmed,client:mdState.clientName,kind:mdState.kind,saleId:mdState.saleId,clientId:mdState.clientId,residenceId:mdState.residenceId};
    for(const row of mdState.rows)if(row.preview&&String(row.preview).startsWith('blob:'))URL.revokeObjectURL(row.preview);
    mdState=null;
@@ -514,7 +542,7 @@
    if(!confirmed)toast('Los abonos quedaron en este dispositivo pendientes de sincronización. No compartas comprobantes hasta confirmar el guardado en Cloudflare.','error');
    else toast(saved.length+' abonos individuales guardados en Cloudflare.');
   }catch(e){mdError(e.message||'No se pudieron guardar los abonos.');}
-  finally{mdSaving=false;if(btn?.isConnected)btn.disabled=false;}
+  finally{mdSaving=false;if(btn?.isConnected){btn.disabled=false;btn.textContent='Guardar abonos';}}
  }
  function mdShowSaved(){
   if(!mdSaved)return;
@@ -522,7 +550,7 @@
   const body='<div class="md-success"><h3>'+(confirmed?'✓ Pagos guardados por separado':'Pagos pendientes de sincronización')+'</h3><p>'+mdSafe(mdSaved.client)+' · '+mdSaved.items.length+' recibo(s) individuales</p>'+
    (confirmed?'<p>Ya puedes descargarlos por separado o generar un solo PDF con todas las fechas para compartirlo.</p>':'<p>Se conservó una copia local. Verifica la sincronización de Cloudflare antes de enviar los recibos.</p>')+'</div>'+
    '<div class="md-saved-list">'+mdSaved.items.map((p,i)=>'<div class="md-saved-item"><span>Abono '+(i+1)+' · '+mdSafe(p.date)+' · '+mdFmt(p.amount)+'<small>Correlativo '+mdSafe(p.ref)+'</small></span><span class="md-saved-actions">'+(confirmed?'<button type="button" data-md-pdf="'+mdSafe(p.id)+'" data-md-kind="'+mdSafe(p.kind)+'">PDF</button>':'')+(p.photoKey?'<button type="button" data-md-view-photo="'+mdSafe(p.photoKey)+'">Foto</button>':'')+'</span></div>').join('')+'</div>';
-  const footer=confirmed?'<button class="btn btn-outline" type="button" data-md-download-all>Descargar todos (PDF)</button><button class="btn btn-primary" type="button" data-md-share-all>Enviar todos</button><button class="btn btn-outline" type="button" data-md-another>Guardar y registrar otro</button><button class="btn btn-soft" type="button" data-action="close-modal">Cerrar</button>':'<button class="btn btn-soft" type="button" data-action="close-modal">Cerrar</button>';
+  const footer=confirmed?'<button class="btn btn-outline" type="button" data-md-download-all>Descargar todos (PDF)</button><button class="btn btn-primary" type="button" data-md-share-all>Enviar todos</button><button class="btn btn-outline" type="button" data-md-another>Guardar y registrar otro</button><button class="btn btn-soft" type="button" data-action="close-modal">Cerrar</button>':'<button class="btn btn-primary" type="button" data-md-sync>Reintentar sincronización</button><button class="btn btn-soft" type="button" data-action="close-modal">Cerrar</button>';
   showModal('Abonos · Recibos separados',body,footer,true);
   document.querySelector('#modal-root .modal')?.classList.add('lg-multi-date-modal','lg-payment-modern');
  }
@@ -731,12 +759,16 @@
   else if(control.hasAttribute('data-md-goto'))mdBackToData(control.dataset.mdGoto);
   else if(control.hasAttribute('data-md-review-remove')){mdStage='data';mdReviewedKey=null;mdRemove(control.dataset.mdReviewRemove);mdReview();mdWizardPaint();}
  },true);
- document.addEventListener('click',event=>{
+ document.addEventListener('click',async event=>{
   mdRememberPayment(event.target);
-  const action=event.target.closest?.('[data-md-start-sale],[data-md-start-owner],[data-md-shortcut-sale],[data-md-pick-owner],[data-md-edit],[data-md-toggle-row],[data-md-add],[data-md-remove],[data-md-retry],[data-md-one],[data-md-many],[data-md-save],[data-md-pdf],[data-md-download-all],[data-md-share-all],[data-md-another],[data-md-view-photo]');
+  const action=event.target.closest?.('[data-md-start-sale],[data-md-start-owner],[data-md-shortcut-sale],[data-md-pick-owner],[data-md-edit],[data-md-toggle-row],[data-md-add],[data-md-remove],[data-md-retry],[data-md-one],[data-md-many],[data-md-save],[data-md-sync],[data-md-open-picker],[data-md-pdf],[data-md-download-all],[data-md-share-all],[data-md-another],[data-md-view-photo]');
   if(!action)return;
   event.preventDefault();event.stopImmediatePropagation();
-  if(action.hasAttribute('data-md-start-sale'))mdStartSale(action.dataset.mdStartSale);
+  if(action.hasAttribute('data-md-open-picker')){
+   const picker=document.querySelector('[data-md-picker="'+action.dataset.mdOpenPicker+'"]');
+   if(picker){try{if(picker.showPicker)picker.showPicker();else picker.click();}catch{picker.focus();}}
+  }
+  else if(action.hasAttribute('data-md-start-sale'))mdStartSale(action.dataset.mdStartSale);
   else if(action.hasAttribute('data-md-start-owner'))mdStartOwnerToken(action.dataset.mdStartOwner);
   else if(action.hasAttribute('data-md-pick-owner'))mdStartOwner(action.dataset.mdPickOwner,action.dataset.mdRid);
   else if(action.hasAttribute('data-md-shortcut-sale'))mdStartSale(action.dataset.mdShortcutSale);
@@ -759,6 +791,16 @@
   }
   else if(action.hasAttribute('data-md-one')){if(mdState?.kind==='sale'){const id=mdState.saleId;mdState=null;baseNewPayment(id,false);}else if(mdState?.kind==='owner'){const {clientId,residenceId}=mdState;mdState=null;openOwnerAbono(clientId,residenceId);}}
   else if(action.hasAttribute('data-md-save'))mdSave();
+  else if(action.hasAttribute('data-md-sync')){
+   if(mdSaving||!mdSaved)return;
+   const batch=mdSaved;mdSaving=true;action.disabled=true;action.textContent='Sincronizando…';
+   try{
+    await cloudFlush();
+    if(mdSaved===batch&&mdQueueConfirmed()&&await mdReceiptsConfirmed(batch.items)){
+     batch.confirmed=true;mdReturnToAbonos();toast('Abonos confirmados en Cloudflare D1.');
+    }else toast('Los recibos siguen sin confirmar. No vuelvas a ingresarlos; revisa la sincronización.','error');
+   }finally{mdSaving=false;if(action.isConnected){action.disabled=false;action.textContent='Reintentar sincronización';}}
+  }
   else if(action.hasAttribute('data-md-pdf')){if(action.dataset.mdKind==='owner')deliverOwnerPayment(action.dataset.mdPdf,false);else deliverPaymentReceipt(action.dataset.mdPdf,false);}
   else if(action.hasAttribute('data-md-another')){if(mdSaved?.kind==='sale')mdStartSale(mdSaved.saleId);else if(mdSaved?.kind==='owner')mdStartOwner(mdSaved.clientId,mdSaved.residenceId);}
   else if(action.hasAttribute('data-md-download-all'))mdShareAll(false);

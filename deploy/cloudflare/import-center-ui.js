@@ -1,22 +1,23 @@
 // LOTIGEST · Ventana única de importaciones.
 // Reutiliza validaciones ya existentes. Nunca guarda registros sin la confirmación explícita.
 const importHubModes={
+ inventory:{title:'Terrenos y compradores',tip:'Una fila por terreno. Conserva compradores existentes y ceros iniciales de identidad; permite revisar nuevos terrenos sin croquis. No registra ventas, primas ni abonos.',accept:'.xlsx',max:12,preview:'land-inventory-preview',confirm:'land-inventory-confirm',action:'land-inventory-confirm'},
  measures:{title:'Medidas y precios',tip:'Actualizar áreas, varas y precios de solares existentes. No modifica propietarios ni pagos.',accept:'.xlsx',max:12,preview:'lot-measures-preview',confirm:'lot-measures-confirm',action:'lot-measures-confirm'},
  buyers:{title:'Clientes y compras',tip:'Vincular comprador, identidad, etapa, bloque, solar, prima y contrato por fila. Varias compras del mismo cliente van en filas diferentes.',accept:'.xlsx',max:12,preview:'buyer-import-preview',confirm:'buyer-import-confirm',action:'buyer-import-confirm'},
- payments:{title:'Primas y abonos',tip:'Cargar historial: fecha, cliente, etapa, bloque, solares y monto. Se revisan duplicados; el historial no se convierte automáticamente en un cobro nuevo.',accept:'.xlsx',max:15,preview:'ledger-preview',confirm:'ledger-confirm',action:'ledger-confirm'},
+ payments:{title:'Primas y abonos',tip:'Cargar historial: fecha, cliente, etapa, bloque, solares y monto. Se revisan duplicados; el historial no se convierte automáticamente en un cobro nuevo.',accept:'.xlsx,.csv',max:15,preview:'ledger-preview',confirm:'ledger-confirm',action:'ledger-confirm'},
  map:{title:'Croquis PDF',tip:'Adjuntar croquis por residencial. El PDF no asigna automáticamente dueños ni precios: revisa las medidas y conserva los solares existentes.',accept:'.pdf,.json',max:20},
  contracts:{title:'Documentos de contratos',tip:'Sube primero la foto del contrato: se lee el cliente, solar, medidas, precio, prima y plazo. Revisa los datos y activa el crédito antes de registrar abonos.',accept:'.jpg,.jpeg,.png,.webp'}
 };
 const importHubPanelModes={
  dashboard:'buyers',residences:'map',arrayan:'map',gps:'map',design:'map',
- lots:'measures',clients:'buyers',sales:'buyers',collections:'payments',payments:'payments',
+ lots:'inventory',clients:'buyers',sales:'buyers',collections:'payments',payments:'payments',
  receipts:'payments',contracts:'contracts',pending:'buyers',reports:'payments',
  finance:'payments',settings:'measures'
 };
 let importHubCurrentMode=null;
 function importHubIsAdmin(){return !!(cloudReady&&cloudUser?.role==='admin'&&sessionStorage.getItem(SESSION)==='yes');}
 function importHubResetPreview(){
- lotImportPreview=null;buyerImportPreview=null;ledgerPreview=null;
+ lotImportPreview=null;buyerImportPreview=null;ledgerPreview=null;landImportPreview=null;landReadGeneration++;
  lotImportReadVersion++;buyerImportReadVersion++;ledgerReadVersion++;
 }
 function importHubModesMarkup(selected){
@@ -25,6 +26,7 @@ function importHubModesMarkup(selected){
 }
 function importHubTemplate(mode){
  if(!importHubIsAdmin())throw Error('Solo el administrador puede descargar o importar datos.');
+ if(mode==='inventory')return lotMeasuresTemplate();
  if(mode==='measures')return downloadExcel('Plantilla_terrenos_y_medidas.xlsx',['Codigo','Bloque','Numero','Tipo','Area_m2','Precio','Frente','Fondo','Lateral_izquierdo','Lateral_derecho'],[]);
  if(mode==='buyers')return downloadExcel('Plantilla_clientes_compras.xlsx',buyerColumns,[]);
  if(mode==='payments')return ledgerExcelTemplate();
@@ -35,13 +37,13 @@ function importHubOpen(requested){
  const mode=Object.hasOwn(importHubModes,requested)?requested:importHubPanelModes[page]||'measures';
  importHubCurrentMode=mode;
  const config=importHubModes[mode];
- const kind=['measures','buyers','payments'].includes(mode);
+ const kind=['inventory','measures','buyers','payments'].includes(mode);
  const previewId=config.preview||'import-hub-message';
  const accept=config.accept;
  const tips='<p class="sm muted" style="margin:8px 0 14px">'+esc(config.tip)+'</p>';
  const tabs=importHubModesMarkup(mode);
  const file=mode==='contracts'
-  ?'<div class="card" style="padding:16px"><strong>Relacionar el documento antes de leerlo</strong><p class="sm muted">Busca por nombre o identidad al cliente y selecciona el solar. Las fotos se usan para OCR; el sistema conserva el texto revisado, no la fotografía original.</p><button type="button" class="btn btn-primary" data-import-hub-contract>Subir contrato y crear ficha de cliente</button></div>'
+  ?'<div class="card" style="padding:16px"><strong>Relacionar el documento antes de leerlo</strong><p class="sm muted">Busca por nombre o identidad al cliente y selecciona el solar. Las fotos se usan para OCR. Al confirmar, el texto revisado y la imagen original se conservan de forma privada en LOTIGEST.</p><button type="button" class="btn btn-primary" data-import-hub-contract>Subir contrato y crear ficha de cliente</button></div>'
   :'<div class="card" style="padding:16px"><label for="import-hub-file" style="display:block;font-weight:650;margin-bottom:8px">Archivo de '+esc(config.title.toLowerCase())+'</label>'+
     '<input id="import-hub-file" type="file" accept="'+esc(accept)+'" style="display:block;width:100%;max-width:100%;min-width:0" aria-describedby="import-hub-file-help">'+
     '<p id="import-hub-file-help" class="sm muted">Formatos permitidos: '+esc(accept)+' · '+config.max+' MB máximo.</p></div>';
@@ -64,6 +66,7 @@ async function importHubFile(file){
  const ok=extensions.some(ext=>file.name.toLowerCase().endsWith(ext));
  if(!ok)throw Error('Archivo incompatible con '+config.title+'. Se acepta '+config.accept+'.');
  if(file.size>config.max*1024*1024)throw Error('El archivo supera '+config.max+' MB.');
+ if(mode==='inventory')return landReadInventory(file);
  if(mode==='measures')return previewLotMeasures(file);
  if(mode==='buyers')return previewBuyerImport(file);
  if(mode==='payments')return readLedgerFile(file);
@@ -94,7 +97,7 @@ document.addEventListener('click',event=>{
   return importHubOpen(target.dataset.importHubMode);
  }
  const action=target.dataset.action;
- return importHubOpen(action==='buyer-import'?'buyers':action==='lot-measures-import'?'measures':action==='ledger-import'?'payments':importHubPanelModes[page]);
+ return importHubOpen(action==='buyer-import'?'buyers':action==='lot-measures-import'?'inventory':action==='ledger-import'?'payments':importHubPanelModes[page]);
 },true);
 document.addEventListener('change',event=>{
  if(event.target.id!=='import-hub-file')return;

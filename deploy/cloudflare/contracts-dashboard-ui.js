@@ -295,7 +295,8 @@
   const count=s=>all.filter(r=>r.status===s).length;
   const toolbar='<button type="button" class="btn btn-primary" data-contract-intake-open>'+ic('plus')+' Nuevo contrato</button>'+
     '<button type="button" class="btn btn-outline" data-ct-print>'+ic('printer')+' Imprimir</button>'+
-    '<button type="button" class="btn btn-outline" data-ct-export>'+ic('download')+' Exportar Excel</button>';
+    '<button type="button" class="btn btn-outline" data-ct-export>'+ic('download')+' Exportar Excel</button>'+
+    (activationAdmin()?'<button type="button" class="btn btn-outline" data-action="manual-history-picker">Registrar prima / abono histórico</button><button type="button" class="btn btn-outline" data-action="ledger-review">Revisar historial Excel</button><button type="button" class="btn btn-outline" data-legacy-owner-cards>Fichas históricas</button>':'');
   const cards='<div class="ct-stats">'+[['all','▤','Fichas registradas',all.filter(r=>r.type==='doc').length],['active','✓','Activos',count('active')],['pending','◷','Por completar',count('pending')+count('missing')],['voided','×','Anulados',count('voided')]]
     .map(([style,icon,label,n])=>style==='voided'?
      '<button type="button" class="ct-stat ct-voided ct-stat-link" data-ct-show-voided aria-pressed="'+(state.status==='voided')+'" title="Mostrar contratos anulados"><span class="ct-symbol" aria-hidden="true">'+icon+'</span><span><small>'+label+'</small><strong>'+n+'</strong><small>Ver lista</small></span></button>':

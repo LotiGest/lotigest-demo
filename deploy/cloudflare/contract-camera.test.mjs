@@ -7,7 +7,7 @@ test('Contratos ofrece cámara y galería por separado sin cambiar el flujo OCR'
  try{
   await login(app,server);
   app.click('[data-page=contracts]');
-  app.click('[data-contract-intake-open]');
+  app.click('[data-import-hub-open]');app.click('[data-import-hub-mode=contracts]');app.click('[data-import-hub-contract]');
   const camera=app.d.getElementById('contract-intake-camera');
   const gallery=app.d.getElementById('contract-intake-file');
   assert.ok(camera,'Debe existir un selector nativo de cámara');

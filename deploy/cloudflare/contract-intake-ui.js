@@ -121,7 +121,7 @@ function contractIntakeManualFields(){
  const stage=[1,2].includes(Number(v.stage))?String(v.stage):'';
  const eligible=(residenceLots()||[]).filter(l=>l.type!=='private'&&l.status!=='private'&&!db.sales.some(s=>s.lotId===l.id)&&
   !l.pendingContractId&&!(db.contractTexts||[]).some(d=>d.lotId===l.id&&d.status!=='voided')&&
-  !activeReservation(l.id)&&(!l.ownerClientId||(customer&&l.ownerClientId===customer.id)));
+  (!activeReservation(l.id)||(customer&&activeReservation(l.id).clientId===customer.id))&&(!l.ownerClientId||(customer&&l.ownerClientId===customer.id)));
  const selected=eligible.find(l=>l.id===v.lotId&&String(l.stage)===stage)||null;
  const extra=draft?.extraLots||[];
  const all=[selected,...extra.map(r=>eligible.find(l=>l.id===r.lotId)||null)];
@@ -342,8 +342,14 @@ function contractTotalsMount(form,lots){
  box.innerHTML='<h3>Total del contrato</h3><div class="form-grid"><label class="field-group"><span>Cómo acordar los precios</span><select name="contractPriceMode"><option value="equal">Precio total · repartir entre los solares</option><option value="different">Precios diferentes por solar</option></select></label><label class="field-group"><span>Precio total acordado (L)</span><input type="number" name="contractTotalPrice" min="0.01" step="0.01" required></label><label class="field-group"><span>Prima total pactada (L)</span><input type="number" name="contractTotalPrima" min="0" step="0.01" required></label></div><p>La prima se distribuye proporcionalmente al precio de cada solar. Pactarla no registra un pago.</p><div data-contract-total-preview aria-live="polite"></div>';
  lots.append(box);
  form.elements.namedItem('contractPriceMode').value=values.contractPriceMode||'equal';
- form.elements.namedItem('contractTotalPrice').value=values.contractTotalPrice??'';
- form.elements.namedItem('contractTotalPrima').value=values.contractTotalPrima??'';
+ // Una oferta de Predios es solo una sugerencia editable para una ficha de un solar.
+ // Nunca sustituir un importe negociado que ya se escribió ni repartir ofertas automáticamente.
+ const single=!(contractIntakeWorking.extraLots||[]).length;
+ const selected=single?getLot(form.elements.namedItem('lotId')?.value):null;
+ const suggestedPrice=selected&&Number(selected.price)>0?String(selected.price):'';
+ const suggestedPrima=selected?(selected.quotePrima??selected.pdfPrima??''):'';
+ form.elements.namedItem('contractTotalPrice').value=String(values.contractTotalPrice??'').trim()!==''?values.contractTotalPrice:suggestedPrice;
+ form.elements.namedItem('contractTotalPrima').value=String(values.contractTotalPrima??'').trim()!==''?values.contractTotalPrima:suggestedPrima;
  const refresh=()=>{contractIntakeManualRecalculate(form);const check=form.querySelector('#cq-reviewed');if(check)check.checked=false;};
  box.addEventListener('input',refresh);box.addEventListener('change',refresh);
  contractIntakeManualRecalculate(form);
@@ -469,7 +475,7 @@ document.addEventListener('click',event=>{
  Object.assign(draft.values,{lotId:'',block:'',number:'',solarPrice_0:'',down:'',solarDown_0:''});
  draft.extraLots=[];
  if(selected){
-  const assigned=residenceLots().filter(l=>l.ownerClientId===selected.id&&!db.sales.some(s=>s.lotId===l.id)&&!l.pendingContractId);
+  const assigned=residenceLots().filter(l=>(l.ownerClientId===selected.id||activeReservation(l.id)?.clientId===selected.id)&&(!activeReservation(l.id)||activeReservation(l.id).clientId===selected.id)&&!db.sales.some(s=>s.lotId===l.id)&&!l.pendingContractId);
   if(assigned.length===1){
    const l=assigned[0];
    Object.assign(draft.values,{lotId:l.id,stage:String(l.stage),block:l.block,number:String(l.sourceNumber||l.number||''),
@@ -782,7 +788,7 @@ async function contractIntakeSave(form){
  for(const {lot} of planned){
   if(db.sales.some(s=>s.lotId===lot.id))throw Error('Uno de los solares ya tiene una venta.');
   if(lot.pendingContractId)throw Error('Uno de los solares ya tiene contrato pendiente.');
-  if(activeReservation(lot.id))throw Error('Uno de los solares tiene un apartado vigente.');
+  if(activeReservation(lot.id)&&activeReservation(lot.id).clientId!==data.clientId)throw Error('Selecciona el cliente titular del apartado vigente antes de registrar el contrato.');
   if((db.contractTexts||[]).some(d=>d.lotId===lot.id&&d.status!=='voided'))throw Error('Ya existe un documento asociado a uno de los solares.');
  }
  const price=Number(data.price),down=Number(data.down),months=Number(data.months);
@@ -824,6 +830,7 @@ async function contractIntakeSave(form){
   for(const {lot,fields} of planned){
    const target=next.lots.find(l=>l.id===lot.id);
    if(target.ownerClientId&&target.ownerClientId!==client.id)throw Error('Un solar ya está asignado a otro cliente; verifica la identidad.');
+   intakeReservationFor(next,target.id,client.id);
    const {rawText:sourceOCR,...structuredFields}=fields;
    // Las claves auxiliares del formulario no forman parte de la descripción.
    for(const k of Object.keys(structuredFields))if(/^(?:extra|solarPrice_|solarDown_|primaPaid$|primaDate$|primaMethod$|primaRef$|primaReceivedTotal$|existingClientVerified$)/.test(k))delete structuredFields[k];
@@ -850,6 +857,7 @@ async function contractIntakeSave(form){
      concept:'Prima',method:data.primaMethod,recordedAt:now,
      ...(data.primaRef?{receiptReference:String(data.primaRef).trim(),...(/^\d+$/.test(String(data.primaRef).trim())?{receiptReferenceNormalized:String(data.primaRef).trim().replace(/^0+(?=\d)/,'')}:{} )}:{}),
      ...(receiptGroup?{groupId:receiptGroup}:{})};
+    intakeConvertReservation(next,target,sale,now);
     next.sales.unshift(sale);next.payments.unshift(payment);record.saleId=sale.id;
     target.status='sold';target.mapDebtFlag=false;delete target.pendingContractId;
     const residential=next.residences?.find(r=>r.id===target.residenceId);
@@ -920,7 +928,7 @@ async function contractIntakeConfirmActivation(form){
  const fields=Object.fromEntries(new FormData(form)),d=(db.contractTexts||[]).find(x=>x.id===fields.documentId&&x.status==='pending-sale');
  if(!d)throw Error('La ficha no está pendiente de activar.');
  const lot=getLot(d.lotId);if(!lot||lot.residenceId!==d.residenceId||db.sales.some(s=>s.lotId===lot.id))throw Error('Solar no válido o ya vendido.');
- if(activeReservation(lot.id))throw Error('Revisa el apartado existente.');
+ intakeReservationFor(db,lot.id,d.clientId);
  const date=buyerDate(fields.date,'fecha del contrato'),firstDueDate=buyerDate(fields.firstDueDate,'primera cuota');
  if(date>businessToday()||firstDueDate<date)throw Error('Revisa la fecha del contrato y primera cuota.');
  const p=d.structured,price=Number(p.price),down=Number(p.down),months=Number(p.months);
@@ -928,6 +936,7 @@ async function contractIntakeConfirmActivation(form){
  const next=JSON.parse(JSON.stringify(db)),record=next.contractTexts.find(x=>x.id===d.id),target=next.lots.find(x=>x.id===lot.id);
  const sale={id:'V-'+crypto.randomUUID(),clientId:d.clientId,lotId:d.lotId,type:'credit',price,downPayment:down,months,date,firstDueDate,
   openingPaid:0,importedPaidInstallments:0,historical:true,source:'contract-intake',documentId:record.id};
+ intakeConvertReservation(next,target,sale,new Date().toISOString());
  next.sales.unshift(sale);record.saleId=sale.id;record.status='active';record.structured={...record.structured,date,firstDueDate};record.updatedAt=new Date().toISOString();
  target.price=price;target.status='sold';target.mapDebtFlag=false;target.ownerClientId=d.clientId;delete target.pendingContractId;
  const r=next.residences?.find(r=>r.id===target.residenceId);

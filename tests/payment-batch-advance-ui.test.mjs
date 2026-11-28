@@ -4,6 +4,8 @@ import {readFileSync} from 'node:fs';
 import {reconcileInstallments} from '../installment-status.mjs';
 import {requireReceiptCorrelativo,findReceiptCorrelativo} from '../owner-payments.mjs';
 const addon=readFileSync(new URL('../deploy/cloudflare/payment-batch-ui.js',import.meta.url),'utf8');
+const monthlyUI=readFileSync(new URL('../deploy/cloudflare/monthly-payment-ui.js',import.meta.url),'utf8');
+const partialOwnerCode=monthlyUI.slice(monthlyUI.indexOf('function partialApprovedFor('),monthlyUI.indexOf('function partialFocusAmount('));
 const original=readFileSync(new URL('../prueba-diseno-v08.html',import.meta.url),'utf8');
 const modern=readFileSync(new URL('../deploy/cloudflare/payment-modal-ui.js',import.meta.url),'utf8');
 const css=readFileSync(new URL('../deploy/cloudflare/payment-modal.css',import.meta.url),'utf8');
@@ -129,7 +131,8 @@ test('abonos de fichas: guarda un recibo independiente y conserva el cliente en 
   showModal:()=>null,submitMultiPayment:()=>{},submitOwnerAbono:async()=>{},
   FormData:class{constructor(f){this.form=f;}*[Symbol.iterator](){yield* Object.entries(this.form.fakeData);}},
   lotigestOwnerPayments:{createOwnerPayment:(db,data)=>{
-   const receipt={id:'OP-'+(++number),date:data.date,amountCents:1950000};
+   assert.equal(data.allocations.length,1);assert.equal(data.allocations[0].statementId,'O1');assert.equal(data.allocations[0].amount,'19500');
+   const receipt={id:'OP-'+(++number),date:data.date,amountCents:1950000,allocations:data.allocations};
    return {receipt,state:{...db,ownerPayments:[receipt,...db.ownerPayments]}};
   }},
   cloudWrite:raw=>registered.push(JSON.parse(raw)),cloudFlush:async()=>{},
@@ -137,7 +140,7 @@ test('abonos de fichas: guarda un recibo independiente y conserva el cliente en 
   openOwnerAbono:(id,residenceId)=>opened.push([id,residenceId]),
   money:n=>'L '+n,toast:()=>{}
  };
- const api=new Function(...Object.keys(environment),addon+
+ const api=new Function(...Object.keys(environment),'const partialApprovals=new WeakMap();\n'+partialOwnerCode+'\n'+addon+
   ';return {submitOwnerAbono,setContinue:value=>pmBatchContinue=value,receipts:()=>pmBatchReceipts,getDb:()=>db};')
   (...Object.values(environment));
  api.setContinue(true);await api.submitOwnerAbono(form);

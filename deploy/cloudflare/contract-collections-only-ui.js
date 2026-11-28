@@ -19,7 +19,7 @@
   scope.ownershipStatements=(original.ownershipStatements||[]).filter(s=>s.residenceId===rid&&clientIds.has(s.clientId)&&hasContractRefs(s.references));
   const statements=new Set(scope.ownershipStatements.map(s=>s.id));
   scope.ownerPayments=(original.ownerPayments||[]).filter(p=>p.residenceId===rid&&clientIds.has(p.clientId)&&
-   !p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&(p.allocations||[]).length>0&&
+   !p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&!['voided','cancelled','annulled'].includes(p.status)&&(p.allocations||[]).length>0&&
    p.allocations.every(a=>statements.has(a.statementId)&&hasContractRefs(a.references)));
   const posted=new Set((original.historicalPayments||[]).map(p=>p.postedPaymentId).filter(Boolean));
   scope.payments=scope.payments.filter(p=>!p.historicalImportId&&!posted.has(p.id));
@@ -264,7 +264,8 @@
  }
  function ccMatch(g){
   if(collectionStageFilter!=='all'&&!g.lots.some(l=>String(l.stage||'pending')===collectionStageFilter))return false;
-  if(ccSearch&&!ccNorm([g.client.name,g.client.identity,g.client.phone,g.residenceName,...g.lots.flatMap(l=>[l.id,l.block,l.sourceNumber])].join(' ')).includes(ccNorm(ccSearch)))return false;
+  const query=ccNorm(ccSearch).trim(),digits=v=>String(v??'').replace(/\D/g,''),numeric=/^[+\d\s().-]+$/.test(query)?digits(query):'';
+  if(query&&!ccNorm([g.client.name,g.client.identity,g.client.phone,g.residenceName,...g.lots.flatMap(l=>[l.id,l.block,l.sourceNumber])].join(' ')).includes(query)&&!(numeric&&[g.client.identity,g.client.phone].some(v=>digits(v).includes(numeric))))return false;
   const t=g.model.m?ccMetrics(g.model.m,collectionMonth):null;
   if(collectionOverdueMonths!=='all'&&(!t||t.months!==Number(collectionOverdueMonths)))return false;
   if(collectionFilter==='all')return true;
@@ -294,7 +295,7 @@
   const slice=ccPageSlice(shown,ccPage,ccPhone());ccPage=slice.index;
   const g=shown.find(x=>x.key===ccSelection)||slice.items[0];ccSelection=g?.key||'';
   const pager=slice.pages>1?'<nav class="cc-mobile-pages" aria-label="Páginas de clientes"><button type="button" class="btn btn-outline" data-cc-page="-1" '+(slice.index===0?'disabled':'')+'>‹ Anterior</button><small>'+ (slice.start+1)+'–'+slice.end+' de '+shown.length+'</small><button type="button" class="btn btn-outline" data-cc-page="1" '+(slice.index===slice.pages-1?'disabled':'')+'>Siguiente ›</button></nav>':'';
-  return ccStyle+'<div class="cc-toolbar"><input type="search" id="cc-search" placeholder="Buscar cliente, teléfono o solar…" aria-label="Buscar cliente" value="'+esc(ccSearch)+'"><details><summary class="btn btn-outline">Filtros ▾</summary><div class="cc-filter-grid">'+
+  return header('Cobros','Clientes y solares vinculados desde Contratos. El historial anterior se conserva sin incorporarlo automáticamente a cobros.')+ccStyle+'<div class="cc-toolbar"><input type="search" id="cc-search" placeholder="Buscar cliente, identidad, teléfono o solar…" aria-label="Buscar cliente por nombre, identidad, teléfono o solar" value="'+esc(ccSearch)+'"><details><summary class="btn btn-outline">Filtros ▾</summary><div class="cc-filter-grid">'+
    '<label>Residencial<select data-residence-picker>'+ccOptions(state.residences.filter(r=>!r.hidden).map(r=>[r.id,r.name]),rid)+'</select></label>'+
    '<label>Mes<input id="debt-month" type="month" value="'+esc(collectionMonth)+'"></label><label>Etapa<select id="collection-stage-filter">'+ccOptions([['all','Todas'],['1','Etapa 1'],['2','Etapa 2'],['pending','Por confirmar']],collectionStageFilter)+'</select></label>'+
    '<label>Estado<select id="debt-filter">'+ccOptions([['all','Todos'],['notify','Por cobrar'],['late','Vencidos'],['month','Pendientes del mes'],['credit','Al día'],['settled','Cancelados'],['cash','Contado'],['pending','Pendiente de activar'],['review','Por conciliar']],collectionFilter)+'</select></label>'+
@@ -326,6 +327,22 @@
   if(currentScope)return previousRows(...args);
   return withScope(()=>previousRows(...args));
  };
+ // Acceso explícito de administración al archivo histórico, separado de Cobros.
+ // Conserva referencias ambiguas sin asignar solares ni inferir cuotas.
+ document.addEventListener('click',event=>{
+  const button=event.target.closest?.('[data-legacy-owner-cards],[data-legacy-owner-export]');
+  if(!button)return;
+  event.preventDefault();event.stopImmediatePropagation();
+  if(typeof cloudUser==='undefined'||cloudUser?.role!=='admin')return;
+  const rid=residence().id;
+  if(button.hasAttribute('data-legacy-owner-export')){
+   const rows=withResidenceData(()=>previousRows(true));
+   download('LOTIGEST_Historial_Primas_Abonos_'+dateKey(new Date())+'.xlsx',paymentExcelBytes(rows),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');return;
+  }
+  const groups=collectionOwnershipGroups(rid).filter(g=>g.statements.some(s=>s.generic||(db.ownershipStatements||[]).some(d=>d.id===s.id)));
+  const cards=groups.map(g=>collectionOwnershipCard(g,rid,g.lotIds.length===1?getLot(g.lotIds[0]):null)).join('');
+  showModal('Fichas históricas · '+esc(residence().name),'<p>Archivo documental separado de Cobros. No genera cuotas, ventas ni mora por sí mismo.</p><div data-legacy-owner-list style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">'+(cards||'<p>No hay fichas históricas en esta residencial.</p>')+'</div>','<button type="button" class="btn btn-outline" data-legacy-owner-export>Exportar historial Excel</button><button type="button" class="btn btn-soft" data-action="close-modal">Cerrar</button>',true);
+ },true);
  const previousClients=collectionClientRows;
  collectionClientRows=function(...args){
   if(currentScope)return previousClients(...args);

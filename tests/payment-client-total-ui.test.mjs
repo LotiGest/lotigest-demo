@@ -36,8 +36,8 @@ test('encabezado muestra el cliente y protege un abono sin guardar al cambiar de
  const document=dom.window.document,modal=document.querySelector('.modal');
  const node=(tag,cls='',text='')=>{const el=document.createElement(tag);el.className=cls;el.textContent=text;return el;};
  let opened=0,allowed=false;
- const helper=source.slice(source.indexOf('function pmHeaderClient('),source.indexOf('function pmIcon('));
- const api=new Function('document','window','pmNode','newPayment',helper+';return pmHeaderClient;')(document,{confirm:()=>allowed},node,(id,ocr)=>{assert.equal(id,null);assert.equal(ocr,false);opened++;});
+ const helper=source.slice(source.indexOf('function pmCanLeave('),source.indexOf('function pmIcon('));
+ const api=new Function('document','window','pmNode','newPayment','pmActive',helper+';return pmHeaderClient;')(document,{confirm:()=>allowed},node,(id,ocr)=>{assert.equal(id,null);assert.equal(ocr,false);opened++;},'owner');
  api(modal,{name:'CLIENTE A'});
  assert.equal(modal.querySelector('.pm-header-client-name').textContent,'CLIENTE A');
  const button=modal.querySelector('.pm-change-client'),receipt=document.querySelector('[name=receiptRef]');

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {intakeCheckValues,intakePlanLots,contractIdentityFormat,contractIdentityDigits} from '../../contract-intake-core.mjs';
+import {intakeCheckValues,intakePlanLots,contractIdentityFormat,contractIdentityDigits,intakeReservationFor,intakeConvertReservation} from '../../contract-intake-core.mjs';
 import {validate} from '../../functions/api/app/state.js';
 import {validateNewMonthlyPayments} from '../../monthly-payment-rules.mjs';
 import {validateNewReceiptCorrelativos} from '../../owner-payments.mjs';
@@ -24,11 +24,11 @@ function fixture(){
 function setup(){
  let db=fixture(),writes=0;
  const queue={latest:JSON.stringify(db),confirmed:JSON.stringify(db),pending:null};
- const env={db,FormData:InputFormData,intakeCheckValues,intakePlanLots,contractIdentityFormat,contractIdentityDigits,
+ const env={db,FormData:InputFormData,intakeCheckValues,intakePlanLots,contractIdentityFormat,contractIdentityDigits,intakeReservationFor,intakeConvertReservation,
   contractIntakeWorking:{mode:'manual',residenceId:'R',file:null,values:{},busy:false},
   document:{addEventListener(){},getElementById:()=>({disabled:false,isConnected:true})},
   contractIntakeAdmin:()=>true,getLot:id=>db.lots.find(l=>l.id===id),getClient:id=>db.clients.find(c=>c.id===id),
-  residence:()=>db.residences[0],activeReservation:()=>null,crypto:fakeUuid(),
+  residence:()=>db.residences[0],activeReservation:id=>db.reservations.find(r=>r.lotId===id&&r.status==='active')||null,crypto:fakeUuid(),
   normalizeClientLookup:v=>String(v||'').replace(/[^A-Z0-9]/gi,'').toLowerCase(),
   businessToday:()=> '2026-11-20',buyerDate:v=>v,
   cloudWrite:raw=>{db=JSON.parse(raw);queue.latest=raw;writes++;},cloudFlush:async()=>{queue.confirmed=queue.latest;},
@@ -138,4 +138,26 @@ test('servidor rechaza una prima inicial sin correlativo o duplicada y acepta la
  assert.throws(()=>validateNewReceiptCorrelativos(x.before,invalid),/correlativo/);
  const dup={...x.before,historicalPayments:[{id:'H',receiptReference:'7155'}]};
  assert.throws(()=>validateNewReceiptCorrelativos(dup,{...next,historicalPayments:dup.historicalPayments}),/correlativo/);
+});
+
+test('convierte el apartado del titular al cobrar la prima y conserva la identidad',async()=>{
+ const x=setup(),s=x.env.db;
+ s.clients.push({id:'C-RES',name:'CLIENTE FICTICIO',identity:'0801199000021'});
+ s.reservations.push({id:'RES',lotId:'L1',clientId:'C-RES',status:'active',residenceId:'R'});
+ s.lots[0].status='reserved';s.lots[0].reservationId='RES';
+ x.env.contractIntakeWorking.preferredClientId='C-RES';
+ Object.assign(x.data,{clientId:'C-RES',primaPaid:'on',primaDate:'2026-11-02',primaRef:'990003'});
+ await x.run(form(x.data));const next=x.db();
+ assert.equal(next.clients.length,1);assert.equal(next.sales.length,1);assert.equal(next.payments.length,1);
+ assert.equal(next.sales[0].clientId,'C-RES');assert.equal(next.reservations[0].clientId,'C-RES');
+ assert.equal(next.reservations[0].status,'converted');assert.equal(next.reservations[0].saleId,next.sales[0].id);
+ assert.equal(next.lots[0].reservationId,null);assert.equal(next.lots[0].status,'sold');
+ assert.equal(next.payments[0].amount,50000);
+});
+test('no permite convertir un apartado perteneciente a otro titular',async()=>{
+ const x=setup();x.env.db.reservations.push({id:'RES',lotId:'L1',clientId:'OTRO',status:'active'});
+ Object.assign(x.data,{primaPaid:'on',primaDate:'2026-11-02',primaRef:'990004'});
+ const before=JSON.stringify(x.db());
+ await assert.rejects(x.run(form(x.data)),/apartado vigente/);
+ assert.equal(x.writes(),0);assert.equal(JSON.stringify(x.db()),before);
 });

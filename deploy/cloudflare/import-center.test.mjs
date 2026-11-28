@@ -12,13 +12,15 @@ function runHub({role='admin',page='lots'}={}){
   residence:()=>({name:'Altos del Arrayán'}),esc:String,showModal:(title,body,footer,wide,subtitle)=>{logs.modal={title,body,footer,wide,subtitle};},
   header:(title,subtitle,actions='')=>title+' | '+actions,
   toast:(message)=>logs.toast.push(message),buyerColumns:['Codigo','Bloque','Numero','Nombre','Identidad','Prima'],
-  lotImportPreview:null,buyerImportPreview:null,ledgerPreview:null,
+  lotImportPreview:null,buyerImportPreview:null,ledgerPreview:null,landImportPreview:null,landReadGeneration:0,
   lotImportReadVersion:0,buyerImportReadVersion:0,ledgerReadVersion:0,
+  landReadInventory:async file=>logs.preview.push('inventory '+file.name),
+  lotMeasuresTemplate:()=>logs.template.push({name:'Plantilla_terrenos_compradores.xlsx'}),
   previewLotMeasures:async file=>logs.preview.push('measures '+file.name),
   previewBuyerImport:async file=>logs.preview.push('buyers '+file.name),
   readLedgerFile:async file=>logs.preview.push('payments '+file.name),
   importResidentialMap:async file=>logs.preview.push('map '+file.name),
-  chooseContractScanClient:()=>logs.preview.push('contract chooser'),
+  contractIntakeOpen:()=>logs.preview.push('contract OCR'),
   downloadExcel:(name,headers)=>logs.template.push({name,headers}),
   ledgerExcelTemplate:()=>logs.template.push({name:'Plantilla_primas_abonos.xlsx'})
  };
@@ -30,9 +32,11 @@ test('una sola ventana por panel, con Excel y previa sin guardar datos',async()=
  const {app,logs}=runHub();
  assert.match(app.header('Terrenos','x'),/data-import-hub-open/);
  for(const [mode,name,preview] of [
+  ['inventory','inventario.xlsx','inventory inventario.xlsx'],
   ['measures','terr.xlsx','measures terr.xlsx'],
   ['buyers','clientes.xlsx','buyers clientes.xlsx'],
-  ['payments','abonos.xlsx','payments abonos.xlsx']
+  ['payments','abonos.xlsx','payments abonos.xlsx'],
+  ['payments','abonos.csv','payments abonos.csv']
  ]){
   app.importHubOpen(mode);
   assert.equal(logs.modal.title,'Centro de importaciones');
@@ -46,18 +50,20 @@ test('una sola ventana por panel, con Excel y previa sin guardar datos',async()=
  assert.deepEqual(logs.toast,[]);
 });
 test('mapa PDF y contratos usan la misma ventana y exigen vínculo del cliente',async()=>{
- const {app,logs}=runHub({page:'arrayan'});
+ const {app,logs,events}=runHub({page:'arrayan'});
  app.importHubOpen('map');
  assert.equal(logs.modal.subtitle,'Croquis PDF');
  await app.importHubFile({name:'Altos-plan.pdf',size:2000});
  assert.equal(logs.preview.at(-1),'map Altos-plan.pdf');
  app.importHubOpen('contracts');
- assert.match(logs.modal.body,/Elegir cliente y escanear contrato/);
+ assert.match(logs.modal.body,/Subir contrato y crear ficha de cliente/);
+ assert.match(logs.modal.body,/data-import-hub-contract/);
+ const target={hasAttribute:k=>k==='data-import-hub-contract',dataset:{}};events.get('click')({target:{closest:()=>target},preventDefault(){},stopImmediatePropagation(){}});assert.equal(logs.preview.at(-1),'contract OCR');
  assert.doesNotMatch(logs.modal.body,/id="import-hub-file"/);
 });
 test('plantillas Excel reales y acceso solo del administrador',()=>{
  const admin=runHub();
- admin.app.importHubTemplate('buyers');
+ admin.app.importHubTemplate('buyers');admin.app.importHubTemplate('inventory');assert.equal(admin.logs.template[1].name,'Plantilla_terrenos_compradores.xlsx');
  assert.match(admin.logs.template[0].name,/\.xlsx$/);
  const readonly=runHub({role:'sales'});
  assert.equal(readonly.app.importHubIsAdmin(),false);

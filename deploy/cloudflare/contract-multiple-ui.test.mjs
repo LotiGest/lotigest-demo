@@ -4,7 +4,7 @@ import {setup,boot,login,until} from './test-ui.mjs';
 test('foto con tres solares abre tres selectores, permite agregar/quitar y conserva nombre al elegir etapa',async()=>{
  const server=await setup(),app=boot(server);
  try{
-  await login(app,server);app.click('[data-page=contracts]');app.click('[data-contract-intake-open]');
+  await login(app,server);app.click('[data-page=contracts]');app.click('[data-import-hub-open]');app.click('[data-import-hub-mode=contracts]');app.click('[data-import-hub-contract]');
   app.w.createImageBitmap=async()=>({width:1200,height:1800,close(){}});
   app.w.Tesseract={createWorker:async()=>({recognize:async()=>({data:{text:'NOMBRE DE CLIENTE: CLIENTE FICTICIO\nDNI: 0801 1990 00021\nLOTE (S): 16, 17 Y 18\nBLOQUE (S): G',confidence:95}}),terminate:async()=>{}})};
   const input=app.d.getElementById('contract-intake-file');Object.defineProperty(input,'files',{value:[new app.w.File(['foto'],'prueba.jpg',{type:'image/jpeg'})]});input.dispatchEvent(new app.w.Event('change',{bubbles:true}));
