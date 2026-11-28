@@ -1,0 +1,9 @@
+const js=String.raw`const bytes=s=>new TextEncoder().encode(s);
+const hex=b=>Array.from(new Uint8Array(b),x=>x.toString(16).padStart(2,'0')).join('');
+const form=document.getElementById('activate'),status=document.getElementById('status');
+form.addEventListener('submit',async e=>{e.preventDefault();const button=form.querySelector('button');button.disabled=true;try{const f=new FormData(form),username=f.get('username').trim().toLowerCase(),token=f.get('token').trim(),password=f.get('password');if(password!==f.get('confirm')||password.length<14||password.length>128||password===token)throw Error('Confirmá una contraseña diferente de la invitación, de 14 a 128 caracteres.');const salt=hex(crypto.getRandomValues(new Uint8Array(32))),key=await crypto.subtle.importKey('raw',bytes(password),'PBKDF2',false,['deriveBits']),credential=hex(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',iterations:600000,salt:bytes(salt)},key,256)),tokenHash=hex(await crypto.subtle.digest('SHA-256',bytes(credential)));const r=await fetch('/api/app/activate',{method:'POST',cache:'no-store',headers:{'content-type':'application/json'},body:JSON.stringify({username,token,salt,tokenHash})});if(!r.ok)throw Error('Activación no completada ('+r.status+').');form.reset();form.hidden=true;status.textContent='Cuenta activada. Entrá a LotiGest con tu usuario y nueva contraseña.';}catch(err){status.textContent=err.message;}finally{button.disabled=false;}});
+`;
+export function onRequest({request,env}){
+ if(request.method!=='GET'||env.NEXORA_QA_LICENSE!=='enabled'||env.NEXORA_QA_BOOTSTRAP!=='enabled'||!/^qa-[a-z0-9-]{3,55}$/.test(env.LOTIGEST_INSTALLATION_ID??''))return new Response('No disponible',{status:404});
+ return new Response(js,{headers:{'content-type':'text/javascript; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
+}
