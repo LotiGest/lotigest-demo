@@ -327,6 +327,22 @@
   if(currentScope)return previousRows(...args);
   return withScope(()=>previousRows(...args));
  };
+ // Acceso explícito de administración al archivo histórico, separado de Cobros.
+ // Conserva referencias ambiguas sin asignar solares ni inferir cuotas.
+ document.addEventListener('click',event=>{
+  const button=event.target.closest?.('[data-legacy-owner-cards],[data-legacy-owner-export]');
+  if(!button)return;
+  event.preventDefault();event.stopImmediatePropagation();
+  if(typeof cloudUser==='undefined'||cloudUser?.role!=='admin')return;
+  const rid=residence().id;
+  if(button.hasAttribute('data-legacy-owner-export')){
+   const rows=withResidenceData(()=>previousRows(true));
+   download('LOTIGEST_Historial_Primas_Abonos_'+dateKey(new Date())+'.xlsx',paymentExcelBytes(rows),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');return;
+  }
+  const groups=collectionOwnershipGroups(rid).filter(g=>g.statements.some(s=>s.generic||(db.ownershipStatements||[]).some(d=>d.id===s.id)));
+  const cards=groups.map(g=>collectionOwnershipCard(g,rid,g.lotIds.length===1?getLot(g.lotIds[0]):null)).join('');
+  showModal('Fichas históricas · '+esc(residence().name),'<p>Archivo documental separado de Cobros. No genera cuotas, ventas ni mora por sí mismo.</p><div data-legacy-owner-list style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">'+(cards||'<p>No hay fichas históricas en esta residencial.</p>')+'</div>','<button type="button" class="btn btn-outline" data-legacy-owner-export>Exportar historial Excel</button><button type="button" class="btn btn-soft" data-action="close-modal">Cerrar</button>',true);
+ },true);
  const previousClients=collectionClientRows;
  collectionClientRows=function(...args){
   if(currentScope)return previousClients(...args);

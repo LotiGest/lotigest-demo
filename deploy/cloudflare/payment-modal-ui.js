@@ -221,7 +221,7 @@ function pmMethodButtons(select){
 }
 function pmFields(grid,form){
  const find=name=>{const el=grid.querySelector('[name="'+name+'"]');return el?(el.closest('.field-group')||el.closest('label')):null;};
- const date=find('date'),method=find('method'),concept=find('concept'),ref=find('receiptRef');
+ const date=find('date'),method=find('method'),concept=find('concept'),ref=find('receiptRef'),period=find('period');
  const fields=pmNode('div','pm-fields');
  if(method){
   const native=method.querySelector('[name="method"]');
@@ -253,6 +253,7 @@ function pmFields(grid,form){
  const apply=pmNode('div','pm-field pm-span-2');apply.innerHTML='<label for="pm-apply">Aplicar a:</label><select id="pm-apply" name="paymentApplication" aria-label="Aplicación del pago"><option value="auto">Según deuda pendiente (automático)</option><option value="prima">Abono a prima pendiente (sin cuota mínima)</option></select><p class="pm-help" id="pm-apply-help">Primero prima pendiente; después, cuotas más antiguas.</p>';
  fields.append(apply);
  if(concept){concept.classList.add('pm-span-2');const input=concept.querySelector('input,textarea');if(input)input.placeholder='Ej. Abono correspondiente a noviembre de 2026';fields.append(concept);}
+ if(period){period.classList.add('pm-span-2');fields.append(period);}
  grid.remove();return fields;
 }
 function pmQrOcr(form){

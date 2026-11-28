@@ -184,13 +184,13 @@ async function cloudLoad({discardPending=false,preservePage=true}={}){
  const previousPage=page;
  const remote=await cloudApi('state');cloudUser=remote.user;
  let saved=null;if(!discardPending){try{saved=cloudUnpack(localStorage.getItem(CLOUD_CACHE));}catch{throw Object.assign(Error('La copia local pendiente no pudo leerse y se conservó intacta. Descárgala antes de recuperar los datos del servidor.'),{status:422});}}
- if(!discardPending&&saved&&saved.owner===cloudUser.name&&(saved.pending||saved.latest!==saved.confirmed)){
+ if(cloudUser?.role!=='sales'&&!discardPending&&saved&&saved.owner===cloudUser.name&&(saved.pending||saved.latest!==saved.confirmed)){
   cloudQueue=saved;db=readStoredLotigest(saved.latest);cloudReady=true;sessionStorage.setItem(SESSION,'yes');if(page==='dashboard')cloudRestorePage(cloudUser.name);render();await cloudFlush();if(!cloudBlocked&&cloudReady&&!cloudQueue.pending&&cloudQueue.latest===cloudQueue.confirmed)await cloudLoad();return;
  }
- if(saved&&saved.owner!==cloudUser.name&&(saved.pending||saved.latest!==saved.confirmed))localStorage.setItem(CLOUD_CACHE+'_recovery_'+crypto.randomUUID(),JSON.stringify(saved));
+ if(saved&&(saved.owner!==cloudUser.name||cloudUser?.role==='sales')&&(saved.pending||saved.latest!==saved.confirmed))localStorage.setItem(CLOUD_CACHE+'_recovery_'+crypto.randomUUID(),JSON.stringify(saved));
  db=remote.state?readStoredLotigest(JSON.stringify(remote.state)):cloudEmpty();
  const raw=JSON.stringify(db);
- cloudQueue={owner:cloudUser.name,revision:remote.revision,confirmed:remote.state?raw:null,latest:raw,pending:null};
+ cloudQueue={owner:cloudUser.name,revision:remote.revision,confirmed:remote.state||cloudUser?.role==='sales'?raw:null,latest:raw,pending:null};
  cloudPersist();cloudReady=true;sessionStorage.setItem(SESSION,'yes');page=preservePage?previousPage:'dashboard';if(page==='dashboard')cloudRestorePage(cloudUser.name);cloudOffline=false;render();
  // render may initialize the built-in inventory; persist the resulting state.
  cloudWrite(JSON.stringify(db));await cloudFlush();
