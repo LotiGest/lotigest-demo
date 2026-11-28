@@ -1,4 +1,4 @@
 {
-  "version": "1.0.57",
-  "notes": "Cobro por WhatsApp desde Mora con detalle de meses y faltantes; historial y campana de gestiones, confirmación manual de envío y exclusión de solares con prima incompleta."
+  "version": "1.0.58",
+  "notes": "Consolidación comercial: guardado y búsqueda optimizados, contratos y apartados, confirmación de abonos parciales, recuperación de recibos, fichas históricas y permisos de vendedores."
 }
