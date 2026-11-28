@@ -1,5 +1,5 @@
 import {contractOwnerPaymentRows} from './contract-owner-payments.mjs';
-const monthlyActive=p=>!p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&!['voided','cancelled'].includes(p.status);
+const monthlyActive=p=>!p.voidedAt&&!p.deletedAt&&!p.cancelledAt&&!['voided','cancelled','annulled'].includes(p.status);
 const monthlyCents=v=>v!=null&&v!==''&&Number.isFinite(Number(v))?Math.round(Number(v)*100):null;
 export function monthlyLotTerms(state,lotId){
  const sale=(state.sales||[]).find(s=>s.lotId===lotId&&s.type==='credit');
