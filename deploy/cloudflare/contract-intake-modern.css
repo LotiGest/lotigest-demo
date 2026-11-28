@@ -370,3 +370,53 @@ html body #modal-root .cq-modal .lg-contract-customer-loaded{background:var(--lg
 .cq-residence-card{display:flex;flex-direction:column;gap:5px;border:1px solid var(--lgc-line);border-radius:11px;padding:11px;margin:0 0 12px;color:var(--lgc-ink);background:var(--lgc-green)}.cq-residence-card small{font-size:11px}.cq-residence-card span{font-size:12px;color:var(--lgc-muted)}
 html body #modal-root .cq-modal .cq-form{display:flex!important;flex-direction:column!important;gap:14px!important}
 html body #modal-root .cq-modal .cq-form>[data-cq-panel]{width:100%!important;box-sizing:border-box!important;min-width:0!important}
+
+/* Registro rápido de una sola pantalla, siguiendo la referencia aprobada. */
+html body #modal-root .cq-single-modal{width:min(1320px,calc(100vw - 24px))!important;max-width:1320px!important;max-height:calc(100dvh - 32px)!important}
+html body.lotigest-dark #modal-root .cq-single-modal{--lgc-surface:#0b2028;--lgc-card:#102b33;--lgc-ink:#eef9f8;--lgc-muted:#b3c9cc;--lgc-line:#45636a;--lgc-field:#19353e;--lgc-blue:#183846;--lgc-green:#194e36;border-color:var(--lgc-line);background:var(--lgc-surface)}
+html body.lotigest-dark #modal-root .cq-single-modal .modal-header{background:#0b2028!important;border-color:var(--lgc-line)}
+html body #modal-root .cq-single-modal .cq-single-form{display:grid!important;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)!important;grid-template-areas:"client dates" "lots dates" "terms summary" "extras extras" "alert alert";gap:10px!important;align-items:start}
+.cq-single-form>[data-cq-area=client]{grid-area:client}.cq-single-form>[data-cq-area=lots]{grid-area:lots}.cq-single-form>[data-cq-area=terms]{grid-area:terms}.cq-single-form>[data-cq-area=dates]{grid-area:dates}.cq-single-form>[data-cq-area=summary]{grid-area:summary}.cq-single-form>[data-cq-area=extras]{grid-area:extras}.cq-single-form>#contract-intake-alert{grid-area:alert}
+html body #modal-root .cq-single-modal .lg-contract-step{padding:13px!important;min-width:0;box-sizing:border-box;overflow-wrap:anywhere}
+html body #modal-root .cq-single-modal .lg-contract-step-heading{font-size:17px!important;color:var(--lgc-ink)!important;margin-bottom:10px!important}
+html body #modal-root .cq-single-modal .lg-contract-step-heading>span{display:grid!important;place-items:center;background:#168448;color:white;width:28px;height:28px;flex:0 0 28px;font-size:15px}
+html body #modal-root .cq-single-modal .lg-contract-client-layout{grid-template-columns:minmax(0,1fr)!important;gap:8px}
+html body #modal-root .cq-single-modal .lg-contract-client-card>.notice-card{padding:9px!important}
+html body #modal-root .cq-single-modal .lg-contract-lot-fields{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px}
+html body #modal-root .cq-single-modal .lg-contract-solar-info{margin-top:9px;padding:9px;grid-template-columns:minmax(0,1fr) minmax(110px,.48fr)!important}
+html body #modal-root .cq-single-modal .lg-contract-base-price{padding:8px}
+html body #modal-root .cq-single-modal .lg-contract-terms-grid{grid-template-columns:minmax(0,1fr)!important;gap:8px}
+html body #modal-root .cq-single-modal .lg-contract-term-fields{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+html body #modal-root .cq-single-modal .lg-contract-date-fields{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:10px}
+html body #modal-root .cq-single-modal .lg-contract-date-fields input{font-size:18px!important;font-weight:750;background:var(--lgc-blue)!important;color:var(--lgc-ink)!important;border-color:#559bd5!important;min-height:44px}
+html body #modal-root .cq-single-modal .cq-finish-date input{opacity:1}
+html body #modal-root .cq-single-modal .cq-total-box{padding:8px;margin:0 0 8px;background:var(--lgc-card);border-color:var(--lgc-line)}
+html body #modal-root .cq-single-modal .cq-total-box .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+html body #modal-root .cq-single-modal .cq-total-box .form-grid>label:first-child{grid-column:1/-1}
+html body #modal-root .cq-single-modal .cq-total-box input[type=number]{font-size:18px!important;font-weight:800;color:#17632c!important;background:#e9f8e7!important}
+html body #modal-root .cq-single-modal .cq-total-box p{font-size:12px;margin:6px 0}
+html body #modal-root .cq-single-modal .lg-contract-calc{padding:10px;background:var(--lgc-green);border-color:var(--lgc-line)}
+html body #modal-root .cq-single-modal .lg-contract-calc :is(h4,.lg-contract-calc-row,.lg-contract-calc-row>strong,small){color:var(--lgc-ink)}
+html body #modal-root .cq-single-modal .lg-contract-payment-row>strong{font-size:23px;color:#147b36}
+html body.lotigest-dark #modal-root .cq-single-modal .lg-contract-payment-row>strong{color:#a1f6af}
+.cq-residence-inline{display:block;color:var(--lgc-muted);margin-bottom:8px}
+.cq-calendar{border:1px solid var(--lgc-line);background:var(--lgc-field);border-radius:12px;padding:11px;margin-top:10px;text-align:center;text-transform:capitalize}
+.cq-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:9px}
+.cq-calendar-grid :is(span,small){display:grid;place-items:center;min-height:25px;font-size:12px}
+.cq-calendar-selected{background:#168448;color:white;border-radius:7px;font-weight:850}
+.cq-single-modal .cq-review-summary{background:var(--lgc-card);padding:7px;margin:0;border:0}
+.cq-summary-line{display:flex;justify-content:space-between;gap:9px;border-bottom:1px solid var(--lgc-line);padding:6px 0;font-size:13px}
+.cq-summary-line b{text-align:right;overflow-wrap:anywhere}
+.cq-single-modal .cq-extras-card{display:grid;gap:7px}
+html body #modal-root .cq-single-modal .cq-extras-card>details{margin:0}
+html body #modal-root .cq-single-modal .modal-footer{gap:8px}
+html body #modal-root .cq-single-modal #contract-intake-save{margin-left:0;flex:1 1 180px}
+html body #modal-root .cq-single-modal [data-cq-again]{flex:1 1 180px}
+html body #modal-root .cq-single-modal #contract-intake-clear{min-width:80px}
+@media(max-width:850px){
+ html body #modal-root .cq-single-modal{width:calc(100vw - 12px)!important;max-height:calc(100dvh - 12px)!important}
+ html body #modal-root .cq-single-modal .cq-single-form{grid-template-columns:minmax(0,1fr)!important;grid-template-areas:"client" "lots" "terms" "dates" "summary" "extras" "alert"}
+ html body #modal-root .cq-single-modal .lg-contract-lot-fields{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ html body #modal-root .cq-single-modal .modal-footer .btn{min-width:0!important;flex:1 1 120px!important}
+}
+@media(max-width:420px){html body #modal-root .cq-single-modal .lg-contract-solar-info{grid-template-columns:minmax(0,1fr)!important}}

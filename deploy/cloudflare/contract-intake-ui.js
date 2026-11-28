@@ -472,7 +472,7 @@ document.addEventListener('click',event=>{
  draft.clientQuery='';
  for(const key of ['name','identity','phone','address','rtn','maritalStatus','occupation'])draft.values[key]=selected?.[key]??'';
  // Al cambiar de cliente no arrastrar accidentalmente el terreno ni el precio del anterior.
- Object.assign(draft.values,{lotId:'',block:'',number:'',solarPrice_0:'',down:'',solarDown_0:''});
+ Object.assign(draft.values,{lotId:'',block:'',number:'',solarPrice_0:'',down:'',solarDown_0:'',contractTotalPrice:'',contractTotalPrima:'',contractPriceMode:'equal'});
  draft.extraLots=[];
  if(selected){
   const assigned=residenceLots().filter(l=>(l.ownerClientId===selected.id||activeReservation(l.id)?.clientId===selected.id)&&(!activeReservation(l.id)||activeReservation(l.id).clientId===selected.id)&&!db.sales.some(s=>s.lotId===l.id)&&!l.pendingContractId);
@@ -1532,77 +1532,121 @@ document.addEventListener('submit',event=>{
  }
 },true);
 
-// Three-step manual intake. Existing inputs and the original persistence path are retained.
+// Registro manual en una pantalla. Se conservan los controles, cálculos y guardado originales.
 let contractQuickDefaults=null,contractQuickLastClient=null;
+function contractQuickDateText(value){
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(value||''))return '—';
+ return value.split('-').reverse().join('/');
+}
+function contractQuickEndDate(first,months){
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(first||'')||!Number.isInteger(months)||months<1||months>360)return '';
+ if(typeof addMonths==='function'&&typeof dateKey==='function')return dateKey(addMonths(first,months-1));
+ const [y,m,d]=first.split('-').map(Number),base=new Date(Date.UTC(y,m-1+months-1,1,12));
+ base.setUTCDate(Math.min(d,new Date(Date.UTC(base.getUTCFullYear(),base.getUTCMonth()+1,0,12)).getUTCDate()));
+ return base.toISOString().slice(0,10);
+}
 function contractQuickPaint(form){
  const draft=contractIntakeWorking;if(!form||!draft)return;
- const step=Math.max(1,Math.min(3,Number(draft.quickStep)||1));draft.quickStep=step;
- form.dataset.quickStep=String(step);
- for(const panel of form.querySelectorAll('[data-cq-panel]'))panel.hidden=Number(panel.dataset.cqPanel)!==step;
- for(const tab of form.querySelectorAll('[data-cq-step]')){const active=Number(tab.dataset.cqStep)===step;tab.setAttribute('aria-current',active?'step':'false');}
- const modal=form.closest('.modal'),save=modal?.querySelector('#contract-intake-save');if(save)save.hidden=step!==3;
- const next=modal?.querySelector('[data-cq-next]'),back=modal?.querySelector('[data-cq-back]'),again=modal?.querySelector('[data-cq-again]');
- if(next){next.hidden=step===3;next.textContent=step===1?'Elegir solar →':'Revisar contrato →';}if(back)back.hidden=step===1;if(again)again.hidden=step!==3;
- const summary=form.querySelector('.cq-review-summary');
- if(summary){const data=contractIntakeData(form),client=data.clientId?getClient(data.clientId):null;const lots=[getLot(data.lotId),...(draft.extraLots||[]).map((row,i)=>getLot(data['extraLotId_'+i]||row.lotId))].filter(Boolean);
-  summary.innerHTML='<strong>'+esc(client?.name||data.name||'Cliente pendiente')+'</strong><span>'+esc(client?.identity||data.identity||'')+'</span><small>'+lots.map(l=>'Etapa '+esc(l.stage)+' · Bloque '+esc(l.block)+' · Solar '+esc(l.sourceNumber||l.id)).join('<br>')+'</small><p>Precio total: <b>'+esc(money(Number(data.price)||0))+'</b></p>';
+ const date=form.elements.namedItem('date'),due=form.elements.namedItem('firstDueDate');
+ if(date&&due){
+  if(!draft.manualFirstDue||!due.value){due.value=contractSuggestedFirstDue(date.value);due.dataset.suggested=due.value;}
+  else due.dataset.suggested='';
+  due.min=date.value||'';
  }
-}
-function contractQuickCheckPanel(form,index){
- const panel=form.querySelector('[data-cq-panel="'+index+'"]');
- for(const field of panel?.querySelectorAll('input,select,textarea')||[]){if(field.disabled||field.type==='hidden'||!field.willValidate)continue;if(!field.checkValidity()){contractIntakeWorking.quickStep=index;contractQuickPaint(form);field.reportValidity();field.focus();return false;}}
- return true;
+ const data=contractIntakeData(form),last=contractQuickEndDate(due?.value,Number(data.months));
+ const end=form.querySelector('[data-cq-end-date]');if(end)end.value=contractQuickDateText(last);
+ const summary=form.querySelector('.cq-review-summary');
+ if(summary){
+  const customer=data.clientId?getClient(data.clientId):null;
+  const lots=[getLot(data.lotId),...(draft.extraLots||[]).map((r,i)=>getLot(data['extraLotId_'+i]||r.lotId))].filter(Boolean);
+  const amount=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))?money(Number(v)):'—';
+  const row=(label,value)=>'<div class="cq-summary-line"><span>'+esc(label)+'</span><b>'+esc(value)+'</b></div>';
+  summary.innerHTML=row('Cliente',customer?.name||data.name||'Pendiente')+lots.map(l=>row('Solar','Etapa '+l.stage+' · Bloque '+l.block+' · '+(l.sourceNumber||l.id))).join('')+
+   row('Precio total',amount(data.price))+row('Prima pactada',amount(data.down))+row('Saldo a financiar',amount(data.financed))+row('Plazo',data.months?data.months+' meses':'—')+row('Cuota mensual',amount(data.monthly));
+ }
+ const cal=form.querySelector('[data-cq-calendar]');
+ if(cal){
+  const first=due?.value||'',key=first.slice(0,7);
+  if(cal.dataset.date!==first){
+   cal.dataset.date=first;
+   if(!first){cal.textContent='Selecciona la fecha del contrato.';}
+   else{
+    const [y,m,d]=first.split('-').map(Number),start=new Date(Date.UTC(y,m-1,1,12)),days=new Date(Date.UTC(y,m,0,12)).getUTCDate();
+    const month=new Intl.DateTimeFormat('es-HN',{month:'long',year:'numeric',timeZone:'UTC'}).format(start);
+    cal.innerHTML='<strong>'+esc(month)+'</strong><div class="cq-calendar-grid">'+['Do','Lu','Ma','Mi','Ju','Vi','Sá'].map(x=>'<small>'+x+'</small>').join('')+'<span></span>'.repeat(start.getUTCDay())+Array.from({length:days},(_,i)=>'<span'+(i+1===d?' class="cq-calendar-selected" aria-label="Primera cuota: '+esc(contractQuickDateText(first))+'"':'')+'>'+(i+1)+'</span>').join('')+'</div>';
+   }
+  }
+ }
 }
 function contractQuickReadyToSave(form){
  if(!form.classList.contains('cq-form'))return true;
  const draft=contractIntakeWorking;if(!draft)return false;
- contractIntakeRememberExtras(form);contractIntakeManualRecalculate(form);
- if((draft.quickStep||1)<3){const current=draft.quickStep||1;if(contractQuickCheckPanel(form,current)){draft.quickStep=current+1;contractQuickPaint(form);}return false;}
- for(const step of [1,2,3])if(!contractQuickCheckPanel(form,step))return false;
- if(!form.querySelector('#cq-reviewed')?.checked){toast('Revisa los datos y confirma antes de guardar el contrato.','error');return false;}return true;
+ contractQuickPaint(form);contractIntakeRememberExtras(form);contractIntakeManualRecalculate(form);contractQuickPaint(form);
+ for(const field of form.querySelectorAll('input,select,textarea')){
+  if(field.disabled||field.type==='hidden'||!field.willValidate||field.id==='cq-reviewed')continue;
+  if(!field.checkValidity()){
+   for(let el=field.parentElement;el&&el!==form;el=el.parentElement)if(el.tagName==='DETAILS')el.open=true;
+   field.reportValidity();field.focus();return false;
+  }
+ }
+ if(!form.querySelector('#cq-reviewed')?.checked){toast('Revisa los datos y confirma antes de guardar el contrato.','error');form.querySelector('#cq-reviewed')?.focus();return false;}return true;
 }
 function contractQuickMount(){
  const form=document.getElementById('contract-intake-form');if(!form||!form.classList.contains('lg-contract-form')||form.classList.contains('cq-form')||contractIntakeWorking?.mode!=='manual')return;
  const panels=[...form.querySelectorAll(':scope > .lg-contract-step')];if(panels.length!==4)return;
- form.classList.add('cq-form');form.noValidate=true;form.closest('.modal')?.classList.add('cq-modal');
- const [client,lots,terms,dates]=panels;client.dataset.cqPanel='1';lots.dataset.cqPanel='2';terms.dataset.cqPanel='3';
- const dateTitle=dates.querySelector('h3');if(dateTitle)dateTitle.textContent='Fechas y opciones';terms.append(...dates.childNodes);dates.remove();
- const residenceCard=document.createElement('div');residenceCard.className='cq-residence-card';residenceCard.innerHTML='<small>Residencial</small><strong>'+esc(residence()?.name||'Residencial actual')+'</strong><span>✓ Solo solares disponibles</span>';lots.querySelector('h3')?.after(residenceCard);
- const price=form.querySelector('[name="solarPrice_0"]')?.closest('.field-group');
- const primaInput=form.querySelector('[name="solarDown_0"]')||form.querySelector('[name="down"]');
- const prima=primaInput?.closest('.field-group')||primaInput;
- const primary=document.createElement('fieldset');primary.className='full cq-primary-solar';
- primary.style.cssText='border:1px solid var(--line,#cbd5d1);border-radius:12px;padding:12px;margin:12px 0';
- const legend=document.createElement('legend');legend.textContent='Solar 1';primary.append(legend);
- const grid=document.createElement('div');grid.className='form-grid';primary.append(grid);
- const lotFields=lots.querySelector('.lg-contract-lot-fields'),metrics=lots.querySelector('.lg-contract-solar-info');
- if(lotFields){lotFields.classList.add('full');grid.append(lotFields);}
- if(metrics){metrics.classList.add('full');grid.append(metrics);}
- if(price){price.classList.add('cq-solar-price');const label=price.querySelector('span');if(label)label.textContent='Precio acordado de este solar (L)';grid.append(price);}
- if(prima){const label=prima.querySelector?.('span');if(label)label.textContent='Prima pactada de este solar (L)';grid.append(prima);}
- residenceCard.after(primary);
- contractTotalsMount(form,lots);
- const nav=document.createElement('nav');nav.className='cq-steps';nav.setAttribute('aria-label','Pasos del contrato');nav.innerHTML=[['1','Cliente'],['2','Solares'],['3','Revisar']].map(([n,label])=>'<button type="button" data-cq-step="'+n+'"><i>'+n+'</i>'+label+'</button>').join('');form.prepend(nav);
- const quick=document.createElement('div');quick.className='cq-client-actions';quick.innerHTML='<button type="button" class="btn btn-outline" data-contract-client-clear>+ Cliente nuevo</button>'+'<button type="button" class="btn btn-outline" data-cq-last-client '+(contractQuickLastClient&&getClient(contractQuickLastClient)?'':'disabled')+'>Usar último cliente</button>';client.append(quick);
- const summary=document.createElement('div');summary.className='cq-review-summary';terms.querySelector('h3')?.after(summary);
- const review=document.createElement('div');review.className='cq-review-check';review.innerHTML='<p>La prima pactada no registra un pago. Usa la opción de prima recibida solo si ya cobraste el dinero.</p><label><input type="checkbox" id="cq-reviewed" required> He revisado los datos del contrato.</label><label><input type="checkbox" id="cq-keep-defaults"> Conservar residencial, etapa y plazo para el siguiente contrato.</label>';terms.append(review);
- const footer=form.closest('.modal')?.querySelector('.modal-footer');if(footer){footer.querySelectorAll('[data-cq-back],[data-cq-next],[data-cq-again]').forEach(el=>el.remove());const back=document.createElement('button');back.type='button';back.className='btn btn-outline';back.dataset.cqBack='true';back.textContent='← Atrás';const next=document.createElement('button');next.type='button';next.className='btn btn-primary';next.dataset.cqNext='true';const again=document.createElement('button');again.type='button';again.className='btn btn-outline';again.dataset.cqAgain='true';again.textContent='Guardar y crear otro';footer.prepend(back,next);footer.append(again);}
- form.addEventListener('input',e=>{if(e.target.id==='cq-reviewed'||e.target.id==='cq-keep-defaults')return;const check=form.querySelector('#cq-reviewed');if(check)check.checked=false;});
- form.addEventListener('change',e=>{if(e.target.id==='cq-reviewed'||e.target.id==='cq-keep-defaults')return;const check=form.querySelector('#cq-reviewed');if(check)check.checked=false;contractQuickPaint(form);});
- contractQuickPaint(form);
+ form.classList.add('cq-form','cq-single-form');form.noValidate=true;form.closest('.modal')?.classList.add('cq-modal','cq-single-modal');
+ const [client,lots,terms,dates]=panels;
+ for(const [panel,name] of [[client,'client'],[lots,'lots'],[terms,'terms'],[dates,'dates']]){panel.dataset.cqArea=name;panel.hidden=false;}
+ const rename=(panel,title)=>{const heading=panel.querySelector('h3');if(!heading)return;const number=heading.querySelector('span');heading.replaceChildren();if(number)heading.append(number);heading.append(document.createTextNode(' '+title));};
+ rename(client,'Cliente');rename(lots,'Solar (Terreno)');rename(terms,'Condiciones económicas');rename(dates,'Fechas del contrato');
+ const quick=document.createElement('div');quick.className='cq-client-actions';quick.innerHTML='<button type="button" class="btn btn-outline" data-contract-client-clear>+ Cliente nuevo</button><button type="button" class="btn btn-outline" data-cq-last-client '+(contractQuickLastClient&&getClient(contractQuickLastClient)?'':'disabled')+'>Usar último cliente</button>';client.append(quick);
+ const residenceCard=document.createElement('small');residenceCard.className='cq-residence-inline';residenceCard.textContent=(residence()?.name||'Residencial actual')+' · Solo solares disponibles';lots.querySelector('h3')?.after(residenceCard);
+ // Keep original per-lot price inputs, moving only the total block to the financial card.
+ contractTotalsMount(form,terms);
+ const totals=terms.querySelector('[data-contract-totals]'),termFields=terms.querySelector('.lg-contract-term-fields');
+ if(totals){
+  totals.classList.add('cq-total-box');terms.querySelector('h3')?.after(totals);
+  const grid=totals.querySelector('.form-grid'),months=termFields?.querySelector('[name="months"]')?.closest('.field-group');
+  if(grid&&months)grid.append(months);
+ }
+ const due=form.elements.namedItem('firstDueDate'),date=form.elements.namedItem('date');
+ const dateFields=dates.querySelector('.lg-contract-date-fields')||dates;
+ if(due){const label=due.closest('label'),details=due.closest('details');if(label){dateFields.append(label);if(details&&!details.querySelector('input'))details.remove();}if(!contractIntakeWorking.manualFirstDue){due.value=contractSuggestedFirstDue(date?.value);due.dataset.suggested=due.value;}}
+ const finish=document.createElement('label');finish.className='field-group cq-finish-date';finish.innerHTML='<span>Fin del contrato · automático</span><input type="text" data-cq-end-date readonly aria-label="Fecha de última cuota calculada">';dateFields.append(finish);
+ const calendar=document.createElement('div');calendar.className='cq-calendar';calendar.dataset.cqCalendar='true';dateFields.after(calendar);
+ const summaryCard=document.createElement('section');summaryCard.className='lg-contract-step cq-summary-card';summaryCard.dataset.cqArea='summary';summaryCard.innerHTML='<h3 class="lg-contract-step-heading">Condiciones del contrato</h3><div class="cq-review-summary" aria-live="polite"></div>';dates.after(summaryCard);
+ const notes=dates.querySelector('.lg-contract-notes'),payment=dates.querySelector('details:has([name="primaPaid"])');
+ const extras=document.createElement('section');extras.className='lg-contract-step cq-extras-card';extras.dataset.cqArea='extras';
+ if(payment)extras.append(payment);if(notes)extras.append(notes);
+ const review=document.createElement('div');review.className='cq-review-check';review.innerHTML='<p>La prima pactada no registra un pago. Usa la opción de prima recibida solo si ya cobraste el dinero.</p><label><input type="checkbox" id="cq-reviewed" required> He revisado los datos del contrato.</label><label><input type="checkbox" id="cq-keep-defaults"> Conservar residencial, etapa y plazo para el siguiente contrato.</label>';extras.append(review);summaryCard.after(extras);
+ const footer=form.closest('.modal')?.querySelector('.modal-footer');
+ if(footer){
+  footer.querySelectorAll('[data-cq-back],[data-cq-next],[data-cq-again],[data-cq-cancel]').forEach(el=>el.remove());
+  const save=footer.querySelector('#contract-intake-save');if(save){save.hidden=false;save.textContent='Guardar contrato';}
+  const again=document.createElement('button');again.type='button';again.className='btn btn-outline';again.dataset.cqAgain='true';again.textContent='Guardar y crear otro';footer.append(again);
+  const cancel=document.createElement('button');cancel.type='button';cancel.className='btn btn-outline';cancel.dataset.cqCancel='true';cancel.dataset.action='close-modal';cancel.textContent='Cancelar';footer.append(cancel);
+ }
+ form.addEventListener('input',e=>{
+  if(e.target.id==='cq-reviewed'||e.target.id==='cq-keep-defaults')return;
+  const check=form.querySelector('#cq-reviewed');if(check)check.checked=false;
+  if(e.target.name==='firstDueDate'){contractIntakeWorking.manualFirstDue=Boolean(e.target.value);if(e.target.value)e.target.dataset.suggested='';}
+  contractQuickPaint(form);
+ });
+ form.addEventListener('change',e=>{
+  if(e.target.id==='cq-reviewed'||e.target.id==='cq-keep-defaults')return;
+  if(e.target.name==='firstDueDate')contractIntakeWorking.manualFirstDue=Boolean(e.target.value);
+  const check=form.querySelector('#cq-reviewed');if(check)check.checked=false;
+  contractQuickPaint(form);
+ });
+ contractIntakeManualRecalculate(form);contractQuickPaint(form);
 }
 setTimeout(()=>{
  const root=document.getElementById('modal-root');if(root)new MutationObserver(contractQuickMount).observe(root,{childList:true,subtree:true});contractQuickMount();
  document.addEventListener('click',event=>{
-  const button=event.target.closest?.('[data-cq-step],[data-cq-back],[data-cq-next],[data-cq-again],[data-cq-last-client]');if(!button)return;
+  const button=event.target.closest?.('[data-cq-again],[data-cq-last-client]');if(!button)return;
   const form=document.getElementById('contract-intake-form'),draft=contractIntakeWorking;if(!form||!draft||draft.busy)return;event.preventDefault();event.stopImmediatePropagation();
-  const step=Number(draft.quickStep)||1;
   if(button.hasAttribute('data-cq-last-client')){if(window.confirm('¿Usar el último cliente y reiniciar este borrador?'))contractIntakeOpen(contractQuickLastClient,'manual');return;}
-  if(button.hasAttribute('data-cq-again')){if(contractQuickReadyToSave(form)){draft.quickAgain=true;form.requestSubmit();}return;}
-  contractIntakeRememberExtras(form);contractIntakeManualRecalculate(form);
-  const target=button.hasAttribute('data-cq-step')?Number(button.dataset.cqStep):button.hasAttribute('data-cq-back')?step-1:step+1;
-  if(target>step)for(let i=step;i<target;i++)if(!contractQuickCheckPanel(form,i))return;
-  draft.quickStep=Math.max(1,Math.min(3,target));contractQuickPaint(form);form.closest('.modal-content')?.scrollTo?.({top:0,behavior:'smooth'});
+  if(button.hasAttribute('data-cq-again')){if(contractQuickReadyToSave(form)){draft.quickAgain=true;form.requestSubmit();}}
  },true);
 },0);
 

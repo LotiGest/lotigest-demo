@@ -1,4 +1,4 @@
 {
-  "version": "1.0.58",
-  "notes": "Consolidación comercial: guardado y búsqueda optimizados, contratos y apartados, confirmación de abonos parciales, recuperación de recibos, fichas históricas y permisos de vendedores."
+  "version": "1.0.59",
+  "notes": "Nuevo contrato en una sola pantalla con cuatro bloques, fechas sugeridas, calendario de primera cuota, fecha final calculada, condiciones económicas y guardar y crear otro; mantiene distribución y validaciones."
 }
