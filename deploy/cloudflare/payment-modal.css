@@ -902,3 +902,10 @@ body.lotigest-dark .lg-partial-dialog .btn-primary{background:#367d54;border-col
 body.lotigest-dark .lg-partial-dialog{color-scheme:dark}
 body.lotigest-dark .lg-partial-dialog .btn-primary{background:#245d40;border-color:#72af88;color:#fff}
 body.lotigest-dark .lg-partial-dialog :is(button,textarea):focus-visible{outline-color:#8ce9b0}
+
+#modal-root .lg-receipt-saved{text-align:center;padding:14px;display:grid;gap:9px;justify-items:center}
+.lg-receipt-saved-ref{color:#be304b;font-weight:850;font-size:clamp(23px,4vw,34px);overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+body.lotigest-dark .lg-receipt-saved-ref{color:#ff9fb1}
+#modal-root .lg-receipt-saved h3{font-size:28px;color:#168448;margin:0}
+body.lotigest-dark #modal-root .lg-receipt-saved h3{color:#a1f6af}
+.lg-receipt-sequence{margin-bottom:16px}.lg-receipt-sequence form{display:grid;gap:10px}.lg-receipt-sequence label{display:grid;gap:5px}

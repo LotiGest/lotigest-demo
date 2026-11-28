@@ -81,6 +81,8 @@ export function buildPagesFiles(html, version, parser, bridge) {
     .replace('function financeMovements(){', 'function baseFinanceMovements(){')
     .replace('function totals(){', 'function baseTotals(){')
     .replace('function paymentReceiptPreview(id){', 'function basePaymentReceiptPreview(id){')
+    .replace('Recibo ${esc(p.groupId||p.id)}</p>', 'Correlativo # ${esc(p.receiptReference||p.groupId||p.id)}</p>')
+    .replace('parts=[],ref=p.groupId||p.id;', 'parts=[],ref=p.receiptReference||p.groupId||p.id;')
     .replace("parts.push({text:'Fecha de pago: '+fmtDate(p.date)+'   |   Método: '+(p.method||'No indicado')});",
       "parts.push({text:'Fecha de pago: '+fmtDate(p.date)+'   |   Método: '+(p.method||'No indicado')});parts.push({text:'Correlativo de caja: '+(p.receiptReference||'Sin correlativo histórico')});")
     .replace("toast('Pagos registrados. Recibo listo para descargar o compartir.');", '')
@@ -108,7 +110,7 @@ export function buildPagesFiles(html, version, parser, bridge) {
       "next.payments.unshift({id:uid('R'),saleId:sale.id,amount:cents/100,date,concept:String(data.concept||'').trim()||'Abono',...(partialApprovedFor(form,'sale:'+sale.id)?{partialPaymentConfirmation:partialApprovedFor(form,'sale:'+sale.id)}:{})});")
     // No salir de Cuotas y pagos al registrar recibos; el comprobante abre sobre el panel actual.
     .replace("paymentDraft=null;closeModal();filter='';page='receipts';render();paymentReceiptPreview(payments[0].id);",
-      "paymentDraft=null;closeModal();filter='';render();paymentReceiptPreview(payments[0].id);")
+      "paymentDraft=null;closeModal();filter='';render();receiptSavedOptions('sale',payments[0].id);")
     .replace("db=next;closeModal();filter='';page='receipts';render();toast('Pago registrado y recibo creado');",
       "db=next;closeModal();filter='';render();toast('Pago registrado y recibo creado');")
     .replace('return db.sales.filter(s=>getLot(s.lotId)?.residenceId===paymentDraft?.residenceId&&balance(s)>.009)', 'return db.sales.filter(s=>getLot(s.lotId)?.residenceId===paymentDraft?.residenceId&&(!paymentDraft.clientId||s.clientId===paymentDraft.clientId)&&balance(s)>.009)')

@@ -105,7 +105,7 @@ submitMultiPayment=function(form){
   if(form.elements.receiptRef){form.elements.receiptRef.value='';if(typeof suggestReceiptField==='function')suggestReceiptField(form.elements.receiptRef);form.elements.receiptRef.dispatchEvent(new Event('input',{bubbles:true}));}
   if(form.elements.concept)form.elements.concept.value='Abono a crédito';
   if(error)error.textContent='';
-  pmBatchRemember('sale',draft.clientId,draft.residenceId,payments[0].id,reference,d.date,
+  pmBatchRemember('sale',draft.clientId,draft.residenceId,payments[0].id,originalRef,d.date,
    money(rows.reduce((sum,row)=>sum+row.amount,0)));
   renderPaymentSelected();
   renderPaymentResults();
@@ -145,7 +145,7 @@ submitOwnerAbono=async function(form){
   db=result.state;
   const clientId=draft.clientId,residenceId=draft.residenceId,receipt=result.receipt;
   ownerPaymentDraft=null;
-  pmBatchRemember('owner',clientId,residenceId,receipt.id,receipt.id,receipt.date,
+  pmBatchRemember('owner',clientId,residenceId,receipt.id,receipt.receiptReference||receipt.id,receipt.date,
    money(receipt.amountCents/100));
   // Reconstruir el formulario en la misma ventana, con el mismo cliente y sus solares.
   // Se reinician importes, fecha y comprobante; no se altera el recibo previo.

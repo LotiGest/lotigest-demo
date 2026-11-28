@@ -1,5 +1,9 @@
+function receiptSequenceSettings(state){
+ const raw=state?.company?.receiptSequence||{},valid=v=>/^\d{1,80}$/.test(String(v??''))&&BigInt(v)>0n;
+ return {mode:raw.mode==='consecutive'?'consecutive':'book',start:valid(raw.start)?String(BigInt(raw.start)):'',since:typeof raw.since==='string'?raw.since:''};
+}
 function nextReceiptSuggestion(state){
- const used=new Set();let latest=null,maximum=0n;
+ const config=receiptSequenceSettings(state),used=new Set();let latest=null,maximum=0n,sequenceMax=0n;
  const inactive=p=>p.voidedAt||p.deletedAt||p.cancelledAt||['voided','cancelled','annulled','deleted'].includes(p.status);
  const sales=new Map((state.sales||[]).map(s=>[s.id,s]));
  for(const [rows,kind] of [[state.payments||[],'sale'],[state.ownerPayments||[],'owner'],[state.historicalPayments||[],'history']]){
@@ -10,18 +14,28 @@ function nextReceiptSuggestion(state){
    if(kind==='history'||inactive(p)||(kind==='sale'&&inactive(sales.get(p.saleId)||{})))continue;
    if(n>maximum)maximum=n;
    const stamp=String(p.recordedAt||p.createdAt||'');
-   if(stamp&&(!latest||stamp>latest.stamp||(stamp===latest.stamp&&n>latest.n)))latest={stamp,n};
+   if(stamp&&(!config.start||!config.since||stamp>config.since)){
+    if(!latest||stamp>latest.stamp||(stamp===latest.stamp&&n>latest.n))latest={stamp,n};
+    if(n>sequenceMax)sequenceMax=n;
+   }
   }
  }
- let candidate=latest?.n??maximum;
- if(candidate===0n)return '';
- do{candidate++;}while(used.has(candidate.toString()));
+ let candidate;
+ if(config.mode==='consecutive'){
+  const floor=BigInt(config.start||'1');
+  candidate=sequenceMax>=floor?sequenceMax+1n:floor;
+ }else if(config.start){
+  candidate=latest?latest.n+1n:BigInt(config.start);
+ }else{
+  const last=latest?.n??maximum;if(last===0n)return '';candidate=last+1n;
+ }
+ while(used.has(candidate.toString()))candidate++;
  return candidate.toString().length<=80?candidate.toString():'';
 }
 function suggestReceiptField(input){
- if(!input||input.value||typeof db==='undefined')return;
+ if(!input||typeof db==='undefined'||(input.value&&input.dataset?.lgSuggestedReceipt!==input.value))return;
  const suggestion=nextReceiptSuggestion(db);
- if(!suggestion)return;
+ if(!suggestion){if(input.dataset?.lgSuggestedReceipt===input.value){input.value='';delete input.dataset.lgSuggestedReceipt;}return;}
  input.value=suggestion;
  if(input.dataset)input.dataset.lgSuggestedReceipt=suggestion;
  if(typeof receiptCorrelativoFeedback==='function')receiptCorrelativoFeedback(input);
@@ -165,3 +179,45 @@ function receiptApplyOcr(button){
 }
 document.addEventListener('change',e=>{if(e.target.matches?.('[data-paper-ocr-photo]'))receiptReadImage(e.target);});
 document.addEventListener('click',e=>{const button=e.target.closest?.('[data-paper-ocr-apply]');if(button){e.preventDefault();receiptApplyOcr(button);}});
+
+
+// Confirmación de guardado separada de la vista previa del historial.
+function receiptSavedOptions(kind,id){
+ const rows=kind==='owner'?(db.ownerPayments||[]).filter(p=>p.id===id):paymentReceiptRows(id);
+ if(!rows.length)return;
+ const p=rows[0],folio=String(p.receiptReference||p.receiptReferenceNormalized||p.groupId||p.id);
+ const total=kind==='owner'?p.amountCents/100:rows.reduce((n,r)=>n+Number(r.amount),0);
+ const client=kind==='owner'?p.clientName:getClient(getSale(p.saleId)?.clientId)?.name;
+ showModal('Pago registrado',`<section class="lg-receipt-saved"><p>✓ Pago registrado en LOTIGEST</p><strong class="lg-receipt-saved-ref"># ${esc(folio)}</strong><p>${esc(client||'Cliente')} · ${esc(fmtDate(p.date))}</p><h3>${esc(money(total))}</h3><p>Imprime el comprobante con el correlativo registrado o continúa con otro abono. El estado de sincronización se muestra en el sistema.</p></section>`,
+ '<button type="button" class="btn btn-outline" data-action="close-modal">Continuar sin imprimir</button><button type="button" class="btn btn-primary" data-lg-print-receipt="'+esc(id)+'" data-lg-print-kind="'+esc(kind)+'">Imprimir recibo</button>',true);
+}
+document.addEventListener('click',event=>{
+ const b=event.target.closest?.('[data-lg-print-receipt]');if(!b)return;
+ event.preventDefault();event.stopImmediatePropagation();
+ try{
+  const pdf=b.dataset.lgPrintKind==='owner'?ownerPaymentPdf(b.dataset.lgPrintReceipt):paymentReceiptPdf(b.dataset.lgPrintReceipt);
+  const url=URL.createObjectURL(pdf.blob),a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener noreferrer';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),300000);
+  toast('Recibo abierto. Usa Imprimir en el visor PDF; también puedes guardarlo.');
+ }catch(err){toast(err.message||'No se pudo abrir el recibo.','error');}
+},true);
+
+(function installReceiptSequenceSettings(){
+ const previous=settingsPage;
+ settingsPage=function(){
+  const base=previous();if(typeof cloudUser==='undefined'||cloudUser?.role!=='admin')return base;
+  const s=receiptSequenceSettings(db),next=nextReceiptSuggestion(db);
+  return '<section class="card card-padding lg-receipt-sequence"><h3>Correlativos de recibos</h3><p>Configuración general para todos los clientes y residenciales. No modifica recibos existentes.</p><form id="lg-receipt-sequence-form"><label>Modo de numeración<select name="mode"><option value="book" '+(s.mode==='book'?'selected':'')+'>Talonario actual · continuar desde el último registrado</option><option value="consecutive" '+(s.mode==='consecutive'?'selected':'')+'>Consecutivo del sistema · 1, 2, 3…</option></select></label><label>Próximo número inicial (opcional)<input name="start" inputmode="numeric" pattern="[0-9]+" maxlength="80" placeholder="Ej. 5527"></label><p>Deja el número inicial vacío para mantener el avance del modo actual. Al cambiar a consecutivo, comenzará desde 1 y omitirá los números ya utilizados. En talonario podrás escribir el número real del recibo.</p><p>Próximo correlativo sugerido: <strong class="lg-receipt-saved-ref">'+esc(next||'Ingresar manualmente')+'</strong></p><button type="submit" class="btn btn-primary">Guardar configuración</button></form></section>'+base;
+ };
+ document.addEventListener('submit',async event=>{
+  if(event.target.id!=='lg-receipt-sequence-form')return;
+  event.preventDefault();event.stopImmediatePropagation();
+  try{
+   if(cloudUser?.role!=='admin'||!cloudReady||cloudBlocked||cloudOffline||cloudBusy||cloudQueue?.pending||cloudQueue?.latest!==cloudQueue?.confirmed)throw Error('Se requiere administrador con datos sincronizados.');
+   const data=new FormData(event.target),mode=String(data.get('mode')),raw=String(data.get('start')||'').trim(),prior=receiptSequenceSettings(db);
+   if(!['book','consecutive'].includes(mode)||raw&&(!/^\d{1,80}$/.test(raw)||BigInt(raw)<=0n))throw Error('Ingresa un número inicial positivo y válido.');
+   const config=raw||mode!==prior.mode?{mode,start:raw?String(BigInt(raw)):mode==='consecutive'?'1':'',since:new Date().toISOString()}:prior;
+   const next={...db,company:{...db.company,receiptSequence:config}};cloudWrite(JSON.stringify(next));db=next;await cloudFlush();render();
+   toast(cloudBlocked||cloudOffline||cloudQueue?.latest!==cloudQueue?.confirmed?'Configuración pendiente de sincronizar.':'Configuración de correlativos guardada.');
+  }catch(err){toast(err.message,'error');}
+ },true);
+})();

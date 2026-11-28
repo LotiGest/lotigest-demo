@@ -1,4 +1,4 @@
 {
-  "version": "1.0.59",
-  "notes": "Nuevo contrato en una sola pantalla con cuatro bloques, fechas sugeridas, calendario de primera cuota, fecha final calculada, condiciones económicas y guardar y crear otro; mantiene distribución y validaciones."
+  "version": "1.0.60",
+  "notes": "Confirmación tras guardar abonos con imprimir recibo o continuar; folio real en encabezado PDF y opciones de numeración consecutiva o talonario general configurable."
 }
